@@ -35,7 +35,7 @@ class tmotor{
 
 void tmotor::stepping(int32_t dx)
 {
-  #if defined(__AVR__) || defined(ESP8266)
+  #if defined(__AVR__) 
 
       digitalWrite(2,1);
       if (dx<0) {
@@ -46,6 +46,7 @@ void tmotor::stepping(int32_t dx)
       digitalWrite(4,1);
       delayMicroseconds(5);
       digitalWrite(4,0);
+  #elif defined(ESP8266)
   #endif
 }
 
@@ -313,7 +314,8 @@ void motionloop(){
            xprintf(PSTR("N:%f M:%f\n"),nextmicros,micros());
          }
     if (nextmicros>micros()) return;
-    motionrunning=1;
+    if (m->totalstep){
+        motionrunning=1;
         if (f>0)  
             dl=1/(f*stepmmx[m->fastaxis]);
         else 
@@ -369,6 +371,7 @@ void motionloop(){
     // delay (dl*F_CPU)
     // next timer
     // if finish call
+    }
     if (mctr==m->totalstep){
           m->status=0;
 
@@ -515,7 +518,13 @@ void initmotion(){
   for (i=0;i<numaxis;i++){
     mymotor[i]=tmotor();
   }
-}
+
+  /*
+   * pinMode(2, OUTPUT);
+  pinMode(4, OUTPUT);
+  pinMode(6, OUTPUT);
+
+   */}
 
 
 

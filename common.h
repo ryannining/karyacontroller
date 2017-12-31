@@ -1,11 +1,11 @@
 #if defined(__AVR__) || defined(ESP8266)
 // AVR specific code here
-    #include <avr/pgmspace.h>
+    //#include <avr/pgmspace.h>
     #include <arduino.h>
-    void sendf_P(void (*writechar)(char), PGM_P format_P, ...);
+    void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...);
     // No __attribute__ ((format (printf, 1, 2)) here because %q isn't supported.
 
-  static void serial_writechar(char data) {
+  static void serial_writechar(uint8_t data) {
     Serial.write(data);
   }
 

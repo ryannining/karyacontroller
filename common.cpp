@@ -127,7 +127,7 @@ void write_int32_vf(void (*writechar)(uint8_t), int32_t v, uint8_t fp) {
   #define GET_ARG(T) ((T)va_arg(args, int))
 #endif
 
-void sendf_P(void (*writechar)(char), PGM_P format_P, ...) {
+void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...) {
 	va_list args;
 	va_start(args, format_P);
 
@@ -145,19 +145,25 @@ void sendf_P(void (*writechar)(char), PGM_P format_P, ...) {
 				case 'u':
           if (j == 1)
             write_uint8(writechar, (uint8_t)GET_ARG(uint16_t));
+            //Serial.print((uint8_t)GET_ARG(uint16_t));
           else if (j == 2)
             write_uint16(writechar, (uint16_t)GET_ARG(uint16_t));
+            //Serial.print((uint16_t)GET_ARG(uint16_t));
 					else
+            //Serial.print(GET_ARG(uint32_t));
             write_uint32(writechar, GET_ARG(uint32_t));
 					j = 0;
 					break;
 				case 'd':
           if (j == 1)
             write_int8(writechar, (int8_t)GET_ARG(int16_t));
-          else if (j == 2)
+           // Serial.print(GET_ARG(int16_t));
+          else if (j == 2)          
+            //Serial.print(GET_ARG(int16_t));
             write_int16(writechar, (int16_t)GET_ARG(int16_t));
 					else
             write_int32(writechar, GET_ARG(int32_t));
+            //Serial.print(GET_ARG(int32_t));
 					j = 0;
 					break;
 				case 'c':
@@ -177,6 +183,12 @@ void sendf_P(void (*writechar)(char), PGM_P format_P, ...) {
 					break;
 /*				case 'p':
           serwrite_hex16(writechar, GET_ARG(uint16_t));*/
+        case 'f':
+          double xx;
+          xx=va_arg(args, double);
+          write_int32_vf(writechar, int(1000*xx), 3);
+          j = 0;
+          break;
 				case 'q':
           write_int32_vf(writechar, GET_ARG(uint32_t), 3);
 					j = 0;
