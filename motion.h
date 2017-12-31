@@ -1,6 +1,6 @@
 #include<math.h>
-const int numaxis=3;
-const int numbuffer=3;
+#define numaxis 3
+#define numbuffer 3
 
 typedef struct {
   double totalstep;
