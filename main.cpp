@@ -1,7 +1,4 @@
-#if defined(__AVR__)
-   
-// AVR specific code here
-#elif defined(ESP8266)
+#if defined(__AVR__) || defined(ESP8266)
     
 #else
 #include <graphics.h>
@@ -34,13 +31,15 @@ int main(void)
 	printf("Simple Motion Control with Acceleration, Jerk, and lookahead planner\n");
 	printf("By ryannining@gmail.com\n");
 	initmotion();
-	setcolor(10);
+	setcolor(1);
 	line(0,400,600,400);
 	line(0,400-50*fscale,600,400-50*fscale);
 	line(0,400-100*fscale,600,400-100*fscale);
 
 	         
-	addmove(130,300,50,0);
+	addmove(10,50,30,0);
+	addmove(50,100,60,0);
+	addmove(10,150,90,0);
 	waitbufferempty();	
 	printf ("Time:%f",tick);
 	getch(); 

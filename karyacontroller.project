@@ -98,5 +98,9 @@
     <File Name="motion.h"/>
     <File Name="timer.cpp"/>
     <File Name="timer.h"/>
+    <File Name="gcode.cpp"/>
+    <File Name="gcode.h"/>
+    <File Name="common.cpp"/>
+    <File Name="common.h"/>
   </VirtualDirectory>
 </CodeLite_Project>
