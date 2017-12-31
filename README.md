@@ -20,3 +20,10 @@ feature i need to have in this software is: (* implemented)
 
 for now it still not use timer interrupt, just use micros() to control the timing..
 This software also contain
+
+Project files:
+karyacontroller.project - just for editing in codelite
+karyacontroller.ino - arduino ide
+motion [motion.exe].PRJ - for quincy IDE, we can show graphics of the motion simulation here
+
+Original code is in freebasic, you can check the old folder
