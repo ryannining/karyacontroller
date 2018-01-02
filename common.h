@@ -26,11 +26,11 @@ void sendf_P(PGM_P format_P, ...);
   #define pgm_read_byte(x) (*((uint8_t *)(x)))
   #define pgm_read_word(x) (*((uint16_t *)(x)))
   #define pgm_read_dword(x) (*((uint32_t *)(x)))
+#define xprintf printf
+#define sersendf_P printf
 
 static void serial_writechar(uint8_t data) {
     printf("%c",(char)data);
-#define xprintf printf
-#define sersendf_P printf
 
 }
 #endif

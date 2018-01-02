@@ -25,8 +25,8 @@ int main(void)
    /* read result of initialization */
    errorcode = graphresult();
    if (errorcode != grOk) {  /* an error occurred */
-      xprintf("Graphics error: %s\n", grapherrormsg(errorcode));
-      xprintf("Press any key to halt:");
+      xprintf(PSTR("Graphics error: %s\n"), grapherrormsg(errorcode));
+      xprintf(PSTR("Press any key to halt:"));
 
       getch();
       exit(1);               /* terminate with an error code */

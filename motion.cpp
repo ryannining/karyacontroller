@@ -7,17 +7,45 @@
 #define xenable 2
 #define xdirection 6
 #define xstep 4
+
+#define yenable 7
+#define ydirection 9
+#define ystep 8
+
+#define zenable 10
+#define zdirection 5
+#define zstep 27
+
+
 #elif defined(ESP8266)
 #include<arduino.h>
 #define xenable D1
 #define xdirection D2
 #define xstep D3
+#define yenable 7
+#define ydirection 9
+#define ystep 8
+#define zenable 10
+#define zdirection 5
+#define zstep 27
+
+
 #else
 #include <graphics.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <conio.h>
+
+#define xenable 0
+#define xdirection 1
+#define xstep 2
+#define yenable 7
+#define ydirection 9
+#define ystep 8
+#define zenable 10
+#define zdirection 5
+#define zstep 27
 #endif
 
 
@@ -43,24 +71,41 @@ int32_t head, tail = 0;
 class tmotor {
   public:
     int32_t enable;
+    int axis,pinenable,pinstep,pindir;
     void stepping(int32_t dx);
-
+    void init(int ax);
 
 };
 
+void tmotor::init(int ax){
+  axis=ax;
+  enable=0;
+  if (ax==0){
+    pinenable=xenable;
+    pinstep=xstep;
+    pindir=xdirection;
+  } else if(ax==1){
+    pinenable=yenable;
+    pinstep=ystep;
+    pindir=ydirection;
+    
+  } else if(ax==3){
+    pinenable=zenable;
+    pinstep=zstep;
+    pindir=zdirection;
+    
+  }
+}
 void tmotor::stepping(int32_t dx)
 {
-#if defined(__AVR__) || defined(ESP8266)
-
-  digitalWrite(xenable, 0);
-  if (dx < 0) {
-    digitalWrite(xdirection, 1);
-  } else if (dx > 0) {
-    digitalWrite(xdirection, 0);
-  }
-  digitalWrite(xstep, 1);
-  //delayMicroseconds(1);
-  digitalWrite(xstep, 0);
+#if defined(__AVR__) 
+  //xprintf("Stepping %d %d",(uint32_t)axis,(uint32_t)dx);
+  digitalWrite(pinenable, enable);
+  digitalWrite(pindir, dx<0?1:0);
+  digitalWrite(pinstep, 1);
+  delayMicroseconds(10);
+  digitalWrite(pinstep, 0);
+#elif defined(ESP8266)
 #else
 #endif
 }
@@ -132,7 +177,7 @@ void prepareramp(int32_t bpos)
   m->rampup = ramplen(m->fs, m->fn, m->ac1, stepmm);
   m->rampdown = ramplen(m->fe, m->fn, m->ac2, stepmm);
 
-//#define preprampdebug
+#define preprampdebug
 
 #ifdef preprampdebug
   xprintf(PSTR("Bpos:%d\n"), (int32_t)m->bpos);
@@ -327,8 +372,11 @@ void motionloop() {
       xprintf(PSTR("N:%f M:%f\n"), nextmicros, micros());
     }
     
-    //if ((nextmicros < micros()) && (micros()-nextmicros<500000)) {
+    #if defined(__AVR__) || defined(ESP8266)
+    if ((nextmicros < micros()) && (micros()-nextmicros<30000)) {
+    #else
     if(1){
+    #endif
     if (m->totalstep) {
         motionrunning = 1;
         if (f > 0)
@@ -339,7 +387,7 @@ void motionloop() {
         tick = tick + dl;//1.0/timescale;
         int32_t c = m->col;
         //xprintf("Speed: %f\n",f);
-        //if (mctr % 60==0)xprintf("%d",nextmicros);
+        //if (mctr % 60==0)xprintf(PSTR("%d"),nextmicros);
 #if defined(__AVR__) || defined(ESP8266)
         // ESP8266 specific code here
         nextmicros = micros() + dl;
@@ -478,8 +526,9 @@ int32_t startmove()
     int32_t t = nextbuff(tail);
     m = &move[t];
     if (m->status == 1) {
-      if (m->bpos==3) {  
-         xprintf(PSTR("Start buff:%d\n"),tail);
+        xprintf(PSTR("Start buff:%d\n"),tail);
+      if (0) {  
+        
         xprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), m->rampup, m->rampdown,m->totalstep);
         xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), m->fs, m->ac1, m->fn, m->ac2, m->fe);
 
@@ -506,7 +555,7 @@ int32_t startmove()
 void waitbufferempty()
 {
   startmove();
-  while (m) {
+while ((head!=tail) || m) {
     motionloop();
   }
 }
@@ -543,12 +592,18 @@ void initmotion() {
   tail = 0;
   int32_t i;
   for (i = 0; i < numaxis; i++) {
-    mymotor[i] = tmotor();
+    mymotor[i].init(i);
   }
 #if defined(__AVR__) || defined(ESP8266)
   pinMode(xenable, OUTPUT);
   pinMode(xdirection, OUTPUT);
   pinMode(xstep, OUTPUT);
+  pinMode(yenable, OUTPUT);
+  pinMode(ydirection, OUTPUT);
+  pinMode(ystep, OUTPUT);
+  pinMode(zenable, OUTPUT);
+  pinMode(zdirection, OUTPUT);
+  pinMode(zstep, OUTPUT);
 #endif
 }
 

@@ -32,7 +32,7 @@ void feedthedog(){
              ESP.wdtFeed();
             #else
             #endif
-            xprintf(PSTR("Feed the dog\n"));
+            //xprintf(PSTR("Feed the dog\n"));
         }
     }
 

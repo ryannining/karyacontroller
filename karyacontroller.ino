@@ -35,4 +35,5 @@ void gcode_loop() {
 }
 void loop() {
   demo();
+//gcode_loop();
 }

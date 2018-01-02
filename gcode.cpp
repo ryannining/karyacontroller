@@ -240,7 +240,7 @@ uint8_t gcode_parse_char(uint8_t c) {
                 Serial.print(c);
                 Serial.print('\n');
             #else
-                xprintf("?%d\n",c);
+                xprintf(PSTR("?%d\n"),c);
             #endif
           #endif
           break;
