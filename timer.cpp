@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "timer.h"
 #include <stdint.h>
+#include "common.h"
 
 int dogfeed=0;
 
@@ -10,7 +11,7 @@ int dogfeed=0;
     #define dogfeedevery 100 // loop
 // ESP8266 specific code here
 #else
-    #define dogfeedevery 1000000 // loop
+    #define dogfeedevery 100000 // loop
     #include<sys/time.h>
     uint32_t micros()
     {
@@ -31,7 +32,7 @@ void feedthedog(){
              ESP.wdtFeed();
             #else
             #endif
-            //xprintf(PSTR("Feed the dog\n"));
+            xprintf(PSTR("Feed the dog\n"));
         }
     }
 

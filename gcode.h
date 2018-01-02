@@ -41,18 +41,18 @@ typedef struct {
     uint8_t					seen_checksum				:1; ///< seen a checksum?
     uint8_t					seen_semi_comment		:1; ///< seen a semicolon?
     uint8_t					seen_parens_comment	:1; ///< seen an open parenthesis
-    uint8_t                 read_string         :1; ///< Currently reading a string.
+    uint8_t         read_string         :1; ///< Currently reading a string.
     uint8_t					option_all_relative	:1; ///< relative or absolute coordinates?
     uint8_t					option_e_relative		:1; ///< same for e axis (M82/M83)
 
   uint32_t          N;          ///< line number
   uint32_t          N_expected; ///< expected line number
 
-  double           S;          ///< S word (various uses)
+  double            S;          ///< S word (various uses)
   uint16_t          P;          ///< P word (various uses)
 
-	uint16_t						G;				///< G command number
-	uint16_t						M;				///< M command number
+	uint16_t					G;				///< G command number
+	uint16_t					M;				///< M command number
 	TARGET						target;		///< target position: X, Y, Z, E and F
 #ifdef ARC_SUPPORT
     double  I;
@@ -67,4 +67,5 @@ typedef struct {
 
 extern void process_gcode_command();
 extern uint8_t gcode_parse_char(uint8_t c);
+extern void init_gcode();
 

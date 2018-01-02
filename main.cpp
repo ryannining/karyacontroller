@@ -1,3 +1,8 @@
+#include "motion.h"
+#include "timer.h"
+#include "common.h"
+#include<stdint.h>
+
 #if defined(__AVR__) || defined(ESP8266)
     
 #else
@@ -5,10 +10,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
-#include "motion.h"
-#include "timer.h"
 
-
+void demo();
 
 int main(void)
 {
@@ -22,27 +25,42 @@ int main(void)
    /* read result of initialization */
    errorcode = graphresult();
    if (errorcode != grOk) {  /* an error occurred */
-      printf("Graphics error: %s\n", grapherrormsg(errorcode));
-      printf("Press any key to halt:");
+      xprintf("Graphics error: %s\n", grapherrormsg(errorcode));
+      xprintf("Press any key to halt:");
 
       getch();
       exit(1);               /* terminate with an error code */
    }
-	printf("Simple Motion Control with Acceleration, Jerk, and lookahead planner\n");
-	printf("By ryannining@gmail.com\n");
+	xprintf(PSTR("Simple Motion Control with Acceleration, Jerk, and lookahead planner\n"));
+	xprintf(PSTR("By ryannining@gmail.com\n"));
 	initmotion();
 	setcolor(1);
 	line(0,400,600,400);
 	line(0,400-50*fscale,600,400-50*fscale);
 	line(0,400-100*fscale,600,400-100*fscale);
 
-	         
-	addmove(10,50,30,0);
-	addmove(50,100,60,0);
-	addmove(10,150,90,0);
+    //int8_t z=100;
+	//xprintf (PSTR("Time:%d"),(int32_t)z);
+    demo();            
+	xprintf (PSTR("WAIT\n"));
 	waitbufferempty();	
-	printf ("Time:%f",tick);
+	xprintf (PSTR("Time:%f\n"),tick/timescale);
 	getch(); 
 }
 #endif
+
+void demo(){
+    int f=100;
+	//addmove(f,0,50,0);
+    int i;
+    for (i=0;i<5;i++) {
+        addmove(f,i*10,50,0);
+    }
+    addmove(f,60,55,0);
+    for (i=5;i>0;i--) {
+        addmove(f,i*10,60,0);
+    }
+    addmove(f,0,65,0);
+    
+}
 

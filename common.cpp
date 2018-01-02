@@ -4,6 +4,9 @@
 #if defined(__AVR__) || defined(ESP8266)
 // functions for sending decimal
 #include<arduino.h>
+
+#endif
+
 #define write_uint8(v, w)  write_uint32(v, w)
 #define write_int8(v, w)   write_int32(v, w)
 #define write_uint16(v, w) write_uint32(v, w)
@@ -121,13 +124,15 @@ void write_int32_vf(void (*writechar)(uint8_t), int32_t v, uint8_t fp) {
 }
 
 
-#if __SIZEOF_INT__ == 2
-  #define GET_ARG(T) (va_arg(args, T))
-#elif __SIZEOF_INT__ >= 4
+#if __SIZEOF_INT__ >= 4
   #define GET_ARG(T) ((T)va_arg(args, int))
+#else
+  #define GET_ARG(T) ((T)va_arg(args, T))
+
 #endif
 
-void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...) {
+void sendf_P(PGM_P format_P, ...) {
+  void (*writechar)(uint8_t) =serial_writechar;
 	va_list args;
 	va_start(args, format_P);
 
@@ -136,79 +141,54 @@ void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...) {
 	while ((c = pgm_read_byte(&format_P[i++]))) {
 		if (j) {
 			switch(c) {
-				case 's':
-					j = 1;
-					break;
-				case 'l':
-					j = 4;
-					break;
 				case 'u':
-          if (j == 1)
-            write_uint8(writechar, (uint8_t)GET_ARG(uint16_t));
-            //Serial.print((uint8_t)GET_ARG(uint16_t));
-          else if (j == 2)
-            write_uint16(writechar, (uint16_t)GET_ARG(uint16_t));
-            //Serial.print((uint16_t)GET_ARG(uint16_t));
-					else
-            //Serial.print(GET_ARG(uint32_t));
-            write_uint32(writechar, GET_ARG(uint32_t));
+                    write_uint32(writechar, GET_ARG(uint32_t));
 					j = 0;
 					break;
 				case 'd':
-          if (j == 1)
-            write_int8(writechar, (int8_t)GET_ARG(int16_t));
-           // Serial.print(GET_ARG(int16_t));
-          else if (j == 2)          
-            //Serial.print(GET_ARG(int16_t));
-            write_int16(writechar, (int16_t)GET_ARG(int16_t));
-					else
-            write_int32(writechar, GET_ARG(int32_t));
-            //Serial.print(GET_ARG(int32_t));
+                    write_int32(writechar, GET_ARG(int32_t));
 					j = 0;
 					break;
 				case 'c':
-          writechar((uint8_t)GET_ARG(uint16_t));
+                    writechar((uint8_t)GET_ARG(uint32_t));
 					j = 0;
 					break;
 				case 'x':
-          writechar('0');
-          writechar('x');
-          if (j == 1)
-            write_hex8(writechar, (uint8_t)GET_ARG(uint16_t));
-          else if (j == 2)
-            write_hex16(writechar, (uint16_t)GET_ARG(uint16_t));
-					else
-            write_hex32(writechar, GET_ARG(uint32_t));
+                      writechar('0');
+                      writechar('x');
+                      if (j == 1)
+                        write_hex8(writechar, (uint8_t)GET_ARG(uint16_t));
+                      else if (j == 2)
+                        write_hex16(writechar, (uint16_t)GET_ARG(uint16_t));
+                      else
+                        write_hex32(writechar, GET_ARG(uint32_t));
 					j = 0;
 					break;
-/*				case 'p':
-          serwrite_hex16(writechar, GET_ARG(uint16_t));*/
-        case 'f':
-          double xx;
-          xx=va_arg(args, double);
-          write_int32_vf(writechar, int(1000*xx), 3);
-          j = 0;
-          break;
+                case 'f':
+                          double xx;
+                          xx=(double)GET_ARG(double);
+                          write_int32_vf(writechar, int(1000*xx), 3);
+                          j = 0;
+                  break;
 				case 'q':
-          write_int32_vf(writechar, GET_ARG(uint32_t), 3);
+                    write_int32_vf(writechar, GET_ARG(uint32_t), 3);
 					j = 0;
 					break;
 				default:
-          writechar(c);
+                    writechar(c);
 					j = 0;
 					break;
 			}
 		}
 		else {
 			if (c == '%') {
-				j = 2;
+				j = 4;
 			}
 			else {
-        writechar(c);
+                writechar(c);
 			}
 		}
 	}
 	va_end(args);
 }
-#endif
 
