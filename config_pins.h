@@ -78,21 +78,26 @@
 #define XOFFSET 0
 #define YOFFSET 0
 #define ZOFFSET 0
+#define EOFFSET 0
 
-#define XJERK 5
-#define YJERK 5
+#define XJERK 25
+#define YJERK 25
 #define ZJERK 5
+#define E0JERK 5
 
-#define XACCELL 100
-#define YACCELL 100
-#define ZACCELL 100
+#define XACCELL 2100
+#define YACCELL 2100
+#define ZACCELL 2100
+#define E0ACCELL 100
 
 #define XMAXFEEDRATE 200
 #define YMAXFEEDRATE 200
 #define ZMAXFEEDRATE 10
+#define E0MAXFEEDRATE 10
 
 #define XSTEPPERMM 120
 #define YSTEPPERMM 120
 #define ZSTEPPERMM 420
+#define E0STEPPERMM 420
 
-#define NUMBUFFER 10
+#define NUMBUFFER 5

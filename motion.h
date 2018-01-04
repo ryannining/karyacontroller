@@ -4,28 +4,29 @@
 #define NUMAXIS 3
 
 typedef struct {
-    float  fx[NUMAXIS];
-    float  fs,fn,fe,ac1,ac2;
-    int32_t cx[NUMAXIS];
-    int32_t sx[NUMAXIS];
+    int8_t  sx[NUMAXIS];
+    int8_t  bpos,planstatus,col,fastaxis,status;
+    int16_t fx[NUMAXIS];
+    int16_t  fs,fn,fe;
     int32_t dx[NUMAXIS];
     int32_t totalstep,rampup,rampdown;       
-    int8_t  bpos,planstatus,col,fastaxis,status;
+    float ac1,ac2;
 } tmove;
 
+extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 extern float x[NUMAXIS];
 extern float homingspeed;
-extern float homeoffset[NUMAXIS];
-extern float jerk[NUMAXIS]; 
-extern float accel[NUMAXIS];
-extern float maxf[NUMAXIS];
-extern float stepmmx[NUMAXIS];
+extern float homeoffset[4];
+extern float jerk[4]; 
+extern float accel[4];
+extern float maxf[4];
+extern float stepmmx[4];
 extern tmove move[NUMBUFFER];
 extern float cx1,cy1,cz1,lf;
 extern int32_t head,tail;
 extern uint8_t checkendstop;
-extern uint8_t endstopstatus[NUMAXIS];
+extern uint8_t endstopstatus[3];
 
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
@@ -62,6 +63,6 @@ extern int32_t bufflen();
 extern int32_t docheckendstop();
 
 extern float homingspeed;
-extern float homeoffset[NUMAXIS];
+extern float homeoffset[4];
 
 
