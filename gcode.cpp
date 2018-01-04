@@ -13,7 +13,7 @@ decfloat read_digit;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
-const uint32_t powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+const uint32_t powers[] = {1,1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 
 TARGET startpoint,current_position;
 
@@ -372,9 +372,7 @@ void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond)
         checkendstop=endstop_check;
         addmove(t->F,t->axis[X],t->axis[Y],t->axis[Z]);
         //waitbufferempty();
-        Serial.print("Move");
-        Serial.print(mvc++);
-        Serial.print("\n");
+
 
 }
 static void enqueue(TARGET *) __attribute__ ((always_inline));

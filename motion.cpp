@@ -51,6 +51,8 @@
 #endif
 
 
+#define motortimeout 10000000 // 30 seconds
+
 // need to change depends on CPU
 #define F_CPU 16000000UL
 #define  US  * (F_CPU / 1000000)
@@ -58,10 +60,10 @@
 
 float homingspeed = 30;
 float homeoffset[numaxis] = {0, 0, 0};
-float jerk[numaxis] = {20, 20, 20};
-float accel[numaxis] = {500, 500, 100};
-float maxf[numaxis] = {50, 50, 50};
-float stepmmx[numaxis] = {145, 145, 145};
+float jerk[numaxis] = {40, 40, 40};
+float accel[numaxis] = {1000, 1000, 100};
+float maxf[numaxis] = {150, 150, 150};
+float stepmmx[numaxis] = {112, 112, 405};
 tmove move[numbuffer];
 float cx1, cy1, cz1, lf;
 
@@ -76,12 +78,16 @@ class tmotor {
     int axis,pinenable,pinstep,pindir;
     void stepping(int32_t dx);
     void init(int ax);
+    void onoff(int e);
 
 };
-
+void tmotor::onoff(int e){
+  enable=e?0:1;
+  digitalWrite(pinenable, enable);
+}
 void tmotor::init(int ax){
   axis=ax;
-  enable=0;
+  enable=1;
   if (ax==0){
     pinenable=xenable;
     pinstep=xstep;
@@ -97,17 +103,18 @@ void tmotor::init(int ax){
     pindir=zdirection;
     
   }
+#if defined(__AVR__) || defined(ESP8266) 
+  digitalWrite(pinenable, enable);
+#endif
 }
 void tmotor::stepping(int32_t dx)
 {
-#if defined(__AVR__) 
+#if defined(__AVR__) ||  defined(ESP8266) 
   //xprintf("Stepping %d %d",(uint32_t)axis,(uint32_t)dx);
-  digitalWrite(pinenable, enable);
   digitalWrite(pindir, dx>0?1:0);
   digitalWrite(pinstep, 1);
-  delayMicroseconds(10);
+  //delayMicroseconds(2);
   digitalWrite(pinstep, 0);
-#elif defined(ESP8266)
 #else
 #endif
 }
@@ -350,6 +357,8 @@ float x[numaxis] = {0, 0, 0 };
 float f, dl;
 int32_t mctr;
 uint32_t nextmicros;
+uint32_t nextmotoroff;
+
 int32_t motionrunning = 0;
 
 /*
@@ -363,10 +372,21 @@ int32_t motionrunning = 0;
 */
 
 void motionloop() {
+  uint32_t cm,ix;
   feedthedog();
 #if defined(__AVR__) || defined(ESP8266)
   delayMicroseconds(1);
 #endif
+  #if defined(__AVR__) || defined(ESP8266)
+  cm=micros();
+  if ((nextmotoroff < cm) && (cm-nextmotoroff<400000)) {
+    printf(PSTR("Motor off\n"));
+    nextmotoroff =cm+motortimeout;
+    for(ix=0;ix<numaxis;ix++){
+      mymotor[ix].onoff(0);
+    }
+  }
+  #endif
   if (!m ) {
     // start new move if available , if not exit
     motionrunning = 0;
@@ -374,12 +394,9 @@ void motionloop() {
   }
   if (m->status == 2) {
     // debug the micros
-    if (0) {
-      xprintf(PSTR("N:%d M:%d\n"), nextmicros, micros());
-    }
-    
     #if defined(__AVR__) || defined(ESP8266)
-    if ((nextmicros < micros()) && (micros()-nextmicros<100000)) {
+    cm=micros();
+    if ((nextmicros < cm) && (cm-nextmicros<100000)) {
     #else
     if(1){
     #endif
@@ -394,11 +411,13 @@ void motionloop() {
         int32_t c = m->col;
         //xprintf("Speed: %f\n",f);
         //if (mctr % 60==0)xprintf(PSTR("%d"),nextmicros);
+        
+        nextmotoroff=cm+motortimeout;
 #if defined(__AVR__) || defined(ESP8266)
         // ESP8266 specific code here
-        nextmicros = micros() + dl;
+        nextmicros = cm + dl;
 #else
-        nextmicros = micros() + dl;
+        nextmicros = cm + dl;
 
         //pset (tick*tickscale+10,400-f*fscale),c
         putpixel (tick * tickscale/timescale + 10, 400 - f * fscale, c);
@@ -406,7 +425,6 @@ void motionloop() {
         //pset (x(1)/stepmmx(1)+50,x(2)/stepmmx(2)+40),c
 #endif
         //if (mctr % 60==0)xprintf("F:%f Dly-%fus\n", ff(f),ff(dl));
-        int32_t ix;
         // bresenham work on motor step
         for (ix = 0; ix < numaxis; ix++) {
           if (m->sx[ix]) {
@@ -531,6 +549,7 @@ int32_t startmove()
   if (motionrunning) exit;
   if (head != tail) { // if empty then exit
     int32_t t = nextbuff(tail);
+    int ix;
     m = &move[t];
     if (m->status == 1) {
         xprintf(PSTR("Start buff:%d\n"),tail);
@@ -539,6 +558,9 @@ int32_t startmove()
         xprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), m->rampup, m->rampdown,m->totalstep);
         xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
 
+      }
+      for(ix=0;ix<numaxis;ix++){
+        mymotor[ix].onoff(1);
       }
       prepareramp(t);
       tail = t;

@@ -11,8 +11,8 @@ void setup() {
   init_gcode();
 //  Serial.setDebugOutput(true);
   Serial.begin(115200);
-  Serial.print("start\nok\n");
-  Serial.print("Motion demo\nok\n");
+  zprintf(PSTR("start\nok\n"));
+  zprintf(PSTR("Motion demo\nok\n"));
 }
 
 
@@ -25,7 +25,7 @@ void gcode_loop() {
 #if defined(__AVR__) || defined(ESP8266)
   motionloop();
   if (ack_waiting) {
-    Serial.print("ok\n");
+    zprintf(PSTR("ok\n"));
     ack_waiting = 0;
   }
   if (Serial.available() > 0)
