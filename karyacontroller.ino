@@ -1,25 +1,31 @@
 
 #include "common.h"
 #include "gcode.h"
+#include "timer.h"
+#include<stdint.h>
+extern void demo();
+extern void motionloop();
 void setup() {
   // put your setup code here, to run once:
   initmotion();
   init_gcode();
-  //Serial.setDebugOutput(true);
+//  Serial.setDebugOutput(true);
   Serial.begin(115200);
+  Serial.print("start\nok\n");
+  Serial.print("Motion demo\nok\n");
 }
-extern void demo();
-extern void motionloop();
+
+
 int line_done, ack_waiting = 0;
 void gcode_loop() {
-  //double x=12.345;
+  //float x=12.345;
   //xprintf(PSTR("Motion demo %d %f\n"),10,x);
   //delay(500);
   //demo();
 #if defined(__AVR__) || defined(ESP8266)
   motionloop();
   if (ack_waiting) {
-    xprintf(PSTR("ok\n"));
+    Serial.print("ok\n");
     ack_waiting = 0;
   }
   if (Serial.available() > 0)
@@ -34,6 +40,13 @@ void gcode_loop() {
 
 }
 void loop() {
-  demo();
-//gcode_loop();
+  output_enable=0;
+  //demo();
+  gcode_loop();
+/*  if (feedthedog()){
+    float f=123.456;
+    int32_t i=1234;
+    xprintf("%f",ff(f),i);
+  }  
+*/
 }

@@ -40,11 +40,12 @@ int main(void)
 	line(0,400-100*fscale,600,400-100*fscale);
 
     //int8_t z=100;
-	//xprintf (PSTR("Time:%d"),(int32_t)z);
-    demo();            
+	double v=10.1234;
+	xprintf (PSTR("F %f D %d\n"),ff(v),(int32_t)200);
+  demo();            
 	xprintf (PSTR("WAIT\n"));
 	waitbufferempty();	
-	xprintf (PSTR("Time:%f\n"),tick/timescale);
+	xprintf (PSTR("Time:%f\n"),ff(tick/timescale));
 	getch(); 
 }
 #endif

@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-extern void feedthedog();
+extern int feedthedog();
 #if defined(__AVR__)
     #define timescale 1000000
 // AVR specific code here

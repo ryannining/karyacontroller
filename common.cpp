@@ -1,6 +1,6 @@
 #include "common.h"
 #include  <stdarg.h>
-
+int output_enable=1;
 #if defined(__AVR__) || defined(ESP8266)
 // functions for sending decimal
 #include<arduino.h>
@@ -124,11 +124,12 @@ void write_int32_vf(void (*writechar)(uint8_t), int32_t v, uint8_t fp) {
 }
 
 
-#if __SIZEOF_INT__ >= 4
-  #define GET_ARG(T) ((T)va_arg(args, int))
+#if __SIZEOF_INT__ == 2
+  #define GET_ARG(T) (va_arg(args, T))
+#elif __SIZEOF_INT__ >= 4
+  #define GET_ARG(T) (va_arg(args, T))
 #else
-  #define GET_ARG(T) ((T)va_arg(args, T))
-
+  #define GET_ARG(T) (va_arg(args, T))
 #endif
 
 void sendf_P(PGM_P format_P, ...) {
@@ -142,7 +143,7 @@ void sendf_P(PGM_P format_P, ...) {
 		if (j) {
 			switch(c) {
 				case 'u':
-                    write_uint32(writechar, GET_ARG(uint32_t));
+          write_uint32(writechar, GET_ARG(uint32_t));
 					j = 0;
 					break;
 				case 'd':
@@ -164,14 +165,9 @@ void sendf_P(PGM_P format_P, ...) {
                         write_hex32(writechar, GET_ARG(uint32_t));
 					j = 0;
 					break;
-                case 'f':
-                          double xx;
-                          xx=(double)GET_ARG(double);
-                          write_int32_vf(writechar, int(1000*xx), 3);
-                          j = 0;
-                  break;
-				case 'q':
-                    write_int32_vf(writechar, GET_ARG(uint32_t), 3);
+				case 'f':
+        case 'q':
+                    write_int32_vf(writechar, (int32_t)GET_ARG(uint32_t), 3);
 					j = 0;
 					break;
 				default:

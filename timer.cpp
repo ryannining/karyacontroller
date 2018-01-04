@@ -8,7 +8,7 @@ int dogfeed=0;
 
 #if defined(__AVR__) || defined(ESP8266)
     #include<arduino.h>
-    #define dogfeedevery 100 // loop
+    #define dogfeedevery 200 // loop
 // ESP8266 specific code here
 #else
     #define dogfeedevery 100000 // loop
@@ -22,7 +22,7 @@ int dogfeed=0;
 
 #endif
 
-void feedthedog(){
+int feedthedog(){
     if (dogfeed++> dogfeedevery) {
             dogfeed=0;
             #if defined(__AVR__)
@@ -33,7 +33,9 @@ void feedthedog(){
             #else
             #endif
             //xprintf(PSTR("Feed the dog\n"));
+            return 1;
         }
+    return 0;   
     }
 
 

@@ -29,8 +29,8 @@ static int32_t decfloat_to_int(void) {
 	return read_digit.sign ? -r : r;
 }
 
-static double decfloat_to_double(void) {
-	double r = read_digit.mantissa;
+static float decfloat_to_float(void) {
+	float r = read_digit.mantissa;
 	uint8_t	e = read_digit.exponent;
 
 	// e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
@@ -42,7 +42,7 @@ static double decfloat_to_double(void) {
 
 uint8_t gcode_parse_char(uint8_t c) {
 	uint8_t checksum_char = c;
-
+  //Serial.write(c);
 	// uppercase
 	if (c >= 'a' && c <= 'z')
 		c &= ~32;
@@ -70,45 +70,46 @@ uint8_t gcode_parse_char(uint8_t c) {
 					break;
 				case 'X':
                     
-            next_target.target.axis[X] = decfloat_to_double();
+            next_target.target.axis[X] = decfloat_to_float();
 					break;
 				case 'Y':
-            next_target.target.axis[Y] = decfloat_to_double();
+            next_target.target.axis[Y] = decfloat_to_float();
 					break;
 				case 'Z':
-            next_target.target.axis[Z] = decfloat_to_double();
+            next_target.target.axis[Z] = decfloat_to_float();
 					break;
 #ifdef ARC_SUPPORT                    
 				case 'I':
-            next_target.I = decfloat_to_double();
+            next_target.I = decfloat_to_float();
 					break;
 				case 'J':
-            next_target.J = decfloat_to_double();
+            next_target.J = decfloat_to_float();
 					break;
 				case 'R':
-            next_target.R = decfloat_to_double();
+            next_target.R = decfloat_to_float();
 					break;
  #endif                   
 				case 'E':
-                        next_target.target.axis[E] = decfloat_to_double();
+                        next_target.target.axis[E] = decfloat_to_float();
 					break;
 				case 'F':
 					// just use raw integer, we need move distance and n_steps to convert it to a useful value, so wait until we have those to convert it
-						next_target.target.F = decfloat_to_double()/60;
+						next_target.target.F = decfloat_to_float()/60;
+            xprintf(PSTR("New F %f"),ff(next_target.target.F));
 					break;
 				case 'S':
 					// if this is temperature, multiply by 4 to convert to quarter-degree units
 					// cosmetically this should be done in the temperature section,
 					// but it takes less code, less memory and loses no precision if we do it here instead
 					if ((next_target.M == 104) || (next_target.M == 109) || (next_target.M == 140))
-						next_target.S = decfloat_to_double();
+						next_target.S = decfloat_to_float();
 					// if this is heater PID stuff, multiply by PID_SCALE because we divide by PID_SCALE later on
 					else if ((next_target.M == 206))
-						next_target.S = decfloat_to_double();
+						next_target.S = decfloat_to_float();
 					else if ((next_target.M >= 130) && (next_target.M <= 132))
-						next_target.S = decfloat_to_double();
+						next_target.S = decfloat_to_float();
 					else
-						next_target.S = decfloat_to_double();
+						next_target.S = decfloat_to_float();
 					break;
 				case 'P':
 					next_target.P = decfloat_to_int();
@@ -328,7 +329,7 @@ uint8_t gcode_parse_char(uint8_t c) {
 
 // implement minimalis code to match teacup
 
-double lastE,lastZ;
+float lastE,lastZ;
 void power_off(){
     
 } 
@@ -365,11 +366,15 @@ void temp_wait(void) {
 void update_current_position(){
     
 }
+int32_t mvc=0;
 void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond)
 {
         checkendstop=endstop_check;
         addmove(t->F,t->axis[X],t->axis[Y],t->axis[Z]);
         //waitbufferempty();
+        Serial.print("Move");
+        Serial.print(mvc++);
+        Serial.print("\n");
 
 }
 static void enqueue(TARGET *) __attribute__ ((always_inline));
@@ -558,8 +563,8 @@ uint32_t	backup_f;
 				}
                 update_current_position();
 				xprintf(PSTR("X: %f Y: %f Z: %f\n"),  //F:%lu\n"
-                        current_position.axis[X], current_position.axis[Y],
-                        current_position.axis[Z]);//,current_position.F);
+                        ff(current_position.axis[X]), current_position.axis[Y],
+                        ff(current_position.axis[Z]));//,current_position.F);
                 
 				break;
 
@@ -633,7 +638,7 @@ uint32_t	backup_f;
 
 				// unknown gcode: spit an error
 			default:
-				sersendf_P(PSTR("E: Bad G-code %d\n"), next_target.G);
+				sersendf_P(PSTR("E: Bad G-code %d\nok\n"), next_target.G);
 				return;
 		}
 	}
@@ -728,8 +733,8 @@ uint32_t	backup_f;
 					queue_wait();
 				#endif
 				sersendf_P(PSTR("X:%f Y:%f Z:%f F:%f\n"),
-                        x[X], x[Y],
-                        x[Z],m->fn   );
+                        ff(x[X]), ff(x[Y]),
+                        ff(x[Z]),ff(m->fn)   );
 
 				break;
 
@@ -760,7 +765,7 @@ uint32_t	backup_f;
 
 				// unknown mcode: spit an error
 			default:
-				sersendf_P(PSTR("E: Bad M-code %d\n"), next_target.M);
+				sersendf_P(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
 		} // switch (next_target.M)
 	} // else if (next_target.seen_M)
 } // process_gcode_command()

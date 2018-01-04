@@ -13,8 +13,8 @@ typedef struct {
 } decfloat;
 
 typedef struct {
-  double axis[numbuffer];
-  double  F;
+  float axis[numbuffer];
+  float  F;
 
   uint16_t  e_multiplier;
   uint16_t  f_multiplier;
@@ -48,16 +48,16 @@ typedef struct {
   uint32_t          N;          ///< line number
   uint32_t          N_expected; ///< expected line number
 
-  double            S;          ///< S word (various uses)
+  float            S;          ///< S word (various uses)
   uint16_t          P;          ///< P word (various uses)
 
 	uint16_t					G;				///< G command number
 	uint16_t					M;				///< M command number
 	TARGET						target;		///< target position: X, Y, Z, E and F
 #ifdef ARC_SUPPORT
-    double  I;
-    double  J;
-    double  R;
+    float  I;
+    float  J;
+    float  R;
 #endif
 	uint8_t						T;				///< T word (tool index)
 
