@@ -102,5 +102,7 @@
     <File Name="gcode.h"/>
     <File Name="common.cpp"/>
     <File Name="common.h"/>
+    <File Name="README.md"/>
+    <File Name="config_pins.h"/>
   </VirtualDirectory>
 </CodeLite_Project>

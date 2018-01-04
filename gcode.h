@@ -1,5 +1,7 @@
 #include<stdint.h>
 #include "motion.h"
+#include "config_pins.h"
+
 #define DEBUG
 #define X 0
 #define Y 1
@@ -13,11 +15,11 @@ typedef struct {
 } decfloat;
 
 typedef struct {
-  float axis[numbuffer];
+  float axis[NUMBUFFER];
   float  F;
 
-  uint16_t  e_multiplier;
-  uint16_t  f_multiplier;
+  float  e_multiplier;
+  float  f_multiplier;
   uint8_t   e_relative        :1; ///< bool: e axis relative? Overrides all_relative
 } TARGET;
 /// this holds all the possible data from a received command

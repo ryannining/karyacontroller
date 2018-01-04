@@ -1,34 +1,34 @@
 #include<math.h>
 #include<stdint.h>
-#define numaxis 3
-#define numbuffer 10
+#include "config_pins.h"
+#define NUMAXIS 3
 
 typedef struct {
-    float  fx[numaxis];
+    float  fx[NUMAXIS];
     float  fs,fn,fe,ac1,ac2;
-    int32_t cx[numaxis];
-    int32_t sx[numaxis];
-    int32_t dx[numaxis];
+    int32_t cx[NUMAXIS];
+    int32_t sx[NUMAXIS];
+    int32_t dx[NUMAXIS];
     int32_t totalstep,rampup,rampdown;       
     int8_t  bpos,planstatus,col,fastaxis,status;
 } tmove;
 
 extern tmove *m;
-extern float x[numaxis];
+extern float x[NUMAXIS];
 extern float homingspeed;
-extern float homeoffset[numaxis];
-extern float jerk[numaxis]; 
-extern float accel[numaxis];
-extern float maxf[numaxis];
-extern float stepmmx[numaxis];
-extern tmove move[numbuffer];
+extern float homeoffset[NUMAXIS];
+extern float jerk[NUMAXIS]; 
+extern float accel[NUMAXIS];
+extern float maxf[NUMAXIS];
+extern float stepmmx[NUMAXIS];
+extern tmove move[NUMBUFFER];
 extern float cx1,cy1,cz1,lf;
 extern int32_t head,tail;
 extern uint8_t checkendstop;
-extern uint8_t endstopstatus[numaxis];
+extern uint8_t endstopstatus[NUMAXIS];
 
-#define nextbuff(x) ((x) < numbuffer-1 ? (x) + 1 : 0)
-#define prevbuff(x) ((x) > 0 ? (x) - 1 : numbuffer-1)
+#define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
+#define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 #define ACCELL(v0,v1,a) v0<v1?a:-a
 #define degtorad(x) x*22/(7*180);
 
@@ -62,6 +62,6 @@ extern int32_t bufflen();
 extern int32_t docheckendstop();
 
 extern float homingspeed;
-extern float homeoffset[numaxis];
+extern float homeoffset[NUMAXIS];
 
 

@@ -40,7 +40,7 @@ int main(void)
 	line(0,400-100*fscale,600,400-100*fscale);
 
     //int8_t z=100;
-	double v=10.1234;
+	float v=10.1234;
 	xprintf (PSTR("F %f D %d\n"),ff(v),(int32_t)200);
   demo();            
 	xprintf (PSTR("WAIT\n"));

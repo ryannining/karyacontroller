@@ -1,25 +1,32 @@
 karyacontroller
+I make this project to learn about the controller.
 
 simple multi axis motor controller for use in cnc project.
+This project is possible because other people work:
+- Teacup (gcode parsing, sersendp_f)
+- notgrbl (simple serial reading)
+- google
+its not 100% exact code, but i have read lots of their code, so my code will effected by them
 
-I make this project to learn about the controller.
+
 
 feature i need to have in this software is: (* implemented)
 - per axis acceleration *
 - per axis max feedrate *
 - per axis jerk  *
 - path planner (forward) *
-- backward planner
 - step per mm for each axis *
-- interrupt timing
-- implement motor stepper hardware layer
-- implement endstop reading
-- implement GCODE parser and processing
+- implement motor stepper hardware layer *
+- implement GCODE parser and processing *
 - implement flow control between motion gcode and non motion gcode
+- backward planner
+- interrupt timing
+- implement endstop reading
 
 
 for now it still not use timer interrupt, just use micros() to control the timing..
-This software also contain
+
+
 
 Project files:
 karyacontroller.project - just for editing in codelite
