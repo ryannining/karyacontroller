@@ -7,10 +7,10 @@ extern void demo();
 extern void motionloop();
 void setup() {
   // put your setup code here, to run once:
-  initmotion();
-  init_gcode();
 //  Serial.setDebugOutput(true);
   Serial.begin(115200);
+  initmotion();
+  init_gcode();
   zprintf(PSTR("start\nok\n"));
   zprintf(PSTR("Motion demo\nok\n"));
 }
@@ -40,7 +40,6 @@ void gcode_loop() {
 
 }
 void loop() {
-  output_enable=0;
   //demo();
   gcode_loop();
 /*  if (feedthedog()){

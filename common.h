@@ -1,3 +1,6 @@
+
+//#define output_enable
+
 extern int output_enable;
 #if defined(__AVR__) || defined(ESP8266)
 // AVR specific code here
@@ -14,11 +17,15 @@ void sendf_P(PGM_P format_P, ...);
 
 //#define xprintf(...) sendf_P(serial_writechar, __VA_ARGS__)
 //#define sersendf_P(...) sendf_P(serial_writechar, __VA_ARGS__)
-#define xprintf   if (output_enable)sendf_P
+#ifdef output_enable
+#define xprintf   sendf_P
+#define sersendf_P sendf_P
+#endif
 #define zprintf   sendf_P
-#define sersendf_P if (output_enable)sendf_P
 
 #define ff(f) int32_t(f*1000)
+#define fi(f) int32_t(f)
+
 
 #else
 #include<stdio.h>
@@ -35,7 +42,9 @@ static void serial_writechar(uint8_t data) {
 
 }
 #define ff(f) (f)
-#define xprintf printf
+#define fi(f) (f)
+#define xprintf if (output_enable)printf
+#define zprintf printf
 #define sersendf_P printf
 #endif
 

@@ -1,6 +1,4 @@
 #include "common.h"
-#include  <stdarg.h>
-int output_enable=1;
 #if defined(__AVR__) || defined(ESP8266)
 // functions for sending decimal
 #include<arduino.h>

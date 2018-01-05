@@ -10,7 +10,7 @@
 #define E0 3
 #define E1 4
 
-#define DECFLOAT_EXP_MAX 4
+#define DECFLOAT_EXP_MAX 5
 typedef struct {
 	uint32_t	mantissa;		///< the actual digits of our floating point number
 	uint8_t	exponent	:7;	///< scale mantissa by \f$10^{-exponent}\f$

@@ -95,7 +95,6 @@ uint8_t gcode_parse_char(uint8_t c) {
         case 'F':
           // just use raw integer, we need move distance and n_steps to convert it to a useful value, so wait until we have those to convert it
           next_target.target.F = decfloat_to_float() / 60;
-          xprintf(PSTR("New F %f"), ff(next_target.target.F));
           break;
         case 'S':
           // if this is temperature, multiply by 4 to convert to quarter-degree units
@@ -241,7 +240,7 @@ uint8_t gcode_parse_char(uint8_t c) {
           Serial.print(c);
           Serial.print('\n');
 #else
-          xprintf(PSTR("?%d\n"), c);
+          zprintf(PSTR("?%d\n"), c);
 #endif
 #endif
           break;
@@ -274,12 +273,12 @@ uint8_t gcode_parse_char(uint8_t c) {
 
       }
       else {
-        xprintf(PSTR("rs N%ld Expected checksum %d\n"), next_target.N_expected, next_target.checksum_calculated);
+        zprintf(PSTR("rs N%ld Expected checksum %d\n"), next_target.N_expected, next_target.checksum_calculated);
         // 				request_resend();
       }
     }
     else {
-      xprintf(PSTR("rs N%ld Expected line number %ld\n"), next_target.N_expected, next_target.N_expected);
+      zprintf(PSTR("rs N%ld Expected line number %ld\n"), next_target.N_expected, next_target.N_expected);
       // 			request_resend();
     }
 
@@ -337,6 +336,7 @@ void dda_new_startpoint() {
   cx1 = startpoint.axis[X];
   cy1 = startpoint.axis[Y];
   cz1 = startpoint.axis[Z];
+  ce01 = startpoint.axis[Z];
 
 }
 void queue_wait() {
@@ -367,27 +367,21 @@ void update_current_position() {
 
 }
 int32_t mvc = 0;
-void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond)
+void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond,int g0=1)
 {
   checkendstop = endstop_check;
   addmove(t->F*t->f_multiplier, t->axis[X] 
-  #if NUMAXIS>=2
   ,t->axis[Y]
-  #endif
-  #if NUMAXIS>=3
   ,t->axis[Z]
-  #endif
-  #if NUMAXIS>=4
   ,t->axis[E]
-  #endif
-  );
+  ,g0);
   //waitbufferempty();
 
 
 }
 static void enqueue(TARGET *) __attribute__ ((always_inline));
-inline void enqueue(TARGET *t) {
-  enqueue_home(t, 0, 0);
+inline void enqueue(TARGET *t,int g0=1) {
+  enqueue_home(t, 0, 0,g0);
 }
 
 void process_gcode_command() {
@@ -461,10 +455,10 @@ void process_gcode_command() {
         if (!next_target.seen_F) {
           backup_f = next_target.target.F;
           next_target.target.F = maxf[X];
-          enqueue(&next_target.target);
+          enqueue(&next_target.target,1);
           next_target.target.F = backup_f;
         } else
-          enqueue(&next_target.target);
+          enqueue(&next_target.target,1);
         break;
 
       case 1:
@@ -477,7 +471,7 @@ void process_gcode_command() {
         temp_wait();
         //next_target.target.axis[E]=0;
         // auto retraction change
-        enqueue(&next_target.target);
+        enqueue(&next_target.target,0);
         break;
 
       //	G2 - Arc Clockwise
@@ -506,6 +500,9 @@ void process_gcode_command() {
         }
         break;
       case 28:
+        homing(0,0,0,0);
+        break;  
+      case 128:
         //? --- G28: Home ---
         //?
         //? Example: G28
@@ -570,7 +567,7 @@ void process_gcode_command() {
           //homing(0,0,0);
         }
         update_current_position();
-        xprintf(PSTR("X: %f Y: %f Z: %f\n"),  //F:%lu\n"
+        zprintf(PSTR("X: %f Y: %f Z: %f\n"),  //F:%lu\n"
                 ff(current_position.axis[X]), current_position.axis[Y],
                 ff(current_position.axis[Z]));//,current_position.F);
 
@@ -646,7 +643,7 @@ void process_gcode_command() {
 
       // unknown gcode: spit an error
       default:
-        sersendf_P(PSTR("E: Bad G-code %d\nok\n"), next_target.G);
+        zprintf(PSTR("E: Bad G-code %d\nok\n"), next_target.G);
         return;
     }
   }
@@ -674,7 +671,8 @@ void process_gcode_command() {
         queue_wait();
         //for (i = 0; i < NUM_HEATERS; i++)temp_set(i, 0);
         power_off();
-        xprintf(PSTR("\nstop\n"));
+
+        zprintf(PSTR("\nstop\n"));
         break;
 
       case 6:
@@ -740,9 +738,9 @@ void process_gcode_command() {
         // wait for all moves to complete
         queue_wait();
 #endif
-        sersendf_P(PSTR("X:%f Y:%f Z:%f F:%f\n"),
-                   ff(x[X]), ff(x[Y]),
-                   ff(x[Z]), ff(m->fn)   );
+        zprintf(PSTR("X:%f Y:%f Z:%f F:%f\n"),
+                   ff(px[X]), ff(px[Y]),
+                   ff(px[Z]), ff(m->fn)   );
 
         break;
 
@@ -760,7 +758,7 @@ void process_gcode_command() {
 
         //sersendf_P(PSTR("FIRMWARE_NAME:Teacup FIRMWARE_URL:http://github.com/traumflug/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:%d TEMP_SENSOR_COUNT:%d HEATER_COUNT:%d\n"), 1, NUM_TEMP_SENSORS, NUM_HEATERS);
         ///*
-        xprintf(PSTR("FIRMWARE_NAME:karyacontroller FIRMWARE_URL:null PROTOCOL_VERSION:1.0 MACHINE_TYPE:teacup EXTRUDER_COUNT:1 REPETIER_PROTOCOL:\n"));
+        zprintf(PSTR("FIRMWARE_NAME:karyacontroller FIRMWARE_URL:null PROTOCOL_VERSION:1.0 MACHINE_TYPE:teacup EXTRUDER_COUNT:1 REPETIER_PROTOCOL:\n"));
         //*/
         break;
 
@@ -769,6 +767,13 @@ void process_gcode_command() {
         //? --- M119: report endstop status ---
         //? Report the current status of the endstops configured in the
         //? firmware to the host.
+        docheckendstop();
+        zprintf(PSTR("Endstop:"));
+        for(int e=0;e<3;e++){
+          zprintf(endstopstatus[e]<0?PSTR("ON "):PSTR("OFF "));
+        }
+        zprintf(PSTR("\n"));
+        
         break;
 
       // unknown mcode: spit an error
@@ -780,7 +785,7 @@ void process_gcode_command() {
         next_target.target.f_multiplier = next_target.S/100;
         break;
       default:
-        sersendf_P(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
+        zprintf(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
     } // switch (next_target.M)
   } // else if (next_target.seen_M)
 } // process_gcode_command()
@@ -791,7 +796,7 @@ void init_gcode() {
   current_position.axis[0] = current_position.axis[1] = current_position.axis[2] = 0;
   next_target.target.F = 100;
   next_target.target.f_multiplier =1;
-
+  next_target.option_all_relative=0;
 
 }
 

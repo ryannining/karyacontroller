@@ -23,6 +23,19 @@
 #define e0direction A2
 #define e0step A3
 
+
+/*#define xmin_pin 0
+#define xmax_pin 0
+#define ymin_pin 0
+#define ymax_pin 0
+#define zmin_pin 0
+#define temp0_pin 0
+#define heater0_pin 0
+*/
+
+#define zmax_pin 13
+
+
 /*
  * 
  *  ESP8266
@@ -59,6 +72,20 @@
 #define zenable 0
 #define zdirection 0
 #define zstep 0
+#define e0enable 0
+#define e0direction 0
+#define e0step 0
+
+#define xmin_pin 0
+#define xmax_pin 0
+#define ymin_pin 0
+#define ymax_pin 0
+#define zmin_pin 0
+#define zmax_pin 0
+
+
+#define temp0_pin 0
+#define heater0_pin 0
 #endif
 
 
@@ -78,7 +105,7 @@
 #define MS  * (F_CPU / 1000)
 
 
-#define HOMINGSPEED 30
+#define HOMINGSPEED 100
 #define XOFFSET 0
 #define YOFFSET 0
 #define ZOFFSET 0
@@ -89,19 +116,29 @@
 #define ZJERK 5
 #define E0JERK 5
 
-#define XACCELL 2100
-#define YACCELL 2100
-#define ZACCELL 2100
+#define XACCELL 500
+#define YACCELL 500
+#define ZACCELL 500
+
+#define XMOVEACCELL 1500
+#define YMOVEACCELL 1500
+#define ZMOVEACCELL 1500
+
 #define E0ACCELL 100
 
 #define XMAXFEEDRATE 200
 #define YMAXFEEDRATE 200
-#define ZMAXFEEDRATE 10
+#define ZMAXFEEDRATE 50
 #define E0MAXFEEDRATE 10
 
 #define XSTEPPERMM 120
 #define YSTEPPERMM 120
 #define ZSTEPPERMM 420
-#define E0STEPPERMM 420
+#define E0STEPPERMM 230
 
 #define NUMBUFFER 5
+#define XMAX 0
+#define YMAX 0
+#define ZMAX 100
+
+
