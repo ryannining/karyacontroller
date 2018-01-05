@@ -7,6 +7,9 @@
 #define Y 1
 #define Z 2
 #define E 3
+#define E0 3
+#define E1 4
+
 #define DECFLOAT_EXP_MAX 4
 typedef struct {
 	uint32_t	mantissa;		///< the actual digits of our floating point number

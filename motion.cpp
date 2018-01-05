@@ -24,7 +24,7 @@ float accel[4] = {XACCELL, YACCELL, ZACCELL,E0ACCELL};
 float maxf[4] = {XMAXFEEDRATE, YMAXFEEDRATE, ZMAXFEEDRATE,E0MAXFEEDRATE};
 float stepmmx[4] = {XSTEPPERMM, YSTEPPERMM, ZSTEPPERMM,E0STEPPERMM};
 tmove move[NUMBUFFER];
-float cx1, cy1, cz1, lf;
+float cx1, cy1, cz1, ce01,lf;
 
 uint8_t checkendstop = 0;
 uint8_t endstopstatus[3] = {0, 0, 0};
@@ -60,10 +60,15 @@ void tmotor::init(int ax) {
     pinstep = ystep;
     pindir = ydirection;
 
-  } else if (ax == 3) {
+  } else if (ax == 2) {
     pinenable = zenable;
     pinstep = zstep;
     pindir = zdirection;
+
+  } else if (ax == 3) {
+    pinenable = e0enable;
+    pinstep = e0step;
+    pindir = e0direction;
 
   }
 #if defined(__AVR__) || defined(ESP8266)
@@ -261,7 +266,7 @@ void planner(int32_t h)
   Rutin menambahkan sebuah vektor ke dalam buffer gerakan
 */
 float x1[NUMAXIS], x2[NUMAXIS];
-void addmove(float cf, float cx2, float cy2 , float cz2 )
+void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 )
 {
   //cf=100;
   xprintf(PSTR("Tail:%d Head:%d "), tail, head);
@@ -275,9 +280,11 @@ void addmove(float cf, float cx2, float cy2 , float cz2 )
   x1[0] = cx1 * stepmmx[0];
   x1[1] = cy1 * stepmmx[1];
   x1[2] = cz1 * stepmmx[2];
+  x1[3] = ce01 * stepmmx[3];
   x2[0] = cx2 * stepmmx[0];
   x2[1] = cy2 * stepmmx[1];
   x2[2] = cz2 * stepmmx[2];
+  x2[3] = ce02 * stepmmx[3];
   am->fn = cf;
   am->fe = 0;
   am->fs = 0;
@@ -333,7 +340,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2 )
 
 tmove *m = 0;
 float tick, tickscale, fscale;
-float x[NUMAXIS] = {0, 0, 0 };
+float x[4] = {0, 0, 0,0 };
 float f, dl;
 int32_t mctr;
 uint32_t nextmicros;
@@ -496,12 +503,13 @@ int32_t docheckendstop()
   }
 #endif
 }
-void homing(float x, float y, float z)
+void homing(float x, float y, float z,float e0)
 {
+  waitbufferempty();
   m = 0;
   head = tail;
   checkendstop = 1;
-  addmove(homingspeed, -100, -100, -100);
+  addmove(homingspeed, -100, -100, -100,ce01);
   startmove();
   waitbufferempty();
   // now slow down and check endstop once again
@@ -511,23 +519,25 @@ void homing(float x, float y, float z)
     // move away from endstop
     xx[e] = 10;
     checkendstop = 0;
-    addmove(homingspeed, xx[0], xx[1], xx[2]);
+    addmove(homingspeed, xx[0], xx[1], xx[2],ce01);
     waitbufferempty();
     // check endstop again slowly
     xx[e] = 0;
     checkendstop = 1;
-    addmove(homingspeed / 5, xx[0], xx[1], xx[2]);
+    addmove(homingspeed / 5, xx[0], xx[1], xx[2],ce01);
     waitbufferempty();
     // move away again
     xx[e] = 2;
     checkendstop = 0;
-    addmove(homingspeed / 5, xx[0], xx[1], xx[2]);
+    addmove(homingspeed / 5, xx[0], xx[1], xx[2],ce01);
     waitbufferempty();
   }
   checkendstop = 0;
   cx1 = x;
   cy1 = y;
   cz1 = z;
+  ce01 = e0;
+  
 }
 /*
   startmove
@@ -628,6 +638,9 @@ void initmotion() {
   pinMode(zenable, OUTPUT);
   pinMode(zdirection, OUTPUT);
   pinMode(zstep, OUTPUT);
+  pinMode(e0enable, OUTPUT);
+  pinMode(e0direction, OUTPUT);
+  pinMode(e0step, OUTPUT);
 #endif
 }
 

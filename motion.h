@@ -1,7 +1,7 @@
 #include<math.h>
 #include<stdint.h>
 #include "config_pins.h"
-#define NUMAXIS 3
+#define NUMAXIS 4
 
 typedef struct {
     int8_t  sx[NUMAXIS];
@@ -23,7 +23,7 @@ extern float accel[4];
 extern float maxf[4];
 extern float stepmmx[4];
 extern tmove move[NUMBUFFER];
-extern float cx1,cy1,cz1,lf;
+extern float cx1,cy1,cz1,ce01,lf;
 extern int32_t head,tail;
 extern uint8_t checkendstop;
 extern uint8_t endstopstatus[3];
@@ -56,8 +56,8 @@ extern void waitbufferempty();
 extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();
-extern void addmove(float f,float x2,float y2 ,float z2 );
-extern void homing(float x,float y ,float z );
+extern void addmove(float f,float x2,float y2 ,float z2,float e02 );
+extern void homing(float x,float y ,float z,float e0 );
 extern float tick,fscale;
 extern int32_t bufflen();
 extern int32_t docheckendstop();

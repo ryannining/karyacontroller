@@ -6,6 +6,7 @@ This project is possible because other people work:
 - Teacup (gcode parsing, sersendp_f)
 - notgrbl (simple serial reading)
 - google
+
 its not 100% exact code, but i have read lots of their code, so my code will effected by them
 
 

@@ -16,8 +16,12 @@
 #define ystep 8
 
 #define zenable 10
-#define zdirection 5
-#define zstep 27
+#define zdirection A5
+#define zstep A4
+
+#define e0enable 11
+#define e0direction A2
+#define e0step A3
 
 /*
  * 

@@ -55,13 +55,13 @@ void demo(){
 	//addmove(f,0,50,0);
     int i;
     for (i=0;i<5;i++) {
-        addmove(f,i*10,50,0);
+        addmove(f,i*10,50,0,0);
     }
-    addmove(f,60,55,0);
+    addmove(f,60,55,0,0);
     for (i=5;i>0;i--) {
-        addmove(f,i*10,60,0);
+        addmove(f,i*10,60,0,0);
     }
-    addmove(f,0,65,0);
+    addmove(f,0,65,0,0);
     
 }
 

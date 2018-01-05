@@ -370,7 +370,17 @@ int32_t mvc = 0;
 void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond)
 {
   checkendstop = endstop_check;
-  addmove(t->F*t->f_multiplier, t->axis[X], t->axis[Y], t->axis[Z]);
+  addmove(t->F*t->f_multiplier, t->axis[X] 
+  #if NUMAXIS>=2
+  ,t->axis[Y]
+  #endif
+  #if NUMAXIS>=3
+  ,t->axis[Z]
+  #endif
+  #if NUMAXIS>=4
+  ,t->axis[E]
+  #endif
+  );
   //waitbufferempty();
 
 
