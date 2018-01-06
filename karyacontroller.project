@@ -104,5 +104,8 @@
     <File Name="common.h"/>
     <File Name="README.md"/>
     <File Name="config_pins.h"/>
+    <File Name="thermistortable.h"/>
+    <File Name="temp.h"/>
+    <File Name="temp.cpp"/>
   </VirtualDirectory>
 </CodeLite_Project>

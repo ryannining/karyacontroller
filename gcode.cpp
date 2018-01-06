@@ -1,6 +1,8 @@
 #include "gcode.h"
 #include "timer.h"
 #include "common.h"
+#include "temp.h"
+
 #include<stdint.h>
 #if defined(__AVR__) || defined(ESP8266)
 #include<arduino.h>
@@ -13,7 +15,7 @@ decfloat read_digit;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
-const uint32_t powers[] = {1, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+const uint32_t powers[] = {1, 1, 10, 100, 1000, 10000, 100000, 1000000};
 
 TARGET startpoint, current_position;
 
@@ -337,6 +339,10 @@ void dda_new_startpoint() {
   cy1 = startpoint.axis[Y];
   cz1 = startpoint.axis[Z];
   ce01 = startpoint.axis[Z];
+  px[0]=cx1*stepmmx[0];
+  px[1]=cy1*stepmmx[1];
+  px[2]=cz1*stepmmx[2];
+  px[3]=ce01*stepmmx[3];
 
 }
 void queue_wait() {
@@ -353,10 +359,7 @@ void delay_ms(uint32_t d) {
 }
 void doclock() {
   feedthedog();
-}
-int wait_for_temp = 0;
-int temp_achieved() {
-  return 1;
+  motionloop();
 }
 void temp_wait(void) {
   while (wait_for_temp && ! temp_achieved()) {
@@ -700,7 +703,16 @@ void process_gcode_command() {
         //? Undocumented.
         // disable laser/spindle
         break;
-
+      case 104:
+          set_temp(next_target.S);
+          break;
+      case 105:
+          zprintf(PSTR("T:%f\n"),ff(Input));
+          break;
+      case 109:
+          set_temp(next_target.S);
+          temp_wait();
+          break;
       case 7:
       case 107:
         // set laser pwm off

@@ -29,11 +29,11 @@
 #define ymin_pin 0
 #define ymax_pin 0
 #define zmin_pin 0
-#define temp0_pin 0
-#define heater0_pin 0
 */
 
 #define zmax_pin 13
+#define temp_pin A6
+#define heater_pin 3
 
 
 /*
@@ -54,6 +54,13 @@
 #define zenable D1
 #define zdirection D2
 #define zstep D3
+#define zenable D1
+#define zdirection D2
+#define zstep D3
+
+#define zmax_pin 8
+#define temp_pin A0
+#define heater_pin 3
 
 
 #else
@@ -119,26 +126,26 @@
 #define XACCELL 500
 #define YACCELL 500
 #define ZACCELL 500
+#define E0ACCELL 100
 
 #define XMOVEACCELL 1500
 #define YMOVEACCELL 1500
 #define ZMOVEACCELL 1500
-
-#define E0ACCELL 100
+#define ZMOVEACCELL 1500
 
 #define XMAXFEEDRATE 200
 #define YMAXFEEDRATE 200
 #define ZMAXFEEDRATE 50
-#define E0MAXFEEDRATE 10
+#define E0MAXFEEDRATE 6
 
 #define XSTEPPERMM 120
 #define YSTEPPERMM 120
 #define ZSTEPPERMM 420
-#define E0STEPPERMM 230
+#define E0STEPPERMM 380
 
-#define NUMBUFFER 5
+#define NUMBUFFER 4
 #define XMAX 0
 #define YMAX 0
-#define ZMAX 100
+#define ZMAX 168
 
 

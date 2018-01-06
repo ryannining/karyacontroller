@@ -3,7 +3,6 @@
 // functions for sending decimal
 #include<arduino.h>
 
-#endif
 
 #define write_uint8(v, w)  write_uint32(v, w)
 #define write_int8(v, w)   write_int32(v, w)
@@ -185,4 +184,5 @@ void sendf_P(PGM_P format_P, ...) {
 	}
 	va_end(args);
 }
+#endif
 

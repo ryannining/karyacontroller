@@ -1,7 +1,6 @@
 
 //#define output_enable
 
-extern int output_enable;
 #if defined(__AVR__) || defined(ESP8266)
 // AVR specific code here
 //#include <avr/pgmspace.h>
@@ -43,7 +42,7 @@ static void serial_writechar(uint8_t data) {
 }
 #define ff(f) (f)
 #define fi(f) (f)
-#define xprintf if (output_enable)printf
+#define xprintf printf
 #define zprintf printf
 #define sersendf_P printf
 #endif

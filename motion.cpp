@@ -2,6 +2,7 @@
 #include "common.h"
 #include "timer.h"
 #include "config_pins.h"
+#include "temp.h"
 #include <stdint.h>
 
 #if defined(__AVR__)
@@ -21,7 +22,7 @@ float homingspeed = HOMINGSPEED;
 float homeoffset[4] = {XOFFSET, YOFFSET, ZOFFSET, EOFFSET};
 float jerk[4] = {XJERK, YJERK, ZJERK, E0JERK};
 float accel[4] = {XACCELL, YACCELL, ZACCELL, E0ACCELL};
-float mvaccel[4] = {XACCELL, YACCELL, ZACCELL, E0ACCELL};
+float mvaccel[4] = {XMOVEACCELL, YMOVEACCELL, ZMOVEACCELL, E0ACCELL};
 float maxf[4] = {XMAXFEEDRATE, YMAXFEEDRATE, ZMAXFEEDRATE, E0MAXFEEDRATE};
 float stepmmx[4] = {XSTEPPERMM, YSTEPPERMM, ZSTEPPERMM, E0STEPPERMM};
 tmove move[NUMBUFFER];
@@ -52,31 +53,40 @@ void tmotor::onoff(int e) {
 void tmotor::init(int ax) {
   axis = ax;
   enable = 1;
+  pinenable=0;
   switch (ax) {
     case 0:
+      #ifdef xstep
       pinenable = xenable;
       pinstep = xstep;
       pindir = xdirection;
+      #endif
       break;
     case 1:
+      #ifdef ystep
       pinenable = yenable;
       pinstep = ystep;
       pindir = ydirection;
+      #endif
       break;
     case 2:
+      #ifdef zstep
       pinenable = zenable;
       pinstep = zstep;
       pindir = zdirection;
+      #endif
       break;
     case  3:
+      #ifdef e0step
       pinenable = e0enable;
       pinstep = e0step;
       pindir = e0direction;
+      #endif
       break;
     default:;
   }
-#if defined(__AVR__) || defined(ESP8266)
-  digitalWrite(pinenable, enable);
+#if defined(__AVR__) || defined(ESP8266)  
+  if (pinenable)digitalWrite(pinenable, enable);
 #endif
 }
 void tmotor::setdir(int dx) {
@@ -270,7 +280,7 @@ void planner(int32_t h)
   Rutin menambahkan sebuah vektor ke dalam buffer gerakan
 */
 float x1[NUMAXIS], x2[NUMAXIS];
-void addmove(float cf, float cx2, float cy2 , float cz2, float ce02,int8_t g0=1 )
+void addmove(float cf, float cx2, float cy2 , float cz2, float ce02,int8_t g0 )
 {
   //cf=100;
 #ifdef output_enable
@@ -365,6 +375,7 @@ void motionloop() {
 #endif
 #if defined(__AVR__) || defined(ESP8266)
   cm = micros();
+  temp_loop(cm);
   if ((nextmotoroff < cm) && (cm - nextmotoroff < 400000)) {
     //xprintf(PSTR("Motor off\n"));
     nextmotoroff = cm + motortimeout;
@@ -615,7 +626,8 @@ void homing(float x, float y, float z, float e0)
 #else
   cz1 = px[2] = 0;
 #endif
-
+  ce01 = 0;
+  px[3]= 0; 
   //xprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
 
 }
