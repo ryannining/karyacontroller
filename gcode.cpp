@@ -506,6 +506,7 @@ void process_gcode_command() {
         break;
       case 28:
         homing(0, 0, 0, 0);
+        next_target.target.axis[E]=0;
         printposition();
         break;
       

@@ -3,6 +3,7 @@
 #include "gcode.h"
 #include "temp.h"
 #include "timer.h"
+#include "eprom.h"
 #include<stdint.h>
 extern void demo();
 extern void motionloop();
@@ -87,8 +88,9 @@ void setup() {
   initmotion();
   init_gcode();
   init_temp();
+  reload_eeprom();
   zprintf(PSTR("start\nok\n"));
-  zprintf(PSTR("Motion demo\nok\n"));
+  //zprintf(PSTR("Motion demo\nok\n"));
   #ifdef USE_SDCARD
   demoSD();
   #endif

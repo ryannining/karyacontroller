@@ -89,6 +89,7 @@ class tmotor {
     int32_t enable;
     int axis, pinenable, pinstep, pindir;
     void stepping();
+    void steppingOff();
     void init(int ax);
     void onoff(int e);
     void setdir(int dx);
@@ -150,7 +151,15 @@ void tmotor::stepping()
   //xprintf("Stepping %d %d",(uint32_t)axis,(uint32_t)dx);
   digitalWrite(pinstep, 1);
   //delayMicroseconds(2);
+#else
+#endif
+}
+void tmotor::steppingOff()
+{
+#if defined(__AVR__) ||  defined(ESP8266)
+  //xprintf("Stepping %d %d",(uint32_t)axis,(uint32_t)dx);
   digitalWrite(pinstep, 0);
+  //delayMicroseconds(2);
 #else
 #endif
 }
@@ -482,6 +491,12 @@ void motionloop() {
               mcx[ix] += m->totalstep;
               mymotor[ix].stepping();
             }
+          }
+        }
+        
+        for (ix = 0; ix < NUMAXIS; ix++) {
+          if (m->sx[ix]) {
+              mymotor[ix].steppingOff();
           }
         }
         /*
