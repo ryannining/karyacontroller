@@ -458,7 +458,6 @@ void process_gcode_command() {
         //?
         //? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
         //?
-        temp_wait();
         if (!next_target.seen_F) {
           backup_f = next_target.target.F;
           next_target.target.F = maxf[X];
@@ -475,7 +474,6 @@ void process_gcode_command() {
         //?
         //? Go in a straight line from the current (X, Y) point to the point (90.6, 13.8), extruding material as the move happens from the current extruded length to a length of 22.4 mm.
         //?
-        temp_wait();
         //next_target.target.axis[E]=0;
         // auto retraction change
         enqueue(&next_target.target, 0);
@@ -510,77 +508,7 @@ void process_gcode_command() {
         homing(0, 0, 0, 0);
         printposition();
         break;
-      case 128:
-        //? --- G28: Home ---
-        //?
-        //? Example: G28
-        //?
-        //? This causes the RepRap machine to search for its X, Y and Z
-        //? endstops. It does so at high speed, so as to get there fast. When
-        //? it arrives it backs off slowly until the endstop is released again.
-        //? Backing off slowly ensures more accurate positioning.
-        //?
-        //? If you add axis characters, then just the axes specified will be
-        //? seached. Thus
-        //?
-        //?   G28 X Y72.3
-        //?
-        //? will zero the X and Y axes, but not Z. Coordinate values are
-        //? ignored.
-        //?
-
-        queue_wait();
-
-        if (next_target.seen_X) {
-          next_target.target.axis[X] = 0;
-#if defined	X_MIN_PIN
-          home_x_negative();
-#elif defined X_MAX_PIN
-          home_x_positive();
-#endif
-          axisSelected = 1;
-        }
-        if (next_target.seen_Y) {
-          next_target.target.axis[Y] = 0;
-#if defined	Y_MIN_PIN
-          home_y_negative();
-#elif defined Y_MAX_PIN
-          home_y_positive();
-#endif
-          axisSelected = 1;
-        }
-        if (next_target.seen_Z) {
-          //next_target.target.axis[Z] =0;
-#if defined Z_MIN_PIN
-          home_z_negative();
-#elif defined Z_MAX_PIN
-          home_z_positive();
-#endif
-          axisSelected = 1;
-        }
-        // there's no point in moving E, as E has no endstops
-
-        if (!axisSelected) {
-          temp_wait();
-          backup_f = next_target.target.F;
-          next_target.target.F = maxf[0] * 2L;
-          next_target.target.axis[X] =
-            next_target.target.axis[Y] = 0;
-          //next_target.target.axis[Z] =0;
-
-          //enqueue(&next_target.target);
-          next_target.target.F = backup_f;
-          startpoint.axis[E] = next_target.target.axis[E] = 0;
-          dda_new_startpoint();
-          //homing(0,0,0);
-        }
-        update_current_position();
-        zprintf(PSTR("X: %f Y: %f Z: %f\n"),  //F:%lu\n"
-                ff(current_position.axis[X]), current_position.axis[Y],
-                ff(current_position.axis[Z]));//,current_position.F);
-
-        break;
-
+      
       case 90:
         //? --- G90: Set to Absolute Positioning ---
         //?
@@ -863,7 +791,7 @@ void process_gcode_command() {
             case 51:
               eeprom_write_dword((uint32_t *) &EE_accelx, S_I);
               break;
-            case 54:
+            case 55:
               eeprom_write_dword((uint32_t *) &EE_accely, S_I);
               break;
             case 59:
