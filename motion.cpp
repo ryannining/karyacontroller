@@ -18,12 +18,12 @@
 
 
 
-int homingspeed;
+int32_t homingspeed;
 float homeoffset[4] ;
-int jerk[4] ;
-int accel[4];
-int mvaccel[4];
-int maxf[4];
+int32_t jerk[4] ;
+int32_t accel[4];
+int32_t mvaccel[4];
+int32_t maxf[4];
 float stepmmx[4];
 int8_t checkendstop;
 int8_t endstopstatus[3];

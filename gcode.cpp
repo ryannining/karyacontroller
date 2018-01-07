@@ -364,7 +364,8 @@ void temp_wait(void) {
     //delayMicroseconds(1000);
     if (c++>200000){
       c=0;
-      zprintf(PSTR("Heating\n"));
+      zprintf(PSTR("T:%f\n"), ff(Input));
+      //zprintf(PSTR("Heating\n"));
     }
   }
   wait_for_temp=0;
@@ -812,6 +813,7 @@ void process_gcode_command() {
               break;
           }
         reload_eeprom();
+        break;
 #endif
       case 220:
         //? --- M220: Set speed factor override percentage ---

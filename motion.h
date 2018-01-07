@@ -6,9 +6,9 @@
 typedef struct {
     int8_t  sx[NUMAXIS];
     int8_t  g0,bpos,planstatus,col,fastaxis,status;
-    int16_t fx[NUMAXIS];
-    int16_t fs,fn,fe;
-    int32_t dx[NUMAXIS];
+    float fx[NUMAXIS];
+    float fs,fn,fe;
+    float dx[NUMAXIS];
     int32_t totalstep,rampup,rampdown;       
     float ac1,ac2;
 } tmove;
@@ -16,12 +16,12 @@ typedef struct {
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 extern int32_t px[4];
-extern int homingspeed;
+extern int32_t homingspeed;
 extern float homeoffset[4];
-extern int jerk[4]; 
-extern int accel[4];
-extern int mvaccel[4];
-extern int maxf[4];
+extern int32_t jerk[4]; 
+extern int32_t accel[4];
+extern int32_t mvaccel[4];
+extern int32_t maxf[4];
 extern float stepmmx[4];
 extern tmove move[NUMBUFFER];
 extern float cx1,cy1,cz1,ce01,lf;

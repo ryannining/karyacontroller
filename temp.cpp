@@ -13,7 +13,7 @@ int wait_for_temp = 0;
 
 
 //Specify the links and initial tuning parameters
-PID myPID(&Input, &Output, &Setpoint, 2, 5, 1, DIRECT);
+PID myPID(&Input, &Output, &Setpoint, 8,2,12,DIRECT);//2, 5, 1, DIRECT);
 
 void set_temp(float set){
   Setpoint=set;
@@ -71,7 +71,7 @@ void temp_loop(uint32_t cm)
     ctemp = (ctemp + analogRead(temp_pin) *3) /4;
     Input =  read_temp(ctemp);
     #ifdef heater_pin
-      if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
+      //if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
       myPID.Compute();
       analogWrite(heater_pin, Output);
     #endif
