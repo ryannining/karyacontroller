@@ -148,4 +148,6 @@
 #define YMAX 0
 #define ZMAX 168
 
+//Feature
+#define USE_EEPROM
 

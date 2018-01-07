@@ -80,7 +80,6 @@ void temp_loop(uint32_t cm)
 int temp_achieved() {
   return fabs(Input-Setpoint)<10;
 }
-#endif
 
 #else
 
