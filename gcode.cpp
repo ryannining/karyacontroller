@@ -358,11 +358,11 @@ void doclock() {
 }
 void temp_wait(void) {
   wait_for_temp=1;
-  int c=0;
+  int32_t c=0;
   while (wait_for_temp && !temp_achieved()) {
     doclock();
-    delayMicroseconds(1000);
-    if (c++>2000){
+    //delayMicroseconds(1000);
+    if (c++>200000){
       c=0;
       zprintf(PSTR("Heating\n"));
     }
@@ -460,7 +460,7 @@ void process_gcode_command() {
         //?
         if (!next_target.seen_F) {
           backup_f = next_target.target.F;
-          next_target.target.F = maxf[X];
+          next_target.target.F = 500;
           enqueue(&next_target.target, 1);
           next_target.target.F = backup_f;
         } else
