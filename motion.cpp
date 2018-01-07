@@ -18,21 +18,71 @@
 
 
 
-float homingspeed = HOMINGSPEED;
-float homeoffset[4] = {XOFFSET, YOFFSET, ZOFFSET, EOFFSET};
-float jerk[4] = {XJERK, YJERK, ZJERK, E0JERK};
-float accel[4] = {XACCELL, YACCELL, ZACCELL, E0ACCELL};
-float mvaccel[4] = {XMOVEACCELL, YMOVEACCELL, ZMOVEACCELL, E0ACCELL};
-float maxf[4] = {XMAXFEEDRATE, YMAXFEEDRATE, ZMAXFEEDRATE, E0MAXFEEDRATE};
-float stepmmx[4] = {XSTEPPERMM, YSTEPPERMM, ZSTEPPERMM, E0STEPPERMM};
+int homingspeed;
+float homeoffset[4] ;
+int jerk[4] ;
+int accel[4];
+int mvaccel[4];
+int maxf[4];
+float stepmmx[4];
+int8_t checkendstop;
+int8_t endstopstatus[3];
+int32_t head, tail;
 tmove move[NUMBUFFER];
 float cx1, cy1, cz1, ce01, lf;
+float ax_max[3];
 
-int8_t checkendstop = 0;
-int8_t endstopstatus[3] = {0, 0, 0};
+void reset_motion(){
+    homingspeed=HOMINGSPEED;
+    homeoffset[0]=XOFFSET;
+    homeoffset[1]=YOFFSET;
+    homeoffset[2]=ZOFFSET;
+    homeoffset[3]=EOFFSET;
+
+    maxf[0]=XMAXFEEDRATE;
+    maxf[1]=YMAXFEEDRATE;
+    maxf[2]=ZMAXFEEDRATE;
+    maxf[3]=E0MAXFEEDRATE;
+    
+
+    jerk[0]=XJERK;
+    jerk[1]=YJERK;
+    jerk[2]=ZJERK;
+    jerk[3]=E0JERK;
+
+    accel[0]=XACCELL;
+    accel[1]=YACCELL;
+    accel[2]=ZACCELL;
+    accel[3]=E0ACCELL;
+
+    mvaccel[0]=XMOVEACCELL;
+    mvaccel[1]=YMOVEACCELL;
+    mvaccel[2]=ZMOVEACCELL;
+    mvaccel[3]=E0ACCELL;
+    
+    stepmmx[0]=XSTEPPERMM;
+    stepmmx[1]=YSTEPPERMM;
+    stepmmx[2]=ZSTEPPERMM;
+    stepmmx[3]=E0STEPPERMM;
+    
+    ax_max[0]=XMAX;
+    ax_max[1]=YMAX;
+    ax_max[2]=ZMAX;
+    
+    checkendstop=0;
+    endstopstatus[0]=0;
+    endstopstatus[1]=0;
+    endstopstatus[2]=0;
+    head=tail=0;
+    cx1=0;
+    cy1=0;
+    cz1=0;
+    ce01=0;
+    tick = 0;
+    
+}
+
 int32_t mcx[NUMAXIS];
-
-int32_t head, tail = 0;
 
 class tmotor {
   public:
@@ -607,22 +657,22 @@ void homing(float x, float y, float z, float e0)
   checkendstop = ce01 = 0;
 
 #ifdef xmax_pin
-  cx1 = XMAX;
-  px[0] = XMAX * stepmmx[0];
+  cx1 = ax_max[0];
+  px[0] = cx1 * stepmmx[0];
 #else
   cx1 = px[0] = 0;
 #endif
 
 #ifdef ymax_pin
-  cy1 = YMAX;
-  px[1] = YMAX * stepmmx[1];
+  cy1 = ax_max[1];
+  px[1] = cy1 * stepmmx[1];
 #else
   cy1 = px[1] = 0;
 #endif
 
 #ifdef zmax_pin
-  cz1 = ZMAX;
-  px[2] = ZMAX * stepmmx[2];
+  cz1 = ax_max[2];
+  px[2] = cz1 * stepmmx[2];
 #else
   cz1 = px[2] = 0;
 #endif
@@ -710,17 +760,9 @@ void needbuffer()
 */
 void initmotion() {
 
-
-  cx1 = 0;
-  cy1 = 0;
-  cz1 = 0;
-  ce01 = 0;
-  lf = 0;
-  tick = 0;
+  reset_motion();  
   tickscale = 120;
   fscale = 2;
-  head = 0;
-  tail = 0;
   int32_t i;
   for (i = 0; i < NUMAXIS; i++) {
     mymotor[i].init(i);

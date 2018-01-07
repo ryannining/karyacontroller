@@ -32,8 +32,10 @@ void gcode_loop() {
 
 }
 
+//#define USE_SDCARD
+#ifdef USE_SDCARD
 // generic sdcard add about 800byte ram and 8kb code
-/*
+
 #include <SPI.h>
 #include <SD.h>
 
@@ -77,7 +79,7 @@ void demoSD() {
     Serial.println("error opening test.txt");
   }
 }
-*/
+#endif
 void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
@@ -87,7 +89,9 @@ void setup() {
   init_temp();
   zprintf(PSTR("start\nok\n"));
   zprintf(PSTR("Motion demo\nok\n"));
-  //demoSD();
+  #ifdef USE_SDCARD
+  demoSD();
+  #endif
 }
 
 void loop() {

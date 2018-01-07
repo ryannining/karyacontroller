@@ -6,9 +6,7 @@
 #include<stdint.h>
 #if defined(__AVR__) || defined(ESP8266)
 #include<arduino.h>
-#else
-#include <stdio.h>
-#endif
+#include "eprom.h"
 /// crude crc macro
 #define crc(a, b)		(a ^ b)
 decfloat read_digit;
@@ -233,17 +231,7 @@ uint8_t gcode_parse_char(uint8_t c) {
         default:
 #ifdef	DEBUG
           // invalid
-#if defined(__AVR__)
-          Serial.print('?');
-          Serial.print(c);
-          Serial.print('\n');
-#elif defined(ESP8266)
-          Serial.print('?');
-          Serial.print(c);
-          Serial.print('\n');
-#else
           zprintf(PSTR("?%d\n"), c);
-#endif
 #endif
           break;
       }
@@ -339,10 +327,10 @@ void dda_new_startpoint() {
   cy1 = startpoint.axis[Y];
   cz1 = startpoint.axis[Z];
   ce01 = startpoint.axis[Z];
-  px[0]=cx1*stepmmx[0];
-  px[1]=cy1*stepmmx[1];
-  px[2]=cz1*stepmmx[2];
-  px[3]=ce01*stepmmx[3];
+  px[0] = cx1 * stepmmx[0];
+  px[1] = cy1 * stepmmx[1];
+  px[2] = cz1 * stepmmx[2];
+  px[3] = ce01 * stepmmx[3];
 
 }
 void queue_wait() {
@@ -370,21 +358,21 @@ void update_current_position() {
 
 }
 int32_t mvc = 0;
-void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond,int g0=1)
+void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond, int g0 = 1)
 {
   checkendstop = endstop_check;
-  addmove(t->F*t->f_multiplier, t->axis[X] 
-  ,t->axis[Y]
-  ,t->axis[Z]
-  ,t->axis[E]
-  ,g0);
+  addmove(t->F * t->f_multiplier, t->axis[X]
+          , t->axis[Y]
+          , t->axis[Z]
+          , t->axis[E]
+          , g0);
   //waitbufferempty();
 
 
 }
 static void enqueue(TARGET *) __attribute__ ((always_inline));
-inline void enqueue(TARGET *t,int g0=1) {
-  enqueue_home(t, 0, 0,g0);
+inline void enqueue(TARGET *t, int g0 = 1) {
+  enqueue_home(t, 0, 0, g0);
 }
 
 void process_gcode_command() {
@@ -445,7 +433,7 @@ void process_gcode_command() {
 
   if (next_target.seen_G) {
     uint8_t axisSelected = 0;
-    //sersendf_P(PSTR("Gcode %su \n"),next_target.G);
+    //zprintf(PSTR("Gcode %su \n"),next_target.G);
     switch (next_target.G) {
       case 0:
         //? G0: Rapid Linear Motion
@@ -458,10 +446,10 @@ void process_gcode_command() {
         if (!next_target.seen_F) {
           backup_f = next_target.target.F;
           next_target.target.F = maxf[X];
-          enqueue(&next_target.target,1);
+          enqueue(&next_target.target, 1);
           next_target.target.F = backup_f;
         } else
-          enqueue(&next_target.target,1);
+          enqueue(&next_target.target, 1);
         break;
 
       case 1:
@@ -474,7 +462,7 @@ void process_gcode_command() {
         temp_wait();
         //next_target.target.axis[E]=0;
         // auto retraction change
-        enqueue(&next_target.target,0);
+        enqueue(&next_target.target, 0);
         break;
 
       //	G2 - Arc Clockwise
@@ -503,8 +491,8 @@ void process_gcode_command() {
         }
         break;
       case 28:
-        homing(0,0,0,0);
-        break;  
+        homing(0, 0, 0, 0);
+        break;
       case 128:
         //? --- G28: Home ---
         //?
@@ -619,20 +607,19 @@ void process_gcode_command() {
         if (next_target.seen_X) {
           startpoint.axis[X] = next_target.target.axis[X];
           axisSelected = 1;
-        }
+        } else startpoint.axis[X] = cx1;
         if (next_target.seen_Y) {
           startpoint.axis[Y] = next_target.target.axis[Y];
           axisSelected = 1;
-        }
+        } else startpoint.axis[Y] = cy1;
         if (next_target.seen_Z) {
           startpoint.axis[Z] = next_target.target.axis[Z];
           axisSelected = 1;
-        }
+        } else startpoint.axis[Z] = cz1;
         if (next_target.seen_E) {
           lastE = startpoint.axis[E] = next_target.target.axis[E];
-
           axisSelected = 1;
-        }
+        } else startpoint.axis[E] = ce01;
 
         if (axisSelected == 0) {
           startpoint.axis[X] = next_target.target.axis[X] =
@@ -704,15 +691,15 @@ void process_gcode_command() {
         // disable laser/spindle
         break;
       case 104:
-          set_temp(next_target.S);
-          break;
+        set_temp(next_target.S);
+        break;
       case 105:
-          zprintf(PSTR("T:%f\n"),ff(Input));
-          break;
+        zprintf(PSTR("T:%f\n"), ff(Input));
+        break;
       case 109:
-          set_temp(next_target.S);
-          temp_wait();
-          break;
+        set_temp(next_target.S);
+        temp_wait();
+        break;
       case 7:
       case 107:
         // set laser pwm off
@@ -751,27 +738,14 @@ void process_gcode_command() {
         queue_wait();
 #endif
         zprintf(PSTR("X:%f Y:%f Z:%f F:%f\n"),
-                   ff(px[X]), ff(px[Y]),
-                   ff(px[Z]), ff(m->fn)   );
+                ff(px[X]), ff(px[Y]),
+                ff(px[Z]), ff(m->fn)   );
 
         break;
 
       case 115:
-        //? --- M115: Get Firmware Version and Capabilities ---
-        //?
-        //? Example: M115
-        //?
-        //? Request the Firmware Version and Capabilities of the current microcontroller
-        //? The details are returned to the host computer as key:value pairs separated by spaces and terminated with a linefeed.
-        //?
-        //? sample data from firmware:
-        //?  FIRMWARE_NAME:Teacup FIRMWARE_URL:http://github.com/traumflug/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:1 TEMP_SENSOR_COUNT:1 HEATER_COUNT:1
-        //?
+        zprintf(PSTR("FIRMWARE_NAME:Repetier_1.9 FIRMWARE_URL:null PROTOCOL_VERSION:1.0 MACHINE_TYPE:teacup EXTRUDER_COUNT:1 REPETIER_PROTOCOL:\n"));
 
-        //sersendf_P(PSTR("FIRMWARE_NAME:Teacup FIRMWARE_URL:http://github.com/traumflug/Teacup_Firmware/ PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel EXTRUDER_COUNT:%d TEMP_SENSOR_COUNT:%d HEATER_COUNT:%d\n"), 1, NUM_TEMP_SENSORS, NUM_HEATERS);
-        ///*
-        zprintf(PSTR("FIRMWARE_NAME:karyacontroller FIRMWARE_URL:null PROTOCOL_VERSION:1.0 MACHINE_TYPE:teacup EXTRUDER_COUNT:1 REPETIER_PROTOCOL:\n"));
-        //*/
         break;
 
 
@@ -781,36 +755,147 @@ void process_gcode_command() {
         //? firmware to the host.
         docheckendstop();
         zprintf(PSTR("Endstop:"));
-        for(int e=0;e<3;e++){
-          zprintf(endstopstatus[e]<0?PSTR("ON "):PSTR("OFF "));
+        for (int e = 0; e < 3; e++) {
+          zprintf(endstopstatus[e] < 0 ? PSTR("ON ") : PSTR("OFF "));
         }
         zprintf(PSTR("\n"));
-        
+
         break;
 
-      // unknown mcode: spit an error
-      case 220:
-        //? --- M220: Set speed factor override percentage ---
-        if ( ! next_target.seen_S)
-          break;
-        // Scale 100% = 256
-        next_target.target.f_multiplier = next_target.S/100;
+        // unknown mcode: spit an error
+#ifdef USE_EEPROM
+      case 502:
+        reset_eeprom();
+      case 205:
+        reload_eeprom();
+      case 503:
+        zprintf(PSTR("EPR:3 145 %f Xmax\n"), ff(ax_max[0]));
+        zprintf(PSTR("EPR:3 149 %f Ymax\n"), ff(ax_max[1]));
+        zprintf(PSTR("EPR:3 153 %f Zmax\n"), ff(ax_max[2]));
+
+        zprintf(PSTR("EPR:3 3 %f StepX\n"), ff(stepmmx[0]));
+        zprintf(PSTR("EPR:3 7 %f StepY\n"), ff(stepmmx[1]));
+        zprintf(PSTR("EPR:3 11 %f StepZ\n"), ff(stepmmx[2]));
+        zprintf(PSTR("EPR:3 0 %f StepE\n"), ff(stepmmx[3]));
+
+        zprintf(PSTR("EPR:2 15 %d MFX\n"), fi(maxf[0]));
+        zprintf(PSTR("EPR:2 19 %d MFY\n"), fi(maxf[1]));
+        zprintf(PSTR("EPR:2 23 %d MFZ\n"), fi(maxf[2]));
+        zprintf(PSTR("EPR:2 27 %d MFE\n"), fi(maxf[3]));
+
+
+        zprintf(PSTR("EPR:3 51 %d AccelX\n"), fi(accel[0]));
+        zprintf(PSTR("EPR:3 55 %d AccelY\n"), fi(accel[1]));
+        zprintf(PSTR("EPR:3 59 %d AccelZ\n"), fi(accel[2]));
+        zprintf(PSTR("EPR:3 63 %d AccelE\n"), fi(accel[3]));
+        zprintf(PSTR("EPR:3 67 %d Mv AccelX\n"), fi(mvaccel[0]));
+        zprintf(PSTR("EPR:3 71 %d Mv AccelY\n"), fi(mvaccel[1]));
+        zprintf(PSTR("EPR:3 75 %d Mv AccelZ\n"), fi(mvaccel[2]));
+
+        zprintf(PSTR("EPR:2 35 %d XJerk\n"), fi(jerk[0]));
+        zprintf(PSTR("EPR:2 39 %d XJerk\n"), fi(jerk[1]));
+        zprintf(PSTR("EPR:2 43 %d Zjerk\n"), fi(jerk[2]));
+        zprintf(PSTR("EPR:2 47 %d Ejerk\n"), fi(jerk[3]));
+
+
         break;
-      default:
-        zprintf(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
-    } // switch (next_target.M)
-  } // else if (next_target.seen_M)
-} // process_gcode_command()
+      case 206:
+        if (next_target.seen_X)next_target.S = next_target.target.axis[X];
+        int32_t S_F;
+        S_F=(next_target.S*1000);
+        int32_t S_I;
+        S_I=(next_target.S);
+        if (next_target.seen_P)
+          switch (next_target.P) {
+            case 153:
+              eeprom_write_dword((uint32_t *) &EE_zmax, S_F);
+              break;
+            case 0:
+              eeprom_write_dword((uint32_t *) &EE_estepmm, S_F);
+              break;
+            case 3:
+              eeprom_write_dword((uint32_t *) &EE_xstepmm, S_F);
+              break;
+            case 7:
+              eeprom_write_dword((uint32_t *) &EE_ystepmm, S_F);
+              break;
+            case 11:
+              eeprom_write_dword((uint32_t *) &EE_zstepmm, S_F);
+              break;
+            case 15:
+              eeprom_write_dword((uint32_t *) &EE_max_x_feedrate, S_I);
+              break;
+            case 19:
+              eeprom_write_dword((uint32_t *) &EE_max_y_feedrate, S_I);
+              break;
+            case 23:
+              eeprom_write_dword((uint32_t *) &EE_max_z_feedrate, S_I);
+              break;
+            case 27:
+              eeprom_write_dword((uint32_t *) &EE_max_e_feedrate, S_I);
+              break;
+            case 35:
+              eeprom_write_dword((uint32_t *) &EE_xjerk, S_I);
+              break;
+            case 39:
+              eeprom_write_dword((uint32_t *) &EE_yjerk, S_I);
+              break;
+            case 43:
+              eeprom_write_dword((uint32_t *) &EE_zjerk, S_I);
+              break;
+            case 47:
+              eeprom_write_dword((uint32_t *) &EE_ejerk, S_I);
+              break;
+            case 51:
+              eeprom_write_dword((uint32_t *) &EE_accelx, S_I);
+              break;
+            case 54:
+              eeprom_write_dword((uint32_t *) &EE_accely, S_I);
+              break;
+            case 59:
+              eeprom_write_dword((uint32_t *) &EE_accelz, S_I);
+              break;
+            case 63:
+              eeprom_write_dword((uint32_t *) &EE_accele, S_I);
+              break;
+            case 67:
+              eeprom_write_dword((uint32_t *) &EE_mvaccelx, S_I);
+              break;
+            case 71:
+              eeprom_write_dword((uint32_t *) &EE_mvaccely, S_I);
+              break;
+            case 75:
+              eeprom_write_dword((uint32_t *) &EE_mvaccelz, S_I);
+              break;
+          }
+          reload_eeprom();
+#endif
+            case 220:
+              //? --- M220: Set speed factor override percentage ---
+              if ( ! next_target.seen_S)
+                break;
+              // Scale 100% = 256
+              next_target.target.f_multiplier = next_target.S / 100;
+              break;
 
-void init_gcode() {
-  startpoint.axis[0] = startpoint.axis[1] = startpoint.axis[2] = 0;
-  startpoint.F = 100;
-  current_position.axis[0] = current_position.axis[1] = current_position.axis[2] = 0;
-  next_target.target.F = 100;
-  next_target.target.f_multiplier =1;
-  next_target.option_all_relative=0;
+            default:;
+              //zprintf(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
+          } // switch (next_target.M)
+    } // else if (next_target.seen_M)
+  } // process_gcode_command()
 
-}
+  void init_gcode() {
+    startpoint.axis[0] = startpoint.axis[1] = startpoint.axis[2] = 0;
+    startpoint.F = 100;
+    current_position.axis[0] = current_position.axis[1] = current_position.axis[2] = 0;
+    next_target.target.F = 100;
+    next_target.target.f_multiplier = 1;
+    next_target.option_all_relative = 0;
 
+  }
+
+#else
+#include <stdio.h>
+#endif
 
 

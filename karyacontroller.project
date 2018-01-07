@@ -107,5 +107,7 @@
     <File Name="thermistortable.h"/>
     <File Name="temp.h"/>
     <File Name="temp.cpp"/>
+    <File Name="eprom.cpp"/>
+    <File Name="eprom.h"/>
   </VirtualDirectory>
 </CodeLite_Project>

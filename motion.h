@@ -16,19 +16,19 @@ typedef struct {
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 extern int32_t px[4];
-extern float homingspeed;
+extern int homingspeed;
 extern float homeoffset[4];
-extern float jerk[4]; 
-extern float accel[4];
-extern float mvaccel[4];
-extern float maxf[4];
+extern int jerk[4]; 
+extern int accel[4];
+extern int mvaccel[4];
+extern int maxf[4];
 extern float stepmmx[4];
 extern tmove move[NUMBUFFER];
 extern float cx1,cy1,cz1,ce01,lf;
 extern int32_t head,tail;
 extern int8_t checkendstop;
 extern int8_t endstopstatus[3];
-
+extern float ax_max[3];
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 #define ACCELL(v0,v1,a) v0<v1?a:-a
@@ -62,8 +62,7 @@ extern void homing(float x,float y ,float z,float e0 );
 extern float tick,fscale;
 extern int32_t bufflen();
 extern void docheckendstop();
+extern void reset_motion();
 
-extern float homingspeed;
-extern float homeoffset[4];
 
 
