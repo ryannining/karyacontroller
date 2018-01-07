@@ -12,6 +12,7 @@ its not 100% exact code, but i have read lots of their code, so my code will eff
 
 
 feature i need to have in this software is: (* implemented)
+- Per motor step using float speed ramping acceleration (smooth ) *
 - per axis acceleration *
 - per axis max feedrate *
 - per axis jerk  *
@@ -22,12 +23,14 @@ feature i need to have in this software is: (* implemented)
 - implement flow control between motion gcode and non motion gcode *
 - 4 axis X Y Z E *
 - implement endstop reading (xmin xmax , etc)*
-- config files to set pins and parameter
-- G0 and G1 can have different acceleration (travel vs feed/extrude)
+- eeprom configuration (step/mm, accel, travel accel, jerk, max axis) *
+- heater with PID E0 *
+- config files to set pins and parameter *
+- G0 and G1 can have different acceleration (travel vs feed/extrude) *
+- backlash for all motor
 - backward planner
 - interrupt timing
-- eeprom configuration
-- heater E0
+
 
 
 for now it still not use timer interrupt, just use micros() to control the timing..

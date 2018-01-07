@@ -326,13 +326,20 @@ void dda_new_startpoint() {
   cx1 = startpoint.axis[X];
   cy1 = startpoint.axis[Y];
   cz1 = startpoint.axis[Z];
-  ce01 = startpoint.axis[Z];
+  ce01 = startpoint.axis[E];
   px[0] = cx1 * stepmmx[0];
   px[1] = cy1 * stepmmx[1];
   px[2] = cz1 * stepmmx[2];
   px[3] = ce01 * stepmmx[3];
 
 }
+void printposition() {
+  zprintf(PSTR("X:%f Y:%f Z:%f E:%f\n"),
+          ff(cx1), ff(cy1),
+          ff(cz1), ff(ce01));
+
+}
+
 void queue_wait() {
   needbuffer();
 }
@@ -350,9 +357,17 @@ void doclock() {
   motionloop();
 }
 void temp_wait(void) {
-  while (wait_for_temp && ! temp_achieved()) {
+  wait_for_temp=1;
+  int c=0;
+  while (wait_for_temp && !temp_achieved()) {
     doclock();
+    delayMicroseconds(1000);
+    if (c++>2000){
+      c=0;
+      zprintf(PSTR("Heating\n"));
+    }
   }
+  wait_for_temp=0;
 }
 void update_current_position() {
 
@@ -383,6 +398,7 @@ void process_gcode_command() {
     next_target.target.axis[X] += cx1;//startpoint.axis[X];
     next_target.target.axis[Y] += cy1;//startpoint.axis[Y];
     next_target.target.axis[Z] += cz1;//startpoint.axis[Z];
+    next_target.target.axis[E] += ce01;//startpoint.axis[Z];
   }
 
   // E relative movement.
@@ -492,6 +508,7 @@ void process_gcode_command() {
         break;
       case 28:
         homing(0, 0, 0, 0);
+        printposition();
         break;
       case 128:
         //? --- G28: Home ---
@@ -737,10 +754,7 @@ void process_gcode_command() {
         // wait for all moves to complete
         queue_wait();
 #endif
-        zprintf(PSTR("X:%f Y:%f Z:%f F:%f\n"),
-                ff(px[X]), ff(px[Y]),
-                ff(px[Z]), ff(m->fn)   );
-
+        printposition();
         break;
 
       case 115:
@@ -802,9 +816,9 @@ void process_gcode_command() {
       case 206:
         if (next_target.seen_X)next_target.S = next_target.target.axis[X];
         int32_t S_F;
-        S_F=(next_target.S*1000);
+        S_F = (next_target.S * 1000);
         int32_t S_I;
-        S_I=(next_target.S);
+        S_I = (next_target.S);
         if (next_target.seen_P)
           switch (next_target.P) {
             case 153:
@@ -868,31 +882,31 @@ void process_gcode_command() {
               eeprom_write_dword((uint32_t *) &EE_mvaccelz, S_I);
               break;
           }
-          reload_eeprom();
+        reload_eeprom();
 #endif
-            case 220:
-              //? --- M220: Set speed factor override percentage ---
-              if ( ! next_target.seen_S)
-                break;
-              // Scale 100% = 256
-              next_target.target.f_multiplier = next_target.S / 100;
-              break;
+      case 220:
+        //? --- M220: Set speed factor override percentage ---
+        if ( ! next_target.seen_S)
+          break;
+        // Scale 100% = 256
+        next_target.target.f_multiplier = next_target.S / 100;
+        break;
 
-            default:;
-              //zprintf(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
-          } // switch (next_target.M)
-    } // else if (next_target.seen_M)
-  } // process_gcode_command()
+      default:;
+        //zprintf(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
+    } // switch (next_target.M)
+  } // else if (next_target.seen_M)
+} // process_gcode_command()
 
-  void init_gcode() {
-    startpoint.axis[0] = startpoint.axis[1] = startpoint.axis[2] = 0;
-    startpoint.F = 100;
-    current_position.axis[0] = current_position.axis[1] = current_position.axis[2] = 0;
-    next_target.target.F = 100;
-    next_target.target.f_multiplier = 1;
-    next_target.option_all_relative = 0;
+void init_gcode() {
+  startpoint.axis[0] = startpoint.axis[1] = startpoint.axis[2] = 0;
+  startpoint.F = 100;
+  current_position.axis[0] = current_position.axis[1] = current_position.axis[2] = 0;
+  next_target.target.F = 100;
+  next_target.target.f_multiplier = 1;
+  next_target.option_all_relative = 0;
 
-  }
+}
 
 #else
 #include <stdio.h>

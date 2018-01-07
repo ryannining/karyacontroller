@@ -9,7 +9,8 @@
 
 
 //#define MACHINE_TARANTHOLE
-#define MACHINE_SEMEDIY128AU
+#define MACHINE_NANONANO
+//#define MACHINE_SEMEDIY128AU
 
 /*
  *   TARANTHOLE
@@ -41,6 +42,39 @@
 #define zmin_pin 0
 */
 
+#define zmax_pin 13
+#define temp_pin A6
+#define heater_pin 3
+
+
+#elif defined(MACHINE_NANONANO)
+
+#define xenable 2
+#define xdirection 6
+#define xstep 4
+
+#define yenable 7
+#define ydirection 9
+#define ystep 8
+
+#define zenable 10
+#define zdirection A5
+#define zstep A4
+
+#define e0enable 5
+#define e0direction A2
+#define e0step A3
+
+
+/*#define xmin_pin 0
+#define xmax_pin 0
+#define ymin_pin 0
+#define ymax_pin 0
+#define zmin_pin 0
+*/
+
+#define xmin_pin A1
+#define ymin_pin A0
 #define zmax_pin 13
 #define temp_pin A6
 #define heater_pin 3
@@ -101,6 +135,7 @@
 #define zstep D3
 
 #define zmax_pin 8
+
 #define temp_pin A0
 #define heater_pin 3
 
@@ -162,7 +197,7 @@
 
 #define XJERK 25
 #define YJERK 25
-#define ZJERK 5
+#define ZJERK 15
 #define E0JERK 5
 
 #define XACCELL 500
@@ -182,10 +217,10 @@
 
 #define XSTEPPERMM 120
 #define YSTEPPERMM 120
-#define ZSTEPPERMM 420
-#define E0STEPPERMM 380
+#define ZSTEPPERMM 137//420
+#define E0STEPPERMM 60//380
 
-#define NUMBUFFER 4
+#define NUMBUFFER 8
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168

@@ -32,54 +32,54 @@ tmove move[NUMBUFFER];
 float cx1, cy1, cz1, ce01, lf;
 float ax_max[3];
 
-void reset_motion(){
-    homingspeed=HOMINGSPEED;
-    homeoffset[0]=XOFFSET;
-    homeoffset[1]=YOFFSET;
-    homeoffset[2]=ZOFFSET;
-    homeoffset[3]=EOFFSET;
+void reset_motion() {
+  homingspeed = HOMINGSPEED;
+  homeoffset[0] = XOFFSET;
+  homeoffset[1] = YOFFSET;
+  homeoffset[2] = ZOFFSET;
+  homeoffset[3] = EOFFSET;
 
-    maxf[0]=XMAXFEEDRATE;
-    maxf[1]=YMAXFEEDRATE;
-    maxf[2]=ZMAXFEEDRATE;
-    maxf[3]=E0MAXFEEDRATE;
-    
+  maxf[0] = XMAXFEEDRATE;
+  maxf[1] = YMAXFEEDRATE;
+  maxf[2] = ZMAXFEEDRATE;
+  maxf[3] = E0MAXFEEDRATE;
 
-    jerk[0]=XJERK;
-    jerk[1]=YJERK;
-    jerk[2]=ZJERK;
-    jerk[3]=E0JERK;
 
-    accel[0]=XACCELL;
-    accel[1]=YACCELL;
-    accel[2]=ZACCELL;
-    accel[3]=E0ACCELL;
+  jerk[0] = XJERK;
+  jerk[1] = YJERK;
+  jerk[2] = ZJERK;
+  jerk[3] = E0JERK;
 
-    mvaccel[0]=XMOVEACCELL;
-    mvaccel[1]=YMOVEACCELL;
-    mvaccel[2]=ZMOVEACCELL;
-    mvaccel[3]=E0ACCELL;
-    
-    stepmmx[0]=XSTEPPERMM;
-    stepmmx[1]=YSTEPPERMM;
-    stepmmx[2]=ZSTEPPERMM;
-    stepmmx[3]=E0STEPPERMM;
-    
-    ax_max[0]=XMAX;
-    ax_max[1]=YMAX;
-    ax_max[2]=ZMAX;
-    
-    checkendstop=0;
-    endstopstatus[0]=0;
-    endstopstatus[1]=0;
-    endstopstatus[2]=0;
-    head=tail=0;
-    cx1=0;
-    cy1=0;
-    cz1=0;
-    ce01=0;
-    tick = 0;
-    
+  accel[0] = XACCELL;
+  accel[1] = YACCELL;
+  accel[2] = ZACCELL;
+  accel[3] = E0ACCELL;
+
+  mvaccel[0] = XMOVEACCELL;
+  mvaccel[1] = YMOVEACCELL;
+  mvaccel[2] = ZMOVEACCELL;
+  mvaccel[3] = E0ACCELL;
+
+  stepmmx[0] = XSTEPPERMM;
+  stepmmx[1] = YSTEPPERMM;
+  stepmmx[2] = ZSTEPPERMM;
+  stepmmx[3] = E0STEPPERMM;
+
+  ax_max[0] = XMAX;
+  ax_max[1] = YMAX;
+  ax_max[2] = ZMAX;
+
+  checkendstop = 0;
+  endstopstatus[0] = 0;
+  endstopstatus[1] = 0;
+  endstopstatus[2] = 0;
+  head = tail = 0;
+  cx1 = 0;
+  cy1 = 0;
+  cz1 = 0;
+  ce01 = 0;
+  tick = 0;
+
 }
 
 int32_t mcx[NUMAXIS];
@@ -103,39 +103,39 @@ void tmotor::onoff(int e) {
 void tmotor::init(int ax) {
   axis = ax;
   enable = 1;
-  pinenable=0;
+  pinenable = 0;
   switch (ax) {
     case 0:
-      #ifdef xstep
+#ifdef xstep
       pinenable = xenable;
       pinstep = xstep;
       pindir = xdirection;
-      #endif
+#endif
       break;
     case 1:
-      #ifdef ystep
+#ifdef ystep
       pinenable = yenable;
       pinstep = ystep;
       pindir = ydirection;
-      #endif
+#endif
       break;
     case 2:
-      #ifdef zstep
+#ifdef zstep
       pinenable = zenable;
       pinstep = zstep;
       pindir = zdirection;
-      #endif
+#endif
       break;
     case  3:
-      #ifdef e0step
+#ifdef e0step
       pinenable = e0enable;
       pinstep = e0step;
       pindir = e0direction;
-      #endif
+#endif
       break;
     default:;
   }
-#if defined(__AVR__) || defined(ESP8266)  
+#if defined(__AVR__) || defined(ESP8266)
   if (pinenable)digitalWrite(pinenable, enable);
 #endif
 }
@@ -179,16 +179,18 @@ void safespeed(tmove *m) {
       m->fx[i] = m->fn * m->dx[i] / m->totalstep;
       //print32_t .fx(i)
 
-      float scale2 = maxf[i] / m->fx[i];
+      //xprintf(PSTR("MF:%f F:%f\n"),ff((float)maxf[i]),ff((float)m->fx[i]));
+      float scale2 = (float)maxf[i] / (float)m->fx[i];
       if (scale2 < scale) scale = scale2;
     }
   }
   // update all speed
 
   m->fn = m->fn * scale;
+  //xprintf(PSTR("SCALE:%f\n"),ff(scale));
   for (i = 0; i < NUMAXIS; i++) {
     m->fx[i] = m->fx[i] * scale * m->sx[i];
-    //xprintf("F%d:%f\n",i,ff(m->fx[i]));
+    //xprintf(PSTR("F%d:%f\n"),i,ff((float)m->fx[i]));
   }
   //print32_t "w",.fx(1),.fx(2),.fx(3)
 }
@@ -216,7 +218,7 @@ void prepareramp(int32_t bpos)
 
   float t, ac;
   float stepmm = stepmmx[m->fastaxis];
-  if (m->g0)  ac = mvaccel[m->fastaxis];else ac = accel[m->fastaxis];
+  if (m->g0)  ac = mvaccel[m->fastaxis]; else ac = accel[m->fastaxis];
   m->ac1 = ACCELL(m->fs, m->fn, ac);
   m->ac2 = ACCELL(m->fn, m->fe, ac);
   m->rampup = ramplen(m->fs, m->fn, m->ac1, stepmm);
@@ -330,7 +332,7 @@ void planner(int32_t h)
   Rutin menambahkan sebuah vektor ke dalam buffer gerakan
 */
 float x1[NUMAXIS], x2[NUMAXIS];
-void addmove(float cf, float cx2, float cy2 , float cz2, float ce02,int8_t g0 )
+void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int8_t g0 )
 {
   //cf=100;
 #ifdef output_enable
@@ -342,7 +344,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02,int8_t g0 )
   needbuffer();
   tmove *am;
   am = &move[nextbuff(head)];
-  am->g0=g0;
+  am->g0 = g0;
   am->col = 2 + (head % 2) * 8;
   x1[0] = cx1 * stepmmx[0];
   x1[1] = cy1 * stepmmx[1];
@@ -469,7 +471,7 @@ void motionloop() {
         putpixel (px[0] / stepmmx[0] + 50, px[1] / stepmmx[1] + 40, c);
         //pset (x(1)/stepmmx(1)+50,x(2)/stepmmx(2)+40),c
 #endif
-        //if (mctr % 60==0)xprintf("F:%f Dly-%fus\n", ff(f),ff(dl));
+        //if (mctr % 60==0)xprintf(PSTR("F:%f Dly-%fus\n"), ff(f),ff(dl));
         // bresenham work on motor step
         // v2, much simpler
         for (ix = 0; ix < NUMAXIS; ix++) {
@@ -636,21 +638,37 @@ void homing(float x, float y, float z, float e0)
   //xprintf(PSTR("ENDSTOP %d %d %d\n"), (int32_t)endstopstatus[0], (int32_t)endstopstatus[1], (int32_t)endstopstatus[2]);
   //xprintf(PSTR("Position %f %f %f \n"), ff(cx1), ff(cy1), ff(cz1));
   for (int32_t e = 0; e < 3; e++) {
-    // move away from endstop
     if (tx[e]) {
-      xx[e] = px[e] / stepmmx[e] - tx[e] / 100;
+    // move away from endstop
+      xx[e] = px[e] / stepmmx[e] - tx[e] / 200;
       checkendstop = 0;
-      addmove(homingspeed/10, xx[0], xx[1], xx[2], ce01);
-      waitbufferempty();
-      // check endstop again slowly
+      addmove(homingspeed / 5, xx[0], xx[1], xx[2], ce01);
+    }
+  }
+  waitbufferempty();
+  for (int32_t e = 0; e < 3; e++) {
+    if (tx[e]) {
+      // check endstop again fast
       xx[e] = tx[e];
       checkendstop = 1;
-      addmove(homingspeed / 20, xx[0], xx[1], xx[2], ce01);
+      addmove(homingspeed, xx[0], xx[1], xx[2], ce01);
       waitbufferempty();
-      // move away again
-      xx[e] = px[e] / stepmmx[e] - tx[e] / 500;
+      // move abit
+      xx[e] = px[e] / stepmmx[e] - tx[e] / 200;
       checkendstop = 0;
-      addmove(homingspeed / 20, xx[0], xx[1], xx[2], ce01);
+      addmove(homingspeed / 5, xx[0], xx[1], xx[2], ce01);
+      waitbufferempty();
+      
+      // check endstop again slow
+      xx[e] = tx[e];
+      checkendstop = 1;
+      addmove(homingspeed/20, xx[0], xx[1], xx[2], ce01);
+      waitbufferempty();
+      
+      // move away again
+      xx[e] = px[e] / stepmmx[e] - tx[e] / 250;
+      checkendstop = 0;
+      addmove(homingspeed / 10, xx[0], xx[1], xx[2], ce01);
       waitbufferempty();
     }
   }
@@ -677,7 +695,7 @@ void homing(float x, float y, float z, float e0)
   cz1 = px[2] = 0;
 #endif
   ce01 = 0;
-  px[3]= 0; 
+  px[3] = 0;
   //xprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
 
 }
@@ -760,7 +778,7 @@ void needbuffer()
 */
 void initmotion() {
 
-  reset_motion();  
+  reset_motion();
   tickscale = 120;
   fscale = 2;
   int32_t i;
