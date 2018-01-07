@@ -5,8 +5,18 @@
  * 
  */ 
 #if defined(__AVR__)
-
 #include<arduino.h>
+
+
+//#define MACHINE_TARANTHOLE
+#define MACHINE_SEMEDIY128AU
+
+/*
+ *   TARANTHOLE
+ * 
+ */
+#ifdef MACHINE_TARANTHOLE
+
 #define xenable 2
 #define xdirection 6
 #define xstep 4
@@ -35,6 +45,38 @@
 #define temp_pin A6
 #define heater_pin 3
 
+
+#elif defined(MACHINE_SEMEDIY128AU)
+
+#define xenable 43//50
+#define xstep 42//49
+#define xdirection 44 // 51
+
+#define yenable 40//47
+#define ystep 39//46
+#define ydirection 38//44
+
+#define zenable 33//40
+#define zstep 31//38
+#define zdirection 29//36
+
+#define e0enable 28//35
+#define e0step 30//37
+#define e0direction 24//31
+
+
+/*#define xmin_pin 0
+#define xmax_pin 0
+#define ymin_pin 0
+#define ymax_pin 0
+#define zmin_pin 0
+*/
+
+#define zmax_pin 13
+//#define temp_pin A6
+//#define heater_pin 3
+
+#endif
 
 /*
  * 
