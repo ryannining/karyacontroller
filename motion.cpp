@@ -151,6 +151,7 @@ void tmotor::stepping()
   //xprintf("Stepping %d %d",(uint32_t)axis,(uint32_t)dx);
   digitalWrite(pinstep, 1);
   //delayMicroseconds(2);
+  //digitalWrite(pinstep, 0);
 #else
 #endif
 }
@@ -278,8 +279,9 @@ void prepareramp(int32_t bpos)
   xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
 #endif
   m->planstatus = 1;
-  m->ac1 /= timescale;
-  m->ac2 /= timescale;
+  m->ac1 *= stepmmx[m->fastaxis] / timescale;
+  m->ac2 *= stepmmx[m->fastaxis] / timescale;
+  //zprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
 }
 
 /*
@@ -401,10 +403,10 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int8_t g0 )
   head = nextbuff(head);
   am->bpos = head;
   planner(head);
-  cx1 = cx2;
-  cy1 = cy2;
-  cz1 = cz2;
-  ce01 = ce02;
+  cx1 = cx1+am->sx[0]*am->dx[0]/stepmmx[0];
+  cy1 = cy1+am->sx[1]*am->dx[1]/stepmmx[1];
+  cz1 = cz1+am->sx[2]*am->dx[2]/stepmmx[2];
+  ce01 = ce01+am->sx[3]*am->dx[3]/stepmmx[3];
   am->status = 1; // 0: finish 1:ready 2:running
 }
 
@@ -412,7 +414,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int8_t g0 )
 tmove *m = 0;
 float tick, tickscale, fscale;
 int32_t px[4] = {0, 0, 0, 0 };
-float f, dl;
+int32_t ac1,ac2,f, dl;
 int32_t mctr;
 uint32_t nextmicros;
 uint32_t nextmotoroff;
@@ -430,8 +432,8 @@ uint32_t nextmotoroff;
 
 void motionloop() {
   uint32_t cm, ix;
+#if defined(ESP8266)
   feedthedog();
-#if defined(__AVR__) || defined(ESP8266)
   //delayMicroseconds(1);
 #endif
 #if defined(__AVR__) || defined(ESP8266)
@@ -452,27 +454,21 @@ void motionloop() {
   if (m->status == 2) {
     // debug the micros
 #if defined(__AVR__) || defined(ESP8266)
-    cm = micros();
+    //cm = micros();
     if ((nextmicros < cm) && (cm - nextmicros < 100000)) {
 #else
     if (1) {
 #endif
       if (m->totalstep) {
-        if (f > 0)
-          dl = timescale / (f * stepmmx[m->fastaxis]);
-        else
-          dl = timescale / stepmmx[m->fastaxis];
-
-        tick = tick + dl;//1.0/timescale;
-        int32_t c = m->col;
-        //xprintf("Speed: %f\n",f);
-        //if (mctr % 60==0)xprintf(PSTR("%d"),nextmicros);
-
+        dl = timescale*256 / f;
         nextmotoroff = cm + motortimeout;
+        nextmicros = cm + dl;
 #if defined(__AVR__) || defined(ESP8266)
         // ESP8266 specific code here
         nextmicros = cm + dl;
 #else
+        tick = tick + dl;//1.0/timescale;
+        int32_t c = m->col;
         nextmicros = cm + dl;
 
         //pset (tick*tickscale+10,400-f*fscale),c
@@ -480,25 +476,25 @@ void motionloop() {
         putpixel (px[0] / stepmmx[0] + 50, px[1] / stepmmx[1] + 40, c);
         //pset (x(1)/stepmmx(1)+50,x(2)/stepmmx(2)+40),c
 #endif
-        //if (mctr % 60==0)xprintf(PSTR("F:%f Dly-%fus\n"), ff(f),ff(dl));
         // bresenham work on motor step
         // v2, much simpler
-        for (ix = 0; ix < NUMAXIS; ix++) {
-          if (m->sx[ix]) {
-            mcx[ix] -= m->dx[ix];
-            if (mcx[ix] < 0) {
-              px[ix] += m->sx[ix];
-              mcx[ix] += m->totalstep;
-              mymotor[ix].stepping();
-            }
-          }
+
+        #define bresenham(ix) {\
+              if (m->sx[ix]) {\
+                mcx[ix] -= m->dx[ix];\
+                if (mcx[ix] < 0) {\
+                  mymotor[ix].stepping();\
+                  px[ix] += m->sx[ix];\
+                  mcx[ix] += m->totalstep;\
+                  mymotor[ix].steppingOff();\
+                }\
+              }\
         }
+        bresenham(0);
+        bresenham(1);
+        bresenham(2);
+        bresenham(3);
         
-        for (ix = 0; ix < NUMAXIS; ix++) {
-          if (m->sx[ix]) {
-              mymotor[ix].steppingOff();
-          }
-        }
         /*
                 for (ix = 0; ix < NUMAXIS; ix++) {
                   if (m->sx[ix]) {
@@ -514,58 +510,39 @@ void motionloop() {
         */
         // next speed
         if (mctr < m->rampup) {
-          //if (m->ac1>0 and f<.fn) or ( .ac1<0 and f>.fn) then
-          f = f + m->ac1 * dl;
-          //if (f < 1)f = 1;
-          //if ((m->ac1>0) && (f>m->fn))f=m->fn;
-          //if ((m->ac1<0) && (f<m->fn))f=m->fn;
-          //xprintf("Dl:%f\n",ff(dl*timescale));
+          f = f +(ac1 * dl);
         }
         else if (mctr > m->totalstep - m->rampdown )
         {
-          //if (.ac2>0 and f<=.fe) or ( .ac2<0 and f>=.fe) then
-          f = f + m->ac2 * dl;
-          //if (f < 1)f = 1;
-          //if ((m->ac2>0) && (f>m->fn))f=m->fn;
-          //if ((m->ac2<0) && (f<m->fn))f=m->fn;
-          //if (f>m->fn)f=m->fn;
-
-        }
-        else {
-          f = m->fn;
-
+          f = f +(ac2 * dl);
         }
         //if (m->bpos==8)
-        //    if (mctr % 60==0)xprintf(PSTR("F:%f\n"),ff(f));
+        //if (mctr % 60 == 0)zprintf(PSTR("F:%f D:%d\n"), ff(f/ stepmmx[m->fastaxis]),dl);
         mctr++;
 
-        // delay (dl*F_CPU)
-        // next timer
-        // if finish call
-      }
-      if (checkendstop) {
-        docheckendstop();
-        for (int32_t e = 0; e < 3; e++)
-        {
-          if (endstopstatus[e] < 0) {
-            m->status = 0;
-            m = 0;
-            checkendstop = 0;
-            //xprintf(PSTR("here\n"));
-            cx1 = px[0] / stepmmx[0];
-            cy1 = px[1] / stepmmx[1];
-            cz1 = px[2] / stepmmx[2];
-            ce01 = px[3] / stepmmx[3];
-            return;
+        if (checkendstop) {
+          docheckendstop();
+          for (int32_t e = 0; e < 3; e++)
+          {
+            if (endstopstatus[e] < 0) {
+              m->status = 0;
+              m = 0;
+              checkendstop = 0;
+              //xprintf(PSTR("here\n"));
+              cx1 = px[0] / stepmmx[0];
+              cy1 = px[1] / stepmmx[1];
+              cz1 = px[2] / stepmmx[2];
+              ce01 = px[3] / stepmmx[3];
+              return;
+            }
           }
         }
+        if (mctr >= m->totalstep) {
+          //xprintf(PSTR("Finish:%d\n"),mctr);
+          m->status = 0;
+          m = 0;
+        }
       }
-      if (mctr >= m->totalstep) {
-        //xprintf(PSTR("Finish:%d\n"),mctr);
-        m->status = 0;
-        m = 0;
-      }
-      //
 
     }
   }
@@ -654,7 +631,7 @@ void homing(float x, float y, float z, float e0)
   //xprintf(PSTR("Position %f %f %f \n"), ff(cx1), ff(cy1), ff(cz1));
   for (int32_t e = 0; e < 3; e++) {
     if (tx[e]) {
-    // move away from endstop
+      // move away from endstop
       xx[e] = px[e] / stepmmx[e] - tx[e] / 200;
       checkendstop = 0;
       addmove(homingspeed / 5, xx[0], xx[1], xx[2], ce01);
@@ -673,13 +650,13 @@ void homing(float x, float y, float z, float e0)
       checkendstop = 0;
       addmove(homingspeed / 5, xx[0], xx[1], xx[2], ce01);
       waitbufferempty();
-      
+
       // check endstop again slow
       xx[e] = tx[e];
       checkendstop = 1;
-      addmove(homingspeed/20, xx[0], xx[1], xx[2], ce01);
+      addmove(homingspeed / 20, xx[0], xx[1], xx[2], ce01);
       waitbufferempty();
-      
+
       // move away again
       xx[e] = px[e] / stepmmx[e] - tx[e] / 250;
       checkendstop = 0;
@@ -730,7 +707,7 @@ int32_t startmove()
       for (ix = 0; ix < NUMAXIS; ix++) {
         mymotor[ix].onoff(1);
         mymotor[ix].setdir(m->sx[ix]);
-        mcx[ix] = (m->totalstep - 1) / 2;
+        mcx[ix] = (m->totalstep) / 2;
       }
       prepareramp(t);
 #ifdef output_enable
@@ -742,8 +719,11 @@ int32_t startmove()
 #endif
       tail = t;
       m->status = 2;
-      f = m->fs;
-      if (f == 0)  f = 1;
+      f = m->fs * stepmmx[m->fastaxis]*256;
+      if (f == 0)  f = stepmmx[m->fastaxis]*256;
+      ac1=m->ac1*256;
+      ac2=m->ac2*256;
+      
       mctr = 0;
       return 1;
     }

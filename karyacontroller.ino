@@ -7,16 +7,25 @@
 #include<stdint.h>
 extern void demo();
 extern void motionloop();
-
+//#define timing
 
 int line_done, ack_waiting = 0;
+uint32_t ct=0;
 void gcode_loop() {
   //float x=12.345;
   //xprintf(PSTR("Motion demo %d %f\n"),10,x);
   //delay(500);
   //demo();
 #if defined(__AVR__) || defined(ESP8266)
+  uint32_t t1=micros();
   motionloop();
+#ifdef timing  
+  uint32_t t2=micros();
+  if (ct++>10000){
+    ct=0;
+    zprintf(PSTR("%dt\n"),t2-t1);
+  }
+#endif
   if (ack_waiting) {
     zprintf(PSTR("ok\n"));
     ack_waiting = 0;

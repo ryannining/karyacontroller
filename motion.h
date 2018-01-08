@@ -8,7 +8,7 @@ typedef struct {
     int8_t  g0,bpos,planstatus,col,fastaxis,status;
     float fx[NUMAXIS];
     float fs,fn,fe;
-    float dx[NUMAXIS];
+    int32_t dx[NUMAXIS];
     int32_t totalstep,rampup,rampdown;       
     float ac1,ac2;
 } tmove;
