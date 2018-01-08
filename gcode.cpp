@@ -758,9 +758,39 @@ void process_gcode_command() {
         S_I = (next_target.S);
         if (next_target.seen_P)
           switch (next_target.P) {
-            case 153:
-              eeprom_write_dword((uint32_t *) &EE_zmax, S_F);
-              break;
+            #define eprom_wr(id,pos,val){\
+              case id:\
+              eeprom_write_dword((uint32_t *) &pos, val);\
+              break;\              
+            }
+              eprom_wr(153,EE_zmax,S_F);
+              eprom_wr(0,EE_estepmm,S_F);
+              eprom_wr(3,EE_xstepmm,S_F);
+              eprom_wr(7,EE_ystepmm,S_F);
+              eprom_wr(11,EE_zstepmm,S_F);
+              
+              eprom_wr(15,EE_max_x_feedrate,S_I);
+              eprom_wr(19,EE_max_y_feedrate,S_I);
+              eprom_wr(23,EE_max_z_feedrate,S_I);
+              eprom_wr(27,EE_max_e_feedrate,S_I);
+              
+              eprom_wr(35,EE_xjerk,S_I);
+              eprom_wr(39,EE_yjerk,S_I);
+              eprom_wr(43,EE_zjerk,S_I);
+              eprom_wr(47,EE_ejerk,S_I);
+              
+              eprom_wr(51,EE_accelx,S_I);
+              eprom_wr(55,EE_accely,S_I);
+              eprom_wr(59,EE_accelz,S_I);
+              eprom_wr(63,EE_accele,S_I);
+
+              eprom_wr(67,EE_mvaccelx,S_I);
+              eprom_wr(71,EE_mvaccely,S_I);
+              eprom_wr(75,EE_mvaccelz,S_I);
+              
+/*            //case 153:
+              //eeprom_write_dword((uint32_t *) &EE_zmax, S_F);
+              //break;
             case 0:
               eeprom_write_dword((uint32_t *) &EE_estepmm, S_F);
               break;
@@ -817,7 +847,7 @@ void process_gcode_command() {
               break;
             case 75:
               eeprom_write_dword((uint32_t *) &EE_mvaccelz, S_I);
-              break;
+              break;*/
           }
         reload_eeprom();
         break;
