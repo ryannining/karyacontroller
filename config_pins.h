@@ -183,11 +183,6 @@
 
 #define motortimeout 10000000 // 30 seconds
 
-// need to change depends on CPU
-#define F_CPU 16000000UL
-#define  US  * (F_CPU / 1000000)
-#define MS  * (F_CPU / 1000)
-
 
 #define HOMINGSPEED 100
 #define XOFFSET 0
