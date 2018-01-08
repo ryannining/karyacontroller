@@ -50,6 +50,8 @@ static float accelat(float v0,float v1,float s)
     //a=(v1*v1-v0*v0)/(2*s)
     return (v1*v1-v0*v0)/(2*s);
 }
+
+extern void power_off();
  
 extern int32_t motionrunning; 
 extern void motionloop();

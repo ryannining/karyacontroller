@@ -220,7 +220,7 @@
 #define ZSTEPPERMM 137//420
 #define E0STEPPERMM 60//380
 
-#define NUMBUFFER 8
+#define NUMBUFFER 10
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168

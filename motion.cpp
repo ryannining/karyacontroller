@@ -173,6 +173,11 @@ int32_t bufflen() {
   return mb_ctr;
 }
 
+void power_off() {
+for (int i = 0; i < NUMAXIS; i++) {
+    mymotor[i].onoff(0);
+  }
+}
 /*
   safespeed
   =========
@@ -342,7 +347,7 @@ void planner(int32_t h)
   =======
   Rutin menambahkan sebuah vektor ke dalam buffer gerakan
 */
-float x1[NUMAXIS], x2[NUMAXIS];
+int32_t x1[NUMAXIS], x2[NUMAXIS];
 void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int8_t g0 )
 {
   //cf=100;
@@ -403,10 +408,12 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int8_t g0 )
   head = nextbuff(head);
   am->bpos = head;
   planner(head);
-  cx1 = cx1+am->sx[0]*am->dx[0]/stepmmx[0];
-  cy1 = cy1+am->sx[1]*am->dx[1]/stepmmx[1];
-  cz1 = cz1+am->sx[2]*am->dx[2]/stepmmx[2];
-  ce01 = ce01+am->sx[3]*am->dx[3]/stepmmx[3];
+  #define realmove(i)am->sx[i]*am->dx[i]/stepmmx[i]
+  
+  cx1 = cx1+realmove(0);
+  cy1 = cy1+realmove(1);
+  cz1 = cz1+realmove(2);
+  ce01 = ce01+realmove(3);
   am->status = 1; // 0: finish 1:ready 2:running
 }
 
@@ -416,7 +423,7 @@ float tick, tickscale, fscale;
 int32_t px[4] = {0, 0, 0, 0 };
 int32_t ac1,ac2,f, dl;
 int32_t mctr;
-uint32_t nextmicros;
+uint32_t nextmicros=0;
 uint32_t nextmotoroff;
 
 
@@ -429,22 +436,19 @@ uint32_t nextmotoroff;
 
 
 */
-
+uint32_t ocm;
 void motionloop() {
   uint32_t cm, ix;
 #if defined(ESP8266)
   feedthedog();
-  //delayMicroseconds(1);
 #endif
 #if defined(__AVR__) || defined(ESP8266)
   cm = micros();
   temp_loop(cm);
-  if ((nextmotoroff < cm) && (cm - nextmotoroff < 400000)) {
+  if (cm-nextmicros >=motortimeout) {
     //xprintf(PSTR("Motor off\n"));
     nextmotoroff = cm + motortimeout;
-    for (ix = 0; ix < NUMAXIS; ix++) {
-      mymotor[ix].onoff(0);
-    }
+    power_off();
   }
 #endif
   if (!m ) {
@@ -452,24 +456,19 @@ void motionloop() {
     if (!startmove()) return;
   }
   if (m->status == 2) {
-    // debug the micros
 #if defined(__AVR__) || defined(ESP8266)
-    //cm = micros();
-    if ((nextmicros < cm) && (cm - nextmicros < 100000)) {
+    if (cm-nextmicros>=dl) {
 #else
     if (1) {
 #endif
       if (m->totalstep) {
-        dl = timescale*256 / f;
-        nextmotoroff = cm + motortimeout;
-        nextmicros = cm + dl;
+        dl = timescale256 / f;
+        nextmicros = cm;
 #if defined(__AVR__) || defined(ESP8266)
         // ESP8266 specific code here
-        nextmicros = cm + dl;
 #else
         tick = tick + dl;//1.0/timescale;
         int32_t c = m->col;
-        nextmicros = cm + dl;
 
         //pset (tick*tickscale+10,400-f*fscale),c
         putpixel (tick * tickscale / timescale + 10, 400 - f * fscale, c);
@@ -529,10 +528,11 @@ void motionloop() {
               m = 0;
               checkendstop = 0;
               //xprintf(PSTR("here\n"));
-              cx1 = px[0] / stepmmx[0];
-              cy1 = px[1] / stepmmx[1];
-              cz1 = px[2] / stepmmx[2];
-              ce01 = px[3] / stepmmx[3];
+              #define realpos(i) px[i] / stepmmx[i]
+              cx1 = realpos(0);
+              cy1 = realpos(1);
+              cz1 = realpos(2);
+              ce01 = realpos(3);
               return;
             }
           }

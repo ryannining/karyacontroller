@@ -319,9 +319,7 @@ uint8_t gcode_parse_char(uint8_t c) {
 // implement minimalis code to match teacup
 
 float lastE, lastZ;
-void power_off() {
 
-}
 void dda_new_startpoint() {
   cx1 = startpoint.axis[X];
   cy1 = startpoint.axis[Y];
@@ -447,7 +445,14 @@ void process_gcode_command() {
 
     //next_tool = next_target.T;
   }
-
+  // check if buffer is near full
+/*
+  int bl=bufflen();
+  float spd=1;
+  if (bl>NUMBUFFER/2) {
+    spd=(float)NUMBUFFER/(bl*4+2);
+  }
+*/
   if (next_target.seen_G) {
     uint8_t axisSelected = 0;
     //zprintf(PSTR("Gcode %su \n"),next_target.G);
@@ -465,6 +470,7 @@ void process_gcode_command() {
           enqueue(&next_target.target, 1);
           next_target.target.F = backup_f;
         } else
+          //next_target.target.F*=spd;
           enqueue(&next_target.target, 1);
         break;
 
@@ -642,6 +648,7 @@ void process_gcode_command() {
         break;
       case 105:
         zprintf(PSTR("T:%f\n"), ff(Input));
+        //zprintf(PSTR("B:%d/%d\n"), fi(bufflen()),fi(NUMBUFFER));
         break;
       case 109:
         set_temp(next_target.S);
