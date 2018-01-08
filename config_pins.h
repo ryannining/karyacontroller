@@ -1,9 +1,9 @@
 /*
- * 
- *  AVR
- * 
- * 
- */ 
+
+    AVR
+
+
+*/
 #if defined(__AVR__)
 #include<arduino.h>
 
@@ -13,9 +13,9 @@
 //#define MACHINE_SEMEDIY128AU
 
 /*
- *   TARANTHOLE
- * 
- */
+     TARANTHOLE
+
+*/
 #ifdef MACHINE_TARANTHOLE
 
 #define xenable 2
@@ -36,10 +36,10 @@
 
 
 /*#define xmin_pin 0
-#define xmax_pin 0
-#define ymin_pin 0
-#define ymax_pin 0
-#define zmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
 */
 
 #define zmax_pin 13
@@ -67,10 +67,10 @@
 
 
 /*#define xmin_pin 0
-#define xmax_pin 0
-#define ymin_pin 0
-#define ymax_pin 0
-#define zmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
 */
 
 #define xmin_pin A1
@@ -100,10 +100,10 @@
 
 
 /*#define xmin_pin 0
-#define xmax_pin 0
-#define ymin_pin 0
-#define ymax_pin 0
-#define zmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
 */
 
 #define zmax_pin 13
@@ -113,11 +113,11 @@
 #endif
 
 /*
- * 
- *  ESP8266
- * 
- * 
- */ 
+
+    ESP8266
+
+
+*/
 #elif defined(ESP8266)
 
 #include<arduino.h>
@@ -174,12 +174,12 @@
 
 
 /*
- * 
- *  
- *  CONFIGURATION
- * 
- * 
- */ 
+
+
+    CONFIGURATION
+
+
+*/
 
 #define motortimeout 10000000 // 30 seconds
 
@@ -226,6 +226,6 @@
 #define ZMAX 168
 
 //Feature
-#ifdef __AVR__ 
+#ifdef __AVR__
 #define USE_EEPROM
 #endif

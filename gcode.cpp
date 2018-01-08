@@ -355,18 +355,18 @@ void doclock() {
   motionloop();
 }
 void temp_wait(void) {
-  wait_for_temp=1;
-  int32_t c=0;
+  wait_for_temp = 1;
+  int32_t c = 0;
   while (wait_for_temp && !temp_achieved()) {
     doclock();
     //delayMicroseconds(1000);
-    if (c++>200000){
-      c=0;
+    if (c++ > 200000) {
+      c = 0;
       zprintf(PSTR("T:%f\n"), ff(Input));
       //zprintf(PSTR("Heating\n"));
     }
   }
-  wait_for_temp=0;
+  wait_for_temp = 0;
 }
 void update_current_position() {
 
@@ -446,13 +446,13 @@ void process_gcode_command() {
     //next_tool = next_target.T;
   }
   // check if buffer is near full
-/*
-  int bl=bufflen();
-  float spd=1;
-  if (bl>NUMBUFFER/2) {
-    spd=(float)NUMBUFFER/(bl*4+2);
-  }
-*/
+  /*
+    int bl=bufflen();
+    float spd=1;
+    if (bl>NUMBUFFER/2) {
+      spd=(float)NUMBUFFER/(bl*4+2);
+    }
+  */
   if (next_target.seen_G) {
     uint8_t axisSelected = 0;
     //zprintf(PSTR("Gcode %su \n"),next_target.G);
@@ -513,10 +513,10 @@ void process_gcode_command() {
         break;
       case 28:
         homing(0, 0, 0, 0);
-        next_target.target.axis[E]=0;
+        next_target.target.axis[E] = 0;
         printposition();
         break;
-      
+
       case 90:
         //? --- G90: Set to Absolute Positioning ---
         //?
@@ -758,96 +758,96 @@ void process_gcode_command() {
         S_I = (next_target.S);
         if (next_target.seen_P)
           switch (next_target.P) {
-            #define eprom_wr(id,pos,val){\
-              case id:\
-              eeprom_write_dword((uint32_t *) &pos, val);\
-              break;\              
-            }
-              eprom_wr(153,EE_zmax,S_F);
-              eprom_wr(0,EE_estepmm,S_F);
-              eprom_wr(3,EE_xstepmm,S_F);
-              eprom_wr(7,EE_ystepmm,S_F);
-              eprom_wr(11,EE_zstepmm,S_F);
-              
-              eprom_wr(15,EE_max_x_feedrate,S_I);
-              eprom_wr(19,EE_max_y_feedrate,S_I);
-              eprom_wr(23,EE_max_z_feedrate,S_I);
-              eprom_wr(27,EE_max_e_feedrate,S_I);
-              
-              eprom_wr(35,EE_xjerk,S_I);
-              eprom_wr(39,EE_yjerk,S_I);
-              eprom_wr(43,EE_zjerk,S_I);
-              eprom_wr(47,EE_ejerk,S_I);
-              
-              eprom_wr(51,EE_accelx,S_I);
-              eprom_wr(55,EE_accely,S_I);
-              eprom_wr(59,EE_accelz,S_I);
-              eprom_wr(63,EE_accele,S_I);
+#define eprom_wr(id,pos,val){\
+  case id:\
+    eeprom_write_dword((uint32_t *) &pos, val);\
+    break;\
+  }
+              eprom_wr(153, EE_zmax, S_F);
+              eprom_wr(0, EE_estepmm, S_F);
+              eprom_wr(3, EE_xstepmm, S_F);
+              eprom_wr(7, EE_ystepmm, S_F);
+              eprom_wr(11, EE_zstepmm, S_F);
 
-              eprom_wr(67,EE_mvaccelx,S_I);
-              eprom_wr(71,EE_mvaccely,S_I);
-              eprom_wr(75,EE_mvaccelz,S_I);
-              
-/*            //case 153:
-              //eeprom_write_dword((uint32_t *) &EE_zmax, S_F);
-              //break;
-            case 0:
-              eeprom_write_dword((uint32_t *) &EE_estepmm, S_F);
-              break;
-            case 3:
-              eeprom_write_dword((uint32_t *) &EE_xstepmm, S_F);
-              break;
-            case 7:
-              eeprom_write_dword((uint32_t *) &EE_ystepmm, S_F);
-              break;
-            case 11:
-              eeprom_write_dword((uint32_t *) &EE_zstepmm, S_F);
-              break;
-            case 15:
-              eeprom_write_dword((uint32_t *) &EE_max_x_feedrate, S_I);
-              break;
-            case 19:
-              eeprom_write_dword((uint32_t *) &EE_max_y_feedrate, S_I);
-              break;
-            case 23:
-              eeprom_write_dword((uint32_t *) &EE_max_z_feedrate, S_I);
-              break;
-            case 27:
-              eeprom_write_dword((uint32_t *) &EE_max_e_feedrate, S_I);
-              break;
-            case 35:
-              eeprom_write_dword((uint32_t *) &EE_xjerk, S_I);
-              break;
-            case 39:
-              eeprom_write_dword((uint32_t *) &EE_yjerk, S_I);
-              break;
-            case 43:
-              eeprom_write_dword((uint32_t *) &EE_zjerk, S_I);
-              break;
-            case 47:
-              eeprom_write_dword((uint32_t *) &EE_ejerk, S_I);
-              break;
-            case 51:
-              eeprom_write_dword((uint32_t *) &EE_accelx, S_I);
-              break;
-            case 55:
-              eeprom_write_dword((uint32_t *) &EE_accely, S_I);
-              break;
-            case 59:
-              eeprom_write_dword((uint32_t *) &EE_accelz, S_I);
-              break;
-            case 63:
-              eeprom_write_dword((uint32_t *) &EE_accele, S_I);
-              break;
-            case 67:
-              eeprom_write_dword((uint32_t *) &EE_mvaccelx, S_I);
-              break;
-            case 71:
-              eeprom_write_dword((uint32_t *) &EE_mvaccely, S_I);
-              break;
-            case 75:
-              eeprom_write_dword((uint32_t *) &EE_mvaccelz, S_I);
-              break;*/
+              eprom_wr(15, EE_max_x_feedrate, S_I);
+              eprom_wr(19, EE_max_y_feedrate, S_I);
+              eprom_wr(23, EE_max_z_feedrate, S_I);
+              eprom_wr(27, EE_max_e_feedrate, S_I);
+
+              eprom_wr(35, EE_xjerk, S_I);
+              eprom_wr(39, EE_yjerk, S_I);
+              eprom_wr(43, EE_zjerk, S_I);
+              eprom_wr(47, EE_ejerk, S_I);
+
+              eprom_wr(51, EE_accelx, S_I);
+              eprom_wr(55, EE_accely, S_I);
+              eprom_wr(59, EE_accelz, S_I);
+              eprom_wr(63, EE_accele, S_I);
+
+              eprom_wr(67, EE_mvaccelx, S_I);
+              eprom_wr(71, EE_mvaccely, S_I);
+              eprom_wr(75, EE_mvaccelz, S_I);
+
+              /*            //case 153:
+                            //eeprom_write_dword((uint32_t *) &EE_zmax, S_F);
+                            //break;
+                          case 0:
+                            eeprom_write_dword((uint32_t *) &EE_estepmm, S_F);
+                            break;
+                          case 3:
+                            eeprom_write_dword((uint32_t *) &EE_xstepmm, S_F);
+                            break;
+                          case 7:
+                            eeprom_write_dword((uint32_t *) &EE_ystepmm, S_F);
+                            break;
+                          case 11:
+                            eeprom_write_dword((uint32_t *) &EE_zstepmm, S_F);
+                            break;
+                          case 15:
+                            eeprom_write_dword((uint32_t *) &EE_max_x_feedrate, S_I);
+                            break;
+                          case 19:
+                            eeprom_write_dword((uint32_t *) &EE_max_y_feedrate, S_I);
+                            break;
+                          case 23:
+                            eeprom_write_dword((uint32_t *) &EE_max_z_feedrate, S_I);
+                            break;
+                          case 27:
+                            eeprom_write_dword((uint32_t *) &EE_max_e_feedrate, S_I);
+                            break;
+                          case 35:
+                            eeprom_write_dword((uint32_t *) &EE_xjerk, S_I);
+                            break;
+                          case 39:
+                            eeprom_write_dword((uint32_t *) &EE_yjerk, S_I);
+                            break;
+                          case 43:
+                            eeprom_write_dword((uint32_t *) &EE_zjerk, S_I);
+                            break;
+                          case 47:
+                            eeprom_write_dword((uint32_t *) &EE_ejerk, S_I);
+                            break;
+                          case 51:
+                            eeprom_write_dword((uint32_t *) &EE_accelx, S_I);
+                            break;
+                          case 55:
+                            eeprom_write_dword((uint32_t *) &EE_accely, S_I);
+                            break;
+                          case 59:
+                            eeprom_write_dword((uint32_t *) &EE_accelz, S_I);
+                            break;
+                          case 63:
+                            eeprom_write_dword((uint32_t *) &EE_accele, S_I);
+                            break;
+                          case 67:
+                            eeprom_write_dword((uint32_t *) &EE_mvaccelx, S_I);
+                            break;
+                          case 71:
+                            eeprom_write_dword((uint32_t *) &EE_mvaccely, S_I);
+                            break;
+                          case 75:
+                            eeprom_write_dword((uint32_t *) &EE_mvaccelz, S_I);
+                            break;*/
           }
         reload_eeprom();
         break;
