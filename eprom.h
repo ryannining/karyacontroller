@@ -1,3 +1,7 @@
+#ifdef __AVR__
+#else
+#define EEMEM
+#endif
 extern void reload_eeprom();
 extern void reset_eeprom();
 
@@ -28,3 +32,4 @@ extern int32_t EEMEM EE_xjerk;
 extern int32_t EEMEM EE_yjerk;
 extern int32_t EEMEM EE_zjerk;
 extern int32_t EEMEM EE_ejerk;
+

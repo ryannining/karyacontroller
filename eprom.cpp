@@ -3,7 +3,9 @@
 #include "common.h"
 
 #ifdef USE_EEPROM
+#ifdef __AVR__
 #include<avr/eeprom.h>
+#endif
 
 float EEMEM EE_xmax;
 float EEMEM EE_ymax;
@@ -98,5 +100,8 @@ void reset_eeprom(){
          eeprom_write_dword((uint32_t *) &EE_ejerk,fi(jerk[3]));
   
 }
+#else
+void reload_eeprom(){}
+void reset_eeprom(){}
 
 #endif

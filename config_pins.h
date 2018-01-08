@@ -220,11 +220,12 @@
 #define ZSTEPPERMM 137//420
 #define E0STEPPERMM 60//380
 
-#define NUMBUFFER 10
+#define NUMBUFFER 5
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168
 
 //Feature
+#ifdef __AVR__ 
 #define USE_EEPROM
-
+#endif
