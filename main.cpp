@@ -54,29 +54,6 @@ int main(void)
   xprintf (PSTR("Time:%f\n"), ff(tick / timescale));
   getch();
 }
-#endif
-
-void demo() {
-  int f = 40;
-  addmove(f,0,50,0,1);
-  int i;
-/*  for (i = 0; i < 5; i++) {
-    addmove(f, i * 10, 50, 0, 0);
-  }
-  addmove(f, 60, 55, 0, 0);
-  for (i = 5; i > 0; i--) {
-    addmove(f, i * 10, 60, 0, 0);
-  }
-  addmove(f, 0, 65, 0, 0);
-*/
-  for (i = 0; i < 36; i++) {
-    addmove(f, sin(i * 44.0/7/36)*30+100,  -cos(i * 44.0/7/36)*30+100, 0, 1);
-  }
-  
-
-}
-
- 
 void demofile(){
     FILE *file = fopen("d:/3d/testkaryacon.gcode", "r");
     char code[100];
@@ -105,4 +82,28 @@ void demofile(){
     
  }
 
+#endif
+
+void demo() {
+  int f = 40;
+  addmove(f,0,50,0,1);
+  int i;
+/*  for (i = 0; i < 5; i++) {
+    addmove(f, i * 10, 50, 0, 0);
+  }
+  addmove(f, 60, 55, 0, 0);
+  for (i = 5; i > 0; i--) {
+    addmove(f, i * 10, 60, 0, 0);
+  }
+  addmove(f, 0, 65, 0, 0);
+*/
+  for (i = 0; i < 36; i++) {
+    addmove(f, sin(i * 44.0/7/36)*30+100,  -cos(i * 44.0/7/36)*30+100, 0, 1);
+  }
+  
+
+}
+
+
+ 
 
