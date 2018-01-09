@@ -147,6 +147,7 @@
 #include <stdint.h>
 #include <conio.h>
 
+/*
 #define xenable 0
 #define xdirection 0
 #define xstep 0
@@ -159,6 +160,7 @@
 #define e0enable 0
 #define e0direction 0
 #define e0step 0
+*/
 
 #define xmin_pin 0
 #define xmax_pin 0
@@ -195,13 +197,13 @@
 #define ZJERK 15
 #define E0JERK 5
 
-#define XACCELL 500
-#define YACCELL 500
+#define XACCELL 300
+#define YACCELL 300
 #define ZACCELL 500
 #define E0ACCELL 100
 
-#define XMOVEACCELL 1500
-#define YMOVEACCELL 1500
+#define XMOVEACCELL 300
+#define YMOVEACCELL 300
 #define ZMOVEACCELL 1500
 #define ZMOVEACCELL 1500
 
@@ -215,12 +217,13 @@
 #define ZSTEPPERMM 137//420
 #define E0STEPPERMM 60//380
 
-#define NUMBUFFER 5
+#define NUMBUFFER 8
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168
 
 //Feature
 #ifdef __AVR__
+// add 3Kb code
 #define USE_EEPROM
 #endif

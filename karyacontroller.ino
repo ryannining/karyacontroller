@@ -6,7 +6,7 @@
 #include "eprom.h"
 #include<stdint.h>
 extern void demo();
-extern void motionloop();
+extern int motionloop();
 //#define timing
 
 int line_done, ack_waiting = 0;
@@ -18,14 +18,15 @@ void gcode_loop() {
   //demo();
 #if defined(__AVR__) || defined(ESP8266)
   uint32_t t1 = micros();
-  motionloop();
+  if (motionloop()) {
 #ifdef timing
-  uint32_t t2 = micros();
-  if (ct++ > 10000) {
-    ct = 0;
-    zprintf(PSTR("%dt\n"), t2 - t1);
-  }
+    uint32_t t2 = micros();
+    if (ct++ > 100) {
+      ct = 0;
+      zprintf(PSTR("%dt\n"), t2 - t1);
+    }
 #endif
+  }
   if (ack_waiting) {
     zprintf(PSTR("ok\n"));
     ack_waiting = 0;

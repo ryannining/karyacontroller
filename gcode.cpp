@@ -6,6 +6,7 @@
 #include<stdint.h>
 #if defined(__AVR__) || defined(ESP8266)
 #include<arduino.h>
+#endif
 #include "eprom.h"
 /// crude crc macro
 #define crc(a, b)		(a ^ b)
@@ -35,7 +36,7 @@ static float decfloat_to_float(void) {
 
   // e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
 
-  if (e) r = (r + powers[e] / 2) / powers[e];
+  if (e) r = (r + powers[e-1] / 2) / powers[e];
 
   return read_digit.sign ? -r : r;
 }
@@ -876,8 +877,5 @@ void init_gcode() {
 
 }
 
-#else
-#include <stdio.h>
-#endif
 
 

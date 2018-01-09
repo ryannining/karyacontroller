@@ -1,7 +1,11 @@
+#ifndef MOTION_H
+#define MOTION_H
+
 #include<math.h>
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
+#define UPDATE_F_EVERY 800 //us
 
 typedef struct {
   int8_t  sx[NUMAXIS];
@@ -13,6 +17,7 @@ typedef struct {
   float ac1, ac2;
 } tmove;
 
+extern float tick, tickscale, fscale,graphscale;
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 extern int32_t px[4];
@@ -35,26 +40,14 @@ extern float ax_max[3];
 #define degtorad(x) x*22/(7*180);
 
 
-static int32_t ramplen(float v0, float v1, float a , float stepmm)
-{
-  float t = (v1 - v0) / a;
-  return fabs((v0 * t + 0.5 * a * t * t) * stepmm);
-}
-static float speedat(float v0, float a, float s, float stp = 1)
-{
-  return sqrt(a * 2 * s / stp + v0 * v0);
-}
-static float accelat(float v0, float v1, float s)
-{
-  //v1=sqr(a*2*s+v0*v0)
-  //a=(v1*v1-v0*v0)/(2*s)
-  return (v1 * v1 - v0 * v0) / (2 * s);
-}
+static int32_t ramplen(float v0, float v1, float a , float stepmm);
+static float speedat(float v0, float a, float s, float stp);
+static float accelat(float v0, float v1, float s);
 
 extern void power_off();
 
 extern int32_t motionrunning;
-extern void motionloop();
+extern int motionloop();
 extern void waitbufferempty();
 extern void needbuffer();
 extern int32_t startmove();
@@ -67,4 +60,6 @@ extern void docheckendstop();
 extern void reset_motion();
 
 
+
+#endif
 

@@ -1,5 +1,5 @@
 #include <stdint.h>
-
+#define TMSCALE 2048L
 extern int feedthedog();
 #if defined(__AVR__)
 #define timescale 1000000L
@@ -13,4 +13,4 @@ extern uint32_t micros();
 
 #endif
 
-#define timescale256 timescale*256L
+#define timescaleLARGE timescale*TMSCALE

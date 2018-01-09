@@ -10,8 +10,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
+#include <math.h>
+#include "gcode.h"
+
 
 void demo();
+void demofile();
+
 
 int main(void)
 {
@@ -35,6 +40,7 @@ int main(void)
   xprintf(PSTR("By ryannining@gmail.com\n"));
   initmotion();
   setcolor(1);
+  graphscale=25;
   line(0, 400, 600, 400);
   line(0, 400 - 50 * fscale, 600, 400 - 50 * fscale);
   line(0, 400 - 100 * fscale, 600, 400 - 100 * fscale);
@@ -42,7 +48,7 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   xprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  demo();
+  demofile();
   xprintf (PSTR("WAIT\n"));
   waitbufferempty();
   xprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -51,10 +57,10 @@ int main(void)
 #endif
 
 void demo() {
-  int f = 100;
-  //addmove(f,0,50,0);
+  int f = 40;
+  addmove(f,0,50,0,1);
   int i;
-  for (i = 0; i < 5; i++) {
+/*  for (i = 0; i < 5; i++) {
     addmove(f, i * 10, 50, 0, 0);
   }
   addmove(f, 60, 55, 0, 0);
@@ -62,6 +68,41 @@ void demo() {
     addmove(f, i * 10, 60, 0, 0);
   }
   addmove(f, 0, 65, 0, 0);
+*/
+  for (i = 0; i < 36; i++) {
+    addmove(f, sin(i * 44.0/7/36)*30+100,  -cos(i * 44.0/7/36)*30+100, 0, 1);
+  }
+  
 
 }
+
+ 
+void demofile(){
+    FILE *file = fopen("d:/3d/testkaryacon.gcode", "r");
+    char code[100];
+    size_t n = 0;
+    int c;
+
+    if (file == NULL) return; //could not open file
+    int comment=0;
+    while ((c = fgetc(file)) != EOF) {
+        if (c==';')comment=1;
+        code[n++] = (char) c;
+        if (c=='\n'){
+            code[n++]=0;
+            printf("\n%s",code);
+            if (!comment)gcode_parse_char(c);
+            n=0;
+            comment=0;
+            //getch();
+        } else 
+        {
+            if (!comment)gcode_parse_char(c);
+
+        }
+    }
+
+    
+ }
+
 
