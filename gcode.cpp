@@ -16,19 +16,8 @@ uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
 const uint32_t powers[] = {1, 1, 10, 100, 1000, 10000, 100000, 1000000};
 
-TARGET startpoint, current_position;
 
 
-static int32_t decfloat_to_int(void) {
-  uint32_t r = read_digit.mantissa;
-  uint8_t	e = read_digit.exponent;
-
-  // e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
-
-  if (e) r = (r + powers[e] / 2) / powers[e];
-
-  return read_digit.sign ? -r : r;
-}
 
 static float decfloat_to_float(void) {
   float r = read_digit.mantissa;
@@ -36,7 +25,7 @@ static float decfloat_to_float(void) {
 
   // e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
 
-  if (e) r = (r + powers[e-1] / 2) / powers[e];
+  if (e) r = (r /*+ powers[e-1] / 2*/) / powers[e];
 
   return read_digit.sign ? -r : r;
 }
@@ -112,16 +101,16 @@ uint8_t gcode_parse_char(uint8_t c) {
             next_target.S = decfloat_to_float();
           break;
         case 'P':
-          next_target.P = decfloat_to_int();
+          next_target.P = decfloat_to_float();
           break;
         case 'T':
           next_target.T = read_digit.mantissa;
           break;
         case 'N':
-          next_target.N = decfloat_to_int();
+          next_target.N = decfloat_to_float();
           break;
         case '*':
-          next_target.checksum_read = decfloat_to_int();
+          next_target.checksum_read = decfloat_to_float();
           break;
       }
     }
@@ -321,17 +310,6 @@ uint8_t gcode_parse_char(uint8_t c) {
 
 float lastE, lastZ;
 
-void dda_new_startpoint() {
-  cx1 = startpoint.axis[X];
-  cy1 = startpoint.axis[Y];
-  cz1 = startpoint.axis[Z];
-  ce01 = startpoint.axis[E];
-  px[0] = cx1 * stepmmx[0];
-  px[1] = cy1 * stepmmx[1];
-  px[2] = cz1 * stepmmx[2];
-  px[3] = ce01 * stepmmx[3];
-
-}
 void printposition() {
   zprintf(PSTR("X:%f Y:%f Z:%f E:%f\n"),
           ff(cx1), ff(cy1),
@@ -369,9 +347,6 @@ void temp_wait(void) {
   }
   wait_for_temp = 0;
 }
-void update_current_position() {
-
-}
 int32_t mvc = 0;
 void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond, int g0 = 1)
 {
@@ -407,33 +382,6 @@ void process_gcode_command() {
     next_target.target.e_relative = 1;
   else
     next_target.target.e_relative = 0;
-
-  // implement axis limits
-#ifdef	X_MIN
-  if (next_target.target.axis[X] < (int32_t)(X_MIN * 1000.))
-    next_target.target.axis[X] = (int32_t)(X_MIN * 1000.);
-#endif
-#ifdef	X_MAX
-  if (next_target.target.axis[X] > (int32_t)(X_MAX * 1000.))
-    next_target.target.axis[X] = (int32_t)(X_MAX * 1000.);
-#endif
-#ifdef	Y_MIN
-  if (next_target.target.axis[Y] < (int32_t)(Y_MIN * 1000.))
-    next_target.target.axis[Y] = (int32_t)(Y_MIN * 1000.);
-#endif
-#ifdef	Y_MAX
-  if (next_target.target.axis[Y] > (int32_t)(Y_MAX * 1000.))
-    next_target.target.axis[Y] = (int32_t)(Y_MAX * 1000.);
-#endif
-#ifdef	Z_MIN
-  if (next_target.target.axis[Z] < (int32_t)(Z_MIN * 1000.))
-    next_target.target.axis[Z] = (int32_t)(Z_MIN * 1000.);
-#endif
-#ifdef	Z_MAX
-  int32_t zmax = eeprom_read_dword ((uint32_t *) &EE_real_zmax);
-  if (next_target.target.axis[Z] > (int32_t)(zmax))
-    next_target.target.axis[Z] = (int32_t)(zmax);
-#endif
 
   // The GCode documentation was taken from http://reprap.org/wiki/Gcode .
 
@@ -514,7 +462,10 @@ void process_gcode_command() {
         break;
       case 28:
         homing(0, 0, 0, 0);
-        next_target.target.axis[E] = 0;
+        next_target.target.axis[X] = cx1;
+        next_target.target.axis[Y] = cy1;
+        next_target.target.axis[Z] = cz1;
+        next_target.target.axis[E] = ce01;
         printposition();
         break;
 
@@ -559,30 +510,30 @@ void process_gcode_command() {
         queue_wait();
 
         if (next_target.seen_X) {
-          startpoint.axis[X] = next_target.target.axis[X];
+          cx1 = next_target.target.axis[X];
           axisSelected = 1;
-        } else startpoint.axis[X] = cx1;
+        };
         if (next_target.seen_Y) {
-          startpoint.axis[Y] = next_target.target.axis[Y];
+          cy1 = next_target.target.axis[Y];
           axisSelected = 1;
-        } else startpoint.axis[Y] = cy1;
+        };
         if (next_target.seen_Z) {
-          startpoint.axis[Z] = next_target.target.axis[Z];
+          cz1 = next_target.target.axis[Z];
           axisSelected = 1;
-        } else startpoint.axis[Z] = cz1;
+        };
         if (next_target.seen_E) {
-          lastE = startpoint.axis[E] = next_target.target.axis[E];
+          lastE = ce01 = next_target.target.axis[E];
           axisSelected = 1;
-        } else startpoint.axis[E] = ce01;
+        };
 
         if (axisSelected == 0) {
-          startpoint.axis[X] = next_target.target.axis[X] =
-                                 startpoint.axis[Y] = next_target.target.axis[Y] =
-                                       startpoint.axis[Z] = next_target.target.axis[Z] =
-                                             startpoint.axis[E] = next_target.target.axis[E] = 0;
+          cx1 = next_target.target.axis[X] =
+                                 cy1 = next_target.target.axis[Y] =
+                                       cz1 = next_target.target.axis[Z] =
+                                             ce01 = next_target.target.axis[E] = 0;
         }
 
-        dda_new_startpoint();
+        
         break;
 
       // unknown gcode: spit an error
@@ -868,9 +819,6 @@ void process_gcode_command() {
 } // process_gcode_command()
 
 void init_gcode() {
-  startpoint.axis[0] = startpoint.axis[1] = startpoint.axis[2] = 0;
-  startpoint.F = 100;
-  current_position.axis[0] = current_position.axis[1] = current_position.axis[2] = 0;
   next_target.target.F = 100;
   next_target.target.f_multiplier = 1;
   next_target.option_all_relative = 0;

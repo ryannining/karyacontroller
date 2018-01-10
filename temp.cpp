@@ -17,6 +17,8 @@ PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 
 void set_temp(float set) {
   Setpoint = set;
+  analogWrite(heater_pin, 0);
+
 }
 void init_temp()
 {
@@ -26,6 +28,8 @@ void init_temp()
   myPID.SetMode(AUTOMATIC);
   next_temp = micros();
   Setpoint = 0;
+  analogWrite(heater_pin, 0);
+
 
 }
 
@@ -68,13 +72,15 @@ void temp_loop(uint32_t cm)
 {
   if ((next_temp < cm) && (cm - next_temp < 1000000)) {
     next_temp = cm + 1000000; // each half second
-    ctemp = (ctemp + analogRead(temp_pin) * 3) / 4;
-    Input =  read_temp(ctemp);
+    if (Setpoint > 0) {
+      ctemp = (ctemp + analogRead(temp_pin) * 3) / 4;
+      Input =  read_temp(ctemp);
 #ifdef heater_pin
-    //if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
-    myPID.Compute();
-    analogWrite(heater_pin, Output);
+      //if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
+      myPID.Compute();
+      analogWrite(heater_pin, Output);
 #endif
+    }
   }
 }
 int temp_achieved() {

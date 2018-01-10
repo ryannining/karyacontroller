@@ -1,11 +1,16 @@
 #ifndef MOTION_H
 #define MOTION_H
 
+#if defined(__AVR__) || defined(ESP8266)
+#else
+#define ISPC
+#endif
+
 #include<math.h>
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-#define UPDATE_F_EVERY 800 //us
+#define UPDATE_F_EVERY 1600 //us
 
 typedef struct {
   int8_t  sx[NUMAXIS];
@@ -15,12 +20,16 @@ typedef struct {
   int32_t dx[NUMAXIS];
   int32_t totalstep, rampup, rampdown;
   float ac1, ac2;
+#ifdef ISPC
+  // for graphics
+  float xs[2];
+#endif  
 } tmove;
 
 extern float tick, tickscale, fscale,graphscale;
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
-extern int32_t px[4];
+//extern int32_t px[4];
 extern int32_t homingspeed;
 extern float homeoffset[4];
 extern int32_t jerk[4];
@@ -52,7 +61,7 @@ extern void waitbufferempty();
 extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();
-extern void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 , int8_t g0 = 1 );
+extern void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 , int g0 = 1 ,int rel=0);
 extern void homing(float x, float y , float z, float e0 );
 extern float tick, fscale;
 extern int32_t bufflen();
