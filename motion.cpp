@@ -550,8 +550,10 @@ int motionloop() {
     nextmicros = cm;
     /* ================================================================================================================ */
     //if (m->bpos==8)
-    //if (mctr % 60 == 0)zprintf(PSTR("F:%f D:%d\n"), ff(f/ stepmmx[m->fastaxis]),dl);
-
+    
+#ifdef output_enable
+    if (mctr % 60 == 0)zprintf(PSTR("F:%f D:%d\n"), ff(f/ stepmmx[m->fastaxis]/TMSCALE),dl);
+#endif
     if (checkendstop) {
       docheckendstop();
       for (int32_t e = 0; e < 3; e++)
@@ -595,7 +597,7 @@ int32_t startmove()
 #ifdef output_enable
       xprintf(PSTR("Start buff:%d\n"), tail);
       xprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), m->rampup, m->rampdown, m->totalstep);
-      xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
+      xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs/ stepmmx[m->fastaxis]/TMSCALE), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
       //xprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
       xprintf(PSTR("sx %d %d %d \n"), fi(m->sx[0]), fi(m->sx[1]), fi(m->sx[2]));
 #endif

@@ -121,6 +121,7 @@
 #elif defined(ESP8266)
 
 #include<arduino.h>
+
 #define xenable D1
 #define xdirection D2
 #define xstep D3
@@ -130,14 +131,11 @@
 #define zenable D1
 #define zdirection D2
 #define zstep D3
-#define zenable D1
-#define zdirection D2
-#define zstep D3
 
-#define zmax_pin 8
+#define zmax_pin D5
 
 #define temp_pin A0
-#define heater_pin 3
+#define heater_pin D6
 
 
 #else
