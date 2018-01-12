@@ -9,6 +9,7 @@
 //Known board in boards.h
 
 //#define BOARD_TARANTHOLE
+//#define BOARD_SEMEDIYNANO
 #define BOARD_NANONANO
 //#define BOARD_RAMP13
 //#define BOARD_SEMEDIY128AU
@@ -69,8 +70,16 @@
 #define YMAX 0
 #define ZMAX 168
 
+#define USE_BACKLASH
+
 #define MOTOR_X_BACKLASH 20  // MOTOR 0 = X, 1= Y 2=Z 3=E
 #define MOTOR_Y_BACKLASH 0
 #define MOTOR_Z_BACKLASH 0
 #define MOTOR_E_BACKLASH 0
+
+
+#define MOTOR_0_DIR 1 // 1: normal -1:inverted
+#define MOTOR_1_DIR 1 // 1: normal -1:inverted
+#define MOTOR_2_DIR 1 // 1: normal -1:inverted
+#define MOTOR_3_DIR 1 // 1: normal -1:inverted
 

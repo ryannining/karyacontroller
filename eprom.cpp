@@ -35,14 +35,12 @@ int32_t EEMEM EE_xjerk;
 int32_t EEMEM EE_yjerk;
 int32_t EEMEM EE_zjerk;
 int32_t EEMEM EE_ejerk;
-
+#ifdef USE_BACKLASH
 int32_t EEMEM EE_xbacklash;
 int32_t EEMEM EE_ybacklash;
 int32_t EEMEM EE_zbacklash;
 int32_t EEMEM EE_ebacklash;
-
-
-
+#endif
 void reload_eeprom() {
   ax_max[0] = (float)eeprom_read_dword((uint32_t *) &EE_xmax) / 1000;
   ax_max[1] = (float)eeprom_read_dword((uint32_t *) &EE_ymax) / 1000;
@@ -72,13 +70,13 @@ void reload_eeprom() {
   jerk[1] = eeprom_read_dword((uint32_t *) &EE_yjerk);
   jerk[2] = eeprom_read_dword((uint32_t *) &EE_zjerk);
   jerk[3] = eeprom_read_dword((uint32_t *) &EE_ejerk);
-
+#ifdef USE_BACKLASH
   xback[0] = eeprom_read_dword((uint32_t *) &EE_xbacklash);
   xback[1] = eeprom_read_dword((uint32_t *) &EE_ybacklash);
   xback[2] = eeprom_read_dword((uint32_t *) &EE_zbacklash);
   xback[3] = eeprom_read_dword((uint32_t *) &EE_ebacklash);
 
-
+#endif
 }
 
 void reset_eeprom() {
@@ -110,11 +108,12 @@ void reset_eeprom() {
   eeprom_write_dword((uint32_t *) &EE_yjerk, fi(jerk[1]));
   eeprom_write_dword((uint32_t *) &EE_zjerk, fi(jerk[2]));
   eeprom_write_dword((uint32_t *) &EE_ejerk, fi(jerk[3]));
-
+#ifdef USE_BACKLASH
   eeprom_write_dword((uint32_t *) &EE_xbacklash, fi(xback[0]));
   eeprom_write_dword((uint32_t *) &EE_ybacklash, fi(xback[1]));
   eeprom_write_dword((uint32_t *) &EE_zbacklash, fi(xback[2]));
   eeprom_write_dword((uint32_t *) &EE_ebacklash, fi(xback[3]));
+#endif
 }
 #else
 void reload_eeprom() {}

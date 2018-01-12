@@ -32,8 +32,9 @@ extern int32_t EEMEM EE_xjerk;
 extern int32_t EEMEM EE_yjerk;
 extern int32_t EEMEM EE_zjerk;
 extern int32_t EEMEM EE_ejerk;
+#ifdef USE_BACKLASH
 extern int32_t EEMEM EE_xbacklash;
 extern int32_t EEMEM EE_ybacklash;
 extern int32_t EEMEM EE_zbacklash;
 extern int32_t EEMEM EE_ebacklash;
-
+#endif

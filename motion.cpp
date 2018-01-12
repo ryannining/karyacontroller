@@ -144,14 +144,15 @@ int32_t mcx[NUMAXIS];
 
 #if defined(__AVR__) || defined(ESP8266)
 
-//zprintf(PSTR("Backlash##AX## %d\n"),fi(PSTEP));\
 
 #define MOTORBACKLASH(AX,d,PSTEP) \
   if (PSTEP && lsx[AX] && (lsx[AX]!=d)){\
+    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));\
     for(int i=0;i<PSTEP;i++){\
       motor_##AX##_STEP();\
-      delayMicroseconds(5);\
-      motor_##AX##_STEP();\
+      delayMicroseconds(50);\
+      motor_##AX##_UNSTEP();\
+      delayMicroseconds(50);\
     }\
   }\
   lsx[AX]=d;\
@@ -164,7 +165,7 @@ int32_t mcx[NUMAXIS];
   inline void motor_##AX##_OFF() { digitalWrite(PENABLE,1);}\
   inline void motor_##AX##_STEP(){  digitalWrite(PSTEP,1);}\
   inline void motor_##AX##_UNSTEP(){  digitalWrite(PSTEP,0);}\
-  inline void motor_##AX##_DIR(int d){ if(!d)return;digitalWrite(PENABLE,0);digitalWrite(PDIR,d>0?1:0);MOTORBACKLASH(AX,d,xback[AX]);}\
+  inline void motor_##AX##_DIR(int d){ if(!d)return;digitalWrite(PENABLE,0);digitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);MOTORBACKLASH(AX,d,xback[AX]);}\
 
 #else
 #define MOTOR(AX,PENABLE,PDIR,PSTEP)\
@@ -418,11 +419,11 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   }
 
   // deltas
-  x2[0] = (cx2 - cx1) * stepmmx[0];
-  x2[1] = (cy2 - cy1) * stepmmx[1];
-  x2[2] = (cz2 - cz1) * stepmmx[2];
-  x2[3] = (ce02 - ce01) * stepmmx[3] * e_multiplier;
-
+  x2[0] = (int32_t)cx2* stepmmx[0] - (int32_t)cx1* stepmmx[0] ;
+  x2[1] = (int32_t)cy2* stepmmx[1] - (int32_t)cy1* stepmmx[1] ;
+  x2[2] = (int32_t)cz2* stepmmx[2] - (int32_t)cz1* stepmmx[2] ;
+  x2[3] = (int32_t)ce02* stepmmx[3] - (int32_t)ce01* stepmmx[3] ;
+  x2[3] *=e_multiplier;  
 #if defined( DRIVE_COREXY)
   // 2 = z axis + xy H-gantry (x_motor = x+y, y_motor = y-x)
   // borrow cx1,cy1 for calculation
