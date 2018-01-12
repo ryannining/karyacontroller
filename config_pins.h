@@ -18,16 +18,7 @@
 #define USE_EEPROM
 
 #else
-
-#define xmin_pin 0
-#define xmax_pin 0
-#define ymin_pin 0
-#define ymax_pin 0
-#define zmin_pin 0
-#define zmax_pin 0
-
-//#define temp0_pin 0
-//#define heater0_pin 0
+// for PC no pins
 #endif
 
 
