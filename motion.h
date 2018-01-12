@@ -10,11 +10,13 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-#define UPDATE_F_EVERY 1600 //us
+//#define UPDATE_F_EVERY 1600 //us
+
 
 typedef struct {
   int8_t  sx[NUMAXIS];
-  int8_t  g0, bpos, planstatus, col, fastaxis, status;
+  int8_t  fastaxis, status  ; // status in bit 0 , planstatus in bit 1 , g0 in bit 3
+  
   float fx[NUMAXIS];
   float fs, fn, fe;
   int32_t dx[NUMAXIS];
@@ -22,11 +24,12 @@ typedef struct {
   float ac1, ac2;
 #ifdef ISPC
   // for graphics
-  float xs[2];
+  int col;
+  float xs[4];
 #endif  
 } tmove;
 
-extern float tick, tickscale, fscale,graphscale;
+extern float e_multiplier,tick, tickscale, fscale,graphscale;
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 //extern int32_t px[4];

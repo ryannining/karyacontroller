@@ -109,5 +109,6 @@
     <File Name="temp.cpp"/>
     <File Name="eprom.cpp"/>
     <File Name="eprom.h"/>
+    <File Name="boards.h"/>
   </VirtualDirectory>
 </CodeLite_Project>

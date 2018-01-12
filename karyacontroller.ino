@@ -23,7 +23,7 @@ void gcode_loop() {
     uint32_t t2 = micros();
     if (ct++ > 100) {
       ct = 0;
-      zprintf(PSTR("%dt\n"), t2 - t1);
+      zprintf(PSTR("%dus\n"), t2 - t1);
     }
 #endif
   }
@@ -33,7 +33,9 @@ void gcode_loop() {
   }
   if (Serial.available() > 0)
   {
-    line_done = gcode_parse_char(Serial.read());
+    char c=Serial.read();
+    Serial.write(c);
+    line_done = gcode_parse_char(c);
     if (line_done) {
       ack_waiting = line_done - 1;
     }

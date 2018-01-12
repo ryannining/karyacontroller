@@ -1,3 +1,11 @@
+
+
+
+
+
+
+
+
 #include "motion.h"
 #include "common.h"
 #include "timer.h"
@@ -29,7 +37,7 @@ int8_t checkendstop;
 int8_t endstopstatus[3];
 int32_t head, tail;
 tmove move[NUMBUFFER];
-float cx1, cy1, cz1, ce01, lf;
+float cx1, cy1, cz1, ce01, lf, e_multiplier;
 float ax_max[3];
 
 
@@ -102,6 +110,7 @@ void reset_motion() {
   cz1 = 0;
   ce01 = 0;
   tick = 0;
+  e_multiplier = 1;
 
 }
 
@@ -224,12 +233,12 @@ void prepareramp(int32_t bpos)
   tmove *m;
   m = &move[bpos];
   //color .col
-  if (m->planstatus == 1)return;
+  if (m->status & 4)return; // already calculated
   //print32_t bpos
 
   float t, ac;
   float stepmm = stepmmx[m->fastaxis];
-  if (m->g0)  ac = mvaccel[m->fastaxis]; else ac = accel[m->fastaxis];
+  if (m->status & 8)  ac = mvaccel[m->fastaxis]; else ac = accel[m->fastaxis];
   m->ac1 = ACCELL(m->fs, m->fn, ac);
   m->ac2 = ACCELL(m->fn, m->fe, ac);
   m->rampup = ramplen(m->fs, m->fn, m->ac1, stepmm);
@@ -238,7 +247,7 @@ void prepareramp(int32_t bpos)
   //#define preprampdebug
 
 #ifdef preprampdebug
-  xprintf(PSTR("Bpos:%d\n"), (int32_t)m->bpos);
+  xprintf(PSTR("Bpos:%d\n"), (int32_t)bpos);
   xprintf(PSTR("----------1-----------\nRU:%d Rld:%d TS:%d\n "), m->rampup, m->rampdown, m->totalstep);
   xprintf(PSTR("FS:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->fn), ff(m->fe));
 #endif
@@ -279,11 +288,11 @@ void prepareramp(int32_t bpos)
   xprintf(PSTR("========FINAL========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
   xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
 #endif
-  m->planstatus = 1;
   m->ac1 *= stepmmx[m->fastaxis] * TMSCALE / timescale ;
   m->ac2 *= stepmmx[m->fastaxis] * TMSCALE / timescale ;
   if (m->fs < 1) m->fs = 1;
   m->fs *= stepmmx[m->fastaxis] * TMSCALE;
+  m->status |= 4;
   //zprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
 }
 
@@ -308,7 +317,7 @@ void planner(int32_t h)
   if (bufflen() < 2) return;
   p = prevbuff(h);
   prev = &move[p];
-  if (prev->status == 2)return;
+  if ((prev->status & 3) == 2)return;
   /* calculate jerk
                 max_jerk
            x = -----------
@@ -329,7 +338,7 @@ void planner(int32_t h)
   }
   //xprintf ("jerk scaling:%f\n",scale);
 
-  if ((curr->status == 1) && (prev->status != 0)) {
+  if ((curr->status & 3 == 1) && (prev->status & 3)) {
     //remove prev rampdown, curr rampup
     prev->fe = scale * (prev->fn + curr->fn) / 2; //curr->fn; //
     //print32_t *(prev).fe,scale
@@ -361,74 +370,72 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   needbuffer();
   tmove *am;
   am = &move[nextbuff(head)];
-  am->g0 = g0;
-  am->col = 2 + (head % 2) * 8;
-  x1[0] = cx1 * stepmmx[0];
-  x1[1] = cy1 * stepmmx[1];
-  x1[2] = cz1 * stepmmx[2];
-  x1[3] = ce01 * stepmmx[3];
-
-  x2[0] = cx2 * stepmmx[0];
-  x2[1] = cy2 * stepmmx[1];
-  x2[2] = cz2 * stepmmx[2];
-  x2[3] = ce02 * stepmmx[3];
+  am->status = g0 ? 8 : 0; // reset status:0 planstatus:0 g0:g0
+  //am->g0 = g0;
 #ifdef ISPC
-  am->xs[0] = x1[0];
-  am->xs[1] = x1[1];
+  am->col = 2 + (head % 2) * 8;
+  am->xs[0] = cx1 * stepmmx[0];
+  am->xs[1] = cy1 * stepmmx[1];
 #endif
+
+  if (rel) {
+    cx1 = cy1 = cz1 = ce01 = 0;
+  }
+
+  // deltas
+  x2[0] = (cx2 - cx1) * stepmmx[0];
+  x2[1] = (cy2 - cy1) * stepmmx[1];
+  x2[2] = (cz2 - cz1) * stepmmx[2];
+  x2[3] = (ce02 - ce01) * stepmmx[3] * e_multiplier;
+
+#if defined( DRIVE_COREXY)
+  // 2 = z axis + xy H-gantry (x_motor = x+y, y_motor = y-x)
+  // borrow cx1,cy1 for calculation
+  cx1 = x2[0] + x2[1];
+  cy1 = x2[1] - x2[0];
+  x2[0] = cx1;
+  x2[1] = cy1;
+
+#elif defined(DRIVE_COREXZ)
+  // 8 = y axis + xz H-gantry (x_motor = x+z, z_motor = x-z)
+  cx1 = x2[0] + x2[2];
+  cy1 = x2[0] - x2[2];
+  x2[0] = cx1;
+  x2[2] = cy1;
+#endif
+
   am->fn = cf;
   am->fe = 0;
   am->fs = 0;
-  am->planstatus = 0; //0: not optimized 1:fixed
-  am->status = 1; // 0: finish 1:ready 2:running
+  //am->planstatus = 0; //0: not optimized 1:fixed
   //calculate delta
-  int32_t ix;
+  int32_t dd,ix;
+  dd=0;
+ am->fastaxis = 0;
   for (ix = 0; ix < NUMAXIS; ix++) {
-
-    int32_t delta = rel ? x2[ix] : (x2[ix] - x1[ix]);
+    int32_t delta = x2[ix];
     am->dx[ix] = abs(delta);
     am->sx[ix] = 0;
     if (delta > 0) am->sx[ix] = 1;
     if (delta < 0) am->sx[ix] = -1;
-
-    //xprintf(PSTR("Dx%d:%d\n"), fi(ix), fi(am->dx[ix]));
-    //xprintf(PSTR("Sx%d:%d\n"), fi(ix), fi(am->sx[ix]));
-  }
-  for (ix = 0; ix < NUMAXIS; ix++) {
-    if ((am->dx[ix] >= am->dx[0])
-        && (am->dx[ix] >= am->dx[1])
-        && (am->dx[ix] >= am->dx[2])
-        && (am->dx[ix] >= am->dx[3])
-       )  {
-      am->fastaxis = ix;
+    if (am->dx[ix]>dd){
+      dd=am->dx[ix];
+      am->fastaxis=ix;
     }
   }
   am->totalstep = am->dx[am->fastaxis];
 #ifdef output_enable
-
   xprintf(PSTR("Totalstep AX%d %d\n"), (int32_t)am->fastaxis, (int32_t)am->totalstep);
 #endif
-  // } buffer please
 
   // back planner
   head = nextbuff(head);
-  am->bpos = head;
   planner(head);
-#define realmove(i)am->sx[i]*am->dx[i]/stepmmx[i]
-
-#define subpixel
-#ifdef subpixel
-  cx1 = /*cx2;*/ cx1 + realmove(0);
-  cy1 = /*cy2;/*/cy1 + realmove(1);
-  cz1 = /*cz2;/*/cz1 + realmove(2);
-  ce01 = /*ce02;/*/ce01 + realmove(3);
-#else
   cx1 = cx2;
   cy1 = cy2;
   cz1 = cz2;
   ce01 = ce02;
-#endif
-  am->status = 1; // 0: finish 1:ready 2:running
+  am->status |= 1; // 0: finish 1:ready
 }
 
 
@@ -480,7 +487,7 @@ int motionloop() {
 #endif
 
     // update delay not every step to make the motor move faster
-    if (m->g0) {
+    if (m->status & 8) {
 #ifdef UPDATE_F_EVERY
       nextdly += dl;
       if (nextdly > UPDATE_F_EVERY)
@@ -497,9 +504,12 @@ int motionloop() {
     tick = tick + dl;//1.0/timescale;
     int32_t c = m->col;
 
-    //pset (tick*tickscale+10,400-f*fscale),c
     float cf = float(timescale);
     cf /= dl * stepmmx[m->fastaxis];
+    //c = cf;
+    //c=COLOR(c,c,c);
+
+    //pset (tick*tickscale+10,400-f*fscale),c
 #define realpos1(i) (m->xs[i] / stepmmx[i])
     putpixel (tick * tickscale / timescale + 30, 450 -  fscale * cf, c - 8);
     putpixel (tick * tickscale / timescale + 10, 400 -  fscale * f / TMSCALE / stepmmx[m->fastaxis], c);
@@ -550,9 +560,14 @@ int motionloop() {
     nextmicros = cm;
     /* ================================================================================================================ */
     //if (m->bpos==8)
-    
+
 #ifdef output_enable
-    if (mctr % 60 == 0)zprintf(PSTR("F:%f D:%d\n"), ff(f/ stepmmx[m->fastaxis]/TMSCALE),dl);
+    // write real speed too
+    if (mctr % 60 == 0) {
+      //float cf = float(timescale);
+      //cf /= dl * stepmmx[m->fastaxis];
+      zprintf(PSTR("F:%f D:%d\n"), ff(f / stepmmx[m->fastaxis] / TMSCALE), dl);
+    }
 #endif
     if (checkendstop) {
       docheckendstop();
@@ -585,7 +600,7 @@ int32_t startmove()
     int32_t t = nextbuff(tail);
     int ix;
     m = &move[t];
-    if (m->status == 1) {
+    if ((m->status & 3) == 1) {
 
       nextmicros = micros();
       motor_0_DIR(m->sx[0]);
@@ -594,15 +609,18 @@ int32_t startmove()
       motor_3_DIR(m->sx[3]);
       mcx[0] = mcx[1] = mcx[2] = mcx[3] = (m->totalstep / 2);
       prepareramp(t);
+      tail = t;
+      m->status &= ~3;
+      m->status |= 2;
 #ifdef output_enable
       xprintf(PSTR("Start buff:%d\n"), tail);
       xprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), m->rampup, m->rampdown, m->totalstep);
-      xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs/ stepmmx[m->fastaxis]/TMSCALE), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
+      xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs / stepmmx[m->fastaxis] / TMSCALE), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
       //xprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
       xprintf(PSTR("sx %d %d %d \n"), fi(m->sx[0]), fi(m->sx[1]), fi(m->sx[2]));
+      xprintf(PSTR("Status:%d \n"), fi(m->status));
 #endif
-      tail = t;
-      m->status = 2;
+
       f = m->fs;// m->fs*= stepmmx[m->fastaxis]; in planner
       dl = timescaleLARGE / f;
       ac1 = m->ac1;
@@ -629,7 +647,7 @@ void docheckendstop()
 #ifdef xmin_pin
   endstopstatus[0] = xmin_pin;
 #elif defined(xmax_pin)
-  endstopstatus[0] = xmin_pin;
+  endstopstatus[0] = xmax_pin;
 #else
   endstopstatus[0] = 0;
 #endif
@@ -649,16 +667,12 @@ void docheckendstop()
 #endif
 
 
-#if defined(__AVR__)
+#ifndef ISPC
   for (int32_t e = 0; e < 3; e++) {
     if (endstopstatus[e]) {
       endstopstatus[e] = -digitalRead(endstopstatus[e]);
     }
   }
-#elif defined(ESP8266)
-  // ESP8266 specific code here
-  // read end stop
-
 #else
   // PC
   if (!m) return;
@@ -820,7 +834,7 @@ void initmotion() {
   motor_2_INIT();
   motor_3_INIT();
 
-#if defined( __AVR__) || defined(ESP8266)
+#ifndef ISPC
 #ifdef xmin_pin
   pinMode(xmin_pin, INPUT_PULLUP);
 #endif
@@ -842,12 +856,6 @@ void initmotion() {
   pinMode(zmax_pin, INPUT_PULLUP);
 #endif
 
-  /*
-    Serial.print(digitalRead(13));
-    zprintf(PSTR("Z:%d"),(int32_t)digitalRead(13));
-    zprintf(PSTR("Y:%d"),(int32_t)digitalRead(A0));
-    zprintf(PSTR("X:%d\n"),(int32_t)digitalRead(A1));
-  */
 #endif
 }
 

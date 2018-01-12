@@ -317,9 +317,8 @@ void printposition() {
 
 }
 
-void queue_wait() {
-  needbuffer();
-}
+#define queue_wait() needbuffer()
+
 void delay_ms(uint32_t d) {
 #if defined(__AVR__) || defined(ESP8266)
   delayMicroseconds(d * 1000);
@@ -812,6 +811,14 @@ void process_gcode_command() {
         next_target.target.f_multiplier = next_target.S / 100;
         break;
 
+      case 221:
+        //? --- M220: Set speed factor override percentage ---
+        if ( ! next_target.seen_S)
+          break;
+        // Scale 100% = 256
+        e_multiplier = next_target.S / 100;
+        break;
+
       default:;
         //zprintf(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
     } // switch (next_target.M)
@@ -821,6 +828,7 @@ void process_gcode_command() {
 void init_gcode() {
   next_target.target.F = 100;
   next_target.target.f_multiplier = 1;
+  e_multiplier = 1;
   next_target.option_all_relative = 0;
 
 }

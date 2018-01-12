@@ -72,9 +72,9 @@ void temp_loop(uint32_t cm)
 {
   if ((next_temp < cm) && (cm - next_temp < 1000000)) {
     next_temp = cm + 1000000; // each half second
+    ctemp = (ctemp + analogRead(temp_pin) * 3) / 4;
+    Input =  read_temp(ctemp);
     if (Setpoint > 0) {
-      ctemp = (ctemp + analogRead(temp_pin) * 3) / 4;
-      Input =  read_temp(ctemp);
 #ifdef heater_pin
       //if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
       myPID.Compute();
