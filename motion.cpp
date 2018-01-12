@@ -114,15 +114,15 @@ void reset_motion() {
   cz1 = 0;
   ce01 = 0;
   tick = 0;
-  lsx[0]=0;
-  lsx[1]=0;
-  lsx[2]=0;
-  lsx[3]=0;
-  xback[0]=MOTOR_X_BACKLASH;
-  xback[1]=MOTOR_Y_BACKLASH;
-  xback[2]=MOTOR_Z_BACKLASH;
-  xback[3]=MOTOR_E_BACKLASH;
-  
+  lsx[0] = 0;
+  lsx[1] = 0;
+  lsx[2] = 0;
+  lsx[3] = 0;
+  xback[0] = MOTOR_X_BACKLASH;
+  xback[1] = MOTOR_Y_BACKLASH;
+  xback[2] = MOTOR_Z_BACKLASH;
+  xback[3] = MOTOR_E_BACKLASH;
+
   e_multiplier = 1;
 
 }
@@ -283,9 +283,9 @@ void prepareramp(int32_t bpos)
   //#define preprampdebug
 
 #ifdef preprampdebug
-  xprintf(PSTR("Bpos:%d\n"), (int32_t)bpos);
-  xprintf(PSTR("----------1-----------\nRU:%d Rld:%d TS:%d\n "), m->rampup, m->rampdown, m->totalstep);
-  xprintf(PSTR("FS:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->fn), ff(m->fe));
+  zprintf(PSTR("Bpos:%d\n"), (int32_t)bpos);
+  zprintf(PSTR("----------1-----------\nRU:%d Rld:%d TS:%d\n "), m->rampup, m->rampdown, m->totalstep);
+  zprintf(PSTR("FS:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->fn), ff(m->fe));
 #endif
   // New generic algorithm, to calculate rampup and rampdown simpler, and faster
   // if rampup and ramp down overlap
@@ -301,8 +301,8 @@ void prepareramp(int32_t bpos)
       m->rampdown = 0;
       m->rampup = m->totalstep;
 #ifdef preprampdebug
-      xprintf(PSTR("========2========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
-      xprintf(PSTR("FS:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->fn), ff(m->fe));
+      zprintf(PSTR("========2========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
+      zprintf(PSTR("FS:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->fn), ff(m->fe));
 #endif
     } else if (m->rampdown > m->totalstep) {
       // adjust acceleration
@@ -310,8 +310,8 @@ void prepareramp(int32_t bpos)
       m->rampup = 0;
       m->rampdown = m->totalstep;
 #ifdef preprampdebug
-      xprintf(PSTR("========3========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
-      xprintf(PSTR("FS:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->fn), ff(m->fe));
+      zprintf(PSTR("========3========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
+      zprintf(PSTR("FS:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->fn), ff(m->fe));
 #endif
     } else {
       m->fn = speedat(m->fs, m->ac1, m->rampup, stepmm);
@@ -321,14 +321,15 @@ void prepareramp(int32_t bpos)
 
 
 #ifdef preprampdebug
-  xprintf(PSTR("========FINAL========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
-  xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
+  zprintf(PSTR("========FINAL========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
+  zprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
 #endif
   m->ac1 *= stepmmx[m->fastaxis] * TMSCALE / timescale ;
   m->ac2 *= stepmmx[m->fastaxis] * TMSCALE / timescale ;
   if (m->fs < 1) m->fs = 1;
   m->fs *= stepmmx[m->fastaxis] * TMSCALE;
   m->status |= 4;
+  m->rampdown = m->totalstep - m->rampdown; // presubtract
   //zprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
 }
 
@@ -350,7 +351,7 @@ void planner(int32_t h)
 
   curr = &move[h];
   safespeed(curr);
-  if (bufflen() < 2) return;
+  if (bufflen() < 1) return;
   p = prevbuff(h);
   prev = &move[p];
   if ((prev->status & 3) == 2)return;
@@ -374,7 +375,8 @@ void planner(int32_t h)
   }
   //xprintf ("jerk scaling:%f\n",scale);
 
-  if ((curr->status & 3 == 1) && (prev->status & 3)) {
+  if (prev->status & 3) {
+    //zprintf(PSTR("Backplanner\n"));
     //remove prev rampdown, curr rampup
     prev->fe = scale * (prev->fn + curr->fn) / 2; //curr->fn; //
     //print32_t *(prev).fe,scale
@@ -404,6 +406,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   //zprintf(PSTR("X:%f Y:%f Z:%f\n"), ff(cx2), ff(cy2), ff(cz2));
   //zprintf(PSTR("-\n"));
   needbuffer();
+  cf = 30;
   tmove *am;
   am = &move[nextbuff(head)];
   am->status = g0 ? 8 : 0; // reset status:0 planstatus:0 g0:g0
@@ -419,11 +422,11 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   }
 
   // deltas
-  x2[0] = (int32_t)cx2* stepmmx[0] - (int32_t)cx1* stepmmx[0] ;
-  x2[1] = (int32_t)cy2* stepmmx[1] - (int32_t)cy1* stepmmx[1] ;
-  x2[2] = (int32_t)cz2* stepmmx[2] - (int32_t)cz1* stepmmx[2] ;
-  x2[3] = (int32_t)ce02* stepmmx[3] - (int32_t)ce01* stepmmx[3] ;
-  x2[3] *=e_multiplier;  
+  x2[0] = (int32_t)(cx2 * stepmmx[0]) - (int32_t)(cx1 * stepmmx[0]) ;
+  x2[1] = (int32_t)(cy2 * stepmmx[1]) - (int32_t)(cy1 * stepmmx[1]) ;
+  x2[2] = (int32_t)(cz2 * stepmmx[2]) - (int32_t)(cz1 * stepmmx[2]) ;
+  x2[3] = (int32_t)(ce02 * stepmmx[3]) - (int32_t)(ce01 * stepmmx[3]) ;
+  x2[3] *= e_multiplier;
 #if defined( DRIVE_COREXY)
   // 2 = z axis + xy H-gantry (x_motor = x+y, y_motor = y-x)
   // borrow cx1,cy1 for calculation
@@ -466,12 +469,12 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
 
   // back planner
   head = nextbuff(head);
+  am->status |= 1; // 0: finish 1:ready
   planner(head);
   cx1 = cx2;
   cy1 = cy2;
   cz1 = cz2;
   ce01 = ce02;
-  am->status |= 1; // 0: finish 1:ready
 }
 
 
@@ -493,6 +496,17 @@ uint32_t nextmotoroff;
 uint32_t ocm;
 int motionloop() {
   uint32_t cm, ix;
+  if (!m ) {
+    // start new move if available , if not exit
+    if (!startmove()) return 0;
+  }
+  //  if (m->status == 2) {
+  if (mctr >= m->totalstep) {
+    //xprintf(PSTR("Finish:%d\n"),mctr);
+    m->status = 0;
+    m = 0;
+    if (!startmove()) return 0;
+  }
 #if defined(ESP8266)
   feedthedog();
 #endif
@@ -505,17 +519,7 @@ int motionloop() {
     power_off();
   }
 #endif
-  if (!m ) {
-    // start new move if available , if not exit
-    if (!startmove()) return 0;
-  }
-  //  if (m->status == 2) {
-  if (mctr >= m->totalstep) {
-    //xprintf(PSTR("Finish:%d\n"),mctr);
-    m->status = 0;
-    m = 0;
-    return 0;
-  }
+  
 #ifdef ISPC
   if (1) {
 #else
@@ -547,8 +551,14 @@ int motionloop() {
 
     //pset (tick*tickscale+10,400-f*fscale),c
 #define realpos1(i) (m->xs[i] / stepmmx[i])
-    putpixel (tick * tickscale / timescale + 30, 450 -  fscale * cf, c - 8);
-    putpixel (tick * tickscale / timescale + 10, 400 -  fscale * f / TMSCALE / stepmmx[m->fastaxis], c);
+    if (tick * tickscale / timescale > 600)tick = 0;
+    //putpixel (tick * tickscale / timescale + 30, 450 -  fscale * cf, c - 8);
+    int gx = tick * tickscale / timescale + 10;
+    int gy = 400 -  fscale * f / TMSCALE / stepmmx[m->fastaxis];
+    putpixel (gx, gy, c);
+    setcolor(0);
+    line(gx + 1, 400, gx + 1, 400 - 100 * fscale);
+
     putpixel (graphscale * realpos1(0) + 250, graphscale * realpos1(1) + 240, c);
     //zprintf(PSTR("%f\n"), cf);
     //pset (x(1)/stepmmx(1)+50,x(2)/stepmmx(2)+40),c
@@ -602,7 +612,7 @@ int motionloop() {
     if (mctr % 60 == 0) {
       //float cf = float(timescale);
       //cf /= dl * stepmmx[m->fastaxis];
-      zprintf(PSTR("F:%f D:%d\n"), ff(f / stepmmx[m->fastaxis] / TMSCALE), dl);
+      //zprintf(PSTR("F:%f D:%d\n"), ff(f / stepmmx[m->fastaxis] / TMSCALE), dl);
     }
 #endif
     if (checkendstop) {
@@ -631,47 +641,43 @@ int motionloop() {
 */
 int32_t startmove()
 {
-  if (m) exit;
-  if (head != tail) { // if empty then exit
-    int32_t t = nextbuff(tail);
-    int ix;
-    m = &move[t];
-    if ((m->status & 3) == 1) {
+  if (m || (head == tail) ) return 0; // if empty then exit
+  int32_t t = nextbuff(tail);
+  int ix;
+  m = &move[t];
+  // if ((m->status & 3) == 1) {
 
-      nextmicros = micros();
-      // do backlash correction
+  nextmicros = micros();
+  // do backlash correction
 
 
-      motor_0_DIR(m->sx[0]);
-      motor_1_DIR(m->sx[1]);
-      motor_2_DIR(m->sx[2]);
-      motor_3_DIR(m->sx[3]);
-      mcx[0] = mcx[1] = mcx[2] = mcx[3] = (m->totalstep / 2);
-      prepareramp(t);
-      tail = t;
-      m->status &= ~3;
-      m->status |= 2;
+  motor_0_DIR(m->sx[0]);
+  motor_1_DIR(m->sx[1]);
+  motor_2_DIR(m->sx[2]);
+  motor_3_DIR(m->sx[3]);
+  mcx[0] = mcx[1] = mcx[2] = mcx[3] = (m->totalstep / 2);
+  prepareramp(t);
+  //if (m->fe==0)zprintf(PSTR("???\n"));
+  tail = t;
+  m->status &= ~3;
+  m->status |= 2;
 #ifdef output_enable
-      xprintf(PSTR("Start buff:%d\n"), tail);
-      xprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), m->rampup, m->rampdown, m->totalstep);
-      xprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs / stepmmx[m->fastaxis] / TMSCALE), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
-      //xprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
-      xprintf(PSTR("sx %d %d %d \n"), fi(m->sx[0]), fi(m->sx[1]), fi(m->sx[2]));
-      xprintf(PSTR("Status:%d \n"), fi(m->status));
+  zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
+  zprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), m->rampup, m->rampdown, m->totalstep);
+  zprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs / stepmmx[m->fastaxis] / TMSCALE), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
+  //xprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
+  xprintf(PSTR("sx %d %d %d \n"), fi(m->sx[0]), fi(m->sx[1]), fi(m->sx[2]));
+  xprintf(PSTR("Status:%d \n"), fi(m->status));
 #endif
 
-      f = m->fs;// m->fs*= stepmmx[m->fastaxis]; in planner
-      dl = timescaleLARGE / f;
-      ac1 = m->ac1;
-      ac2 = m->ac2;
-      m->rampdown = m->totalstep - m->rampdown; // presubtract
-      nextdly = 0;
-      mctr = 0;
-      return 1;
-    }
+  f = m->fs;// m->fs*= stepmmx[m->fastaxis]; in planner
+  dl = timescaleLARGE / f;
+  ac1 = m->ac1;
+  ac2 = m->ac2;
+  //nextdly = 0;
+  mctr = 0;
+  return 1;
 
-  }
-  return 0;
 }
 
 /*
@@ -679,6 +685,14 @@ int32_t startmove()
     DOCHECKENDSTOP
     =================================================================================================================================================
 */
+#ifdef INVERTENDSTOP
+#define ENDCHECK !
+#define ENDPIN INPUT
+#else
+#define ENDCHECK
+#define ENDPIN INPUT_PULLUP
+#endif
+
 void docheckendstop()
 {
   // AVR specific code here
@@ -706,9 +720,10 @@ void docheckendstop()
 #endif
 
 
+
 #ifndef ISPC
   for (int32_t e = 0; e < 3; e++) {
-    if (endstopstatus[e]) {
+    if (ENDCHECK endstopstatus[e]) {
       endstopstatus[e] = -digitalRead(endstopstatus[e]);
     }
   }
@@ -875,24 +890,24 @@ void initmotion() {
 
 #ifndef ISPC
 #ifdef xmin_pin
-  pinMode(xmin_pin, INPUT_PULLUP);
+  pinMode(xmin_pin, ENDPIN);
 #endif
 #ifdef xmax_pin
-  pinMode(xmax_pin, INPUT_PULLUP);
+  pinMode(xmax_pin, ENDPIN);
 #endif
 
 #ifdef ymin_pin
-  pinMode(ymin_pin, INPUT_PULLUP);
+  pinMode(ymin_pin, ENDPIN);
 #endif
 #ifdef ymax_pin
-  pinMode(ymax_pin, INPUT_PULLUP);
+  pinMode(ymax_pin, ENDPIN);
 #endif
 
 #ifdef zmin_pin
-  pinMode(zmin_pin, INPUT_PULLUP);
+  pinMode(zmin_pin, ENDPIN);
 #endif
 #ifdef zmax_pin
-  pinMode(zmax_pin, INPUT_PULLUP);
+  pinMode(zmax_pin, ENDPIN);
 #endif
 
 #endif

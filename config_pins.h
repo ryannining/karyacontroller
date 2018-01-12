@@ -45,8 +45,8 @@
 #define ZJERK 15
 #define E0JERK 5
 
-#define XACCELL 300
-#define YACCELL 300
+#define XACCELL 1300
+#define YACCELL 1300
 #define ZACCELL 500
 #define E0ACCELL 100
 
@@ -55,8 +55,8 @@
 #define ZMOVEACCELL 1500
 #define ZMOVEACCELL 1500
 
-#define XMAXFEEDRATE 200
-#define YMAXFEEDRATE 200
+#define XMAXFEEDRATE 100
+#define YMAXFEEDRATE 100
 #define ZMAXFEEDRATE 50
 #define E0MAXFEEDRATE 6
 
@@ -65,14 +65,14 @@
 #define ZSTEPPERMM 400//420
 #define E0STEPPERMM 150//380
 
-#define NUMBUFFER 11
+#define NUMBUFFER 7
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168
 
 #define USE_BACKLASH
 
-#define MOTOR_X_BACKLASH 20  // MOTOR 0 = X, 1= Y 2=Z 3=E
+#define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
 #define MOTOR_Y_BACKLASH 0
 #define MOTOR_Z_BACKLASH 0
 #define MOTOR_E_BACKLASH 0
@@ -83,3 +83,5 @@
 #define MOTOR_2_DIR 1 // 1: normal -1:inverted
 #define MOTOR_3_DIR 1 // 1: normal -1:inverted
 
+
+#define INVERTENDSTOP // 1: normally close -1, normally open

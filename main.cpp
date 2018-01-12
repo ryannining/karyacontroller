@@ -49,6 +49,7 @@ int main(void)
   float v = 10.1234;
   xprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
   demofile();
+  //demo();
   xprintf (PSTR("WAIT\n"));
   waitbufferempty();
   xprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -85,6 +86,7 @@ void demofile(){
 #endif
 
 void demo() {
+  graphscale=1;  
   int f = 40;
   addmove(f,0,50,0,1);
   int i;
@@ -98,7 +100,7 @@ void demo() {
   addmove(f, 0, 65, 0, 0);
 */
   for (i = 0; i < 36; i++) {
-    addmove(f, sin(i * 44.0/7/36)*30+100,  -cos(i * 44.0/7/36)*30+100, 0, 1);
+    addmove(f, sin(i * 44.0/7/36)*10,  -cos(i * 44.0/7/36)*10, 0, 1);
   }
   
 

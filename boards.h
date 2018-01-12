@@ -145,6 +145,43 @@
 //#define heater_pin 3
 
 /*
+ * /*
+============================================================================================
+     BOARD_SEMEDIY128AU
+============================================================================================
+*/
+#elif defined(BOARD_SEMEDIYNANO)
+
+#define xenable 13
+#define xdirection 11
+#define xstep 12
+
+#define yenable 4
+#define ydirection 2
+#define ystep 3
+
+#define zenable A2
+#define zdirection A0
+#define zstep A1
+
+#define e0enable A5
+#define e0direction A3
+#define e0step A4
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+#define xmin_pin 9
+#define ymin_pin 8
+#define zmax_pin 7
+#define temp_pin A6
+#define heater_pin 10
+/*
 ============================================================================================
      ESP01CNC_V1
 ============================================================================================

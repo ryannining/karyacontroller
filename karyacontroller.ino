@@ -1,4 +1,9 @@
 
+//#define timing
+//#define timingG
+//#define echoserial
+
+
 #include "common.h"
 #include "gcode.h"
 #include "temp.h"
@@ -7,18 +12,20 @@
 #include<stdint.h>
 extern void demo();
 extern int motionloop();
-//#define timing
 
 int line_done, ack_waiting = 0;
 uint32_t ct = 0;
+uint32_t gt = 0;
+int n=0;
 void gcode_loop() {
   //float x=12.345;
   //xprintf(PSTR("Motion demo %d %f\n"),10,x);
   //delay(500);
   //demo();
-#if defined(__AVR__) || defined(ESP8266)
+#ifndef ISPC
   uint32_t t1 = micros();
-  if (motionloop()) {
+  if (motionloop()) 
+  {
 #ifdef timing
     uint32_t t2 = micros();
     if (ct++ > 100) {
@@ -30,14 +37,24 @@ void gcode_loop() {
   if (ack_waiting) {
     zprintf(PSTR("ok\n"));
     ack_waiting = 0;
+    n=1;
   }
   if (Serial.available() > 0)
   {
+    if (n){
+      gt=micros();
+      n=0;      
+    }
     char c=Serial.read();
+    #ifdef echoserial
     Serial.write(c);
+    #endif
     line_done = gcode_parse_char(c);
     if (line_done) {
       ack_waiting = line_done - 1;
+      #ifdef timingG
+        zprintf(PSTR("Gcode:%dus\n"),fi(micros()-gt));
+      #endif
     }
   }
 #else
@@ -96,7 +113,7 @@ void demoSD() {
 void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
-  Serial.begin(115200);
+  Serial.begin(128000);//115200);
   initmotion();
   init_gcode();
   init_temp();

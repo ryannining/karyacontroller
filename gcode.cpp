@@ -349,7 +349,7 @@ void temp_wait(void) {
 int32_t mvc = 0;
 void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond, int g0 = 1)
 {
-  checkendstop = endstop_check;
+  checkendstop = 0;
   addmove(t->F * t->f_multiplier, t->axis[X]
           , t->axis[Y]
           , t->axis[Z]

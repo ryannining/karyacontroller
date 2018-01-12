@@ -10,7 +10,7 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-//#define UPDATE_F_EVERY 1600 //us
+#define UPDATE_F_EVERY 1600 //us
 
 
 typedef struct {
