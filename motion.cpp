@@ -40,6 +40,7 @@ tmove move[NUMBUFFER];
 float cx1, cy1, cz1, ce01, lf, e_multiplier;
 float ax_max[3];
 int xback[4];
+int32_t dl;
 
 
 static int32_t ramplen(float v0, float v1, float a , float stepmm)
@@ -144,15 +145,15 @@ int32_t mcx[NUMAXIS];
 
 #if defined(__AVR__) || defined(ESP8266)
 
+//    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));\
 
 #define MOTORBACKLASH(AX,d,PSTEP) \
   if (PSTEP && lsx[AX] && (lsx[AX]!=d)){\
-    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));\
     for(int i=0;i<PSTEP;i++){\
       motor_##AX##_STEP();\
-      delayMicroseconds(50);\
+      delayMicroseconds(5);\
       motor_##AX##_UNSTEP();\
-      delayMicroseconds(50);\
+      delayMicroseconds(dl);\
     }\
   }\
   lsx[AX]=d;\
@@ -406,7 +407,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   //zprintf(PSTR("X:%f Y:%f Z:%f\n"), ff(cx2), ff(cy2), ff(cz2));
   //zprintf(PSTR("-\n"));
   needbuffer();
-  cf = 30;
+  //cf = 30;
   tmove *am;
   am = &move[nextbuff(head)];
   am->status = g0 ? 8 : 0; // reset status:0 planstatus:0 g0:g0
@@ -481,7 +482,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
 tmove *m;
 float tick, tickscale, fscale, graphscale;
 //int32_t px[4] = {0, 0, 0, 0 };
-int32_t ac1, ac2, f, dl;
+int32_t ac1, ac2, f;
 int32_t mctr;
 uint32_t nextmicros;
 uint32_t nextdly;
@@ -652,14 +653,14 @@ int32_t startmove()
 
   nextmicros = micros();
   // do backlash correction
-
-
+  prepareramp(t);
+  f = m->fs;// m->fs*= stepmmx[m->fastaxis]; in planner
+  dl = timescaleLARGE / f;
   motor_0_DIR(m->sx[0]);
   motor_1_DIR(m->sx[1]);
   motor_2_DIR(m->sx[2]);
   motor_3_DIR(m->sx[3]);
   mcx[0] = mcx[1] = mcx[2] = mcx[3] = (m->totalstep / 2);
-  prepareramp(t);
   //if (m->fe==0)zprintf(PSTR("???\n"));
   tail = t;
   m->status &= ~3;
@@ -673,8 +674,6 @@ int32_t startmove()
   xprintf(PSTR("Status:%d \n"), fi(m->status));
 #endif
 
-  f = m->fs;// m->fs*= stepmmx[m->fastaxis]; in planner
-  dl = timescaleLARGE / f;
   ac1 = m->ac1;
   ac2 = m->ac2;
   //nextdly = 0;
@@ -781,7 +780,7 @@ void homing(float x, float y, float z, float e0)
 #define moveaway(e,F) {\
     if (tx[e]) {\
       xx[0]=xx[1]=xx[2]=xx[3]=0;\
-      xx[e] =  - tx[e] / 100;\
+      xx[e] =  - ENDSTOP_MOVE;\
       checkendstop = 0;\
       addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
       waitbufferempty();\
@@ -793,7 +792,7 @@ void homing(float x, float y, float z, float e0)
     checkendstop = 1;\
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     waitbufferempty();\
-    xx[e] =  - tx[e] / 200;\
+    xx[e] =  - ENDSTOP_MOVE;\
     checkendstop = 0;\
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     waitbufferempty();\

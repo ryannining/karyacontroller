@@ -85,3 +85,5 @@
 
 
 //#define INVERTENDSTOP // 1: normally close -1, normally open
+
+#define ENDSTOP_MOVE 2  //2mm move back after endstop hit
