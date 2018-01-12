@@ -689,7 +689,7 @@ int32_t startmove()
 */
 #ifdef INVERTENDSTOP
 #define ENDCHECK !
-#define ENDPIN INPUT
+#define ENDPIN INPUT_PULLUP
 #else
 #define ENDCHECK
 #define ENDPIN INPUT_PULLUP
@@ -725,8 +725,8 @@ void docheckendstop()
 
 #ifndef ISPC
   for (int32_t e = 0; e < 3; e++) {
-    if (ENDCHECK endstopstatus[e]) {
-      endstopstatus[e] = -digitalRead(endstopstatus[e]);
+    if (endstopstatus[e]) {
+      endstopstatus[e] = -(ENDCHECK digitalRead(endstopstatus[e]));
     }
   }
 #else
@@ -734,7 +734,7 @@ void docheckendstop()
   if (!m) return;
   // simulate endstop if x y z is 0
   for (int32_t e = 0; e < NUMAXIS; e++) {
-    if (x1[e] < 0) endstopstatus[e] = -1; else  endstopstatus[e] = 0;
+    if (x1[e] < 0) endstopstatus[e] <0; else  endstopstatus[e] = 0;
   }
 #endif
 }
@@ -755,16 +755,16 @@ void homing(float x, float y, float z, float e0)
 #elif defined(xmax_pin)
   tx[0] = 500;
 #endif
-
+#define mmax ENDSTOP_MOVE*100
 #ifdef ymin_pin
-  tx[1] = -500;
+  tx[1] = -mmax;
 #elif defined(ymax_pin)
-  tx[1] = 500;
+  tx[1] = mmax;
 #endif
 #ifdef zmin_pin
-  tx[2] = -500;
+  tx[2] = -mmax;
 #elif defined(zmax_pin)
-  tx[2] = 500;
+  tx[2] = mmax;
 #endif
   checkendstop = 1;
   //xprintf(PSTR("Homing to %d %d %d\n"), tx[0], tx[1], tx[2]);
@@ -780,7 +780,7 @@ void homing(float x, float y, float z, float e0)
 #define moveaway(e,F) {\
     if (tx[e]) {\
       xx[0]=xx[1]=xx[2]=xx[3]=0;\
-      xx[e] =  - ENDSTOP_MOVE;\
+      xx[e] =  - tx[e]/100;\
       checkendstop = 0;\
       addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
       waitbufferempty();\
@@ -792,7 +792,7 @@ void homing(float x, float y, float z, float e0)
     checkendstop = 1;\
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     waitbufferempty();\
-    xx[e] =  - ENDSTOP_MOVE;\
+    xx[e] =  - tx[e]/100;\
     checkendstop = 0;\
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     waitbufferempty();\

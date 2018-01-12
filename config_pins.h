@@ -84,6 +84,6 @@
 #define MOTOR_3_DIR 1 // 1: normal -1:inverted
 
 
-//#define INVERTENDSTOP // 1: normally close -1, normally open
+//#define INVERTENDSTOP // uncomment for normally open
 
 #define ENDSTOP_MOVE 2  //2mm move back after endstop hit
