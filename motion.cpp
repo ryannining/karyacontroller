@@ -750,12 +750,13 @@ void homing(float x, float y, float z, float e0)
   waitbufferempty();
   int32_t tx[4];
   tx[0] =  tx[1] = tx[2] = 0;
+#define mmax ENDSTOP_MOVE*100  
 #ifdef xmin_pin
-  tx[0] = -500;
+  tx[0] = -mmax;
 #elif defined(xmax_pin)
-  tx[0] = 500;
+  tx[0] = mmax;
 #endif
-#define mmax ENDSTOP_MOVE*100
+
 #ifdef ymin_pin
   tx[1] = -mmax;
 #elif defined(ymax_pin)
