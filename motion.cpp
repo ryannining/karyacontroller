@@ -39,6 +39,7 @@ int32_t head, tail;
 tmove move[NUMBUFFER];
 float cx1, cy1, cz1, ce01, lf, e_multiplier;
 float ax_max[3];
+int xback[4];
 
 
 static int32_t ramplen(float v0, float v1, float a , float stepmm)
@@ -63,6 +64,9 @@ static float accelat(float v0, float v1, float s)
     =================================================================================================================================================
   Reset all variable
 */
+
+int8_t lsx[4] = {0, 0, 0, 0};
+
 void reset_motion() {
   homingspeed = HOMINGSPEED;
   homeoffset[0] = XOFFSET;
@@ -110,6 +114,15 @@ void reset_motion() {
   cz1 = 0;
   ce01 = 0;
   tick = 0;
+  lsx[0]=0;
+  lsx[1]=0;
+  lsx[2]=0;
+  lsx[3]=0;
+  xback[0]=MOTOR_X_BACKLASH;
+  xback[1]=MOTOR_Y_BACKLASH;
+  xback[2]=MOTOR_Z_BACKLASH;
+  xback[3]=MOTOR_E_BACKLASH;
+  
   e_multiplier = 1;
 
 }
@@ -131,16 +144,38 @@ int32_t mcx[NUMAXIS];
 
 #if defined(__AVR__) || defined(ESP8266)
 
+//zprintf(PSTR("Backlash##AX## %d\n"),fi(PSTEP));\
+
+#define MOTORBACKLASH(AX,d,PSTEP) \
+  if (PSTEP && lsx[AX] && (lsx[AX]!=d)){\
+    for(int i=0;i<PSTEP;i++){\
+      motor_##AX##_STEP();\
+      delayMicroseconds(5);\
+      motor_##AX##_STEP();\
+    }\
+  }\
+  lsx[AX]=d;\
+
+
+
 #define MOTOR(AX,PENABLE,PDIR,PSTEP)\
   inline void motor_##AX##_INIT(){pinMode(PENABLE, OUTPUT);pinMode(PDIR, OUTPUT);pinMode(PSTEP, OUTPUT);digitalWrite(PENABLE,1);}\
   inline void motor_##AX##_ON(){ digitalWrite(PENABLE,0);}\
   inline void motor_##AX##_OFF() { digitalWrite(PENABLE,1);}\
-  inline void motor_##AX##_DIR(int d){ digitalWrite(PENABLE,0);digitalWrite(PDIR,d>0?1:0);}\
   inline void motor_##AX##_STEP(){  digitalWrite(PSTEP,1);}\
-  inline void motor_##AX##_UNSTEP(){  digitalWrite(PSTEP,0);}
+  inline void motor_##AX##_UNSTEP(){  digitalWrite(PSTEP,0);}\
+  inline void motor_##AX##_DIR(int d){ if(!d)return;digitalWrite(PENABLE,0);digitalWrite(PDIR,d>0?1:0);MOTORBACKLASH(AX,d,xback[AX]);}\
 
 #else
-#define MOTOR(AX,PENABLE,PDIR,PSTEP) DUMYMOTOR(AX,0,0,0)
+#define MOTOR(AX,PENABLE,PDIR,PSTEP)\
+  inline void motor_##AX##_INIT(){zprintf(PSTR("Motor ##AX## Init\n"));}\
+  inline void motor_##AX##_ON(){ zprintf(PSTR("Motor ##AX## Enable\n"));}\
+  inline void motor_##AX##_OFF() { zprintf(PSTR("Motor ##AX## Disable\n"));}\
+  inline void motor_##AX##_STEP(){  zprintf(PSTR("Motor ##AX## step\n"));}\
+  inline void motor_##AX##_UNSTEP(){  zprintf(PSTR("Motor ##AX## unstep"\n));}\
+  inline void motor_##AX##_DIR(int d){ zprintf(PSTR("Motor ##AX## Dir %d Backlash %d\n"),d,MOTOR_##AX##_BACKLASH);}\
+
+
 #endif
 
 
@@ -409,18 +444,18 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   am->fs = 0;
   //am->planstatus = 0; //0: not optimized 1:fixed
   //calculate delta
-  int32_t dd,ix;
-  dd=0;
- am->fastaxis = 0;
+  int32_t dd, ix;
+  dd = 0;
+  am->fastaxis = 0;
   for (ix = 0; ix < NUMAXIS; ix++) {
     int32_t delta = x2[ix];
     am->dx[ix] = abs(delta);
     am->sx[ix] = 0;
     if (delta > 0) am->sx[ix] = 1;
     if (delta < 0) am->sx[ix] = -1;
-    if (am->dx[ix]>dd){
-      dd=am->dx[ix];
-      am->fastaxis=ix;
+    if (am->dx[ix] > dd) {
+      dd = am->dx[ix];
+      am->fastaxis = ix;
     }
   }
   am->totalstep = am->dx[am->fastaxis];
@@ -603,6 +638,9 @@ int32_t startmove()
     if ((m->status & 3) == 1) {
 
       nextmicros = micros();
+      // do backlash correction
+
+
       motor_0_DIR(m->sx[0]);
       motor_1_DIR(m->sx[1]);
       motor_2_DIR(m->sx[2]);

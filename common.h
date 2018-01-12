@@ -1,7 +1,7 @@
 
 
 #if defined(__AVR__) || defined(ESP8266)
-//#define output_enable
+#define output_enable
 // AVR specific code here
 //#include <avr/pgmspace.h>
 #include <arduino.h>

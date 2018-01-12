@@ -695,9 +695,14 @@ void process_gcode_command() {
         zprintf(PSTR("EPR:3 75 %d Mv AccelZ\n"), fi(mvaccel[2]));
 
         zprintf(PSTR("EPR:2 35 %d XJerk\n"), fi(jerk[0]));
-        zprintf(PSTR("EPR:2 39 %d XJerk\n"), fi(jerk[1]));
+        zprintf(PSTR("EPR:2 39 %d YJerk\n"), fi(jerk[1]));
         zprintf(PSTR("EPR:2 43 %d Zjerk\n"), fi(jerk[2]));
         zprintf(PSTR("EPR:2 47 %d Ejerk\n"), fi(jerk[3]));
+
+        zprintf(PSTR("EPR:2 80 %d Xbacklash\n"), fi(xback[0]));
+        zprintf(PSTR("EPR:2 84 %d Ybacklash\n"), fi(xback[1]));
+        zprintf(PSTR("EPR:2 88 %d Zbacklash\n"), fi(xback[2]));
+        zprintf(PSTR("EPR:2 92 %d Ebacklash\n"), fi(xback[3]));
 
 
         break;
@@ -739,6 +744,11 @@ void process_gcode_command() {
               eprom_wr(71, EE_mvaccely, S_I);
               eprom_wr(75, EE_mvaccelz, S_I);
 
+
+              eprom_wr(80, EE_xbacklash, S_I);
+              eprom_wr(84, EE_ybacklash, S_I);
+              eprom_wr(88, EE_zbacklash, S_I);
+              eprom_wr(92, EE_ebacklash, S_I);
               /*            //case 153:
                             //eeprom_write_dword((uint32_t *) &EE_zmax, S_F);
                             //break;

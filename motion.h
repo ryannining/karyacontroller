@@ -33,6 +33,7 @@ extern float e_multiplier,tick, tickscale, fscale,graphscale;
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 //extern int32_t px[4];
+extern int xback[4];
 extern int32_t homingspeed;
 extern float homeoffset[4];
 extern int32_t jerk[4];

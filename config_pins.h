@@ -30,7 +30,7 @@
 
 #define motortimeout 10000000 // 30 seconds
 
-#define DRIVE_COREXY
+//#define DRIVE_COREXY
 //#define DRIVE_COREXZ
 
 #define HOMINGSPEED 100
@@ -69,4 +69,8 @@
 #define YMAX 0
 #define ZMAX 168
 
+#define MOTOR_X_BACKLASH 20  // MOTOR 0 = X, 1= Y 2=Z 3=E
+#define MOTOR_Y_BACKLASH 0
+#define MOTOR_Z_BACKLASH 0
+#define MOTOR_E_BACKLASH 0
 
