@@ -84,4 +84,4 @@
 #define MOTOR_3_DIR 1 // 1: normal -1:inverted
 
 
-#define INVERTENDSTOP // 1: normally close -1, normally open
+//#define INVERTENDSTOP // 1: normally close -1, normally open

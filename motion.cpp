@@ -496,6 +496,16 @@ uint32_t nextmotoroff;
 uint32_t ocm;
 int motionloop() {
   uint32_t cm, ix;
+#ifndef ISPC
+
+  cm = micros();
+  temp_loop(cm);
+  if (cm - nextmicros >= motortimeout) {
+    //xprintf(PSTR("Motor off\n"));
+    nextmotoroff = cm + motortimeout;
+    power_off();
+  }
+#endif
   if (!m ) {
     // start new move if available , if not exit
     if (!startmove()) return 0;
@@ -510,19 +520,12 @@ int motionloop() {
 #if defined(ESP8266)
   feedthedog();
 #endif
-#ifndef ISPC
-  cm = micros();
-  temp_loop(cm);
-  if (cm - nextmicros >= motortimeout) {
-    //xprintf(PSTR("Motor off\n"));
-    nextmotoroff = cm + motortimeout;
-    power_off();
-  }
-#endif
-  
+
+
 #ifdef ISPC
   if (1) {
 #else
+  cm = micros();
   if (cm - nextmicros >= dl) {
 #endif
 
