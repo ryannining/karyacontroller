@@ -600,10 +600,15 @@ void process_gcode_command() {
       case 7:
       case 107:
         // set laser pwm off
+        #ifdef fan_pin
+        analogWrite(fan_pin,0);
+        #endif
         break;
       case 106:
         // set laser pwm on
-
+        #ifdef fan_pin
+        analogWrite(fan_pin,next_target.S);
+        #endif
         break;
 
       case 112:

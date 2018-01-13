@@ -74,6 +74,37 @@
 
 /*
 ============================================================================================
+     BOARD_GEN7
+============================================================================================
+*/
+#elif defined(BOARD_GEN7)
+
+#define xenable 25
+#define xdirection 28
+#define xstep 29
+
+#define yenable 25
+#define ydirection 26
+#define ystep 27
+
+#define zenable 25
+#define zdirection 22
+#define zstep 23
+
+#define e0enable 25
+#define e0direction 18
+#define e0step 19
+
+
+#define xmin_pin 0
+#define ymin_pin 1
+#define zmin_pin 2
+#define temp_pin 1 //analog 1
+#define heater_pin 4
+
+
+/*
+============================================================================================
      BOARD_RAMP1.3 MEGA ramps 1.4 is same ??
 ============================================================================================
 */

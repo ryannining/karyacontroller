@@ -20,7 +20,7 @@ typedef struct {
   float fx[NUMAXIS];
   float fs, fn, fe;
   int32_t dx[NUMAXIS];
-  int32_t totalstep, rampup, rampdown;
+  int32_t rampup, rampdown;
   int32_t ac1, ac2;
 #ifdef ISPC
   // for graphics

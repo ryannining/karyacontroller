@@ -14,6 +14,7 @@ int wait_for_temp = 0;
 
 //Specify the links and initial tuning parameters
 PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
+
 int vanalog = 0;
 #if defined(__AVR__)
 #define ADCREAD ADCSRA |= bit (ADSC) | bit (ADIE);

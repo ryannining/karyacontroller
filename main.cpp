@@ -48,8 +48,8 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   xprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  demofile();
-  //demo();
+  //demofile();
+  demo();
   xprintf (PSTR("WAIT\n"));
   waitbufferempty();
   xprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -98,10 +98,10 @@ void demo() {
     addmove(f, i * 10, 60, 0, 0);
   }
   addmove(f, 0, 65, 0, 0);
-*/
   for (i = 0; i < 36; i++) {
     addmove(f, sin(i * 44.0/7/36)*10,  -cos(i * 44.0/7/36)*10, 0, 1);
   }
+*/
   
 
 }

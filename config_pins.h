@@ -10,7 +10,8 @@
 
 //#define BOARD_TARANTHOLE
 //#define BOARD_SEMEDIYNANO
-#define BOARD_NANONANO
+//#define BOARD_NANONANO
+#define BOARD_GEN7
 //#define BOARD_RAMP13
 //#define BOARD_SEMEDIY128AU
 //#define BOARD_ESP01CNC_V1

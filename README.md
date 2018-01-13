@@ -25,9 +25,12 @@ feature i need to have in this software is: (* implemented)
 - implement endstop reading (xmin xmax , etc)*
 - eeprom configuration (step/mm, accel, travel accel, jerk, max axis) *
 - heater with PID E0 *
+- Async temp reading *
 - config files to set pins and parameter *
 - G0 and G1 can have different acceleration (travel vs feed/extrude) *
-- backlash for all motor
+- backlash for all motor *
+- Config for inverted motor and endstop
+
 - backward planner
 - interrupt timing
 

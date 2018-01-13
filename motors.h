@@ -36,14 +36,14 @@ byte pinData=0;
   if (PSTEP && lsx[AX] && (lsx[AX]!=d)){\
     for(int i=0;i<PSTEP;i++){\
       motor_##AX##_STEP();\
-      delayMicroseconds(5);\
       motor_##AX##_UNSTEP();\
-      delayMicroseconds(dl);\
+      delayMicroseconds(500);\
     }\
   }\
   lsx[AX]=d;\
 
 #define STEPDELAY delayMicroseconds(5);
+#define STEPDIRDELAY delayMicroseconds(10);
 
 #define MOTOR(AX,PENABLE,PDIR,PSTEP)\
   inline void motor_##AX##_INIT(){pinMode(PENABLE, OUTPUT);pinMode(PDIR, OUTPUT);pinMode(PSTEP, OUTPUT);digitalWrite(PENABLE,1);}\
@@ -51,7 +51,7 @@ byte pinData=0;
   inline void motor_##AX##_OFF() { digitalWrite(PENABLE,1);}\
   inline void motor_##AX##_STEP(){  digitalWrite(PSTEP,1);STEPDELAY}\
   inline void motor_##AX##_UNSTEP(){  digitalWrite(PSTEP,0);}\
-  inline void motor_##AX##_DIR(int d){ if(!d)return;digitalWrite(PENABLE,0);digitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);MOTORBACKLASH(AX,d,xback[AX]);}\
+  inline void motor_##AX##_DIR(int d){ if(!d)return;digitalWrite(PENABLE,0);digitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);STEPDIRDELAY;MOTORBACKLASH(AX,d,xback[AX]);}\
 
 #else
 
