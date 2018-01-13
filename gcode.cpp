@@ -716,6 +716,8 @@ void process_gcode_command() {
     eeprom_write_dword((uint32_t *) &pos, val);\
     break;\
   }
+              eprom_wr(145, EE_xmax, S_F);
+              eprom_wr(149, EE_ymax, S_F);
               eprom_wr(153, EE_zmax, S_F);
               eprom_wr(0, EE_estepmm, S_F);
               eprom_wr(3, EE_xstepmm, S_F);

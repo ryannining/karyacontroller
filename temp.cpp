@@ -16,7 +16,10 @@ int wait_for_temp = 0;
 PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 
 int vanalog = 0;
-#if defined(__AVR__)
+
+
+
+#if defined(__AVR__) && defined(ISRTEMP)
 #define ADCREAD ADCSRA |= bit (ADSC) | bit (ADIE);
 ISR (ADC_vect)
 {
@@ -51,8 +54,8 @@ void init_temp()
   Setpoint = 0;
   analogWrite(heater_pin, 0);
 
-#if defined( __AVR__)
-  ADMUX = bit (REFS0) | (temp_pin & 0x07);
+#if defined( __AVR__) && defined(ISRTEMP)
+  ADMUX = bit (REFS0) | (temp_pin);
   ADCREAD
 #elif defined(ESP8266)
 #endif
@@ -100,7 +103,7 @@ void temp_loop(uint32_t cm)
   if ((next_temp < cm) && (cm - next_temp < 1000000)) {
     next_temp = cm + 1000000; // each half second
 
-#if defined( __AVR__)
+#if defined( __AVR__) && defined(ISRTEMP)
     // automatic in ESR
     ADCREAD
 #else
@@ -110,6 +113,9 @@ void temp_loop(uint32_t cm)
     ctemp = (ctemp + vanalog * 3) / 4;
     Input =  read_temp(ctemp);
     if (Setpoint > 0) {
+      #ifdef fan_pin
+      if (Input>80) analogWrite(fan_pin,255);
+      #endif
 #ifdef heater_pin
       //if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
       myPID.Compute();

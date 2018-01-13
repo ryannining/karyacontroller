@@ -3,17 +3,19 @@
     AVR
 ============================================================================================
 */
-#if defined(__AVR__)
+#include "motion.h"
+#ifndef ISPC
 #include<arduino.h>
 
 //Known board in boards.h
 
-#define BOARD_CHCSHIELDV3
+//#define BOARD_CHCSHIELDV3
 //#define BOARD_TARANTHOLE
 //#define BOARD_SEMEDIYNANO
 //#define BOARD_NANONANO
 //#define BOARD_GEN7
 //#define BOARD_RAMP13
+#define BOARD_RAMP13_3DPLEX
 //#define BOARD_SEMEDIY128AU
 //#define BOARD_ESP01CNC_V1
 
@@ -67,7 +69,7 @@
 #define ZSTEPPERMM 400//420
 #define E0STEPPERMM 150//380
 
-#define NUMBUFFER 13
+#define NUMBUFFER 25
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168

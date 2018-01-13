@@ -343,7 +343,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
 {
   //cf=100;
   if (head == tail) {
-    zprintf(PSTR("Empty !\n"));
+    //zprintf(PSTR("Empty !\n"));
   }
 #ifdef output_enable
   xprintf(PSTR("Tail:%d Head:%d \n"), tail, head);

@@ -68,10 +68,10 @@
 #define xmin_pin A1
 #define ymin_pin A0
 #define zmax_pin 13
-#define temp_pin 6 //analog 6
+#define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
 
-
+#define ISRTEMP
 /*
 ============================================================================================
      BOARD_GEN7
@@ -161,14 +161,52 @@
 //#define xmax_pin 2
 
 #define ymin_pin 14
-//#define ymiaxn_pin 15
+//#define ymax_pin 15
+
+#define zmin_pin 18
+//#define zmax_pin 19
+
+#define temp_pin 13
+#define heater_pin 10
+
+#define fan_pin 9
+/*
+============================================================================================
+     BOARD_RAMP1.3 MEGA ramps 1.4 is same ??
+============================================================================================
+*/
+#elif defined(BOARD_RAMP13_3DPLEX)
+
+#define xenable 38
+#define xdirection 55
+#define xstep 54
+
+#define yenable 56
+#define ydirection 61
+#define ystep 60
+
+#define zenable 62
+#define zdirection 48
+#define zstep 46
+
+#define e0enable 24
+#define e0direction 28
+#define e0step 26
+
+
+//#define xmin_pin 3
+//#define xmax_pin 2
+
+//#define ymin_pin 14
+//#define ymax_pin 15
 
 //#define zmin_pin 18
 #define zmax_pin 19
 
-#define temp_pin 13
-#define heater_pin 3
+#define temp_pin A13
+#define heater_pin 10
 
+#define fan_pin 9
 
 /*
 ============================================================================================
