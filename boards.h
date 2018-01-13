@@ -101,6 +101,36 @@
 #define zmin_pin 2
 #define temp_pin 1 //analog 1
 #define heater_pin 4
+/*
+============================================================================================
+     BOARD_CHCSHIELDV3
+============================================================================================
+*/
+#elif defined(BOARD_CHCSHIELDV3)
+
+#define xenable 8
+#define xdirection 5
+#define xstep 2
+
+#define yenable 8
+#define ydirection 6
+#define ystep 3
+
+#define zenable 8
+#define zdirection 7
+#define zstep 4
+
+#define e0enable 8  // set the jumper for 4th motor https://blog.protoneer.co.nz/arduino-cnc-shield-v3-00-assembly-guide/#4THAXIS
+#define e0direction 13
+#define e0step 12
+
+
+#define xmin_pin 0
+#define ymin_pin 1
+#define zmin_pin 2
+
+#define temp_pin 0 //analog 0, on pin ABORT
+#define heater_pin A3 // on pin COOLANT
 
 
 /*
