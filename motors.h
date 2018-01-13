@@ -13,7 +13,9 @@ byte pinData=0;
 
 #define dWrite(pin,h) if(h)dWriteOn(pin);else dWriteOff(pin);
 #define dShiftout {\
-    shiftOut(data, SR_clock, MSBFIRST, 1 << i);\
+    digitalWrite(SR_latch, LOW);\
+    shiftOut(SR_data, SR_clock, MSBFIRST, 1 << i);\
+    digitalWrite(SR_latch, HIGH);\
 }
  
 
@@ -41,13 +43,13 @@ byte pinData=0;
   }\
   lsx[AX]=d;\
 
-
+#define STEPDELAY delayMicroseconds(5);
 
 #define MOTOR(AX,PENABLE,PDIR,PSTEP)\
   inline void motor_##AX##_INIT(){pinMode(PENABLE, OUTPUT);pinMode(PDIR, OUTPUT);pinMode(PSTEP, OUTPUT);digitalWrite(PENABLE,1);}\
   inline void motor_##AX##_ON(){ digitalWrite(PENABLE,0);}\
   inline void motor_##AX##_OFF() { digitalWrite(PENABLE,1);}\
-  inline void motor_##AX##_STEP(){  digitalWrite(PSTEP,1);}\
+  inline void motor_##AX##_STEP(){  digitalWrite(PSTEP,1);STEPDELAY}\
   inline void motor_##AX##_UNSTEP(){  digitalWrite(PSTEP,0);}\
   inline void motor_##AX##_DIR(int d){ if(!d)return;digitalWrite(PENABLE,0);digitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);MOTORBACKLASH(AX,d,xback[AX]);}\
 

@@ -15,13 +15,13 @@
 
 typedef struct {
   int8_t  sx[NUMAXIS];
-  int8_t  fastaxis, status  ; // status in bit 0 , planstatus in bit 1 , g0 in bit 3
+  int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
 
   float fx[NUMAXIS];
   float fs, fn, fe;
   int32_t dx[NUMAXIS];
   int32_t totalstep, rampup, rampdown;
-  float ac1, ac2;
+  int32_t ac1, ac2;
 #ifdef ISPC
   // for graphics
   int col;

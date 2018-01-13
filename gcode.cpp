@@ -336,7 +336,7 @@ void temp_wait(void) {
   wait_for_temp = 1;
   int32_t c = 0;
   while (wait_for_temp && !temp_achieved()) {
-    MLOOP
+    motionloop();
     //delayMicroseconds(1000);
     if (c++ > 200000) {
       c = 0;

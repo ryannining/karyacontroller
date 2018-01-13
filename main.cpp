@@ -56,11 +56,11 @@ int main(void)
   getch();
 }
 void demofile(){
-    FILE *file = fopen("d:/3d/testkaryacon.gcode", "r");
+    FILE *file = fopen("d:/git/hipopotamo.gcode", "r");
     char code[100];
     size_t n = 0;
     int c;
-
+    graphscale=5;
     if (file == NULL) return; //could not open file
     int comment=0;
     while ((c = fgetc(file)) != EOF) {

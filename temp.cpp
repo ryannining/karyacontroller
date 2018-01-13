@@ -14,6 +14,26 @@ int wait_for_temp = 0;
 
 //Specify the links and initial tuning parameters
 PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
+int vanalog = 0;
+#if defined(__AVR__)
+#define ADCREAD ADCSRA |= bit (ADSC) | bit (ADIE);
+ISR (ADC_vect)
+{
+  byte low, high;
+
+  // we have to read ADCL first; doing so locks both ADCL
+  // and ADCH until ADCH is read.  reading ADCL second would
+  // cause the results of each conversion to be discarded,
+  // as ADCL and ADCH would be locked when it completed.
+  low = ADCL;
+  high = ADCH;
+
+  vanalog = (high << 8) | low;
+  //Serial.print(vanalog);
+  //Serial.write('\n');
+
+}  // end of ADC_vect
+#endif
 
 void set_temp(float set) {
   Setpoint = set;
@@ -29,6 +49,12 @@ void init_temp()
   next_temp = micros();
   Setpoint = 0;
   analogWrite(heater_pin, 0);
+
+#if defined( __AVR__)
+  ADMUX = bit (REFS0) | (temp_pin & 0x07);
+  ADCREAD
+#elif defined(ESP8266)
+#endif
 
 
 }
@@ -72,7 +98,15 @@ void temp_loop(uint32_t cm)
 {
   if ((next_temp < cm) && (cm - next_temp < 1000000)) {
     next_temp = cm + 1000000; // each half second
-    ctemp = (ctemp + analogRead(temp_pin) * 3) / 4;
+
+#if defined( __AVR__)
+    // automatic in ESR
+    ADCREAD
+#else
+    vanalog = analogRead(temp_pin);
+#endif
+
+    ctemp = (ctemp + vanalog * 3) / 4;
     Input =  read_temp(ctemp);
     if (Setpoint > 0) {
 #ifdef heater_pin
