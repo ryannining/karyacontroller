@@ -16,8 +16,13 @@ int wait_for_temp = 0;
 PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 
 int vanalog = 0;
-
-
+int fan_val =0;
+void setfan_val(int val){
+  #ifdef fan_pin
+    analogWrite(fan_pin,val);
+    fan_val=val;
+  #endif
+}
 
 #if defined(__AVR__) && defined(ISRTEMP)
 #define ADCREAD ADCSRA |= bit (ADSC) | bit (ADIE);
@@ -110,12 +115,12 @@ void temp_loop(uint32_t cm)
     vanalog = analogRead(temp_pin);
 #endif
 
-    ctemp = (ctemp + vanalog * 3) / 4;
+    ctemp = (ctemp + vanalog * 7) / 8;
     Input =  read_temp(ctemp);
+    #ifdef fan_pin
+    if ((Input>80) && (fan_val<50)) setfan_val(255);
+    #endif
     if (Setpoint > 0) {
-      #ifdef fan_pin
-      if (Input>80) analogWrite(fan_pin,255);
-      #endif
 #ifdef heater_pin
       //if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
       myPID.Compute();

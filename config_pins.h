@@ -69,7 +69,7 @@
 #define ZSTEPPERMM 400//420
 #define E0STEPPERMM 150//380
 
-#define NUMBUFFER 25
+#define NUMBUFFER 13
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168
