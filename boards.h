@@ -68,7 +68,7 @@
 #define xmin_pin A1
 #define ymin_pin A0
 #define zmax_pin 13
-#define temp_pin A6
+#define temp_pin 6 //analog 6
 #define heater_pin 3
 
 
