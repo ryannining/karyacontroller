@@ -30,7 +30,7 @@
 */
 
 #define zmax_pin 13
-#define temp_pin A6
+#define temp_pin 6
 #define heater_pin 3
 
 
@@ -105,7 +105,7 @@
 //#define zmin_pin 18
 #define zmax_pin 19
 
-#define temp_pin A13
+#define temp_pin 13
 #define heater_pin 3
 
 
@@ -179,7 +179,7 @@
 #define xmin_pin 9
 #define ymin_pin 8
 #define zmax_pin 7
-#define temp_pin A6
+#define temp_pin 6
 #define heater_pin 10
 /*
 ============================================================================================
