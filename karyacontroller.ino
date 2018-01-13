@@ -113,7 +113,7 @@ void demoSD() {
 void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
-  Serial.begin(128000);//115200);
+  Serial.begin(115200);//115200);
   initmotion();
   init_gcode();
   init_temp();

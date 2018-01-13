@@ -135,75 +135,7 @@ int32_t mcx[NUMAXIS];
     =================================================================================================================================================
 */
 
-#define DUMMYMOTOR(AX,PENABLE,PDIR,PSTEP)\
-  inline void motor_##AX##_INIT(){}\
-  inline void motor_##AX##_ON(){}\
-  inline void motor_##AX##_OFF() {}\
-  inline void motor_##AX##_DIR(int d){}\
-  inline void motor_##AX##_STEP(){}\
-  inline void motor_##AX##_UNSTEP(){}
-
-#if defined(__AVR__) || defined(ESP8266)
-
-//    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));\
-
-#define MOTORBACKLASH(AX,d,PSTEP) \
-  if (PSTEP && lsx[AX] && (lsx[AX]!=d)){\
-    for(int i=0;i<PSTEP;i++){\
-      motor_##AX##_STEP();\
-      delayMicroseconds(5);\
-      motor_##AX##_UNSTEP();\
-      delayMicroseconds(dl);\
-    }\
-  }\
-  lsx[AX]=d;\
-
-
-
-#define MOTOR(AX,PENABLE,PDIR,PSTEP)\
-  inline void motor_##AX##_INIT(){pinMode(PENABLE, OUTPUT);pinMode(PDIR, OUTPUT);pinMode(PSTEP, OUTPUT);digitalWrite(PENABLE,1);}\
-  inline void motor_##AX##_ON(){ digitalWrite(PENABLE,0);}\
-  inline void motor_##AX##_OFF() { digitalWrite(PENABLE,1);}\
-  inline void motor_##AX##_STEP(){  digitalWrite(PSTEP,1);}\
-  inline void motor_##AX##_UNSTEP(){  digitalWrite(PSTEP,0);}\
-  inline void motor_##AX##_DIR(int d){ if(!d)return;digitalWrite(PENABLE,0);digitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);MOTORBACKLASH(AX,d,xback[AX]);}\
-
-#else
-#define MOTOR(AX,PENABLE,PDIR,PSTEP)\
-  inline void motor_##AX##_INIT(){zprintf(PSTR("Motor ##AX## Init\n"));}\
-  inline void motor_##AX##_ON(){ zprintf(PSTR("Motor ##AX## Enable\n"));}\
-  inline void motor_##AX##_OFF() { zprintf(PSTR("Motor ##AX## Disable\n"));}\
-  inline void motor_##AX##_STEP(){  zprintf(PSTR("Motor ##AX## step\n"));}\
-  inline void motor_##AX##_UNSTEP(){  zprintf(PSTR("Motor ##AX## unstep"\n));}\
-  inline void motor_##AX##_DIR(int d){ zprintf(PSTR("Motor ##AX## Dir %d Backlash %d\n"),d,MOTOR_##AX##_BACKLASH);}\
-
-
-#endif
-
-
-#ifdef xenable
-MOTOR(0, xenable, xdirection, xstep)
-#else
-DUMMYMOTOR(0, 0, 0, 0)
-#endif
-
-#ifdef yenable
-MOTOR(1, yenable, ydirection, ystep)
-#else
-DUMMYMOTOR(1, 0, 0, 0)
-#endif
-
-#ifdef zenable
-MOTOR(2, zenable, zdirection, zstep)
-#else
-DUMMYMOTOR(2, 0, 0, 0)
-#endif
-
-#ifdef e0enable
-MOTOR(3, e0enable, e0direction, e0step)
-#else
-DUMMYMOTOR(3, 0, 0, 0)
-#endif
+#include "motors.h"
 
 int mb_ctr;
 int32_t bufflen() {
@@ -238,6 +170,8 @@ void safespeed(tmove *m) {
       //xprintf(PSTR("MF:%f F:%f\n"),ff((float)maxf[i]),ff((float)m->fx[i]));
       float scale2 = (float)maxf[i] / (float)m->fx[i];
       if (scale2 < scale) scale = scale2;
+      coreloop();
+
     }
   }
   // update all speed
@@ -291,7 +225,7 @@ void prepareramp(int32_t bpos)
   // New generic algorithm, to calculate rampup and rampdown simpler, and faster
   // if rampup and ramp down overlap
   if (m->rampup + m->rampdown > m->totalstep) {
-    int r = ((m->rampdown + m->rampup) - m->totalstep) / 2;
+    int32_t r = ((m->rampdown + m->rampup) - m->totalstep) / 2;
     m->rampup -= r;
     m->rampdown -= r;
     // check if still larger that totalstep
@@ -314,8 +248,10 @@ void prepareramp(int32_t bpos)
       zprintf(PSTR("========3========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
       zprintf(PSTR("FS:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->fn), ff(m->fe));
 #endif
+      coreloop();
     } else {
       m->fn = speedat(m->fs, m->ac1, m->rampup, stepmm);
+      coreloop();
 
     }
   }
@@ -373,6 +309,7 @@ void planner(int32_t h)
     //xprintf("DFX%d:%f %f\n",i,prev->fx[i],curr->fx[i]);
     scale2 = cjerk / df;
     if (scale2 < scale)  scale = scale2;
+    coreloop();
   }
   //xprintf ("jerk scaling:%f\n",scale);
 
@@ -399,6 +336,9 @@ int32_t x1[NUMAXIS], x2[NUMAXIS];
 void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , int rel)
 {
   //cf=100;
+  if (head == tail) {
+    zprintf(PSTR("Empty !\n"));
+  }
 #ifdef output_enable
   xprintf(PSTR("Tail:%d Head:%d \n"), tail, head);
   xprintf(PSTR("From X:%f Y:%f Z:%f\n"), ff(cx1), ff(cy1), ff(cz1));
@@ -494,41 +434,17 @@ uint32_t nextmotoroff;
     MOTIONLOOP
     =================================================================================================================================================
 */
-uint32_t ocm;
-int motionloop() {
-  uint32_t cm, ix;
-#ifndef ISPC
-
-  cm = micros();
-  temp_loop(cm);
-  if (cm - nextmicros >= motortimeout) {
-    //xprintf(PSTR("Motor off\n"));
-    nextmotoroff = cm + motortimeout;
-    power_off();
-  }
-#endif
-  if (!m ) {
-    // start new move if available , if not exit
-    if (!startmove()) return 0;
-  }
-  //  if (m->status == 2) {
-  if (mctr >= m->totalstep) {
-    //xprintf(PSTR("Finish:%d\n"),mctr);
-    m->status = 0;
-    m = 0;
-    if (!startmove()) return 0;
-  }
-#if defined(ESP8266)
-  feedthedog();
-#endif
-
-
+uint32_t cm, ocm;
+void coreloop() {
+  if (mctr >= m->totalstep)return;
 #ifdef ISPC
   if (1) {
 #else
   cm = micros();
   if (cm - nextmicros >= dl) {
 #endif
+    nextmicros = cm;
+
 
     // update delay not every step to make the motor move faster
     if (m->status & 8) {
@@ -607,7 +523,6 @@ int motionloop() {
       f += (ac2 * dl);
     }
     mctr++;
-    nextmicros = cm;
     /* ================================================================================================================ */
     //if (m->bpos==8)
 
@@ -631,7 +546,39 @@ int motionloop() {
         }
       }
     }
+
   }
+}
+int motionloop() {
+  uint32_t ix;
+#ifndef ISPC
+
+  cm = micros();
+  temp_loop(cm);
+  if (cm - nextmicros >= motortimeout) {
+    //xprintf(PSTR("Motor off\n"));
+    nextmotoroff = cm + motortimeout;
+    power_off();
+  }
+#endif
+  if (!m ) {
+    // start new move if available , if not exit
+    if (!startmove()) return 0;
+  }
+  //  if (m->status == 2) {
+  if (mctr >= m->totalstep) {
+    //xprintf(PSTR("Finish:%d\n"),mctr);
+    m->status = 0;
+    m = 0;
+    if (!startmove()) return 0;
+  }
+#if defined(ESP8266)
+  feedthedog();
+#endif
+
+
+  coreloop();
+
   return 1;
   //  }
   //  return 0;
@@ -660,6 +607,9 @@ int32_t startmove()
   motor_1_DIR(m->sx[1]);
   motor_2_DIR(m->sx[2]);
   motor_3_DIR(m->sx[3]);
+#ifdef AUTO_MOTOR_Z_OFF
+  if (m->dx[2] == 0)motor_2_OFF();
+#endif
   mcx[0] = mcx[1] = mcx[2] = mcx[3] = (m->totalstep / 2);
   //if (m->fe==0)zprintf(PSTR("???\n"));
   tail = t;
@@ -734,7 +684,7 @@ void docheckendstop()
   if (!m) return;
   // simulate endstop if x y z is 0
   for (int32_t e = 0; e < NUMAXIS; e++) {
-    if (x1[e] < 0) endstopstatus[e] <0; else  endstopstatus[e] = 0;
+    if (x1[e] < 0) endstopstatus[e] < 0; else  endstopstatus[e] = 0;
   }
 #endif
 }
@@ -750,7 +700,7 @@ void homing(float x, float y, float z, float e0)
   waitbufferempty();
   int32_t tx[4];
   tx[0] =  tx[1] = tx[2] = 0;
-#define mmax ENDSTOP_MOVE*100  
+#define mmax ENDSTOP_MOVE*100
 #ifdef xmin_pin
   tx[0] = -mmax;
 #elif defined(xmax_pin)
@@ -861,15 +811,19 @@ void needbuffer()
 #ifdef output_enable
     xprintf(PSTR("Wait\n"));
 #endif
-    while (m) {
+    //wait current move finish
+    int t = tail;
+    while (t == tail) {
       motionloop();
     }
-    startmove();
-    int lt = tail;
-    while (m) {
-      motionloop();
-    }
-    m = 0;
+    /*    // wait new move finish
+        startmove();
+        t = tail;
+        while (t==tail) {
+          motionloop();
+        }
+        m = 0;
+    */
     //xprintf(PSTR("Done\n"));
   }
 }

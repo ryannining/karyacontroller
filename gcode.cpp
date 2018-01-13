@@ -3,6 +3,9 @@
 #include "common.h"
 #include "temp.h"
 
+
+#define MLOOP motionloop();
+
 #include<stdint.h>
 #if defined(__AVR__) || defined(ESP8266)
 #include<arduino.h>
@@ -26,7 +29,7 @@ static float decfloat_to_float(void) {
   // e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
 
   if (e) r = (r /*+ powers[e-1] / 2*/) / powers[e];
-
+  MLOOP
   return read_digit.sign ? -r : r;
 }
 
@@ -85,6 +88,7 @@ uint8_t gcode_parse_char(uint8_t c) {
         case 'F':
           // just use raw integer, we need move distance and n_steps to convert it to a useful value, so wait until we have those to convert it
           next_target.target.F = decfloat_to_float() / 60;
+          MLOOP
           break;
         case 'S':
           // if this is temperature, multiply by 4 to convert to quarter-degree units
@@ -328,15 +332,11 @@ void delay_ms(uint32_t d) {
 #endif
 
 }
-void doclock() {
-  feedthedog();
-  motionloop();
-}
 void temp_wait(void) {
   wait_for_temp = 1;
   int32_t c = 0;
   while (wait_for_temp && !temp_achieved()) {
-    doclock();
+    MLOOP
     //delayMicroseconds(1000);
     if (c++ > 200000) {
       c = 0;
@@ -347,21 +347,13 @@ void temp_wait(void) {
   wait_for_temp = 0;
 }
 int32_t mvc = 0;
-void enqueue_home(TARGET *t, uint8_t endstop_check, uint8_t endstop_stop_cond, int g0 = 1)
-{
-  checkendstop = 0;
+static void enqueue(TARGET *) __attribute__ ((always_inline));
+inline void enqueue(TARGET *t, int g0 = 1) {
   addmove(t->F * t->f_multiplier, t->axis[X]
           , t->axis[Y]
           , t->axis[Z]
           , t->axis[E]
           , g0);
-  //waitbufferempty();
-
-
-}
-static void enqueue(TARGET *) __attribute__ ((always_inline));
-inline void enqueue(TARGET *t, int g0 = 1) {
-  enqueue_home(t, 0, 0, g0);
 }
 
 void process_gcode_command() {
@@ -454,8 +446,8 @@ void process_gcode_command() {
         // delay
         if (next_target.seen_P) {
           for (; next_target.P > 0; next_target.P--) {
-            doclock();
-            delay_ms(1);
+            MLOOP
+            delay_ms(5);
           }
         }
         break;
@@ -820,6 +812,8 @@ void process_gcode_command() {
           break;
         // Scale 100% = 256
         next_target.target.f_multiplier = next_target.S / 100;
+        MLOOP
+
         break;
 
       case 221:
@@ -828,6 +822,8 @@ void process_gcode_command() {
           break;
         // Scale 100% = 256
         e_multiplier = next_target.S / 100;
+          MLOOP
+
         break;
 
       default:;

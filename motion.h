@@ -16,7 +16,7 @@
 typedef struct {
   int8_t  sx[NUMAXIS];
   int8_t  fastaxis, status  ; // status in bit 0 , planstatus in bit 1 , g0 in bit 3
-  
+
   float fx[NUMAXIS];
   float fs, fn, fe;
   int32_t dx[NUMAXIS];
@@ -26,10 +26,10 @@ typedef struct {
   // for graphics
   int col;
   float xs[4];
-#endif  
+#endif
 } tmove;
 
-extern float e_multiplier,tick, tickscale, fscale,graphscale;
+extern float e_multiplier, tick, tickscale, fscale, graphscale;
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 //extern int32_t px[4];
@@ -61,11 +61,13 @@ extern void power_off();
 
 extern int32_t motionrunning;
 extern int motionloop();
+
+extern void coreloop();
 extern void waitbufferempty();
 extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();
-extern void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 , int g0 = 1 ,int rel=0);
+extern void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 , int g0 = 1 , int rel = 0);
 extern void homing(float x, float y , float z, float e0 );
 extern float tick, fscale;
 extern int32_t bufflen();

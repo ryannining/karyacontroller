@@ -65,7 +65,7 @@
 #define ZSTEPPERMM 400//420
 #define E0STEPPERMM 150//380
 
-#define NUMBUFFER 7
+#define NUMBUFFER 10
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168
@@ -77,6 +77,8 @@
 #define MOTOR_Z_BACKLASH 0
 #define MOTOR_E_BACKLASH 0
 
+//#define AUTO_MOTOR_Z_OFF
+
 
 #define MOTOR_0_DIR 1 // 1: normal -1:inverted
 #define MOTOR_1_DIR 1 // 1: normal -1:inverted
@@ -86,4 +88,4 @@
 
 //#define INVERTENDSTOP // uncomment for normally open
 
-#define ENDSTOP_MOVE 1.5 //2mm move back after endstop hit
+#define ENDSTOP_MOVE 2.5   //2mm move back after endstop hit, warning, must 
