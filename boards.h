@@ -99,7 +99,7 @@
 #define xmin_pin 0
 #define ymin_pin 1
 #define zmin_pin 2
-#define temp_pin 1 //analog 1
+#define temp_pin A1 //analog 1
 #define heater_pin 4
 /*
 ============================================================================================
