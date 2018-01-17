@@ -74,6 +74,43 @@
 #define ISRTEMP
 /*
 ============================================================================================
+     BOARD_NANONANO_STM32
+============================================================================================
+*/
+#elif defined(BOARD_NANONANO_STM32)
+
+#define xenable PC13
+#define xdirection PC13
+#define xstep PC13
+
+#define yenable PC13
+#define ydirection PC13
+#define ystep PC13
+
+#define zenable PC13
+#define zdirection PC13
+#define zstep PC13
+
+#define e0enable PC13
+#define e0direction PC13
+#define e0step PC13
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+//#define xmin_pin PC14
+//#define ymin_pin 0
+#define zmax_pin PC14
+//#define temp_pin 6
+//#define heater_pin 3
+
+/*
+============================================================================================
      BOARD_GEN7
 ============================================================================================
 */
@@ -286,6 +323,27 @@
 ============================================================================================
 */
 #elif defined(BOARD_ESP01CNC_V1)
+
+#define xenable D1
+#define xdirection D2
+#define xstep D3
+#define yenable D1
+#define ydirection D2
+#define ystep D3
+#define zenable D1
+#define zdirection D2
+#define zstep D3
+
+#define zmax_pin D5
+
+#define temp_pin A0
+#define heater_pin D6
+/*
+============================================================================================
+     NANONANO_WEMOS
+============================================================================================
+*/
+#elif defined(BOARD_NANONANO_WEMOS)
 
 #define xenable D1
 #define xdirection D2

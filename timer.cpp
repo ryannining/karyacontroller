@@ -3,10 +3,12 @@
 #include "timer.h"
 #include <stdint.h>
 #include "common.h"
+#include "motion.h"
+
 
 int dogfeed = 0;
 
-#if defined(__AVR__) || defined(ESP8266)
+#ifndef ISPC
 #include<arduino.h>
 #define dogfeedevery 200 // loop
 // ESP8266 specific code here
@@ -27,7 +29,7 @@ int feedthedog() {
     dogfeed = 0;
 #if defined(__AVR__)
     // AVR specific code here
-#elif defined(ARDUINO_ARCH_ESP8266)
+#elif defined(ESP8266)
     // ESP8266 specific code here
     ESP.wdtFeed();
 #else

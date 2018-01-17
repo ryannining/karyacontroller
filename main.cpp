@@ -3,9 +3,8 @@
 #include "common.h"
 #include<stdint.h>
 
-#if defined(__AVR__) || defined(ESP8266)
+#ifdef ISPC
 
-#else
 #include <graphics.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -48,8 +47,8 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   xprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  //demofile();
-  demo();
+  demofile();
+  //demo();
   xprintf (PSTR("WAIT\n"));
   waitbufferempty();
   xprintf (PSTR("Time:%f\n"), ff(tick / timescale));

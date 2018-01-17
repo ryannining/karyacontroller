@@ -13,14 +13,19 @@
 //#define BOARD_TARANTHOLE
 //#define BOARD_SEMEDIYNANO
 //#define BOARD_NANONANO
+//#define BOARD_NANONANO_STM32
+//#define BOARD_NANONANO_WEMOS
 //#define BOARD_GEN7
 //#define BOARD_RAMP13
-#define BOARD_RAMP13_3DPLEX
+//#define BOARD_RAMP13_3DPLEX
 //#define BOARD_SEMEDIY128AU
-//#define BOARD_ESP01CNC_V1
+#define BOARD_ESP01CNC_V1
 
 #include "boards.h"
+
+#ifdef __AVR__
 #define USE_EEPROM
+#endif
 
 #else
 // for PC no pins
@@ -69,7 +74,7 @@
 #define ZSTEPPERMM 400//420
 #define E0STEPPERMM 150//380
 
-#define NUMBUFFER 13
+#define NUMBUFFER 12
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168

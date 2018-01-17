@@ -1,13 +1,14 @@
 #include "gcode.h"
 #include "timer.h"
 #include "common.h"
+#include "motion.h"
 #include "temp.h"
 
 
 #define MLOOP motionloop();
 
 #include<stdint.h>
-#if defined(__AVR__) || defined(ESP8266)
+#ifndef ISPC
 #include<arduino.h>
 #endif
 #include "eprom.h"
@@ -59,6 +60,7 @@ uint8_t gcode_parse_char(uint8_t c) {
           break;
         case 'M':
           next_target.M = read_digit.mantissa;
+          if (next_target.M==117) next_target.read_string;
 
           break;
         case 'X':
@@ -324,7 +326,7 @@ void printposition() {
 #define queue_wait() needbuffer()
 
 void delay_ms(uint32_t d) {
-#if defined(__AVR__) || defined(ESP8266)
+#ifndef ISPC
   delayMicroseconds(d * 1000);
 #else
   // delay on pc,
@@ -667,6 +669,7 @@ void process_gcode_command() {
         reset_eeprom();
       case 205:
         reload_eeprom();
+#endif
       case 503:
         zprintf(PSTR("EPR:3 145 %f Xmax\n"), ff(ax_max[0]));
         zprintf(PSTR("EPR:3 149 %f Ymax\n"), ff(ax_max[1]));
@@ -703,6 +706,7 @@ void process_gcode_command() {
 #endif
 
         break;
+#ifdef USE_EEPROM
       case 206:
         if (next_target.seen_X)next_target.S = next_target.target.axis[X];
         int32_t S_F;

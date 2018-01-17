@@ -1,3 +1,5 @@
+#include "motion.h"
+
 #ifdef __AVR__
 #else
 #define EEMEM

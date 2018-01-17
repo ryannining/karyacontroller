@@ -1,13 +1,15 @@
 #include "config_pins.h"
 #include "common.h"
 #include "temp.h"
+#include "motion.h"
+
 
 uint32_t next_temp;
 uint16_t ctemp = 0;
 double Setpoint, Input, Output;
 int wait_for_temp = 0;
 
-#if defined(temp_pin) && (defined(__AVR__) || defined(ESP8266))
+#if defined(temp_pin) && (!ISPC)
 #include <PID_v1.h>
 
 

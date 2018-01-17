@@ -1,10 +1,19 @@
+
 #ifndef MOTION_H
 #define MOTION_H
+#include<arduino.h>
 
-#if defined(__AVR__) || defined(ESP8266)
+#if defined(STM32_SERIES_F1)
+#define __ARM__
+#endif
+#if defined(__AVR__) || defined(ESP8266)  || defined (__ARM__)
 #else
+#warning This is PC
 #define ISPC
 #endif
+
+// manually define arm processor
+
 
 #include<math.h>
 #include<stdint.h>
@@ -62,7 +71,7 @@ extern void power_off();
 extern int32_t motionrunning;
 extern int motionloop();
 
-extern void coreloop();
+extern int coreloop();
 extern void waitbufferempty();
 extern void needbuffer();
 extern int32_t startmove();

@@ -1,7 +1,7 @@
 
 //#define timing
 //#define timingG
-//#define echoserial
+#define echoserial
 
 
 #include "common.h"
@@ -9,9 +9,9 @@
 #include "temp.h"
 #include "timer.h"
 #include "eprom.h"
+#include "motion.h"
+
 #include<stdint.h>
-extern void demo();
-extern int motionloop();
 
 int line_done, ack_waiting = 0;
 uint32_t ct = 0;
@@ -28,7 +28,7 @@ void gcode_loop() {
   {
 #ifdef timing
     uint32_t t2 = micros();
-    if (ct++ > 100) {
+    if (ct++ > 1000) {
       ct = 0;
       zprintf(PSTR("%dus\n"), t2 - t1);
     }
@@ -114,11 +114,14 @@ void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
   Serial.begin(115200);//115200);
+  //while (!Serial.available())continue;
+  Serial.print("A start\nok\n");
   initmotion();
   init_gcode();
   init_temp();
   reload_eeprom();
   zprintf(PSTR("start\nok\n"));
+  
   //zprintf(PSTR("Motion demo\nok\n"));
 #ifdef USE_SDCARD
   demoSD();

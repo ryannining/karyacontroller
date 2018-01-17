@@ -1,8 +1,10 @@
 #include "common.h"
-#if defined(__AVR__) || defined(ESP8266)
+#include "motion.h"
+
+#ifndef ISPC
 // functions for sending decimal
 #include<arduino.h>
-
+#include <stdarg.h>
 
 #define write_uint8(v, w)  write_uint32(v, w)
 #define write_int8(v, w)   write_int32(v, w)

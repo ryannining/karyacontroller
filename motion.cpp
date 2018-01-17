@@ -13,9 +13,7 @@
 #include "temp.h"
 #include <stdint.h>
 
-#if defined(__AVR__)
-#include<arduino.h>
-#elif defined(ESP8266)
+#ifndef ISPC
 #include<arduino.h>
 #else
 #include <graphics.h>
@@ -267,12 +265,13 @@ void prepareramp(int32_t bpos)
   zprintf(PSTR("========FINAL========\nRU:%d Rd:%d\n"), m->rampup, m->rampdown);
   zprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(ac1), ff(m->fn), ff(ac2), ff(m->fe));
 #endif
-  m->ac1 = ac1 * stepmm * TMSCALE / timescale ;
-  m->ac2 = ac2 * stepmm * TMSCALE / timescale ;
+  m->ac1 = ac1 * stepmm * TMSCALE*SUBMOTION / timescale ;
+  m->ac2 = ac2 * stepmm * TMSCALE*SUBMOTION / timescale ;
   if (m->fs < 1) m->fs = 1;
-  m->fs *= stepmm * TMSCALE;
+  m->fs *= stepmm * TMSCALE*SUBMOTION;
   m->status |= 4;
-  m->rampup = totalstep - m->rampup; // presubtract
+  m->rampup = (totalstep - m->rampup)*SUBMOTION;
+  m->rampdown*=SUBMOTION;// presubtract
   //zprintf(PSTR("FS:%f AC:%f FN:%f AC:%f FE:%f\n"), ff(m->fs), ff(m->ac1), ff(m->fn), ff(m->ac2), ff(m->fe));
 }
 
@@ -443,8 +442,8 @@ uint32_t nextmotoroff;
     =================================================================================================================================================
 */
 uint32_t cm, ocm, rampup, rampdown;
-void coreloop() {
-  if (mctr <= 0)return;
+int coreloop() {
+  if (mctr <= 0)return 0;
 #ifdef ISPC
   if (1) {
 #else
@@ -539,7 +538,7 @@ void coreloop() {
     if (mctr % 60 == 0) {
       //float cf = float(timescale);
       //cf /= dl * stepmmx[m->fastaxis];
-      //zprintf(PSTR("F:%f D:%d\n"), ff(f / stepmmx[m->fastaxis] / TMSCALE), dl);
+      zprintf(PSTR("F:%f D:%d\n"), ff(f / stepmmx[fastaxis] / TMSCALE), dl);
     }
 #endif
     if (checkendstop) {
@@ -550,12 +549,13 @@ void coreloop() {
           m->status = 0;
           m = 0;
           checkendstop = 0;
-          return;
+          return 1;
         }
       }
     }
 
   }
+  return 1;
 }
 int motionloop() {
   uint32_t ix;
@@ -589,9 +589,8 @@ int motionloop() {
 #endif
 
 
-  coreloop();
+  return coreloop();
 
-  return 1;
   //  }
   //  return 0;
 }
@@ -611,7 +610,7 @@ int32_t startmove()
   m = &move[t];
   // if ((m->status & 3) == 1) {
   fastaxis = FASTAXIS(m);
-  totalstep = mctr = m->dx[fastaxis];
+  totalstep = mctr = m->dx[fastaxis]*SUBMOTION;
   //zprintf(PSTR("Fastaxis:%d\n"),fi(fastaxis));
   // do backlash correction
   prepareramp(t);
