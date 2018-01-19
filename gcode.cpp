@@ -18,18 +18,16 @@ decfloat read_digit;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
-const uint32_t powers[] = {1, 1, 10, 100, 1000, 10000, 100000, 1000000};
-
-
-
 
 static float decfloat_to_float(void) {
   float r = read_digit.mantissa;
   uint8_t	e = read_digit.exponent;
+  /*  uint32_t powers=1;
 
-  // e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
-
-  if (e) r = (r /*+ powers[e-1] / 2*/) / powers[e];
+    for (e=1; e<read_digit.exponent;e++) powers*=10;
+    // e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
+  */
+  if (e) r = (r /*+ powers[e-1] / 2*/) / POWERS(e - 1);
   MLOOP
   return read_digit.sign ? -r : r;
 }
@@ -43,15 +41,13 @@ uint8_t gcode_parse_char(uint8_t c) {
 
   // An asterisk is a quasi-EOL and always ends all fields.
   if (c == '*') {
-    next_target.seen_semi_comment = next_target.seen_parens_comment =
-                                      next_target.read_string = 0;
+    next_target.read_string = 0;
   }
 
   // Skip comments and strings.
-  if (next_target.seen_semi_comment == 0 &&
-      next_target.seen_parens_comment == 0 &&
-      next_target.read_string == 0
-     ) {
+  if (
+    next_target.read_string == 0
+  ) {
     // Check if the field has ended. Either by a new field, space or EOL.
     if (last_field && (c < '0' || c > '9') && c != '.') {
       switch (last_field) {
@@ -60,7 +56,7 @@ uint8_t gcode_parse_char(uint8_t c) {
           break;
         case 'M':
           next_target.M = read_digit.mantissa;
-          if (next_target.M==117) next_target.read_string;
+          if (next_target.M == 117) next_target.read_string = 1;
 
           break;
         case 'X':
@@ -93,31 +89,21 @@ uint8_t gcode_parse_char(uint8_t c) {
           MLOOP
           break;
         case 'S':
-          // if this is temperature, multiply by 4 to convert to quarter-degree units
-          // cosmetically this should be done in the temperature section,
-          // but it takes less code, less memory and loses no precision if we do it here instead
-          if ((next_target.M == 104) || (next_target.M == 109) || (next_target.M == 140))
-            next_target.S = decfloat_to_float();
-          // if this is heater PID stuff, multiply by PID_SCALE because we divide by PID_SCALE later on
-          else if ((next_target.M == 206))
-            next_target.S = decfloat_to_float();
-          else if ((next_target.M >= 130) && (next_target.M <= 132))
-            next_target.S = decfloat_to_float();
-          else
-            next_target.S = decfloat_to_float();
+          next_target.S = decfloat_to_float();
           break;
         case 'P':
           next_target.P = decfloat_to_float();
           break;
-        case 'T':
-          next_target.T = read_digit.mantissa;
-          break;
-        case 'N':
-          next_target.N = decfloat_to_float();
-          break;
-        case '*':
-          next_target.checksum_read = decfloat_to_float();
-          break;
+          /*        case '*':
+                    next_target.checksum_read = decfloat_to_float();
+                    break;
+                  case 'T':
+                    next_target.T = read_digit.mantissa;
+                    break;
+                  case 'N':
+                    next_target.N = decfloat_to_float();
+                    break;
+          */
       }
     }
 
@@ -186,24 +172,25 @@ uint8_t gcode_parse_char(uint8_t c) {
         case 'P':
           next_target.seen_P = 1;
           break;
-        case 'T':
-          next_target.seen_T = 1;
-          break;
-        case 'N':
-          next_target.seen_N = 1;
-          break;
-        case '*':
-          next_target.seen_checksum = 0;//1;
-          break;
+        /*
+                case 'T':
+                  next_target.seen_T = 1;
+                  break;
+                case 'N':
+                  next_target.seen_N = 1;
+                  break;
+                case '*':
+                  next_target.seen_checksum = 0;//1;
+                  break;
+                // comments
+                case '(':
+                  next_target.seen_parens_comment = 1;  // Reset by ')' or EOL.
+                  break;
 
-        // comments
-        case ';':
-          next_target.seen_semi_comment = 1;    // Reset by EOL.
+        */
+          case ';':
+          next_target.read_string= 1;    // Reset by EOL.
           break;
-        case '(':
-          next_target.seen_parens_comment = 1;  // Reset by ')' or EOL.
-          break;
-
         // now for some numeracy
         case '-':
           read_digit.sign = 1;
@@ -232,12 +219,9 @@ uint8_t gcode_parse_char(uint8_t c) {
           break;
       }
     }
-  } else if ( next_target.seen_parens_comment == 1 && c == ')')
-    next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
+  } //else if ( next_target.seen_parens_comment == 1 && c == ')')
+    //next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
 
-  if (next_target.seen_checksum == 0)
-    next_target.checksum_calculated =
-      crc(next_target.checksum_calculated, checksum_char);
 
   // end of line
   if ((c == 10) || (c == 13)) {
@@ -250,33 +234,15 @@ uint8_t gcode_parse_char(uint8_t c) {
       next_target.G = 1;
     }
 
-    if (1) {
-      if (((next_target.checksum_calculated == next_target.checksum_read) || (next_target.seen_checksum == 0))
-
-         ) {
-        // process
-        process_gcode_command();
-
-      }
-      else {
-        zprintf(PSTR("rs N%ld Expected checksum %d\n"), next_target.N_expected, next_target.checksum_calculated);
-        // 				request_resend();
-      }
-    }
-    else {
-      zprintf(PSTR("rs N%ld Expected line number %ld\n"), next_target.N_expected, next_target.N_expected);
-      // 			request_resend();
-    }
+    process_gcode_command();
 
     // reset variables
     uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T;
     next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
                          next_target.seen_E = next_target.seen_F = next_target.seen_S = \
-                             next_target.seen_P = next_target.seen_T = next_target.seen_N = \
-                                 next_target.seen_G = next_target.seen_M = next_target.seen_checksum = \
-                                     next_target.seen_semi_comment = next_target.seen_parens_comment = \
-                                         next_target.read_string = next_target.checksum_read = \
-                                             next_target.checksum_calculated = 0;
+                             next_target.seen_P = next_target.seen_T = \
+                                 next_target.seen_G = next_target.seen_M = \
+                                     next_target.read_string  = 0;
 #ifdef ARC_SUPPORT
     next_target.seen_R = next_target.seen_I = next_target.seen_J = 0;
 #endif
@@ -293,28 +259,13 @@ uint8_t gcode_parse_char(uint8_t c) {
     return 1;
   }
 
-#ifdef SD
-  // Handle string reading. After checking for EOL.
-  if (next_target.read_string) {
-    if (c == ' ') {
-      if (str_buf_ptr)
-        next_target.read_string = 0;
-    }
-    else if (str_buf_ptr < STR_BUF_LEN) {
-      gcode_str_buf[str_buf_ptr] = c;
-      str_buf_ptr++;
-      gcode_str_buf[str_buf_ptr] = '\0';
-    }
-  }
-#endif /* SD */
-
   return 0;
 }
 
 
 // implement minimalis code to match teacup
 
-float lastE, lastZ;
+float lastE;
 
 void printposition() {
   zprintf(PSTR("X:%f Y:%f Z:%f E:%f\n"),
@@ -336,11 +287,11 @@ void delay_ms(uint32_t d) {
 }
 void temp_wait(void) {
   wait_for_temp = 1;
-  int32_t c = 0;
+  int c = 0;
   while (wait_for_temp && !temp_achieved()) {
     motionloop();
     //delayMicroseconds(1000);
-    if (c++ > 200000) {
+    if (c++ > 20000) {
       c = 0;
       zprintf(PSTR("T:%f\n"), ff(Input));
       //zprintf(PSTR("Heating\n"));
@@ -348,10 +299,10 @@ void temp_wait(void) {
   }
   wait_for_temp = 0;
 }
-int32_t mvc = 0;
+//int32_t mvc = 0;
 static void enqueue(TARGET *) __attribute__ ((always_inline));
 inline void enqueue(TARGET *t, int g0 = 1) {
-  addmove(t->F * t->f_multiplier, t->axis[X]
+  addmove(t->F , t->axis[X]
           , t->axis[Y]
           , t->axis[Z]
           , t->axis[E]
@@ -454,7 +405,7 @@ void process_gcode_command() {
         }
         break;
       case 28:
-        homing(0, 0, 0, 0);
+        homing();
         next_target.target.axis[X] = cx1;
         next_target.target.axis[Y] = cy1;
         next_target.target.axis[Z] = cz1;
@@ -521,12 +472,12 @@ void process_gcode_command() {
 
         if (axisSelected == 0) {
           cx1 = next_target.target.axis[X] =
-                                 cy1 = next_target.target.axis[Y] =
-                                       cz1 = next_target.target.axis[Z] =
-                                             ce01 = next_target.target.axis[E] = 0;
+                  cy1 = next_target.target.axis[Y] =
+                          cz1 = next_target.target.axis[Z] =
+                                  ce01 = next_target.target.axis[E] = 0;
         }
 
-        
+
         break;
 
       // unknown gcode: spit an error
@@ -602,15 +553,15 @@ void process_gcode_command() {
       case 7:
       case 107:
         // set laser pwm off
-        #ifdef fan_pin
+#ifdef fan_pin
         setfan_val(0);
-        #endif
+#endif
         break;
       case 106:
         // set laser pwm on
-        #ifdef fan_pin
+#ifdef fan_pin
         setfan_val(next_target.S);
-        #endif
+#endif
         break;
 
       case 112:
@@ -671,9 +622,9 @@ void process_gcode_command() {
         reload_eeprom();
 #endif
       case 503:
-        zprintf(PSTR("EPR:3 145 %f Xmax\n"), ff(ax_max[0]));
-        zprintf(PSTR("EPR:3 149 %f Ymax\n"), ff(ax_max[1]));
-        zprintf(PSTR("EPR:3 153 %f Zmax\n"), ff(ax_max[2]));
+        zprintf(PSTR("EPR:3 145 %f Xmax\n"), fg(ax_max[0]));
+        zprintf(PSTR("EPR:3 149 %f Ymax\n"), fg(ax_max[1]));
+        zprintf(PSTR("EPR:3 153 %f Zmax\n"), fg(ax_max[2]));
 
         zprintf(PSTR("EPR:3 3 %f StepX\n"), ff(stepmmx[0]));
         zprintf(PSTR("EPR:3 7 %f StepY\n"), ff(stepmmx[1]));
@@ -753,66 +704,6 @@ void process_gcode_command() {
               eprom_wr(88, EE_zbacklash, S_I);
               eprom_wr(92, EE_ebacklash, S_I);
 #endif
-              /*            //case 153:
-                            //eeprom_write_dword((uint32_t *) &EE_zmax, S_F);
-                            //break;
-                          case 0:
-                            eeprom_write_dword((uint32_t *) &EE_estepmm, S_F);
-                            break;
-                          case 3:
-                            eeprom_write_dword((uint32_t *) &EE_xstepmm, S_F);
-                            break;
-                          case 7:
-                            eeprom_write_dword((uint32_t *) &EE_ystepmm, S_F);
-                            break;
-                          case 11:
-                            eeprom_write_dword((uint32_t *) &EE_zstepmm, S_F);
-                            break;
-                          case 15:
-                            eeprom_write_dword((uint32_t *) &EE_max_x_feedrate, S_I);
-                            break;
-                          case 19:
-                            eeprom_write_dword((uint32_t *) &EE_max_y_feedrate, S_I);
-                            break;
-                          case 23:
-                            eeprom_write_dword((uint32_t *) &EE_max_z_feedrate, S_I);
-                            break;
-                          case 27:
-                            eeprom_write_dword((uint32_t *) &EE_max_e_feedrate, S_I);
-                            break;
-                          case 35:
-                            eeprom_write_dword((uint32_t *) &EE_xjerk, S_I);
-                            break;
-                          case 39:
-                            eeprom_write_dword((uint32_t *) &EE_yjerk, S_I);
-                            break;
-                          case 43:
-                            eeprom_write_dword((uint32_t *) &EE_zjerk, S_I);
-                            break;
-                          case 47:
-                            eeprom_write_dword((uint32_t *) &EE_ejerk, S_I);
-                            break;
-                          case 51:
-                            eeprom_write_dword((uint32_t *) &EE_accelx, S_I);
-                            break;
-                          case 55:
-                            eeprom_write_dword((uint32_t *) &EE_accely, S_I);
-                            break;
-                          case 59:
-                            eeprom_write_dword((uint32_t *) &EE_accelz, S_I);
-                            break;
-                          case 63:
-                            eeprom_write_dword((uint32_t *) &EE_accele, S_I);
-                            break;
-                          case 67:
-                            eeprom_write_dword((uint32_t *) &EE_mvaccelx, S_I);
-                            break;
-                          case 71:
-                            eeprom_write_dword((uint32_t *) &EE_mvaccely, S_I);
-                            break;
-                          case 75:
-                            eeprom_write_dword((uint32_t *) &EE_mvaccelz, S_I);
-                            break;*/
           }
         reload_eeprom();
         break;
@@ -822,7 +713,7 @@ void process_gcode_command() {
         if ( ! next_target.seen_S)
           break;
         // Scale 100% = 256
-        next_target.target.f_multiplier = next_target.S / 100;
+        f_multiplier = next_target.S*2.55;
         MLOOP
 
         break;
@@ -832,8 +723,8 @@ void process_gcode_command() {
         if ( ! next_target.seen_S)
           break;
         // Scale 100% = 256
-        e_multiplier = next_target.S / 100;
-          MLOOP
+        e_multiplier = next_target.S*2.55;
+        MLOOP
 
         break;
 
@@ -845,8 +736,6 @@ void process_gcode_command() {
 
 void init_gcode() {
   next_target.target.F = 100;
-  next_target.target.f_multiplier = 1;
-  e_multiplier = 1;
   next_target.option_all_relative = 0;
 
 }

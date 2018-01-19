@@ -9,28 +9,30 @@ uint16_t ctemp = 0;
 double Setpoint, Input, Output;
 int wait_for_temp = 0;
 
-#if defined(temp_pin) && (!ISPC)
+#if defined(temp_pin) && !defined(ISPC)
 #include <PID_v1.h>
 
 
 
 //Specify the links and initial tuning parameters
+
 PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 
+
 int vanalog = 0;
-int fan_val =0;
-void setfan_val(int val){
-  #ifdef fan_pin
-    analogWrite(fan_pin,val);
-    fan_val=val;
-  #endif
+int fan_val = 0;
+void setfan_val(int val) {
+#ifdef fan_pin
+  analogWrite(fan_pin, val);
+  fan_val = val;
+#endif
 }
 
 #if defined(__AVR__) && defined(ISRTEMP)
 #define ADCREAD ADCSRA |= bit (ADSC) | bit (ADIE);
 ISR (ADC_vect)
 {
-  byte low, high;
+  uint8_t low, high;
 
   // we have to read ADCL first; doing so locks both ADCL
   // and ADCH until ADCH is read.  reading ADCL second would
@@ -56,10 +58,11 @@ void init_temp()
   //initialize the variables we're linked to
 
   //turn the PID on
+
   myPID.SetMode(AUTOMATIC);
+
   next_temp = micros();
-  Setpoint = 0;
-  analogWrite(heater_pin, 0);
+  set_temp(0);
 
 #if defined( __AVR__) && defined(ISRTEMP)
   ADMUX = bit (REFS0) | (temp_pin);
@@ -119,14 +122,16 @@ void temp_loop(uint32_t cm)
 
     ctemp = (ctemp + vanalog * 7) / 8;
     Input =  read_temp(ctemp);
-    #ifdef fan_pin
-    if ((Input>80) && (fan_val<50)) setfan_val(255);
-    #endif
+#ifdef fan_pin
+    if ((Input > 80) && (fan_val < 50)) setfan_val(255);
+#endif
     if (Setpoint > 0) {
 #ifdef heater_pin
       //if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
+
       myPID.Compute();
       analogWrite(heater_pin, Output);
+
 #endif
     }
   }
@@ -149,3 +154,4 @@ void temp_loop(uint32_t cm)
 {
 }
 #endif
+

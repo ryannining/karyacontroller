@@ -5,7 +5,7 @@
 #include "config_pins.h"
 
 // implement shift register pins here
-byte pinData=0;
+uint8_t pinData = 0;
 #define SR_data 1;
 #define SR_clock 2;
 #define SR_latch 3;
@@ -18,8 +18,8 @@ byte pinData=0;
     digitalWrite(SR_latch, LOW);\
     shiftOut(SR_data, SR_clock, MSBFIRST, 1 << i);\
     digitalWrite(SR_latch, HIGH);\
-}
- 
+  }
+
 
 
 #define DUMMYMOTOR(AX,PENABLE,PDIR,PSTEP)\
@@ -34,15 +34,11 @@ byte pinData=0;
 
 //    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));\
 
+int bsteps, doback[4];
 #define MOTORBACKLASH(AX,d,PSTEP) \
-  if (PSTEP && lsx[AX] && (lsx[AX]!=d)){\
-    for(int i=0;i<PSTEP;i++){\
-      motor_##AX##_STEP();\
-      motor_##AX##_UNSTEP();\
-      delayMicroseconds(500);\
-    }\
-  }\
-  lsx[AX]=d;\
+  if (PSTEP && lsx[AX] && (lsx[AX]!=d)) {if(bsteps<PSTEP)bsteps=PSTEP; doback[AX]=PSTEP;} else doback[AX]=0;\
+  lsx[AX]=d;
+
 
 #define STEPDELAY delayMicroseconds(5);
 #define STEPDIRDELAY delayMicroseconds(10);
@@ -57,7 +53,7 @@ byte pinData=0;
 
 #else
 
-    // PC just use dummy
+// PC just use dummy
 #define MOTOR(AX,PENABLE,PDIR,PSTEP)\
   inline void motor_##AX##_INIT(){zprintf(PSTR("Motor ##AX## Init\n"));}\
   inline void motor_##AX##_ON(){ zprintf(PSTR("Motor ##AX## Enable\n"));}\
@@ -94,4 +90,27 @@ MOTOR(3, e0enable, e0direction, e0step)
 DUMMYMOTOR(3, 0, 0, 0)
 #endif
 
+#ifndef ISPC
+void dobacklash() {
+  for (int i = 0; i < bsteps; i++) {
+    if (doback[0]-- > 0) {
+      motor_0_STEP();
+    }
+    if (doback[1]-- > 0) {
+      motor_1_STEP();
+    }
+    if (doback[2]-- > 0) {
+      motor_2_STEP();
+    }
+    if (doback[3]-- > 0) {
+      motor_3_STEP();
+    }
+    motor_0_UNSTEP();
+    motor_1_UNSTEP();
+    motor_2_UNSTEP();
+    motor_3_UNSTEP();
+    delayMicroseconds(500);
+  }
+}
+#endif
 #endif

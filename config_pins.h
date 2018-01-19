@@ -1,7 +1,7 @@
 /*
-============================================================================================
+  ============================================================================================
     AVR
-============================================================================================
+  ============================================================================================
 */
 #include "motion.h"
 #ifndef ISPC
@@ -13,13 +13,14 @@
 //#define BOARD_TARANTHOLE
 //#define BOARD_SEMEDIYNANO
 //#define BOARD_NANONANO
+#define BOARD_NANONANO_SDCARD
 //#define BOARD_NANONANO_STM32
 //#define BOARD_NANONANO_WEMOS
 //#define BOARD_GEN7
 //#define BOARD_RAMP13
 //#define BOARD_RAMP13_3DPLEX
 //#define BOARD_SEMEDIY128AU
-#define BOARD_ESP01CNC_V1
+//#define BOARD_ESP01CNC_V1
 
 #include "boards.h"
 
@@ -33,10 +34,13 @@
 
 
 /*
-============================================================================================
-    CONFIGURATION 
-============================================================================================
+  ============================================================================================
+    CONFIGURATION
+  ============================================================================================
 */
+#ifdef SDCARD_CS
+  #define USE_SDCARD
+#endif
 
 #define motortimeout 10000000 // 30 seconds
 
@@ -74,7 +78,7 @@
 #define ZSTEPPERMM 400//420
 #define E0STEPPERMM 150//380
 
-#define NUMBUFFER 12
+#define NUMBUFFER 10
 #define XMAX 0
 #define YMAX 0
 #define ZMAX 168

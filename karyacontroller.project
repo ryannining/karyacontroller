@@ -110,5 +110,6 @@
     <File Name="eprom.cpp"/>
     <File Name="eprom.h"/>
     <File Name="boards.h"/>
+    <File Name="motors.h"/>
   </VirtualDirectory>
 </CodeLite_Project>

@@ -42,9 +42,9 @@ int32_t EEMEM EE_zbacklash;
 int32_t EEMEM EE_ebacklash;
 #endif
 void reload_eeprom() {
-  ax_max[0] = (float)eeprom_read_dword((uint32_t *) &EE_xmax) / 1000;
-  ax_max[1] = (float)eeprom_read_dword((uint32_t *) &EE_ymax) / 1000;
-  ax_max[2] = (float)eeprom_read_dword((uint32_t *) &EE_zmax) / 1000;
+  ax_max[0] = (float)eeprom_read_dword((uint32_t *) &EE_xmax) / 100;
+  ax_max[1] = (float)eeprom_read_dword((uint32_t *) &EE_ymax) / 100;
+  ax_max[2] = (float)eeprom_read_dword((uint32_t *) &EE_zmax) / 100;
   accel[0] = eeprom_read_dword((uint32_t *) &EE_accelx);
   accel[1] = eeprom_read_dword((uint32_t *) &EE_accely);
   accel[2] = eeprom_read_dword((uint32_t *) &EE_accelz);
@@ -81,9 +81,9 @@ void reload_eeprom() {
 
 void reset_eeprom() {
   reset_motion();
-  eeprom_write_dword((uint32_t *) &EE_xmax, ff(ax_max[0]));
-  eeprom_write_dword((uint32_t *) &EE_ymax, ff(ax_max[1]));
-  eeprom_write_dword((uint32_t *) &EE_zmax, ff(ax_max[2]));
+  eeprom_write_dword((uint32_t *) &EE_xmax, fg(ax_max[0]));
+  eeprom_write_dword((uint32_t *) &EE_ymax, fg(ax_max[1]));
+  eeprom_write_dword((uint32_t *) &EE_zmax, fg(ax_max[2]));
 
   eeprom_write_dword((uint32_t *) &EE_accelx, fi(accel[0]));
   eeprom_write_dword((uint32_t *) &EE_accely, fi(accel[1]));
