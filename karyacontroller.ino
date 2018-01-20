@@ -1,7 +1,7 @@
 
 //#define timing
 //#define timingG
-#define echoserial
+//#define echoserial
 
 #include "config_pins.h"
 #include "common.h"
@@ -17,6 +17,7 @@ int line_done, ack_waiting = 0;
 int ct = 0;
 uint32_t gt = 0;
 int n = 0;
+uint32_t kctr = 0;
 
 int sdcardok = 0;
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
@@ -42,13 +43,16 @@ void demoSD() {
   myFile = sd.open("print.gcode");
   if (myFile) {
     zprintf(PSTR("gcode ok\n"));
-    sdcardok = 1;
+    sdcardok = 2;
   } else {
     zprintf(PSTR("no gcode\n"));
+    sdcardok =0;
   }
 }
 #endif
 
+int lkey = 0;
+int kdl = 500;
 void gcode_loop() {
   //float x=12.345;
   //xprintf(PSTR("Motion demo %d %f\n"),10,x);
@@ -58,6 +62,54 @@ void gcode_loop() {
 #ifdef timing
   uint32_t t1 = micros();
 #endif
+  if (millis() - kctr > kdl) {
+    kctr = millis();
+    int key = analogRead(A7);
+    switch (key) {
+      case 686 ... 688:
+        lkey = 3;
+        kdl = 500;
+        break;
+      case 356 ... 358:
+        lkey = 2;
+        kdl = 500;
+        break;
+      case 0 ... 2:
+        lkey = 1;
+        kdl = 500;
+        break;
+      case 900 ... 1100:
+        if (lkey) {
+          zprintf(PSTR("LKey:%d\n"), fi(lkey));
+          switch (lkey) {
+            case 1:
+              homing();
+              zprintf(PSTR("HOMING\n"));
+              break;
+            case 2:
+              set_temp(180);
+              zprintf(PSTR("HEATING\n"));
+              break;
+            case 3:
+              if (sdcardok) {
+                sdcardok = sdcardok == 1 ? 2 : 1;
+                zprintf(PSTR("SD\n"));
+              } else {
+#ifdef USE_SDCARD
+                demoSD();
+#endif
+              }
+              break;
+          }
+        }
+        lkey = 0;
+        kdl = 1000;
+
+        break;
+    }
+    //zprintf(PSTR("Key:%d\n"), fi(key));
+  }
+
   if (motionloop())
   {
 #ifdef timing
@@ -83,7 +135,7 @@ void gcode_loop() {
     c = Serial.read();
   }
 #ifdef USE_SDCARD
-  if (sdcardok) {
+  if (sdcardok == 2) {
     // read from the file until there's nothing else in it:
     if (myFile.available()) {
       c = myFile.read();
@@ -92,7 +144,7 @@ void gcode_loop() {
       myFile.close();
       sdcardok = 0;
       zprintf(PSTR("Done\n"));
-      c=0;
+      c = 0;
     }
   }
 #endif
@@ -119,15 +171,13 @@ void setup() {
   //  Serial.setDebugOutput(true);
   Serial.begin(115200);//115200);
   //while (!Serial.available())continue;
-#ifdef USE_SDCARD
-  demoSD();
-#endif
+
   initmotion();
   init_gcode();
   init_temp();
   reload_eeprom();
   zprintf(PSTR("start\nok\n"));
-
+  pinMode(A7, INPUT_PULLUP);
   //zprintf(PSTR("Motion demo\nok\n"));
 
 }

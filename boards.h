@@ -107,13 +107,14 @@
 #define ymin_pin A0
 #define zmax_pin A0
 
-#define temp_pin 6 //analog 6 because we use ISR
-#define heater_pin 3
-#define fan_pin 5
+#define temp_pin A6 //analog 6 because we use ISR
+#define heater_pin 5
+//#define fan_pin 5
 
-#define ISRTEMP
+//#define ISRTEMP
 
 #define SDCARD_CS 10
+#define INVERTENDSTOP // uncomment for normally open
 
 /*
   ============================================================================================

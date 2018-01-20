@@ -503,11 +503,13 @@ int coreloop() {
 
 #ifdef e0step
     bresenham(3)
+    STEPDELAY
     motor_3_UNSTEP();
 #endif
     bresenham(0);
     bresenham(1);
     bresenham(2);
+    STEPDELAY
     motor_0_UNSTEP();
     motor_1_UNSTEP();
     motor_2_UNSTEP();
@@ -607,6 +609,7 @@ int32_t startmove()
   motor_1_DIR(m->sx[1]);
   motor_2_DIR(m->sx[2]);
   motor_3_DIR(m->sx[3]);
+  dobacklash();
   mcx[0] = mcx[1] = mcx[2] = mcx[3] = (totalstep / 2);
   //if (m->fe==0)zprintf(PSTR("???\n"));
   tail = t;
@@ -802,7 +805,7 @@ void waitbufferempty()
 void needbuffer()
 {
 #ifdef output_enable
-  xprintf(PSTR("buffer %d / %d \n"), tail, head);
+  xprintf(PSTR("buffer %d / %d \n"), fi(tail), fi(head));
 #endif
   if (nextbuff(head) == tail) {
 #ifdef output_enable

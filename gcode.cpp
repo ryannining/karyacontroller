@@ -41,7 +41,7 @@ uint8_t gcode_parse_char(uint8_t c) {
 
   // An asterisk is a quasi-EOL and always ends all fields.
   if (c == '*') {
-    next_target.read_string = 0;
+    //next_target.read_string = 0;
   }
 
   // Skip comments and strings.
@@ -94,16 +94,16 @@ uint8_t gcode_parse_char(uint8_t c) {
         case 'P':
           next_target.P = decfloat_to_float();
           break;
-          /*        case '*':
-                    next_target.checksum_read = decfloat_to_float();
-                    break;
-                  case 'T':
-                    next_target.T = read_digit.mantissa;
-                    break;
-                  case 'N':
-                    next_target.N = decfloat_to_float();
-                    break;
-          */
+        case '*':
+          //next_target.checksum_read = decfloat_to_float();
+          break;
+        case 'T':
+          //next_target.T = read_digit.mantissa;
+          break;
+        case 'N':
+          //next_target.N = decfloat_to_float();
+          break;
+
       }
     }
 
@@ -172,24 +172,24 @@ uint8_t gcode_parse_char(uint8_t c) {
         case 'P':
           next_target.seen_P = 1;
           break;
-        /*
-                case 'T':
-                  next_target.seen_T = 1;
-                  break;
-                case 'N':
-                  next_target.seen_N = 1;
-                  break;
-                case '*':
-                  next_target.seen_checksum = 0;//1;
-                  break;
-                // comments
-                case '(':
-                  next_target.seen_parens_comment = 1;  // Reset by ')' or EOL.
-                  break;
 
-        */
-          case ';':
-          next_target.read_string= 1;    // Reset by EOL.
+        case 'T':
+          next_target.seen_T = 1;
+          break;
+        case 'N':
+          //next_target.seen_N = 1;
+          break;
+        case '*':
+          //next_target.seen_checksum = 0;//1;
+          break;
+        // comments
+        case '(':
+          next_target.read_string = 1;  // Reset by ')' or EOL.
+          break;
+
+
+        case ';':
+          next_target.read_string = 1;   // Reset by EOL.
           break;
         // now for some numeracy
         case '-':
@@ -214,13 +214,13 @@ uint8_t gcode_parse_char(uint8_t c) {
         default:
 #ifdef	DEBUG
           // invalid
-          zprintf(PSTR("?%d\n"), c);
+          //zprintf(PSTR("?%d\n"), fi(c));
 #endif
           break;
       }
     }
   } //else if ( next_target.seen_parens_comment == 1 && c == ')')
-    //next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
+  //next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
 
 
   // end of line
@@ -713,7 +713,7 @@ void process_gcode_command() {
         if ( ! next_target.seen_S)
           break;
         // Scale 100% = 256
-        f_multiplier = next_target.S*2.55;
+        f_multiplier = next_target.S * 2.55;
         MLOOP
 
         break;
@@ -723,7 +723,7 @@ void process_gcode_command() {
         if ( ! next_target.seen_S)
           break;
         // Scale 100% = 256
-        e_multiplier = next_target.S*2.55;
+        e_multiplier = next_target.S * 2.55;
         MLOOP
 
         break;

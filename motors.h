@@ -34,7 +34,8 @@ uint8_t pinData = 0;
 
 //    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));\
 
-int bsteps, doback[4];
+uint8_t bsteps=0;
+uint8_t doback[4];
 #define MOTORBACKLASH(AX,d,PSTEP) \
   if (PSTEP && lsx[AX] && (lsx[AX]!=d)) {if(bsteps<PSTEP)bsteps=PSTEP; doback[AX]=PSTEP;} else doback[AX]=0;\
   lsx[AX]=d;
@@ -47,7 +48,7 @@ int bsteps, doback[4];
   inline void motor_##AX##_INIT(){pinMode(PENABLE, OUTPUT);pinMode(PDIR, OUTPUT);pinMode(PSTEP, OUTPUT);digitalWrite(PENABLE,1);}\
   inline void motor_##AX##_ON(){ digitalWrite(PENABLE,0);}\
   inline void motor_##AX##_OFF() { digitalWrite(PENABLE,1);}\
-  inline void motor_##AX##_STEP(){  digitalWrite(PSTEP,1);STEPDELAY}\
+  inline void motor_##AX##_STEP(){  digitalWrite(PSTEP,1);}\
   inline void motor_##AX##_UNSTEP(){  digitalWrite(PSTEP,0);}\
   inline void motor_##AX##_DIR(int d){ if(!d)return;digitalWrite(PENABLE,0);digitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);STEPDIRDELAY;MOTORBACKLASH(AX,d,xback[AX]);}\
 
@@ -111,6 +112,7 @@ void dobacklash() {
     motor_3_UNSTEP();
     delayMicroseconds(500);
   }
+  bsteps=0;
 }
 #endif
 #endif

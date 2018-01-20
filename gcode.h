@@ -4,7 +4,7 @@
 #include "motion.h"
 #include "config_pins.h"
 
-#define DEBUG
+//#define DEBUG
 #define X 0
 #define Y 1
 #define Z 2
