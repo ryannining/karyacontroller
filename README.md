@@ -1,6 +1,6 @@
-#karyacontroller
+# karyacontroller
 I make this project to learn about the controller.
-##Description
+## Description
 simple multi axis motor controller for use in cnc project.
 This project is possible because other people work:
 - Teacup (gcode parsing, sersendp_f)
@@ -9,7 +9,7 @@ This project is possible because other people work:
 
 its not 100% exact code, but i have read lots of their code, so my code will effected by them
 
-###Feature
+### Feature
 
 feature i need to have in this software is: (* implemented)
 - Per motor step using float speed ramping acceleration (smooth ) *
@@ -53,7 +53,7 @@ Yes, work in progress, especially for ESP8266
 - Corexy*
 - Corexz*
 
--Delta
+-Delta (WIP)
 -Scara
 
 For delta and scara, i still confuse how to implement segment slicing of the path. If i do the segmentation before the path planner, then a
@@ -64,6 +64,7 @@ I wish i can implement the segmentation after the planner. So its already know w
 for now it still not use timer interrupt, just use micros() to control the timing..
 
 
+## Files
 
 Project files:
 karyacontroller.project - just for editing in codelite
