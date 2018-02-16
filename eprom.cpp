@@ -2,24 +2,18 @@
 #include "config_pins.h"
 #include "common.h"
 
-#ifdef USE_EEPROM
-#ifdef __AVR__
-#include<avr/eeprom.h>
-#endif
 
+
+#ifdef USE_EEPROM
+#include "eprom.h"
+
+#ifdef __AVR__
 float EEMEM EE_xmax;
 float EEMEM EE_ymax;
 float EEMEM EE_zmax;
 
 int32_t EEMEM EE_accelx;
-int32_t EEMEM EE_accely;
-int32_t EEMEM EE_accelz;
-int32_t EEMEM EE_accele;
-
 int32_t EEMEM EE_mvaccelx;
-int32_t EEMEM EE_mvaccely;
-int32_t EEMEM EE_mvaccelz;
-int32_t EEMEM EE_mvaccele;
 
 int32_t EEMEM EE_max_x_feedrate;
 int32_t EEMEM EE_max_y_feedrate;
@@ -31,89 +25,71 @@ float EEMEM EE_ystepmm;
 float EEMEM EE_zstepmm;
 float EEMEM EE_estepmm;
 
-int32_t EEMEM EE_xjerk;
-int32_t EEMEM EE_yjerk;
-int32_t EEMEM EE_zjerk;
-int32_t EEMEM EE_ejerk;
 #ifdef USE_BACKLASH
 int32_t EEMEM EE_xbacklash;
 int32_t EEMEM EE_ybacklash;
 int32_t EEMEM EE_zbacklash;
 int32_t EEMEM EE_ebacklash;
 #endif
+#endif
+
 void reload_eeprom() {
-  ax_max[0] = (float)eeprom_read_dword((uint32_t *) &EE_xmax) / 100;
-  ax_max[1] = (float)eeprom_read_dword((uint32_t *) &EE_ymax) / 100;
-  ax_max[2] = (float)eeprom_read_dword((uint32_t *) &EE_zmax) / 100;
-  accel[0] = eeprom_read_dword((uint32_t *) &EE_accelx);
-  accel[1] = eeprom_read_dword((uint32_t *) &EE_accely);
-  accel[2] = eeprom_read_dword((uint32_t *) &EE_accelz);
-  accel[3] = eeprom_read_dword((uint32_t *) &EE_accele);
+  eepromcommit;
+  ax_max[0] = (float)eepromread(EE_xmax) / 100;
+  ax_max[1] = (float)eepromread(EE_ymax) / 100;
+  ax_max[2] = (float)eepromread(EE_zmax) / 100;
+  accel = eepromread(EE_accelx);
 
-  mvaccel[0] = eeprom_read_dword((uint32_t *) &EE_mvaccelx);
-  mvaccel[1] = eeprom_read_dword((uint32_t *) &EE_mvaccely);
-  mvaccel[2] = eeprom_read_dword((uint32_t *) &EE_mvaccelz);
-  mvaccel[2] = accel[3];
+  mvaccel = eepromread(EE_mvaccelx);
 
-  maxf[0] = eeprom_read_dword((uint32_t *) &EE_max_x_feedrate);
-  maxf[1] = eeprom_read_dword((uint32_t *) &EE_max_y_feedrate);
-  maxf[2] = eeprom_read_dword((uint32_t *) &EE_max_z_feedrate);
-  maxf[3] = eeprom_read_dword((uint32_t *) &EE_max_e_feedrate);
+  maxf[0] = eepromread(EE_max_x_feedrate);
+  maxf[1] = eepromread(EE_max_y_feedrate);
+  maxf[2] = eepromread(EE_max_z_feedrate);
+  maxf[3] = eepromread(EE_max_e_feedrate);
 
-  stepmmx[0] = (float)eeprom_read_dword((uint32_t *) &EE_xstepmm) / 1000;
-  stepmmx[1] = (float)eeprom_read_dword((uint32_t *) &EE_ystepmm) / 1000;
-  stepmmx[2] = (float)eeprom_read_dword((uint32_t *) &EE_zstepmm) / 1000;
-  stepmmx[3] = (float)eeprom_read_dword((uint32_t *) &EE_estepmm) / 1000;
+  stepmmx[0] = (float)eepromread(EE_xstepmm) / 1000;
+  stepmmx[1] = (float)eepromread(EE_ystepmm) / 1000;
+  stepmmx[2] = (float)eepromread(EE_zstepmm) / 1000;
+  stepmmx[3] = (float)eepromread(EE_estepmm) / 1000;
 
 
-  jerk[0] = eeprom_read_dword((uint32_t *) &EE_xjerk);
-  jerk[1] = eeprom_read_dword((uint32_t *) &EE_yjerk);
-  jerk[2] = eeprom_read_dword((uint32_t *) &EE_zjerk);
-  jerk[3] = eeprom_read_dword((uint32_t *) &EE_ejerk);
 #ifdef USE_BACKLASH
-  xback[0] = eeprom_read_dword((uint32_t *) &EE_xbacklash);
-  xback[1] = eeprom_read_dword((uint32_t *) &EE_ybacklash);
-  xback[2] = eeprom_read_dword((uint32_t *) &EE_zbacklash);
-  xback[3] = eeprom_read_dword((uint32_t *) &EE_ebacklash);
+  xback[0] = eepromread(EE_xbacklash);
+  xback[1] = eepromread(EE_ybacklash);
+  xback[2] = eepromread(EE_zbacklash);
+  xback[3] = eepromread(EE_ebacklash);
 
 #endif
+  preparecalc();
 }
 
 void reset_eeprom() {
   reset_motion();
-  eeprom_write_dword((uint32_t *) &EE_xmax, fg(ax_max[0]));
-  eeprom_write_dword((uint32_t *) &EE_ymax, fg(ax_max[1]));
-  eeprom_write_dword((uint32_t *) &EE_zmax, fg(ax_max[2]));
+  eepromwrite(EE_xmax, fg(ax_max[0]));
+  eepromwrite(EE_ymax, fg(ax_max[1]));
+  eepromwrite(EE_zmax, fg(ax_max[2]));
 
-  eeprom_write_dword((uint32_t *) &EE_accelx, fi(accel[0]));
-  eeprom_write_dword((uint32_t *) &EE_accely, fi(accel[1]));
-  eeprom_write_dword((uint32_t *) &EE_accelz, fi(accel[2]));
-  eeprom_write_dword((uint32_t *) &EE_accele, fi(accel[3]));
+  eepromwrite(EE_accelx, fi(accel));
+  
+  eepromwrite(EE_mvaccelx, fi(mvaccel));
 
-  eeprom_write_dword((uint32_t *) &EE_mvaccelx, fi(mvaccel[0]));
-  eeprom_write_dword((uint32_t *) &EE_mvaccely, fi(mvaccel[1]));
-  eeprom_write_dword((uint32_t *) &EE_mvaccelz, fi(mvaccel[2]));
+  eepromwrite(EE_max_x_feedrate, fi(maxf[0]));
+  eepromwrite(EE_max_y_feedrate, fi(maxf[1]));
+  eepromwrite(EE_max_z_feedrate, fi(maxf[2]));
+  eepromwrite(EE_max_e_feedrate, fi(maxf[3]));
 
-  eeprom_write_dword((uint32_t *) &EE_max_x_feedrate, fi(maxf[0]));
-  eeprom_write_dword((uint32_t *) &EE_max_y_feedrate, fi(maxf[1]));
-  eeprom_write_dword((uint32_t *) &EE_max_z_feedrate, fi(maxf[2]));
-  eeprom_write_dword((uint32_t *) &EE_max_e_feedrate, fi(maxf[3]));
+  eepromwrite(EE_xstepmm, ff(stepmmx[0]));
+  eepromwrite(EE_ystepmm, ff(stepmmx[1]));
+  eepromwrite(EE_zstepmm, ff(stepmmx[2]));
+  eepromwrite(EE_estepmm, ff(stepmmx[3]));
 
-  eeprom_write_dword((uint32_t *) &EE_xstepmm, ff(stepmmx[0]));
-  eeprom_write_dword((uint32_t *) &EE_ystepmm, ff(stepmmx[1]));
-  eeprom_write_dword((uint32_t *) &EE_zstepmm, ff(stepmmx[2]));
-  eeprom_write_dword((uint32_t *) &EE_estepmm, ff(stepmmx[3]));
-
-  eeprom_write_dword((uint32_t *) &EE_xjerk, fi(jerk[0]));
-  eeprom_write_dword((uint32_t *) &EE_yjerk, fi(jerk[1]));
-  eeprom_write_dword((uint32_t *) &EE_zjerk, fi(jerk[2]));
-  eeprom_write_dword((uint32_t *) &EE_ejerk, fi(jerk[3]));
 #ifdef USE_BACKLASH
-  eeprom_write_dword((uint32_t *) &EE_xbacklash, fi(xback[0]));
-  eeprom_write_dword((uint32_t *) &EE_ybacklash, fi(xback[1]));
-  eeprom_write_dword((uint32_t *) &EE_zbacklash, fi(xback[2]));
-  eeprom_write_dword((uint32_t *) &EE_ebacklash, fi(xback[3]));
+  eepromwrite(EE_xbacklash, fi(xback[0]));
+  eepromwrite(EE_ybacklash, fi(xback[1]));
+  eepromwrite(EE_zbacklash, fi(xback[2]));
+  eepromwrite(EE_ebacklash, fi(xback[3]));
 #endif
+  eepromcommit;
 }
 #else
 void reload_eeprom() {}

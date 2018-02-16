@@ -72,9 +72,58 @@
 #define heater_pin 3
 
 #define ISRTEMP
+
 /*
   ============================================================================================
-     BOARD_NANONANO
+     BOARD_NANONANO_DELTA
+  ============================================================================================
+*/
+#elif defined(BOARD_NANONANO_DELTA)
+
+
+#define DRIVE_DELTA
+
+
+#define xenable 2
+#define xdirection 6
+#define xstep 4
+
+#define yenable 2
+#define ydirection 9
+#define ystep 8
+
+#define zenable 2
+#define zdirection A5
+#define zstep A4
+
+#define e0enable 2
+#define e0direction A2
+#define e0step A3
+
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+#define xmax_pin A0
+#define ymax_pin A0
+#define zmax_pin A0
+
+#define temp_pin 6 //analog 6 because we use ISR
+#define heater_pin 3
+#define NUMBUFFER 8
+#define SDCARD_CS 10
+#define INVERTENDSTOP // uncomment for normally open
+#define KBOX_PIN 7
+
+#define ISRTEMP
+/*
+  ============================================================================================
+     BOARD_NANONANO_SDCARD
   ============================================================================================
 */
 #elif defined(BOARD_NANONANO_SDCARD)
@@ -107,37 +156,41 @@
 #define ymin_pin A0
 #define zmax_pin A0
 
-#define temp_pin A6 //analog 6 because we use ISR
+#define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 5
 //#define fan_pin 5
 
-//#define ISRTEMP
+#define ISRTEMP
 
 #define SDCARD_CS 10
 #define INVERTENDSTOP // uncomment for normally open
+#define KBOX_PIN 7
+//#define USETIMER1
+
+#define NUMBUFFER 13
 
 /*
   ============================================================================================
-     BOARD_NANONANO_STM32
+     BOARD_NANO_3DPLEX
   ============================================================================================
 */
-#elif defined(BOARD_NANONANO_STM32)
+#elif defined(BOARD_NANO_3DPLEX)
 
-#define xenable PC13
-#define xdirection PC13
-#define xstep PC13
+#define xenable 2
+#define xdirection 6
+#define xstep 4
 
-#define yenable PC13
-#define ydirection PC13
-#define ystep PC13
+#define yenable 2
+#define ydirection 9
+#define ystep 8
 
-#define zenable PC13
-#define zdirection PC13
-#define zstep PC13
+#define zenable 2
+#define zdirection A5
+#define zstep A4
 
-#define e0enable PC13
-#define e0direction PC13
-#define e0step PC13
+#define e0enable 2
+#define e0direction A2
+#define e0step A3
 
 
 /*#define xmin_pin 0
@@ -147,11 +200,65 @@
   #define zmin_pin 0
 */
 
-//#define xmin_pin PC14
-//#define ymin_pin 0
-#define zmax_pin PC14
-//#define temp_pin 6
-//#define heater_pin 3
+//#define xmin_pin A0
+//#define ymin_pin A0
+#define zmax_pin A0
+
+#define temp_pin 6 //analog 6 because we use ISR
+#define heater_pin 3
+//#define fan_pin 5
+
+#define ISRTEMP
+
+#define SDCARD_CS 10
+//#define INVERTENDSTOP // uncomment for normally open
+#define KBOX_PIN 7
+//#define USETIMER1
+
+#define NUMBUFFER 4
+
+
+/*
+  ============================================================================================
+     BOARD_NANONANO_STM32
+  ============================================================================================
+*/
+#elif defined(BOARD_NANONANO_STM32)
+
+#define xenable PB9
+#define xdirection PB7
+#define xstep PB8
+
+#define yenable PB9
+#define ydirection PB5
+#define ystep PB6
+
+#define zenable PB9
+#define zdirection PB3
+#define zstep PB4
+
+#define e0enable PB9
+#define e0direction PB14
+#define e0step PB15
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+#define xmin_pin PB12
+#define ymin_pin PB12
+#define zmax_pin PB12
+#define INVERTENDSTOP
+#define temp_pin PB1
+#define heater_pin PA0
+#define fan_pin PA2
+//#define SDCARD_CS PA4
+//#define KBOX_PIN PA3
+
 
 /*
   ============================================================================================
@@ -389,21 +496,39 @@
 */
 #elif defined(BOARD_NANONANO_WEMOS)
 
-#define xenable D1
-#define xdirection D2
-#define xstep D3
-#define yenable D1
-#define ydirection D2
-#define ystep D3
-#define zenable D1
-#define zdirection D2
-#define zstep D3
+// shift register for all motor step and direction (8 pin)
+#define USE_SHIFTREG
+#define pinclock D5
+#define pinlatch D0
+#define pindata D2
 
-#define zmax_pin D5
+// Implemented shift register pin for motors
+#define xdirection 6
+#define xstep 7
+#define ydirection 4
+#define ystep 5
+#define zdirection 3
+#define zstep 2
+#define e0direction 0
+#define e0step 1
+
+
+#define xenable D3
+#define yenable D3
+#define zenable D3
+#define e0enable D3
+
+#define zmax_pin D1
+#define xmin_pin D1
+#define ymin_pin D1
 
 #define temp_pin A0
-#define heater_pin D6
+#define heater_pin D4
+#define fan_pin D4
 
+#define INVERTENDSTOP
+#define SDCARD_CS D8
+#define NUMBUFFER 20
 #else
-#warning No BOARD Defined !
+#error No BOARD Defined !
 #endif

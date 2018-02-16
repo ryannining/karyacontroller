@@ -35,7 +35,7 @@ int main(void)
     getch();
     exit(1);               /* terminate with an error code */
   }
-  xprintf(PSTR("Simple Motion Control with Acceleration, Jerk, and lookahead planner\n"));
+  xprintf(PSTR("Simple Motion Control with Acceleration, and lookahead planner\n"));
   xprintf(PSTR("By ryannining@gmail.com\n"));
   initmotion();
   setcolor(1);
@@ -55,18 +55,26 @@ int main(void)
   getch();
 }
 void demofile() {
-  FILE *file = fopen("d:/git/hipopotamo.gcode", "r");
+  //#define fn "d:/git/hipopotamo.gcode"
+  #define fn "d:/3d/box1cm.gcode" 
+  //#define fn "d:/3d/fish_fossilz.gcode"
+
+  FILE *file = fopen(fn,"r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 5;
+  graphscale = 20;
+  tickscale=200;
   if (file == NULL) return; //could not open file
   int comment = 0;
+  long l=0;
   while ((c = fgetc(file)) != EOF) {
+    if (l>26)break;
     if (c == ';')comment = 1;
     code[n++] = (char) c;
     if (c == '\n') {
       code[n++] = 0;
+      l++;
       printf("\n%s", code);
       if (!comment)gcode_parse_char(c);
       n = 0;
@@ -83,11 +91,36 @@ void demofile() {
 }
 
 void demo() {
-  graphscale = 1;
-  int f = 40;
-  addmove(f, 0, 50, 0, 1);
+  graphscale = 20;
+  tickscale=160;
+  fscale=3;
+  int f = 100;
+  amove(30, 9.6, 0, 0, 0);
+  amove(30, 9.6, -9.3, 0, 0);
+  amove(30, 10, -10, 0, 0);
+  amove(30, 25, 0, 0, 1);
+  amove(30, 25, 0, 1, 2);
+  amove(30, 30, 0, 1, 3);
+/*  
+  amove(30, 40, -10, 1, 3);
+  amove(30, 30, 0, 0, 4);
+  amove(30, 80, 0, 0, 5);
+
+/*  
+  amove(f, 43, 0, 0, 3);
+  amove(f, 54, 0, 0, 4);
+  amove(f, 65, 0, 0, 5);
+  amove(f, 77, 0, 0, 6);
+  amove(f, 100, 0, 0, 0);
+  amove(f, 110, 0, 0, 0);
+  amove(f, 50, 0, 0, 0);
+  amove(f, 53, 0, 0, 0);
+  amove(50, 70, 0, 0, 0);
+  amove(f, 80, 0, 0, 0);
+  amove(f, 90, 0, 0, 0);
+*/
+  int i;
   /*
-    int i;
     for (i = 0; i < 5; i++) {
       addmove(f, i * 10, 50, 0, 0);
     }
@@ -95,10 +128,10 @@ void demo() {
     for (i = 5; i > 0; i--) {
       addmove(f, i * 10, 60, 0, 0);
     }
-    addmove(f, 0, 65, 0, 0);
-    for (i = 0; i < 36; i++) {
-      addmove(f, sin(i * 44.0/7/36)*10,  -cos(i * 44.0/7/36)*10, 0, 1);
-    }
+  addmove(f, 0, 65, 0, 0);
+  for (i = 0; i < 36; i++) {
+    addmove(f, sin(i * 44.0 / 7 / 36) * 140,  -cos(i * 44.0 / 7 / 36) * 40, 0, 1);
+  }
   */
 
 

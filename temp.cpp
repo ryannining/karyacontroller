@@ -9,6 +9,7 @@ uint16_t ctemp = 0;
 double Setpoint, Input, Output;
 int wait_for_temp = 0;
 
+
 #if defined(temp_pin) && !defined(ISPC)
 #include <PID_v1.h>
 
@@ -19,17 +20,19 @@ int wait_for_temp = 0;
 PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 
 
-int vanalog = 0;
 int fan_val = 0;
 void setfan_val(int val) {
 #ifdef fan_pin
+    pinMode(fan_pin, OUTPUT);
   analogWrite(fan_pin, val);
   fan_val = val;
 #endif
 }
 
 #if defined(__AVR__) && defined(ISRTEMP)
-#define ADCREAD ADCSRA |= bit (ADSC) | bit (ADIE);
+int vanalog[8];
+int adcpin;
+
 ISR (ADC_vect)
 {
   uint8_t low, high;
@@ -41,15 +44,18 @@ ISR (ADC_vect)
   low = ADCL;
   high = ADCH;
 
-  vanalog = (high << 8) | low;
-  //Serial.print(vanalog);
-  //Serial.write('\n');
-
+  vanalog[adcpin] = (high << 8) | low;
+  /*Serial.print(adcpin);
+  Serial.print(":");
+  Serial.print(vanalog[adcpin]);
+  Serial.write('\n');
+*/
 }  // end of ADC_vect
 #endif
 
 void set_temp(float set) {
   Setpoint = set;
+  //pinMode(heater_pin, OUTPUT);
   analogWrite(heater_pin, 0);
 
 }
@@ -65,8 +71,8 @@ void init_temp()
   set_temp(0);
 
 #if defined( __AVR__) && defined(ISRTEMP)
-  ADMUX = bit (REFS0) | (temp_pin);
-  ADCREAD
+  
+  ADCREAD(temp_pin)
 #elif defined(ESP8266)
 #endif
 
@@ -112,25 +118,32 @@ void temp_loop(uint32_t cm)
 {
   if ((next_temp < cm) && (cm - next_temp < 1000000)) {
     next_temp = cm + 1000000; // each half second
-
+int v=0;
 #if defined( __AVR__) && defined(ISRTEMP)
     // automatic in ESR
-    ADCREAD
+    ADCREAD(temp_pin)
+    v=vanalog[temp_pin];
 #else
-    vanalog = analogRead(temp_pin);
+    v = analogRead(temp_pin);
 #endif
 
-    ctemp = (ctemp + vanalog * 7) / 8;
+    ctemp = (ctemp + v * 7) / 8;
     Input =  read_temp(ctemp);
 #ifdef fan_pin
     if ((Input > 80) && (fan_val < 50)) setfan_val(255);
 #endif
     if (Setpoint > 0) {
 #ifdef heater_pin
-      //if (wait_for_temp ) zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
+      //pinMode(heater_pin, OUTPUT);
 
       myPID.Compute();
-      analogWrite(heater_pin, Output);
+      #ifdef ESP8266
+      analogWrite(heater_pin, Output*4);
+      #else
+      analogWrite(heater_pin, Output*17/20);
+      #endif
+      if (wait_for_temp ) 
+      zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
 
 #endif
     }
@@ -146,6 +159,8 @@ int temp_achieved() {
   return 1;
 }
 void set_temp(float set) {
+}
+void setfan_val(int val) {
 }
 void init_temp()
 {

@@ -1,7 +1,7 @@
 #include "motion.h"
 
 #include <stdint.h>
-#define TMSCALE 2048L
+#define TMSCALE 1024L
 extern int feedthedog();
 #ifndef ISPC
 #define timescale 1000000L

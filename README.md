@@ -29,9 +29,10 @@ feature i need to have in this software is: (* implemented)
 - config files to set pins and parameter *
 - G0 and G1 can have different acceleration (travel vs feed/extrude) *
 - backlash for all motor *
-- Config for inverted motor and endstop
+- Config for inverted motor and endstop *
+- backward planner (executed only when ramp down are larger than total step, not always success ) *?
 
-- backward planner
+
 - interrupt timing
 
 ## MCU
@@ -72,3 +73,14 @@ karyacontroller.ino - arduino ide
 motion [motion.exe].PRJ - for quincy IDE, we can show graphics of the motion simulation here
 
 Original code is in freebasic, you can check the old folder
+
+## log
+5-2-2018
+
+I change the feedrate acceleration algorithm, previously using mainloop that calculate f by adding it with a*dl , which dl is from 1/f, this cause problem cannot reach the target velocity.
+
+Now it use inversesquare of accumulative value from acceleration, which is maybe costly on the mainloop, but more easy on path planner.
+
+Also i have make the analog read better by able to pool more than 1 analogread and keep the result on buffer.
+
+Also i plan to use more library, such as DIO2.

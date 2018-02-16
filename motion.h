@@ -6,7 +6,7 @@
 #include<arduino.h>
 #endif
 
-#if defined(STM32_MCU_SERIES) || defined(STM32_SERIES_F1)
+#if defined(__STM32F1__) || defined(STM32_SERIES_F1)
 #define __ARM__
 #endif
 
@@ -22,26 +22,82 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-#define UPDATE_F_EVERY 1600 //us
+#define UPDATE_F_EVERY 4000 //us
+
+
 
 
 typedef struct {
-  int8_t  sx[NUMAXIS];
-  int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+  uint8_t cmd  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+  uint16_t dly;
+} tcmd;
 
-  int fx[NUMAXIS];
-  float fs, fn, fe;
-  int32_t dx[NUMAXIS];
-  int32_t rampup, rampdown;
-  int32_t ac1, ac2;
+
+typedef struct {
+  int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+#ifdef __AVR__
+  int16_t ac; // needed for backplanner
+  int16_t fs, fn, fe; // all are in square ! needed to calc real accell
+#else
+  int32_t ac; // needed for backplanner
+  int32_t fs, fn, fe; // all are in square ! needed to calc real accell
+#endif
+#ifdef DRIVE_DELTA
+  float dtx[NUMAXIS]; // keep the original coordinate before transform
+
+  /*
+      Problems:
+       we dont know exact step needed from start to end
+       so, we need to change the ramping acceleration calculation
+
+       my idea is to stretch, so make the rampup and rampdown as float, and decrease it using a floating number
+       for linear system it decrease by 1, but for non linear, it will interpolate the decrease, so on segment calculation
+       need to change the decreasing value
+
+      totalseg=number segment
+      int segno =-1 // for first calc become 0
+      float sgx = deltax/stepmmx[fastaxis]
+      float sgy = deltay/stepmmx[fastaxis]
+      float sgz = deltaz/stepmmx[fastaxis]
+      float sge = deltae/stepmmx[fastaxis]
+
+      int mctr =0 (to trigger first calculation) stepmmx decreasing if reach zero reset to stepmmx ,segno ++
+      LOOP
+      if mctr<= 0 && totalseg>0
+      {
+        newx=segno++ * sgx + x[0]
+        ...
+
+        transformdelta newx,...
+        deltax=newx-currentx
+        ...
+        // reset bresenham direction
+        mtotalstep= biggest delta
+        mcx[0]=totalstep/2
+
+        currentx=newx
+        ...
+
+        segctr=stepmmx[fastaxis]
+      } else {
+      // segment bresenham
+
+
+
+      }
+
+  */
+#endif
+  int32_t dx[NUMAXIS]; //original delta before transform
+  int32_t rampup;
+  int32_t rampdown;
 #ifdef ISPC
   // for graphics
   int col;
-  float xs[4];
 #endif
 } tmove;
 
-extern uint8_t e_multiplier, f_multiplier;
+extern float e_multiplier, f_multiplier;
 #ifdef ISPC
 extern float tick, tickscale, fscale, graphscale;
 #endif
@@ -51,10 +107,9 @@ extern tmove *m;
 extern uint8_t xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
-extern uint8_t jerk[4];
-extern int accel[4];
-extern int mvaccel[4];
-extern uint8_t maxf[4];
+extern int accel;
+extern int mvaccel;
+extern int  maxf[4];
 extern float stepmmx[4];
 extern tmove move[NUMBUFFER];
 extern float cx1, cy1, cz1, ce01;
@@ -64,6 +119,9 @@ extern int8_t endstopstatus[3];
 extern uint16_t ax_max[3];
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
+
+//static byte nextbuff(byte x){return (x) < NUMBUFFER-1 ? (x) + 1 : 0;}
+//static byte prevbuff(byte x){return (x) > 0 ? (x) - 1 : NUMBUFFER-1;}
 
 #define degtorad(x) x*22/(7*180);
 
@@ -84,12 +142,83 @@ extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();
 extern void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 , int g0 = 1 , int rel = 0);
+
+#ifdef DRIVE_DELTA
+
+
+// Compile-time trigonometric functions. See Taylor series.
+// Converts degrees to radians.
+#define DegToRad(angleDegrees) ((angleDegrees) * M_PI / 180.0)
+//Make an angle (in radian) coterminal (0 >= x > 2pi).
+//#define COTERMINAL(x) (fmod((x), M_PI*2)) //This causes error since fmod() implementation is different from i386 compiler.
+//TODO: Solve coterminality
+#define COTERMINAL(x) (x)
+// Get quadrant of an angle in radian.
+#define QUADRANT(x) ((uint8_t)((COTERMINAL((x))) / M_PI_2) + 1)
+//Calculate sine of an angle in radians.
+//Formula will be adjusted accordingly to the angle's quadrant.
+//Don't worry about pow() function here as it will be optimized by the compiler.
+#define SIN0(x) (x)
+#define SIN1(x) (SIN0(x) - (pow ((x), 3) / 6))
+#define SIN2(x) (SIN1(x) + (pow ((x), 5) /  120))
+#define SIN3(x) (SIN2(x) - (pow ((x), 7) /  5040))
+#define SIN4(x) (SIN3(x) + (pow ((x), 9) /  362880))
+//*
+#define SIN(x) (QUADRANT((x)) == 1 ? (SIN4(COTERMINAL((x)))) : \
+                (QUADRANT((x)) == 2 ? (SIN4(M_PI - COTERMINAL((x)))) : \
+                 (QUADRANT((x)) == 3 ? -(SIN4(COTERMINAL((x)) - M_PI)) : \
+                  -(SIN4(M_PI*2 - COTERMINAL((x)))))))
+//               */
+//#define SIN(x) (SIN4(x))
+//Calculate cosine of an angle in radians.
+//Formula will be adjusted accordingly to the angle's quadrant.
+//Don't worry about pow() function here as it will be optimized by the compiler.
+#define COS0(x) 1
+#define COS1(x) (COS0(x) - (pow ((x), 2) /  2))
+#define COS2(x) (COS1(x) + (pow ((x), 4) /  24))
+#define COS3(x) (COS2(x) - (pow ((x), 6) /  720))
+#define COS4(x) (COS3(x) + (pow ((x), 8) /  40320))
+//*
+#define COS(x) (QUADRANT((x)) == 1 ? (COS4(COTERMINAL((x)))) : \
+                (QUADRANT((x)) == 2 ? -(COS4(M_PI - COTERMINAL((x)))) : \
+                 (QUADRANT((x)) == 3 ? -(COS4(COTERMINAL((x)) - M_PI)) : \
+                  (COS4(M_PI*2 - COTERMINAL((x)))))))
+//               */
+//#define COS(x) COS4((x))
+//Must scale by 16 because 2^32 = 4,294,967,296 - giving a maximum squareroot of 65536
+//If scaled by 8, maximum movement is 65,536 * 8 = 524,288um, 65,536 * 16 = 1,048,576um
+
+#endif
+
+
+#define amove addmove
+
+
 extern void homing();
 extern int32_t bufflen();
 extern void docheckendstop();
 extern void reset_motion();
+extern void preparecalc();
+extern tmove* m;
+#define fmax(a,b) a<b?b:a
+#define fmin(a,b) a>b?b:a
 
+#ifdef USETIMER1
+static unsigned short pwmPeriod;
+static unsigned char clockSelectBits;
+#ifdef __AVR__
 
+#define domotionloop delay(50);
+#define TIMER1_RESOLUTION 65536UL  // Timer1 is 16 bit
+
+extern void setPeriod(unsigned int32_t microseconds);
+#else// AVR
+#endif
+
+#else // timer1
+#define setPeriod(x) 
+#define domotionloop motionloop();
+#endif
 
 #endif
 

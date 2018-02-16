@@ -2,9 +2,50 @@
 #include "timer.h"
 #include "common.h"
 #include "motion.h"
+#include "config_pins.h"
 #include "temp.h"
 
+#if defined(USE_SDCARD) && defined(SDCARD_CS)
+// generic sdcard add about 800uint8_t ram and 8kb code
+#ifdef ESP8266 || __ARM__
+#include <SPI.h>
+#include <SD.h>
+#else
+#include "SdFat.h"
+SdFat SD;
+#endif
+#endif
 
+#if defined(USE_SDCARD) && defined(SDCARD_CS)
+
+// SD card chip select pin.
+const uint8_t SD_CS_PIN = SDCARD_CS;
+
+File myFile;
+void demoSD() {
+#ifdef ESP8266
+  if (!SD.begin(SD_CS_PIN)) {
+#else
+  if (!SD.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
+#endif
+    zprintf(PSTR("SDFAIL\n"));
+    sdcardok = 0;
+    return;
+  }
+  zprintf(PSTR("SDOK\n"));
+
+  // open the file. note that only one file can be open at a time,
+  // so you have to close this one before opening another.
+  // re-open the file for reading:
+  myFile = SD.open("print.gco");
+  if (myFile) {
+    zprintf(PSTR("gco ok\n"));
+    sdcardok = 1;
+  } else {
+    zprintf(PSTR("no gco\n"));
+  }
+}
+#endif
 #define MLOOP motionloop();
 
 #include<stdint.h>
@@ -15,6 +56,7 @@
 /// crude crc macro
 #define crc(a, b)		(a ^ b)
 decfloat read_digit;
+int sdcardok = 0;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
@@ -289,8 +331,11 @@ void temp_wait(void) {
   wait_for_temp = 1;
   int c = 0;
   while (wait_for_temp && !temp_achieved()) {
+#ifdef USETIMER1
+    delay(50);
+#else
     motionloop();
-    //delayMicroseconds(1000);
+#endif
     if (c++ > 20000) {
       c = 0;
       zprintf(PSTR("T:%f\n"), ff(Input));
@@ -301,12 +346,13 @@ void temp_wait(void) {
 }
 //int32_t mvc = 0;
 static void enqueue(TARGET *) __attribute__ ((always_inline));
+
 inline void enqueue(TARGET *t, int g0 = 1) {
-  addmove(t->F , t->axis[X]
-          , t->axis[Y]
-          , t->axis[Z]
-          , t->axis[E]
-          , g0);
+  amove(t->F , t->axis[X]
+        , t->axis[Y]
+        , t->axis[Z]
+        , t->axis[E]
+        , g0);
 }
 
 void process_gcode_command() {
@@ -359,7 +405,7 @@ void process_gcode_command() {
         //?
         if (!next_target.seen_F) {
           backup_f = next_target.target.F;
-          next_target.target.F = 500;
+          //next_target.target.F = maxf[0];
           enqueue(&next_target.target, 1);
           next_target.target.F = backup_f;
         } else
@@ -403,6 +449,12 @@ void process_gcode_command() {
             delay_ms(5);
           }
         }
+        break;
+      case 5:
+        reset_eeprom();
+        reload_eeprom();
+        amove(50, 50, 50, 50, 0);
+        amove(50, 0, 0, 0, 0);
         break;
       case 28:
         homing();
@@ -482,7 +534,7 @@ void process_gcode_command() {
 
       // unknown gcode: spit an error
       default:
-        zprintf(PSTR("E: Bad G-code %d\nok\n"), next_target.G);
+        zprintf(PSTR("E:G%d\nok\n"), next_target.G);
         return;
     }
   }
@@ -490,6 +542,12 @@ void process_gcode_command() {
     //uint8_t i;
 
     switch (next_target.M) {
+#ifndef ISPC
+      case 200: // keybox action
+        switch (next_target.P) {
+            KBOX_DO_ACT
+        }
+#endif
       case 0:
       //? --- M0: machine stop ---
       //?
@@ -596,7 +654,8 @@ void process_gcode_command() {
         break;
 
       case 115:
-        zprintf(PSTR("FIRMWARE_NAME:Repetier_1.9 FIRMWARE_URL:null PROTOCOL_VERSION:1.0 MACHINE_TYPE:teacup EXTRUDER_COUNT:1 REPETIER_PROTOCOL:\n"));
+        //        zprintf(PSTR("FIRMWARE_NAME:Repetier_1.9 FIRMWARE_URL:null PROTOCOL_VERSION:1.0 MACHINE_TYPE:teacup EXTRUDER_COUNT:1 REPETIER_PROTOCOL:\n"));
+        zprintf(PSTR("FIRMWARE_NAME:Repetier_1.9 PROTOCOL_VERSION:1.0 REPETIER_PROTOCOL:\n"));
 
         break;
 
@@ -606,9 +665,9 @@ void process_gcode_command() {
         //? Report the current status of the endstops configured in the
         //? firmware to the host.
         docheckendstop();
-        zprintf(PSTR("Endstop:"));
+        zprintf(PSTR("END:"));
         for (int e = 0; e < 3; e++) {
-          zprintf(endstopstatus[e] < 0 ? PSTR("ON ") : PSTR("OFF "));
+          zprintf(endstopstatus[e] < 0 ? PSTR("1 ") : PSTR("0 "));
         }
         zprintf(PSTR("\n"));
 
@@ -623,37 +682,28 @@ void process_gcode_command() {
 #endif
       case 503:
         zprintf(PSTR("EPR:3 145 %f Xmax\n"), fg(ax_max[0]));
-        zprintf(PSTR("EPR:3 149 %f Ymax\n"), fg(ax_max[1]));
-        zprintf(PSTR("EPR:3 153 %f Zmax\n"), fg(ax_max[2]));
+        zprintf(PSTR("EPR:3 149 %f Y\n"), fg(ax_max[1]));
+        zprintf(PSTR("EPR:3 153 %f Z\n"), fg(ax_max[2]));
 
         zprintf(PSTR("EPR:3 3 %f StepX\n"), ff(stepmmx[0]));
-        zprintf(PSTR("EPR:3 7 %f StepY\n"), ff(stepmmx[1]));
-        zprintf(PSTR("EPR:3 11 %f StepZ\n"), ff(stepmmx[2]));
-        zprintf(PSTR("EPR:3 0 %f StepE\n"), ff(stepmmx[3]));
+        zprintf(PSTR("EPR:3 7 %f Y\n"), ff(stepmmx[1]));
+        zprintf(PSTR("EPR:3 11 %f Z\n"), ff(stepmmx[2]));
+        zprintf(PSTR("EPR:3 0 %f E\n"), ff(stepmmx[3]));
 
-        zprintf(PSTR("EPR:2 15 %d MFX\n"), fi(maxf[0]));
-        zprintf(PSTR("EPR:2 19 %d MFY\n"), fi(maxf[1]));
-        zprintf(PSTR("EPR:2 23 %d MFZ\n"), fi(maxf[2]));
-        zprintf(PSTR("EPR:2 27 %d MFE\n"), fi(maxf[3]));
+        zprintf(PSTR("EPR:2 15 %d FeedX\n"), fi(maxf[0]));
+        zprintf(PSTR("EPR:2 19 %d Y\n"), fi(maxf[1]));
+        zprintf(PSTR("EPR:2 23 %d Z\n"), fi(maxf[2]));
+        zprintf(PSTR("EPR:2 27 %d E\n"), fi(maxf[3]));
 
 
-        zprintf(PSTR("EPR:3 51 %d AccelX\n"), fi(accel[0]));
-        zprintf(PSTR("EPR:3 55 %d AccelY\n"), fi(accel[1]));
-        zprintf(PSTR("EPR:3 59 %d AccelZ\n"), fi(accel[2]));
-        zprintf(PSTR("EPR:3 63 %d AccelE\n"), fi(accel[3]));
-        zprintf(PSTR("EPR:3 67 %d Mv AccelX\n"), fi(mvaccel[0]));
-        zprintf(PSTR("EPR:3 71 %d Mv AccelY\n"), fi(mvaccel[1]));
-        zprintf(PSTR("EPR:3 75 %d Mv AccelZ\n"), fi(mvaccel[2]));
+        zprintf(PSTR("EPR:3 51 %d Accel\n"), fi(accel));
+        zprintf(PSTR("EPR:3 67 %d MVAccel\n"), fi(mvaccel));
 
-        zprintf(PSTR("EPR:2 35 %d XJerk\n"), fi(jerk[0]));
-        zprintf(PSTR("EPR:2 39 %d YJerk\n"), fi(jerk[1]));
-        zprintf(PSTR("EPR:2 43 %d Zjerk\n"), fi(jerk[2]));
-        zprintf(PSTR("EPR:2 47 %d Ejerk\n"), fi(jerk[3]));
 #ifdef USE_BACKLASH
         zprintf(PSTR("EPR:2 80 %d Xbacklash\n"), fi(xback[0]));
-        zprintf(PSTR("EPR:2 84 %d Ybacklash\n"), fi(xback[1]));
-        zprintf(PSTR("EPR:2 88 %d Zbacklash\n"), fi(xback[2]));
-        zprintf(PSTR("EPR:2 92 %d Ebacklash\n"), fi(xback[3]));
+        zprintf(PSTR("EPR:2 84 %d Y\n"), fi(xback[1]));
+        zprintf(PSTR("EPR:2 88 %d Z\n"), fi(xback[2]));
+        zprintf(PSTR("EPR:2 92 %d E\n"), fi(xback[3]));
 #endif
 
         break;
@@ -668,7 +718,7 @@ void process_gcode_command() {
           switch (next_target.P) {
 #define eprom_wr(id,pos,val){\
   case id:\
-    eeprom_write_dword((uint32_t *) &pos, val);\
+    eepromwrite(pos, val);\
     break;\
   }
               eprom_wr(145, EE_xmax, S_F);
@@ -684,19 +734,10 @@ void process_gcode_command() {
               eprom_wr(23, EE_max_z_feedrate, S_I);
               eprom_wr(27, EE_max_e_feedrate, S_I);
 
-              eprom_wr(35, EE_xjerk, S_I);
-              eprom_wr(39, EE_yjerk, S_I);
-              eprom_wr(43, EE_zjerk, S_I);
-              eprom_wr(47, EE_ejerk, S_I);
 
               eprom_wr(51, EE_accelx, S_I);
-              eprom_wr(55, EE_accely, S_I);
-              eprom_wr(59, EE_accelz, S_I);
-              eprom_wr(63, EE_accele, S_I);
 
               eprom_wr(67, EE_mvaccelx, S_I);
-              eprom_wr(71, EE_mvaccely, S_I);
-              eprom_wr(75, EE_mvaccelz, S_I);
 
 #ifdef USE_BACKLASH
               eprom_wr(80, EE_xbacklash, S_I);
@@ -713,7 +754,7 @@ void process_gcode_command() {
         if ( ! next_target.seen_S)
           break;
         // Scale 100% = 256
-        f_multiplier = next_target.S * 2.55;
+        f_multiplier = next_target.S * 0.01;
         MLOOP
 
         break;
@@ -723,13 +764,13 @@ void process_gcode_command() {
         if ( ! next_target.seen_S)
           break;
         // Scale 100% = 256
-        e_multiplier = next_target.S * 2.55;
+        e_multiplier = next_target.S * 0.01;
         MLOOP
 
         break;
 
       default:;
-        //zprintf(PSTR("E: Bad M-code %d\nok\n"), next_target.M);
+        //zprintf(PSTR("E:M%d\nok\n"), next_target.M);
     } // switch (next_target.M)
   } // else if (next_target.seen_M)
 } // process_gcode_command()
@@ -737,6 +778,9 @@ void process_gcode_command() {
 void init_gcode() {
   next_target.target.F = 100;
   next_target.option_all_relative = 0;
+#ifdef USE_EEPROM
+  eeprominit
+#endif
 
 }
 

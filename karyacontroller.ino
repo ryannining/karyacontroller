@@ -3,6 +3,7 @@
 //#define timingG
 //#define echoserial
 
+
 #include "config_pins.h"
 #include "common.h"
 #include "gcode.h"
@@ -19,112 +20,91 @@ uint32_t gt = 0;
 int n = 0;
 uint32_t kctr = 0;
 
-int sdcardok = 0;
-#if defined(USE_SDCARD) && defined(SDCARD_CS)
-// generic sdcard add about 800uint8_t ram and 8kb code
-#include <SPI.h>
-#include "SdFat.h"
-SdFat sd;
-// SD card chip select pin.
-const uint8_t SD_CS_PIN = SDCARD_CS;
 
-File myFile;
-void demoSD() {
-  if (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
-    zprintf(PSTR("SDFAIL\n"));
-    sdcardok = 0;
-    return;
-  }
-  zprintf(PSTR("SDOK\n"));
 
-  // open the file. note that only one file can be open at a time,
-  // so you have to close this one before opening another.
-  // re-open the file for reading:
-  myFile = sd.open("print.gcode");
-  if (myFile) {
-    zprintf(PSTR("gcode ok\n"));
-    sdcardok = 2;
-  } else {
-    zprintf(PSTR("no gcode\n"));
-    sdcardok =0;
-  }
-}
-#endif
 
-int lkey = 0;
+int akey = 0, lkey = 0;
 int kdl = 500;
+int tmax,tmin;
 void gcode_loop() {
-  //float x=12.345;
-  //xprintf(PSTR("Motion demo %d %f\n"),10,x);
-  //delay(500);
-  //demo();
+
 #ifndef ISPC
-#ifdef timing
-  uint32_t t1 = micros();
-#endif
+
+  /*
+      =========================================================================================================================================================
+
+       KONTROLBOX
+
+      =========================================================================================================================================================
+  */
+#ifdef KBOX_PIN
+
   if (millis() - kctr > kdl) {
     kctr = millis();
-    int key = analogRead(A7);
+#ifdef ISRTEMP
+    int key = vanalog[KBOX_PIN];
+    ADCREAD(KBOX_PIN)
+#else
+    int key = analogRead(KBOX_PIN);
+#endif
+
     switch (key) {
-      case 686 ... 688:
-        lkey = 3;
-        kdl = 500;
-        break;
-      case 356 ... 358:
-        lkey = 2;
-        kdl = 500;
-        break;
-      case 0 ... 2:
-        lkey = 1;
-        kdl = 500;
-        break;
-      case 900 ... 1100:
+        KBOX_DO_CHECK
+
+      case 1021 ... 1023:
         if (lkey) {
           zprintf(PSTR("LKey:%d\n"), fi(lkey));
           switch (lkey) {
-            case 1:
-              homing();
-              zprintf(PSTR("HOMING\n"));
-              break;
-            case 2:
-              set_temp(180);
-              zprintf(PSTR("HEATING\n"));
-              break;
-            case 3:
-              if (sdcardok) {
-                sdcardok = sdcardok == 1 ? 2 : 1;
-                zprintf(PSTR("SD\n"));
-              } else {
-#ifdef USE_SDCARD
-                demoSD();
-#endif
-              }
-              break;
+              KBOX_DO_ACT
+
           }
         }
         lkey = 0;
         kdl = 1000;
-
         break;
     }
     //zprintf(PSTR("Key:%d\n"), fi(key));
   }
+#endif
+  /*
+      =========================================================================================================================================================
+  */
 
+  /*
+      =========================================================================================================================================================
+
+       MOTIONLOOP
+
+      =========================================================================================================================================================
+  */
+#ifdef timing
+  uint32_t t1 = micros();
+#endif
+#ifndef USETIMER1
   if (motionloop())
+#endif
   {
 #ifdef timing
-    uint32_t t2 = micros();
-    if (ct++ > 1000) {
+    uint32_t t2 = micros()-t1;
+    tmax=fmax(t2,tmax);
+    tmin=fmin(t2,tmin);
+    
+    if (ct++ > 1) {
+      zprintf(PSTR("%d %dus\n"), fi(tmin),fi(tmax));
+      tmax=0;
+      tmin=1000;
       ct = 0;
-      zprintf(PSTR("%dus\n"), t2 - t1);
     }
 #endif
   }
+
   if (ack_waiting) {
     zprintf(PSTR("ok\n"));
     ack_waiting = 0;
     n = 1;
   }
+
+
   char c = 0;
   if (Serial.available() > 0)
   {
@@ -139,6 +119,7 @@ void gcode_loop() {
     // read from the file until there's nothing else in it:
     if (myFile.available()) {
       c = myFile.read();
+      //myFile.write(c);
     } else {
       // close the file:
       myFile.close();
@@ -171,13 +152,22 @@ void setup() {
   //  Serial.setDebugOutput(true);
   Serial.begin(115200);//115200);
   //while (!Serial.available())continue;
-
+#ifdef USE_SDCARD
+  demoSD();
+#endif
   initmotion();
   init_gcode();
   init_temp();
   reload_eeprom();
   zprintf(PSTR("start\nok\n"));
-  pinMode(A7, INPUT_PULLUP);
+#ifdef KBOX_PIN
+  pinMode(KBOX_PIN, INPUT_PULLUP);
+#ifdef ISRTEMP
+  vanalog[KBOX_PIN] = 1023; // first read is error, throw it
+#endif
+#endif
+
+  setPeriod(5000);
   //zprintf(PSTR("Motion demo\nok\n"));
 
 }
