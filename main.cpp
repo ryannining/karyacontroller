@@ -56,20 +56,21 @@ int main(void)
 }
 void demofile() {
   //#define fn "d:/git/hipopotamo.gcode"
-  #define fn "d:/3d/box1cm.gcode" 
-  //#define fn "d:/3d/fish_fossilz.gcode"
+  //#define fn "d:/git/bowdenlock.gcode" 
+  #define fn "d:/3d/fish_fossilz.gcode"
 
+//  #define fn "d:/3d/box1cm.gcode" 
   FILE *file = fopen(fn,"r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 20;
+  graphscale = 10;
   tickscale=200;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l=0;
   while ((c = fgetc(file)) != EOF) {
-    if (l>26)break;
+    //if (l>26)break;
     if (c == ';')comment = 1;
     code[n++] = (char) c;
     if (c == '\n') {

@@ -46,7 +46,7 @@ void demoSD() {
   }
 }
 #endif
-#define MLOOP motionloop();
+#define MLOOP if(m)motionloop();
 
 #include<stdint.h>
 #ifndef ISPC
@@ -70,6 +70,7 @@ static float decfloat_to_float(void) {
     // e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
   */
   if (e) r = (r /*+ powers[e-1] / 2*/) / POWERS(e - 1);
+//  if (e) r = (r /*+ powers[e-1] / 2*/) * POWERS(e - 1);
   MLOOP
   return read_digit.sign ? -r : r;
 }
@@ -275,7 +276,7 @@ uint8_t gcode_parse_char(uint8_t c) {
       next_target.seen_G = 1;
       next_target.G = 1;
     }
-
+    MLOOP
     process_gcode_command();
 
     // reset variables
@@ -285,6 +286,7 @@ uint8_t gcode_parse_char(uint8_t c) {
                              next_target.seen_P = next_target.seen_T = \
                                  next_target.seen_G = next_target.seen_M = \
                                      next_target.read_string  = 0;
+    MLOOP
 #ifdef ARC_SUPPORT
     next_target.seen_R = next_target.seen_I = next_target.seen_J = 0;
 #endif

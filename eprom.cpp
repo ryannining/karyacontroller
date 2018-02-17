@@ -31,6 +31,15 @@ int32_t EEMEM EE_ybacklash;
 int32_t EEMEM EE_zbacklash;
 int32_t EEMEM EE_ebacklash;
 #endif
+
+#ifdef DRIVE_DELTA
+int32_t EEMEM DT_DIAGONAL_ROD;
+int32_t EEMEM DT_RADIUS;
+int32_t EEMEM DT_TOWERA_OFFSET;
+int32_t EEMEM DT_TOWERB_OFFSET;
+int32_t EEMEM DT_TOWERC_OFFSET;
+#endif
+
 #endif
 
 void reload_eeprom() {
