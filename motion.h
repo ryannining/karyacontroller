@@ -22,7 +22,7 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-#define UPDATE_F_EVERY 4000 //us
+//#define UPDATE_F_EVERY 4000 //us
 
 
 

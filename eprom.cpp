@@ -15,6 +15,9 @@ float EEMEM EE_zmax;
 int32_t EEMEM EE_accelx;
 int32_t EEMEM EE_mvaccelx;
 
+int32_t EEMEM EE_jerkxy;
+int32_t EEMEM EE_jerkz;
+
 int32_t EEMEM EE_max_x_feedrate;
 int32_t EEMEM EE_max_y_feedrate;
 int32_t EEMEM EE_max_z_feedrate;

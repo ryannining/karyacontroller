@@ -80,7 +80,11 @@ void gcode_loop() {
 #ifdef timing
   uint32_t t1 = micros();
 #endif
-#ifndef USETIMER1
+
+#ifdef USETIMER1
+  SEI
+  otherloop(0);
+#else
   if (motionloop())
 #endif
   {
@@ -97,7 +101,6 @@ void gcode_loop() {
     }
 #endif
   }
-
   if (ack_waiting) {
     zprintf(PSTR("ok\n"));
     ack_waiting = 0;
@@ -167,7 +170,7 @@ void setup() {
 #endif
 #endif
 
-  setPeriod(5000);
+  //timer_set(5000);
   //zprintf(PSTR("Motion demo\nok\n"));
 
 }

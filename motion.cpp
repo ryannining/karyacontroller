@@ -18,8 +18,8 @@
 
 //#define steptiming
 
-#define MINIMUMSTEPS 20 // a path less than this steps will merged
-#define MINCORNERSPEED 4 // minimum cornering speed
+#define MINIMUMSTEPS 20 // a path less than this steps will merged with next move, to much merged will make it ugly, normally i think this must be less that nozzle diameter steps
+#define MINCORNERSPEED 3 // minimum cornering speed
 #define FASTINVSQRT  // less precice speed faster 4us
 #define FASTDISTANCE //
 #define DEVIATE 1//;0.01*100 - for centripetal corner safe speed
@@ -30,8 +30,10 @@
 #else
 #define CLOCKCONSTANT 1000000.f
 #endif
-#define XYJERK 20
-//#define JERK1 //centripetal corner , still not good, back to repetier style jerk
+#define XYJERK 25
+#define ZJERK 5
+
+#define JERK1 //centripetal corner , still not good, back to repetier style jerk
 
 #define X 0
 #define Y 1
@@ -117,6 +119,36 @@ float InvSqrt(float x) {
     DELTA PRINTER FUNCTIONS
     =================================================================================================================================================
 */
+uint32_t approx_distance_3(uint32_t dx, uint32_t dy, uint32_t dz) {
+  uint32_t min, med, max, approx;
+
+  if ( dx < dy ) {
+    min = dy;
+    med = dx;
+  } else {
+    min = dx;
+    med = dy;
+  }
+
+  if ( dz < min ) {
+    max = med;
+    med = min;
+    min = dz;
+  } else if ( dz < med ) {
+    max = med;
+    med = dz;
+  } else {
+    max = dz;
+  }
+
+  approx = ( max * 860 ) + ( med * 851 ) + ( min * 520 );
+  if ( max < ( med << 1 )) approx -= ( max * 294 );
+  if ( max < ( min << 2 )) approx -= ( max * 113 );
+  if ( med < ( min << 2 )) approx -= ( med *  40 );
+
+  // add 512 for proper rounding
+  return (( approx + 512 ) >> 10 );
+}
 uint32_t approx_distance(uint32_t dx, uint32_t dy) {
   uint32_t min, max, approx;
 
@@ -441,24 +473,26 @@ void planner(int32_t h)
   curr = &move[h];
   int32_t  scale = 1 << 4;
   int32_t xtotalstep = abs(curr->dx[FASTAXIS(curr)]);
-  //memcpy(prevf,currf,sizeof prevf);
+  memcpy(prevf, currf, sizeof prevf);
 
-  prevf[4] = currf[4];
-  currf[4] = curr->fn;
   for (int i = 0; i < NUMAXIS; i++) {
-    prevf[i] = currf[i];
+    //prevf[i] = currf[i];
     currf[i] = 0;
     if (curr->dx[i] != 0) {
-      currf[i] = abs(curr->fn * curr->dx[i]) / xtotalstep;
-      if (currf[i]) {
-        int32_t scale2 = (maxf[i] << 4) / (currf[i]);
-        if (scale2 < scale) scale = scale2;
-      }
+      int32_t scale2 = (maxf[i] << 4) * xtotalstep / abs(int32_t(curr->fn) * curr->dx[i]);
+      if (scale2 < scale) scale = scale2;
+      currf[i] = curr->dx[i] >> 6;
 
       CORELOOP
     }
   }
   // update all speed and square it up, after this all m->f are squared !
+  /*currf[0] = (currf[0] * scale) >> 4;
+    currf[1] = (currf[1] * scale) >> 4;
+    currf[2] = (currf[2] * scale) >> 4;
+    currf[3] = (currf[3] * scale) >> 4;
+    currf[4] = (curr->fn * scale) >> 4;
+  */
   scale *= curr->fn;
   curr->fn = (scale * scale) >> 8;
   //#define JERK1
@@ -466,7 +500,8 @@ void planner(int32_t h)
 #ifdef JERK1
 #ifdef FASTDISTANCE
   prevdis = currdis;
-  currdis = approx_distance(abs(curr->dx[0]), abs(curr->dx[1]));
+  currdis = approx_distance_3(abs(currf[0]), abs(currf[1]), abs(currf[2]));
+  CORELOOP
 #endif
 #endif
   if (bufflen() < 1) return;
@@ -489,62 +524,82 @@ void planner(int32_t h)
     */
 #ifdef JERK1
 #ifdef FASTDISTANCE
-    float divi = 10000.f / float(prevdis * currdis);
+    int32_t divi = (prevdis * currdis);
 #else
 #define sqr2(n) n*n
-    int32_t divi = sqrt(sqr2(prev->dx[0]) + sqr2(prev->dx[1]));
-    divi *= sqrt(sqr2(curr->dx[0]) + sqr2(curr->dx[1]));
-    divi = divi ;
+    float divi = sqrt(sqr2(prevf[0]) + sqr2(prevf[1]));
+    divi *= sqrt(sqr2(currf[0]) + sqr2(currf[1]));
+    divi = 10000.f / divi ;
 #endif
 #ifdef output_enable
     zprintf (PSTR("DX[0]%d Divi :%f\n"), fi(curr->dx[0]), ff(divi));
 #endif
     CORELOOP
     if (divi > 0) {
-#define dot(ix) (prev->dx[ix]*curr->dx[ix])
+      //#define dot(ix) (prev->dx[ix]*curr->dx[ix])
+#define dot(ix) (int32_t(prevf[ix])*int32_t(currf[ix]))
 
-      int32_t junc_cos =  (dot(0) + dot(1)) * divi;
+      int32_t junc_cos =  (dot(0) + dot(1) + dot(2)) * 10000 / divi;
+      CORELOOP
+#ifdef output_enable
+      zprintf (PSTR("Cos :%f\n"), ff(junc_cos));
+#endif
 
       if (junc_cos < 9999) {
-#ifdef output_enable
-        zprintf (PSTR("Cos :%f\n"), ff(junc_cos));
-#endif
+        //junc_cos*=2;
         junc_cos = fmax(junc_cos, -9999); // Check for numerical round-off to avoid divide by zero.
         //zprintf (PSTR("Cos :%f\n"), ff(junc_cos));
-        int32_t sin_theta_d2 = sqrt32((10000 - junc_cos) >> 1); // result will be range 0-16// Trig half angle identity. Always positive.
+        int32_t sin_theta_d2 = sqrt32((10000 - junc_cos) >> 1); // result will be range 0-500// Trig half angle identity. Always positive.
+        CORELOOP
         //zprintf (PSTR("Sin :%f\n"), ff(sin_theta_d2));
         //zprintf (PSTR("Ac :%d\n"), fi(prev->ac));
 
         // TODO: Technically, the acceleration used in calculation needs to be limited by the minimum of the
         // two junctions. However, this shouldn't be a significant problem except in extreme circumstances.
-        max_f = fmax(max_f, (sin_theta_d2 * DEVIATE *  (int32_t)curr->ac ) / ((100 -  sin_theta_d2) << 13));
+        max_f = fmax(MINCORNERSPEED * MINCORNERSPEED, (sin_theta_d2 * DEVIATE *  (int32_t)curr->ac ) / ((100 -  sin_theta_d2)));
         CORELOOP
 
         //zprintf ("Cos :%f\n", ff(junc_cos ));
-      }
+      } else max_f = 100000;
     };
     //if (max_f < 0)max_f = 9;
 #ifdef output_enable
     zprintf (PSTR("MF:%d\n"), fi(max_f));
 #endif
-#else // jerk1
+#elif JERK2
 
     int32_t fdx = currf[0] - prevf[0];
     int32_t fdy = currf[1] - prevf[1];
     int32_t fdz = currf[2] - prevf[2];
 
-    int32_t jerk = sqrt32(fdx * fdx + fdy * fdy + fdz * fdz) ;
+    int32_t jerk = sqrt32(fdx * fdx + fdy * fdy) ;
     CORELOOP
 
     max_f = fmin(currf[4], prevf[4]);
     if (jerk > XYJERK) max_f = XYJERK * max_f / jerk;
+    jerk = abs(fdz) ;
+    if (jerk > ZJERK) max_f = ZJERK * max_f / jerk;
 
     max_f = fmax(max_f, MINCORNERSPEED);
+    CORELOOP
 #ifdef output_enable
     zprintf (PSTR("JERK:%d\n"), fi(jerk));
     zprintf (PSTR("XMF:%d\n"), fi(max_f));
 #endif
-    CORELOOP
+    max_f *= max_f;
+
+#else// jerk2
+    max_f = 10000;
+    for (int i = 0; i < 3; i++) {
+      int32_t jerk = abs(currf[i] - prevf[i]);
+      if (jerk > XYJERK) max_f = fmin(max_f, (prevf[i] + currf[i]) / 2 + XYJERK);
+      //else if (jerk > XYJERK) max_f = fmin(max_f, prevf[0] - XYJERK);
+      CORELOOP
+    }
+    max_f = fmax(max_f, MINCORNERSPEED);
+#ifdef output_enable
+    zprintf (PSTR("XMF:%d\n"), fi(max_f));
+#endif
     max_f *= max_f;
 #endif
 
@@ -838,7 +893,7 @@ float gx, gy, lx, ly;
 uint32_t cm, ocm,  mctr2, dlmin, dlmax;
 int32_t timing = 0;
 int coreloop1() {
-  if (!m || (mctr<=0))return 0;
+  if (!m || (mctr <= 0))return 0;
 
 #ifndef USETIMER1
 #ifdef ISPC
@@ -1003,7 +1058,7 @@ UPDATEDELAY:
     //if (mctr % 4 == 0) zprintf(PSTR("F:%d "), fi(stepdiv/dl));
     //if (mctr2++ % 20 == 0) Serial.println("");
 #endif
-//    if (mctr % 10 == 0)zprintf(PSTR("endstp %d\n"),fi(checkendstop));
+    //    if (mctr % 10 == 0)zprintf(PSTR("endstp %d\n"),fi(checkendstop));
     if (checkendstop) {
       docheckendstop();
       if ((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0)) {
@@ -1032,7 +1087,7 @@ int motionloop() {
   {
     // for auto start motion when idle
     // main loop
-    r=coreloop1();
+    r = coreloop1();
     //if (mctr)
     timer_set(dl);
 #ifndef USETIMER1
@@ -1156,7 +1211,7 @@ int32_t startmove()
 {
   if ((head == tail)) {
     //Serial.println("?");
-    //m = 0; wm = 0; mctr = 0; 
+    //m = 0; wm = 0; mctr = 0;
     return 0;
   }
 #ifdef USETIMER1
@@ -1327,7 +1382,7 @@ void startmovestep(int s)
 
     SEI
     timer_set(dl);
-    
+
 #ifdef ISPC
     fctr = 0;
 #endif
@@ -1458,7 +1513,7 @@ void homing()
 #define xcheckendstop(e,F) {\
     xx[0]=xx[1]=xx[2]=0;\
     xx[e] = tx[e];\
-    addmove(F, xx[0], xx[1], xx[2], 0,1,1);\    
+    addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     CLI checkendstop = 1;\
     waitbufferempty();\
     xx[e] =  - tx[e]/100;\
@@ -1511,15 +1566,15 @@ void waitbufferempty()
 {
   prepareramp(head);
   startmove();
-  zprintf(PSTR("Wait %d\n"),fi(mctr));
+  zprintf(PSTR("Wait %d\n"), fi(mctr));
   int otail = tail;
   while ((head != tail) || m) //(tail == otail) //
   {
-      SEI
-      domotionloop
-      //delayMicroseconds(20);
-      //zprintf(PSTR("Wa\n"));
-      //CLI
+    SEI
+    domotionloop
+    //delayMicroseconds(20);
+    //zprintf(PSTR("Wa\n"));
+    //CLI
   }
   zprintf(PSTR("Empty"));
 

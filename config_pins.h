@@ -84,8 +84,8 @@
 #define ZOFFSET 0
 #define EOFFSET 0
 
-#define XACCELL 1000
-#define XMOVEACCELL 4000
+#define XACCELL 200
+#define XMOVEACCELL 500
 
 #define XMAXFEEDRATE 100
 #define YMAXFEEDRATE 100
