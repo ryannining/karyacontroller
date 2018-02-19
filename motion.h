@@ -134,9 +134,11 @@ extern uint16_t ax_max[3];
 extern void power_off();
 
 extern int32_t motionrunning;
+extern int32_t mctr;
 extern int motionloop();
 
 extern int coreloop();
+extern void otherloop(int r);
 extern void waitbufferempty();
 extern void needbuffer();
 extern int32_t startmove();
@@ -204,19 +206,8 @@ extern tmove* m;
 #define fmin(a,b) a>b?b:a
 
 #ifdef USETIMER1
-static unsigned short pwmPeriod;
-static unsigned char clockSelectBits;
-#ifdef __AVR__
-
-#define domotionloop delay(50);
-#define TIMER1_RESOLUTION 65536UL  // Timer1 is 16 bit
-
-extern void setPeriod(unsigned int32_t microseconds);
-#else// AVR
-#endif
-
+#define domotionloop SEI ;otherloop(0);
 #else // timer1
-#define setPeriod(x) 
 #define domotionloop motionloop();
 #endif
 

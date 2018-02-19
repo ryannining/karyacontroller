@@ -46,7 +46,11 @@ void demoSD() {
   }
 }
 #endif
+#ifdef USETIMER1
+#define MLOOP
+#else
 #define MLOOP if(m)motionloop();
+#endif
 
 #include<stdint.h>
 #ifndef ISPC
@@ -333,12 +337,8 @@ void temp_wait(void) {
   wait_for_temp = 1;
   int c = 0;
   while (wait_for_temp && !temp_achieved()) {
-#ifdef USETIMER1
-    delay(50);
-#else
-    motionloop();
-#endif
-    if (c++ > 20000) {
+    domotionloop
+      if (c++ > 20000) {
       c = 0;
       zprintf(PSTR("T:%f\n"), ff(Input));
       //zprintf(PSTR("Heating\n"));
@@ -455,8 +455,27 @@ void process_gcode_command() {
       case 5:
         reset_eeprom();
         reload_eeprom();
-        amove(50, 50, 50, 50, 0);
-        amove(50, 0, 0, 0, 0);
+      case 6:
+        amove(100,10, 0, 0, 0);
+        amove(100,10, 10, 0, 0);
+        amove(100,0, 10, 0, 0);
+        amove(100,0, 0, 0, 0);
+
+        amove(100,10, 0, 0, 0);
+        amove(100,10, 10, 0, 0);
+        amove(100,0, 10, 0, 0);
+        amove(100,0, 0, 0, 0);
+
+        amove(100,10, 0, 0, 0);
+        amove(100,10, 10, 0, 0);
+        amove(100,0, 10, 0, 0);
+        amove(100,0, 0, 0, 0);
+
+        amove(100,10, 0, 0, 0);
+        amove(100,10, 10, 0, 0);
+        amove(100,0, 10, 0, 0);
+        amove(100,0, 0, 0, 0);
+
         break;
       case 28:
         homing();

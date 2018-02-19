@@ -209,13 +209,13 @@
 //#define fan_pin 5
 
 #define ISRTEMP
+//#define INVERTENDSTOP // uncomment for normally open
 
 #define SDCARD_CS 10
-//#define INVERTENDSTOP // uncomment for normally open
 #define KBOX_PIN 7
 //#define USETIMER1
 
-#define NUMBUFFER 4
+#define NUMBUFFER 13
 
 
 /*

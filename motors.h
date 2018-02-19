@@ -36,7 +36,7 @@ static void pinCommit() {
   GP16O |= 1;
   #define pushbit(i)if (srdata&i)pinH(pindata);else pinL(pindata);pinL(pinclock);pinH(pinclock);
   //GP16O |= 1;GP16O &= ~1;
-  for (i = 7; i >=0; i--)  {
+  for (int i = 7; i >=0; i--)  {
       pushbit(1<<i);
   }
   GP16O &= ~1;

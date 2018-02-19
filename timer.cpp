@@ -41,3 +41,64 @@ int feedthedog() {
 }
 
 
+// ======================== TIMER for motionloop =============================
+
+uint32_t	next_step_time;
+#ifdef USETIMER1
+#ifdef __AVR__
+#define USETIMEROK
+int busy1=0;
+ISR(TIMER1_COMPA_vect) {
+  if(busy1){
+    zprintf(PSTR("Busy\n"));
+    return;
+  }
+  busy1=1;
+//    zprintf(PSTR("\nTI %d\n"),fi(mctr));
+  // disable
+	//	TIMSK1 &= ~(1 << OCIE1A);
+  
+		// stepper tick
+		motionloop();
+  busy1=0;
+}
+
+void timer_init() {
+  TCCR1A = 0;// set entire TCCR1A register to 0
+  TCCR1B = 0;// same for TCCR1B
+  TIMSK1 = 0;
+
+}
+
+void timer_stop() {
+	// disable all interrupts
+	TIMSK1 = 0;
+}
+void timer_reset() {
+}
+uint8_t timer_set(int32_t delay) {
+  //zprintf(PSTR("\nT %d\n"),fi(mctr));
+  // turn on CTC mode
+  CLI
+  TCCR1B |= (1 << WGM12);
+  // Set CS10 and CS12 bits for 1024 prescaler
+  TCNT1  = 0;//initialize counter value to 0
+  TCCR1B |= (1 << CS11);  
+  // enable timer compare interrupt
+  delay*=2;
+  OCR1A = fmin(fmax(delay,120),5000);// = (16*10^6) / (1*1024) - 1 (must be <65536)
+  TIMSK1 |= (1 << OCIE1A);
+  SEI
+}
+#endif
+
+#endif
+    
+    
+//#elif defined(__ARM__)//avr
+#ifndef USETIMEROK 
+void timer_init(){};
+void timer_stop(){};
+void timer_reset(){};
+uint8_t timer_set(int32_t delay){};
+#endif

@@ -23,10 +23,15 @@
 #define FASTINVSQRT  // less precice speed faster 4us
 #define FASTDISTANCE //
 #define DEVIATE 1//;0.01*100 - for centripetal corner safe speed
-//#define INTERPOLATEDELAY  // slower 4-8us
+#define INTERPOLATEDELAY  // slower 4-8us
 #define ADVANCEEXTRUDER
-#define XYJERK 25   
-//#define JERK1 //centripetal corner , still not good, back to repetier style jerk   
+#ifdef USETIMER1
+#define CLOCKCONSTANT 1000000.f
+#else
+#define CLOCKCONSTANT 1000000.f
+#endif
+#define XYJERK 20
+//#define JERK1 //centripetal corner , still not good, back to repetier style jerk
 
 #define X 0
 #define Y 1
@@ -58,8 +63,6 @@ uint8_t xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
 float f_multiplier, e_multiplier;
-int8_t checkendstop;
-int8_t endstopstatus[3];
 int accel;
 int i;
 int mvaccel;
@@ -69,6 +72,8 @@ int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
 int8_t  sx[NUMAXIS];
 int32_t dlp, dl;
+int8_t checkendstop;
+int8_t endstopstatus[3];
 
 
 float stepmmx[4];
@@ -425,7 +430,7 @@ void prepareramp(int32_t bpos)
 
 */
 
-int currf[5],prevf[5];
+int currf[5], prevf[5];
 void planner(int32_t h)
 {
   // mengubah semua cross feedrate biar optimal secepat mungkin
@@ -438,26 +443,27 @@ void planner(int32_t h)
   int32_t xtotalstep = abs(curr->dx[FASTAXIS(curr)]);
   //memcpy(prevf,currf,sizeof prevf);
 
-  prevf[4]=currf[4];
-  currf[4]=curr->fn;
+  prevf[4] = currf[4];
+  currf[4] = curr->fn;
   for (int i = 0; i < NUMAXIS; i++) {
-    prevf[i]=currf[i];
-    currf[i]=0;
-      if (curr->dx[i] != 0) {
-        currf[i]= abs(curr->fn * curr->dx[i])/xtotalstep;
-      if (currf[i]){int32_t scale2 = (maxf[i] << 4) /(currf[i]);
+    prevf[i] = currf[i];
+    currf[i] = 0;
+    if (curr->dx[i] != 0) {
+      currf[i] = abs(curr->fn * curr->dx[i]) / xtotalstep;
+      if (currf[i]) {
+        int32_t scale2 = (maxf[i] << 4) / (currf[i]);
         if (scale2 < scale) scale = scale2;
       }
-      
-  CORELOOP
+
+      CORELOOP
     }
   }
   // update all speed and square it up, after this all m->f are squared !
   scale *= curr->fn;
   curr->fn = (scale * scale) >> 8;
-//#define JERK1
+  //#define JERK1
 
-#ifdef JERK1 
+#ifdef JERK1
 #ifdef FASTDISTANCE
   prevdis = currdis;
   currdis = approx_distance(abs(curr->dx[0]), abs(curr->dx[1]));
@@ -472,7 +478,7 @@ void planner(int32_t h)
   // Centripetal corner max speed calculation, copy from other firmware
   if (prev->status & 3) {
 
-    int32_t max_f = MINCORNERSPEED*MINCORNERSPEED;
+    int32_t max_f = MINCORNERSPEED * MINCORNERSPEED;
     /*
 
          ======================================================
@@ -481,7 +487,7 @@ void planner(int32_t h)
 
 
     */
-#ifdef JERK1    
+#ifdef JERK1
 #ifdef FASTDISTANCE
     float divi = 10000.f / float(prevdis * currdis);
 #else
@@ -526,18 +532,20 @@ void planner(int32_t h)
     int32_t fdx = currf[0] - prevf[0];
     int32_t fdy = currf[1] - prevf[1];
     int32_t fdz = currf[2] - prevf[2];
-    
-    int32_t jerk = sqrt32(fdx * fdx + fdy * fdy+fdz*fdz) ;
 
-    max_f=fmin(currf[4],prevf[4]);
-    if (jerk>XYJERK) max_f=XYJERK*max_f/jerk;
-    
-    max_f=fmax(max_f,MINCORNERSPEED);
+    int32_t jerk = sqrt32(fdx * fdx + fdy * fdy + fdz * fdz) ;
+    CORELOOP
+
+    max_f = fmin(currf[4], prevf[4]);
+    if (jerk > XYJERK) max_f = XYJERK * max_f / jerk;
+
+    max_f = fmax(max_f, MINCORNERSPEED);
 #ifdef output_enable
     zprintf (PSTR("JERK:%d\n"), fi(jerk));
     zprintf (PSTR("XMF:%d\n"), fi(max_f));
 #endif
-    max_f*=max_f;
+    CORELOOP
+    max_f *= max_f;
 #endif
 
     prev->fe = fmin(max_f, prev->fn);
@@ -545,6 +553,7 @@ void planner(int32_t h)
     //zprintf (PSTR("PF:%d\n"), fi(prev->fe));
     prepareramp(p);
     curr->fs = prev->fe;
+    CORELOOP
   }
 
 }
@@ -658,7 +667,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   dd = 0;
   int faxis = 0;
   // calculate the delta, and direction
-  for (i = 0; i < NUMAXIS; i++) {
+  for (int i = 0; i < NUMAXIS; i++) {
 #define delta  x2[i]
     curr->dx[i] = delta;
     delta = abs(delta);
@@ -670,8 +679,9 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   // if zero length then cancel
   if (dd < MINIMUMSTEPS)
   {
+#ifdef output_enable
     zprintf(PSTR("Step:%d F:%f A:%d\n"), fi(dd), ff(cf), fi(curr->ac));
-
+#endif
   } else
   {
 #ifdef output_enable
@@ -753,6 +763,7 @@ void calculate_delta_steps(int s) {
   zprintf(PSTR("\nSEG PRECALC %d\n"), s);
 #endif
   switch (s) {
+
     case 4:
       // STEP 1
       ctotalseg = xtotalseg - 1;
@@ -820,12 +831,16 @@ void calculate_delta_steps(int s) {
     MOTIONLOOP
     =================================================================================================================================================
 */
+void otherloop(int r);
+
 float xs[4] = {0, 0, 0, 0};
 float gx, gy, lx, ly;
 uint32_t cm, ocm,  mctr2, dlmin, dlmax;
 int32_t timing = 0;
 int coreloop1() {
-  if(!m)return 0;
+  if (!m || (mctr<=0))return 0;
+
+#ifndef USETIMER1
 #ifdef ISPC
   if (1) {
 #else
@@ -834,8 +849,12 @@ int coreloop1() {
 #ifdef steptiming
     timing = fmax(timing, (cm - nextmicros) - dl);
 #endif
-#endif
     nextmicros = cm;
+
+#endif
+#else // not USETIMER1
+  {
+#endif
 
 #ifdef ISPC
     //f = dl/20;//
@@ -955,8 +974,8 @@ UPDATEDELAY:
 
     CALCDELAY
 
-    setPeriod(dl);
     mctr--;
+    if (mctr  == 0)zprintf(PSTR("\n"));
 #ifdef output_enable
     //zprintf(PSTR("%d "), dl);
     //zprintf(PSTR("%d "), mctr);
@@ -980,17 +999,20 @@ UPDATEDELAY:
     }
 #endif
 #ifndef ISPC
+    //if (mctr % 10 == 0)zprintf(PSTR("%d "), fi(mctr));
     //if (mctr % 4 == 0) zprintf(PSTR("F:%d "), fi(stepdiv/dl));
     //if (mctr2++ % 20 == 0) Serial.println("");
 #endif
+//    if (mctr % 10 == 0)zprintf(PSTR("endstp %d\n"),fi(checkendstop));
     if (checkendstop) {
       docheckendstop();
       if ((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0)) {
+        zprintf(PSTR("Endstop hit"));
         m->status = 0;
+        mctr = 0;
         m = 0;
         wm = 0;
-        checkendstop = 0;
-        return 1;
+        return 0;
       }
     }
     return 1;
@@ -998,18 +1020,38 @@ UPDATEDELAY:
   return 0;
 }
 
-int inmotionloop = 0;
+int busy = 0;
 int motionloop() {
-  if (inmotionloop)return 0;
-  inmotionloop = 1;
-
   int  r;
+#ifndef USETIMER1
+  if (busy)return 0;
+  busy = 1;
   cm = micros();
-  if (!m ) goto NEWMOVE;
-  // for auto start motion when idle
+  if (!m ) r = startmove(); else
+#endif
+  {
+    // for auto start motion when idle
+    // main loop
+    r=coreloop1();
+    //if (mctr)
+    timer_set(dl);
+#ifndef USETIMER1
+  }
+  otherloop(r);
+  busy = 0;
+#else
+  }
+#endif //USETIMER1  
+  return r;
+}
 
-  // main loop
-  if (mctr)r = coreloop1();
+void otherloop(int r) {
+#ifdef USETIMER1
+  cm = micros();
+#endif
+
+  // NON TIMER
+#ifndef USETIMER1
   if (r && m && (mctr < 6)) {
     if (mctr == 0) {
 
@@ -1045,6 +1087,39 @@ NEWMOVE:
 
     }
   }
+#else //ifndef USETIMER1  
+  // TIMER ===================================================
+  if (!m) startmove();
+  if (m && (mctr < 6)) {
+    if (mctr == 0) {
+
+#ifdef DRIVE_DELTA
+      // delta need to check if totalseg
+      if (xtotalseg > 0) {
+      } else
+#endif //delta
+      {
+        // coreloop ended, check if there is still move ahead in the buffer
+        //zprintf(PSTR("Finish:%d %f\n"), fi(mctr2), ff(fctr));
+
+        m->status = 0;
+        if (m->fe == 0)f = 0;
+        m = 0;
+        //startmove();
+      }
+    }
+    else {
+      // call preparation early 15 steps, i think its enough
+#ifdef DRIVE_DELTA
+      if (xtotalseg > 0)calculate_delta_steps(); else r = startmove();
+#else
+      r = startmove();
+#endif
+
+    }
+  }
+
+#endif
 #ifndef ISPC
 
   // this both check take 8us
@@ -1058,8 +1133,6 @@ NEWMOVE:
 #if defined(ESP8266)
   feedthedog();
 #endif
-  inmotionloop = 0;
-  return r;
 }
 
 /*
@@ -1081,11 +1154,22 @@ void startmovestep(int s);
 
 int32_t startmove()
 {
-  if ((head == tail)) return 0;
+  if ((head == tail)) {
+    //Serial.println("?");
+    //m = 0; wm = 0; mctr = 0; 
+    return 0;
+  }
+#ifdef USETIMER1
+  if (m && (mctr < 1)) {
+    //if ((mctr>0) && (nextbuff(tail)==head)) return 0;
+    startmovestep(mctr);
+  }
+#else
   if (wm || (m && (mctr == 5))) {
     startmovestep(mctr);
     return !mctr;
   }
+#endif
   // last calculation
   if (m ) return 0; // if empty then exit
   // if no precalculation, then calculate all
@@ -1098,150 +1182,168 @@ int32_t startmove()
 // break start move in some 5 steps to prevent long delay
 void startmovestep(int s)
 {
-#ifdef ISPC
-  zprintf(PSTR("\nPRECALC %d\n"), s);
-  //getch();
-#endif
+#ifdef USETIMER1
+#define STEPCASE(n) //zprintf(PSTR("Step %d\n"),fi(n));
+#define STEPBREAK
+  {
+#else // TIMER1
+#define STEPCASE(n) case n:    //zprintf(PSTR("\nStep ##n##\n"));
+
+#define STEPBREAK if(s>-1)break;
+
   switch (s) {
-    case -1:  
-    case 5:
-      // STEP 1
-      wt = nextbuff(tail);
-      // start bresenham variable
-      //zprintf(PSTR("Fastaxis:%d\n"),fi(fastaxis));
-      // prepare ramp (for last move)
-      prepareramp(wt);
-      wm = &move[wt];
+    case -1:
+      zprintf(PSTR("\nPRECALC %d\n"), fi(s));
+      //      getch();
 
-      wfastaxis = FASTAXIS(wm);
-      wtotalstep = abs(wm->dx[wfastaxis]);
+#endif
+    STEPCASE(5)
+    // STEP 1
+    wt = nextbuff(tail);
+    // start bresenham variable
+    //zprintf(PSTR("Fastaxis:%d\n"),fi(fastaxis));
+    // prepare ramp (for last move)
+    prepareramp(wt);
+    wm = &move[wt];
+
+    wfastaxis = FASTAXIS(wm);
+    wtotalstep = abs(wm->dx[wfastaxis]);
 
 
-      if (s>-1)break;
-    case 4:
-      // recalculate acceleration for up and down, to minimize rounding error
-      wacup = wacdn = 0;
-      if (wm->rampup)wacup = ((int32_t)(wm->fn  - wm->fs ) << INVSCALE ) / (float)wm->rampup;
-      if (wm->rampdown)wacdn = -((int32_t)(wm->fn  - wm->fe ) << INVSCALE ) / (float)wm->rampdown;
-      if (s>-1)break;
+    STEPBREAK
+    STEPCASE(4)
+    // recalculate acceleration for up and down, to minimize rounding error
+    wacup = wacdn = 0;
+    if (wm->rampup)wacup = ((int32_t)(wm->fn  - wm->fs ) << INVSCALE ) / (float)wm->rampup;
+    if (wm->rampdown)wacdn = -((int32_t)(wm->fn  - wm->fe ) << INVSCALE ) / (float)wm->rampdown;
+    STEPBREAK
 
 #ifdef DRIVE_DELTA
-      // DELTA HERE
-      // calculate first movement
-      //STEP
-    case 3:
-      wxtotalseg = 1 + (wtotalstep / 100);
-      wbsdx3 = abs((wm->dx[3]) / wxtotalseg);
-      wsx3 = wm->dx[3] < 0 ? -1 : 1;
-      ts = 1.f / (wxtotalseg);
-      rampseg = (float)(wtotalstep) * ts;
-      ts *= IFIXED2;
+    // DELTA HERE
+    // calculate first movement
+    //STEP
+    STEPCASE(3)
 
-      // STEP
-      transformdelta(wm->dtx[0] - wm->dx[0]*IFIXED2, wm->dtx[1] - wm->dx[1]*IFIXED2, wm->dtx[2] - wm->dx[2]*IFIXED2);
+    wxtotalseg = 1 + (wtotalstep / 100);
+    wbsdx3 = abs((wm->dx[3]) / wxtotalseg);
+    wsx3 = wm->dx[3] < 0 ? -1 : 1;
+    ts = 1.f / (wxtotalseg);
+    rampseg = (float)(wtotalstep) * ts;
+    ts *= IFIXED2;
 
-      // in the last 4 steps, we  sure the previous move is not using this anymore
-      oacup = wacup;
-      oacdn = wacdn;
+    // STEP
+    transformdelta(wm->dtx[0] - wm->dx[0]*IFIXED2, wm->dtx[1] - wm->dx[1]*IFIXED2, wm->dtx[2] - wm->dx[2]*IFIXED2);
 
-      sgx[0] = float(wm->dx[0]) * ts;
-      sgx[1] = float(wm->dx[1]) * ts;
-      sgx[2] = float(wm->dx[2]) * ts;
+    // in the last 4 steps, we  sure the previous move is not using this anymore
+    oacup = wacup;
+    oacdn = wacdn;
+
+    sgx[0] = float(wm->dx[0]) * ts;
+    sgx[1] = float(wm->dx[1]) * ts;
+    sgx[2] = float(wm->dx[2]) * ts;
 #ifdef ISPC
-      zprintf(PSTR("\nTotalSeg:%d RampSeg:%f Sx:%f Sy:%f Sz:%f\n"), fi(wxtotalseg), ff(rampseg), ff(sgx[0]), ff(sgx[1]), ff(sgx[2]));
-      zprintf(PSTR("Dx:%d Dy:%d Dz:%d\n"), fi(wm->dtx[0]), fi(wm->dtx[1]), fi(wm->dtx[2]));
+    zprintf(PSTR("\nTotalSeg:%d RampSeg:%f Sx:%f Sy:%f Sz:%f\n"), fi(wxtotalseg), ff(rampseg), ff(sgx[0]), ff(sgx[1]), ff(sgx[2]));
+    zprintf(PSTR("Dx:%d Dy:%d Dz:%d\n"), fi(wm->dtx[0]), fi(wm->dtx[1]), fi(wm->dtx[2]));
 #endif
-      if (s>-1)break;
-    case 2:
-
+    STEPBREAK
+    STEPCASE(2)
 #endif
 
-      if (s>-1)break;
-    case 1:
+    STEPBREAK
+    STEPCASE(1)
+    // STEP
+    wta = (int32_t)(wm->fs ) << INVSCALE ;
+    wstepdiv = CLOCKCONSTANT / (stepmmx[wfastaxis]);
+    wstepdiv2 = wstepdiv * INVSCALE2;
+    wdlp = xInvSqrt2(wta, wstepdiv, wstepdiv2);
+    wm->status &= ~3;
+    wm->status |= 2;
+    STEPBREAK
+    STEPCASE(0)
+    // FINAL ?
+#ifdef USETIMER1
+    // wait until mctr = 0
+    //zprintf(PSTR("C0\n"));
+    while (mctr) {
+      //SEI
+      delayMicroseconds(20);
+      //CLI
+    }
+#endif
+    CLI
+    m = wm;
+    wm = 0;
+    laxis = fastaxis;
+    fastaxis = wfastaxis;
+    acup = wacup;
+    acdn = wacdn;
+    ta = wta;
+    stepdiv = wstepdiv;
+    stepdiv2 = wstepdiv2;
+    dlp = wdlp;
+    if (stepmmx[laxis] != stepmmx[fastaxis])
+      dl = dlp;//*stepmmx[laxis]/stepmmx[fastaxis]; // interpolate continue from last move, if same fastaxis
+    if (f == 0)
+      nextmicros = micros();// if from stop
 
-      // STEP
-      wta = (int32_t)(wm->fs ) << INVSCALE ;
-      wstepdiv = 1000000.f / (stepmmx[wfastaxis]);
-      wstepdiv2 = wstepdiv * INVSCALE2;
-      wdlp = xInvSqrt2(wta, wstepdiv, wstepdiv2);
-      wm->status &= ~3;
-      wm->status |= 2;
-      if (s>-1)break;
-    case 0:
-
-      // FINAL ?
-      m = wm;
-      wm = 0;
-      laxis = fastaxis;
-      fastaxis = wfastaxis;
-      acup = wacup;
-      acdn = wacdn;
-      ta = wta;
-      stepdiv = wstepdiv;
-      stepdiv2 = wstepdiv2;
-      dlp = wdlp;
-      if (stepmmx[laxis] != stepmmx[fastaxis])
-        dl = dlp;//*stepmmx[laxis]/stepmmx[fastaxis]; // interpolate continue from last move, if same fastaxis
-      if (f == 0)
-        nextmicros = micros();// if from stop
-
-      rampup = m->rampup  * SUBMOTION;
-      rampdown = wtotalstep - rampup - m->rampdown * SUBMOTION;
-      mctr2 = mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0; //mctr >> 1;
-      tail = wt;
+    rampup = m->rampup  * SUBMOTION;
+    rampdown = wtotalstep - rampup - m->rampdown * SUBMOTION;
+    mctr2 = mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0; //mctr >> 1;
+    tail = wt;
 
 #ifdef DRIVE_DELTA
-      // i dont know how to break this because previous move still running and they still use the variables. especially the totalseg value
-      sx[3] = wsx3;
-      bsdx[3] = wbsdx3;
-      xtotalseg = wxtotalseg;
-      calculate_delta_steps(4);
-      calculate_delta_steps(3);
-      calculate_delta_steps(2);
-      calculate_delta_steps(1);
-      calculate_delta_steps(0);
+    // i dont know how to break this because previous move still running and they still use the variables. especially the totalseg value
+    sx[3] = wsx3;
+    bsdx[3] = wbsdx3;
+    xtotalseg = wxtotalseg;
+    calculate_delta_steps(4);
+    calculate_delta_steps(3);
+    calculate_delta_steps(2);
+    calculate_delta_steps(1);
+    calculate_delta_steps(0);
 #else
-      for (int i = 0; i < 4; i++) {
-        if (m->dx[i] > 0) {
-          bsdx[i] = (m->dx[i]);
-          sx[i] = 1;
-        } else {
-          bsdx[i] = -(m->dx[i]);
-          sx[i] = -1;
-        }
+    for (int i = 0; i < 4; i++) {
+      if (m->dx[i] > 0) {
+        bsdx[i] = (m->dx[i]);
+        sx[i] = 1;
+      } else {
+        bsdx[i] = -(m->dx[i]);
+        sx[i] = -1;
       }
-      motor_0_DIR(sx[0]);
-      motor_1_DIR(sx[1]);
-      motor_2_DIR(sx[2]);
-      motor_3_DIR(sx[3]);
-      pinCommit();
-      dobacklash();
+    }
+    motor_0_DIR(sx[0]);
+    motor_1_DIR(sx[1]);
+    motor_2_DIR(sx[2]);
+    motor_3_DIR(sx[3]);
+    pinCommit();
+    dobacklash();
 #ifdef AUTO_MOTOR_Z_OFF
-      if (bsdx[2] == 0)motor_2_OFF();
+    if (bsdx[2] == 0)motor_2_OFF();
 #endif // uato motor off
 
-      totalstep = mctr = wtotalstep * SUBMOTION;
+    totalstep = mctr = wtotalstep * SUBMOTION;
 #endif
 
 
-
-      setPeriod(dl);
+    SEI
+    timer_set(dl);
+    
 #ifdef ISPC
-      fctr = 0;
+    fctr = 0;
 #endif
 
 #ifdef output_enable
-      zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
-      zprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), m->rampup, m->rampdown, abs(m->dx[fastaxis]));
-      zprintf(PSTR("FS:%f FN:%f FE:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->fe), ff(m->ac));
-      zprintf(PSTR("TA,ACX:%d,%d \n"), fi(ta), fi(acup));
-      zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
-      //xprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
-      //xprintf(PSTR("sx %d %d %d \n"), fi(sx[0]), fi(sx[1]), fi(sx[2]));
-      //xprintf(PSTR("Status:%d \n"), fi(m->status));
+    zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
+    zprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), m->rampup, m->rampdown, fi(mctr));
+    zprintf(PSTR("FS:%f FN:%f FE:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->fe), ff(m->ac));
+    zprintf(PSTR("TA,ACX:%d,%d \n"), fi(ta), fi(acup));
+    zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
+    //xprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
+    //xprintf(PSTR("sx %d %d %d \n"), fi(sx[0]), fi(sx[1]), fi(sx[2]));
+    //xprintf(PSTR("Status:%d \n"), fi(m->status));
+
 #endif
   }
-
 }
 
 /*
@@ -1348,20 +1450,20 @@ void homing()
     if (tx[e]) {\
       xx[0]=xx[1]=xx[2]=xx[3]=0;\
       xx[e] =  - tx[e]/100;\
-      checkendstop = 0;\
+      CLI checkendstop = 0;\
       addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
       waitbufferempty();\
     }\
   }
-#define checkendstop(e,F) {\
+#define xcheckendstop(e,F) {\
     xx[0]=xx[1]=xx[2]=0;\
     xx[e] = tx[e];\
-    checkendstop = 1;\
-    addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
+    addmove(F, xx[0], xx[1], xx[2], 0,1,1);\    
+    CLI checkendstop = 1;\
     waitbufferempty();\
     xx[e] =  - tx[e]/100;\
-    checkendstop = 0;\
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
+    CLI checkendstop = 0;\
     waitbufferempty();\
   }
   for (int32_t e = 0; e < 3; e++) {
@@ -1370,8 +1472,8 @@ void homing()
   for (int32_t e = 0; e < 3; e++) {
     if (tx[e]) {
       // check endstop again fast
-      checkendstop(e, homingspeed);
-      checkendstop(e, homingspeed / 10);
+      xcheckendstop(e, homingspeed);
+      xcheckendstop(e, homingspeed / 10);
     }
   }
   checkendstop = ce01 = 0;
@@ -1409,12 +1511,17 @@ void waitbufferempty()
 {
   prepareramp(head);
   startmove();
+  zprintf(PSTR("Wait %d\n"),fi(mctr));
   int otail = tail;
   while ((head != tail) || m) //(tail == otail) //
   {
-    domotionloop
-
+      SEI
+      domotionloop
+      //delayMicroseconds(20);
+      //zprintf(PSTR("Wa\n"));
+      //CLI
   }
+  zprintf(PSTR("Empty"));
 
 }
 /*
@@ -1427,28 +1534,21 @@ void needbuffer()
 {
   if (nextbuff(head) == tail) {
 #ifdef output_enable
-    xprintf(PSTR("Wait a buffer\n"));
-#endif
-#ifdef output_enable
-    xprintf(PSTR("buffer %d / %d \n"), fi(tail), fi(head));
+    xprintf(PSTR("Wait %d / %d \n"), fi(tail), fi(head));
 #endif
     //wait current move finish
     int t = tail;
     while (t == tail) {
-      motionloop();
+      SEI
+      domotionloop
+      //delayMicroseconds(20);
+      //zprintf(PSTR("Nb\n"));
+      //CLI
     }
-    /*    // wait new move finish
-        startmove();
-        t = tail;
-        while (t==tail) {
-          motionloop();
-        }
-        m = 0;
-    */
     //xprintf(PSTR("Done\n"));
   }
 #ifdef output_enable
-  xprintf(PSTR("buffer %d / %d \n"), fi(tail), fi(head));
+  xprintf(PSTR("Done %d / %d \n"), fi(tail), fi(head));
 #endif
 }
 /*
@@ -1458,7 +1558,9 @@ void needbuffer()
   inisialisasi awal, wajib
 */
 void initmotion() {
-
+#ifdef USETIMER1
+  timer_init();
+#endif
   reset_motion();
   preparecalc();
   dl = 5000;
@@ -1498,43 +1600,4 @@ void initmotion() {
   pinMotorInit
 #endif
 }
-
-#ifdef USETIMER1
-#ifdef __AVR__
-ISR(TIMER1_OVF_vect)
-{
-  if (m)motionloop();
-}
-void setPeriod(unsigned int32_t microseconds) {
-  const unsigned int32_t cycles = (F_CPU / 2000000) * microseconds;
-
-  if (cycles < TIMER1_RESOLUTION) {
-    clockSelectBits = _BV(CS10);
-    pwmPeriod = cycles;
-  } else if (cycles < TIMER1_RESOLUTION * 8) {
-    clockSelectBits = _BV(CS11);
-    pwmPeriod = cycles / 8;
-  } else if (cycles < TIMER1_RESOLUTION * 64) {
-    clockSelectBits = _BV(CS11) | _BV(CS10);
-    pwmPeriod = cycles / 64;
-  } else if (cycles < TIMER1_RESOLUTION * 256) {
-    clockSelectBits = _BV(CS12);
-    pwmPeriod = cycles / 256;
-  } else if (cycles < TIMER1_RESOLUTION * 1024) {
-    clockSelectBits = _BV(CS12) | _BV(CS10);
-    pwmPeriod = cycles / 1024;
-  } else {
-    clockSelectBits = _BV(CS12) | _BV(CS10);
-    pwmPeriod = TIMER1_RESOLUTION - 1;
-  }
-  // restart the timer
-  TCCR1B = _BV(WGM13);        // set mode as phase and frequency correct pwm, stop the timer
-  TCCR1A = 0;
-  ICR1 = pwmPeriod;
-  TCCR1B = _BV(WGM13) | clockSelectBits;
-}
-#endif
-
-#endif
-
 

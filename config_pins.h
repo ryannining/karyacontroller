@@ -58,6 +58,9 @@
 #undef USEDIO
 #undef ISRTEMP
 #endif
+#ifdef ISPC
+#undef USETIMER1
+#endif
 
 
 #define motortimeout 10000000 // 10 seconds
@@ -95,7 +98,7 @@
 #define E0STEPPERMM 100//340//380
 
 #ifndef NUMBUFFER
-#define NUMBUFFER 6
+#define NUMBUFFER 12
 #endif
 
 #define XMAX 0

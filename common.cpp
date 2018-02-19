@@ -1,5 +1,7 @@
 #include "common.h"
 #include "motion.h"
+#include "timer.h"
+
 
 #ifndef ISPC
 // functions for sending decimal
@@ -98,7 +100,7 @@ void write_int32_vf(int32_t v, uint8_t fp) {
 #endif
 
 void sendf_P(PGM_P format_P, ...) {
-  
+  CLI
   va_list args;
   va_start(args, format_P);
 
@@ -132,6 +134,7 @@ void sendf_P(PGM_P format_P, ...) {
     }
   }
   va_end(args);
+  SEI
 }
 #endif
 
