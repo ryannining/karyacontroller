@@ -21,8 +21,7 @@
 #define MINIMUMSTEPS 20 // a path less than this steps will merged with next move, to much merged will make it ugly, normally i think this must be less that nozzle diameter steps
 #define MINCORNERSPEED 3 // minimum cornering speed
 #define FASTINVSQRT  // less precice speed faster 4us
-#define FASTDISTANCE //
-#define DEVIATE 1//;0.01*100 - for centripetal corner safe speed
+#define DEVIATE 5//;0.02*50 - for centripetal corner safe speed
 #define INTERPOLATEDELAY  // slower 4-8us
 #define ADVANCEEXTRUDER
 #ifdef USETIMER1
@@ -30,10 +29,11 @@
 #else
 #define CLOCKCONSTANT 1000000.f
 #endif
-#define XYJERK 25
+#define XYJERK 15
 #define ZJERK 5
 
 #define JERK1 //centripetal corner , still not good, back to repetier style jerk
+//#define JERK2 //repetier style jerk
 
 #define X 0
 #define Y 1
@@ -119,77 +119,19 @@ float InvSqrt(float x) {
     DELTA PRINTER FUNCTIONS
     =================================================================================================================================================
 */
-uint32_t approx_distance_3(uint32_t dx, uint32_t dy, uint32_t dz) {
-  uint32_t min, med, max, approx;
+float sqrt32(float x)
+{
+  union
+  {
+    int32_t i;
+    float x;
+  } u;
 
-  if ( dx < dy ) {
-    min = dy;
-    med = dx;
-  } else {
-    min = dx;
-    med = dy;
-  }
-
-  if ( dz < min ) {
-    max = med;
-    med = min;
-    min = dz;
-  } else if ( dz < med ) {
-    max = med;
-    med = dz;
-  } else {
-    max = dz;
-  }
-
-  approx = ( max * 860 ) + ( med * 851 ) + ( min * 520 );
-  if ( max < ( med << 1 )) approx -= ( max * 294 );
-  if ( max < ( min << 2 )) approx -= ( max * 113 );
-  if ( med < ( min << 2 )) approx -= ( med *  40 );
-
-  // add 512 for proper rounding
-  return (( approx + 512 ) >> 10 );
+  u.x = x;
+  u.i = (1L << 29) + (u.i >> 1) - (1L << 22);
+  return u.x;
 }
-uint32_t approx_distance(uint32_t dx, uint32_t dy) {
-  uint32_t min, max, approx;
 
-  // If either axis is zero, return the other one.
-  if (dx == 0 || dy == 0) return dx + dy;
-
-  if ( dx < dy ) {
-    min = dx;
-    max = dy;
-  } else {
-    min = dy;
-    max = dx;
-  }
-
-  approx = ( max * 1007 ) + ( min * 441 );
-  if ( max < ( min << 4 ))
-    approx -= ( max * 40 );
-
-  // add 512 for proper rounding
-  return (( approx + 512 ) >> 10 );
-}
-uint32_t sqrt32(uint32_t x) {
-  //zprintf(PSTR("SQRT: %d\n"), fi(x));
-
-  uint32_t c = 0x8000;
-  uint32_t g = 0x8000;
-
-  for (;;) {
-    if (g * g > x)
-    {
-      g ^= c;
-    }
-    c >>= 1;
-    if (c == 0)
-    {
-      return g;
-    }
-    g |= c;
-  }
-
-}
 #ifdef DRIVE_DELTA
 float sgx[NUMAXIS]; // increment delta each segment
 
@@ -219,6 +161,9 @@ float delta_radius         = (DELTA_RADIUS );
 int8_t lsx[4] = {0, 0, 0, 0};
 
 void reset_motion() {
+
+  // 650bytes code
+#ifndef SAVE_RESETMOTION
   e_multiplier = f_multiplier = 1;
 
   homingspeed = HOMINGSPEED;
@@ -269,6 +214,7 @@ void reset_motion() {
   xback[3] = MOTOR_E_BACKLASH;
 
   e_multiplier = 1;
+#endif
 }
 
 void preparecalc() {
@@ -421,6 +367,7 @@ void prepareramp(int32_t bpos)
           mi->rampup = 0;
           mi->rampdown = ts;
           mi->fn = mi->fs = speedat(mi->fe, mi->ac, ts, stepmmi);
+          CORELOOP
           ls  = mi->fs;
           bpos = prevbuff(bpos);
         }
@@ -462,7 +409,7 @@ void prepareramp(int32_t bpos)
 
 */
 
-int currf[5], prevf[5];
+int32_t currf[5], prevf[5];
 void planner(int32_t h)
 {
   // mengubah semua cross feedrate biar optimal secepat mungkin
@@ -474,35 +421,35 @@ void planner(int32_t h)
   int32_t  scale = 1 << 4;
   int32_t xtotalstep = abs(curr->dx[FASTAXIS(curr)]);
   memcpy(prevf, currf, sizeof prevf);
-
+#ifdef JERK2
+  currf[4] = curr->fn;
+#endif
   for (int i = 0; i < NUMAXIS; i++) {
     //prevf[i] = currf[i];
     currf[i] = 0;
     if (curr->dx[i] != 0) {
-      int32_t scale2 = (maxf[i] << 4) * xtotalstep / abs(int32_t(curr->fn) * curr->dx[i]);
-      if (scale2 < scale) scale = scale2;
-      currf[i] = curr->dx[i] >> 6;
 
+      int32_t cdx = int32_t(curr->fn) * curr->dx[i];
+      int32_t scale2 = (maxf[i] << 4) * xtotalstep / abs(cdx);
+      if (scale2 < scale) scale = scale2;
+#ifdef JERK1
+      currf[i] = curr->dx[i] >> 3; // * 100 / stepmmx[i];
+#else
+      currf[i] = cdx / xtotalstep;
+#endif
       CORELOOP
     }
   }
   // update all speed and square it up, after this all m->f are squared !
-  /*currf[0] = (currf[0] * scale) >> 4;
-    currf[1] = (currf[1] * scale) >> 4;
-    currf[2] = (currf[2] * scale) >> 4;
-    currf[3] = (currf[3] * scale) >> 4;
-    currf[4] = (curr->fn * scale) >> 4;
-  */
   scale *= curr->fn;
   curr->fn = (scale * scale) >> 8;
   //#define JERK1
 
 #ifdef JERK1
-#ifdef FASTDISTANCE
+#define sqr2(n) n*n
   prevdis = currdis;
-  currdis = approx_distance_3(abs(currf[0]), abs(currf[1]), abs(currf[2]));
+  currdis = sqrt32(sqr2(currf[0]) + sqr2(currf[1]) + sqr2(currf[2]));
   CORELOOP
-#endif
 #endif
   if (bufflen() < 1) return;
   p = prevbuff(h);
@@ -523,62 +470,56 @@ void planner(int32_t h)
 
     */
 #ifdef JERK1
-#ifdef FASTDISTANCE
     int32_t divi = (prevdis * currdis);
-#else
-#define sqr2(n) n*n
-    float divi = sqrt(sqr2(prevf[0]) + sqr2(prevf[1]));
-    divi *= sqrt(sqr2(currf[0]) + sqr2(currf[1]));
-    divi = 10000.f / divi ;
-#endif
 #ifdef output_enable
     zprintf (PSTR("DX[0]%d Divi :%f\n"), fi(curr->dx[0]), ff(divi));
 #endif
     CORELOOP
     if (divi > 0) {
       //#define dot(ix) (prev->dx[ix]*curr->dx[ix])
-#define dot(ix) (int32_t(prevf[ix])*int32_t(currf[ix]))
+#define dot(ix) ((prevf[ix])*(currf[ix]))
 
-      int32_t junc_cos =  (dot(0) + dot(1) + dot(2)) * 10000 / divi;
+      int32_t junc_cos =  (dot(0) + dot(1) + dot(2)) * 400 / divi;
+      //junc_cos/=prevdis;
       CORELOOP
 #ifdef output_enable
       zprintf (PSTR("Cos :%f\n"), ff(junc_cos));
 #endif
 
-      if (junc_cos < 9999) {
+      if (junc_cos < 350) {
         //junc_cos*=2;
-        junc_cos = fmax(junc_cos, -9999); // Check for numerical round-off to avoid divide by zero.
+        junc_cos = fmax(junc_cos, -399); // Check for numerical round-off to avoid divide by zero.
         //zprintf (PSTR("Cos :%f\n"), ff(junc_cos));
-        int32_t sin_theta_d2 = sqrt32((10000 - junc_cos) >> 1); // result will be range 0-500// Trig half angle identity. Always positive.
+        int32_t sin_theta_d2 = sqrt32((400 - junc_cos) >> 1); // result will be range 0-500// Trig half angle identity. Always positive.
         CORELOOP
         //zprintf (PSTR("Sin :%f\n"), ff(sin_theta_d2));
         //zprintf (PSTR("Ac :%d\n"), fi(prev->ac));
 
         // TODO: Technically, the acceleration used in calculation needs to be limited by the minimum of the
         // two junctions. However, this shouldn't be a significant problem except in extreme circumstances.
-        max_f = fmax(MINCORNERSPEED * MINCORNERSPEED, (sin_theta_d2 * DEVIATE *  (int32_t)curr->ac ) / ((100 -  sin_theta_d2)));
+        max_f = fmax(MINCORNERSPEED * MINCORNERSPEED, ((int32_t)curr->ac ) * sin_theta_d2 * DEVIATE   / ((20 -  sin_theta_d2) << 6));
         CORELOOP
 
         //zprintf ("Cos :%f\n", ff(junc_cos ));
-      } else max_f = 100000;
+      } else max_f = 10000;
     };
     //if (max_f < 0)max_f = 9;
 #ifdef output_enable
     zprintf (PSTR("MF:%d\n"), fi(max_f));
 #endif
-#elif JERK2
+#elif defined(JERK2)
 
     int32_t fdx = currf[0] - prevf[0];
     int32_t fdy = currf[1] - prevf[1];
     int32_t fdz = currf[2] - prevf[2];
 
-    int32_t jerk = sqrt32(fdx * fdx + fdy * fdy) ;
+    int32_t jerk = sqrt32(fdx * fdx + fdy * fdy + fdz * fdz) ;
     CORELOOP
 
     max_f = fmin(currf[4], prevf[4]);
     if (jerk > XYJERK) max_f = XYJERK * max_f / jerk;
-    jerk = abs(fdz) ;
-    if (jerk > ZJERK) max_f = ZJERK * max_f / jerk;
+    //jerk = abs(fdz) ;
+    //if (jerk > ZJERK) max_f = ZJERK * max_f / jerk;
 
     max_f = fmax(max_f, MINCORNERSPEED);
     CORELOOP
@@ -589,14 +530,17 @@ void planner(int32_t h)
     max_f *= max_f;
 
 #else// jerk2
-    max_f = 10000;
+    float ratio = 1;
     for (int i = 0; i < 3; i++) {
-      int32_t jerk = abs(currf[i] - prevf[i]);
-      if (jerk > XYJERK) max_f = fmin(max_f, (prevf[i] + currf[i]) / 2 + XYJERK);
-      //else if (jerk > XYJERK) max_f = fmin(max_f, prevf[0] - XYJERK);
-      CORELOOP
+      //if (currf[i]*prevf[i] < 0)
+      {
+        float jerk = abs(currf[i] - prevf[i]);
+        if (jerk > XYJERK) ratio = fmin(ratio, XYJERK / jerk);
+        //else if (jerk > XYJERK) max_f = fmin(max_f, prevf[0] - XYJERK);
+        CORELOOP
+      }
     }
-    max_f = fmax(max_f, MINCORNERSPEED);
+    max_f = fmax((max_f * ratio) , MINCORNERSPEED);
 #ifdef output_enable
     zprintf (PSTR("XMF:%d\n"), fi(max_f));
 #endif
@@ -817,65 +761,91 @@ void calculate_delta_steps(int s) {
 #ifdef ISPC
   zprintf(PSTR("\nSEG PRECALC %d\n"), s);
 #endif
+#ifdef USETIMER1
+#define STEPCASE(n) //zprintf(PSTR("Step %d\n"),fi(n));
+#define STEPBREAK
+  {
+#else // TIMER1
+#define STEPCASE(n) case n:    //zprintf(PSTR("\nStep ##n##\n"));
+
+#define STEPBREAK if(s>-1)break;
+
   switch (s) {
+    case -1:
+      zprintf(PSTR("\nPRECALC %d\n"), fi(s));
+      //      getch();
 
-    case 4:
-      // STEP 1
-      ctotalseg = xtotalseg - 1;
-      memcpy(x1, x2, sizeof x1);
-      memcpy(xc, m->dtx, sizeof xc);
-      // STEP 2
-      break;
-    case 3:
-      for (int i = 0; i < 3; i++) {
-        xc[i] -= ctotalseg * sgx[i];
-      }
-      break;
-    case 2:
-      // STEP 3
-      transformdelta(xc[0], xc[1], xc[2]);
-      break;
-    case 1:
-      // STEP 4
-      // ready for movement
-      ctotalstep = bsdx[3];
-      for (int i = 0; i < 3; i++) {
-        int32_t d = x2[i] - x1[i];
-        if (d < 0) {
-          cbsdx[i] = -d;
-          csx[i] = -1;
-        } else {
-          cbsdx[i] = d;
-          csx[i] = 1;
-        }
-        ctotalstep = fmax(cbsdx[i], ctotalstep);
-      }
-      // modify the sx?? m->mcx and totalstep for this segment
-      break;
-    case 0:
-      // STEP 5 FINAL
-      memcpy(sx, csx, sizeof csx);
-      memcpy(bsdx, cbsdx, sizeof cbsdx);
-      xtotalseg--;
-      mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0;
-      mctr = totalstep = ctotalstep;
-      rampv = rampseg / mctr;
+#endif
 
-      acup = oacup * rampv;
-      acdn = oacdn * rampv;
-      motor_0_DIR(sx[0]);
-      motor_1_DIR(sx[1]);
-      motor_2_DIR(sx[2]);
-      motor_3_DIR(sx[3]);
-      pinCommit();
-      dobacklash();
+    STEPCASE(4)
+    // STEP 1
+    ctotalseg = xtotalseg - 1;
+    memcpy(x1, x2, sizeof x1);
+    memcpy(xc, m->dtx, sizeof xc);
+    // STEP 2
+    STEPBREAK
+    STEPCASE(3)
+    for (int i = 0; i < 3; i++) {
+      xc[i] -= ctotalseg * sgx[i];
+    }
+    STEPBREAK
+    STEPCASE(2)
+    // STEP 3
+    transformdelta(xc[0], xc[1], xc[2]);
+    STEPBREAK
+    STEPCASE(1)
+    // STEP 4
+    // ready for movement
+    ctotalstep = bsdx[3];
+    for (int i = 0; i < 3; i++) {
+      int32_t d = x2[i] - x1[i];
+      if (d < 0) {
+        cbsdx[i] = -d;
+        csx[i] = -1;
+      } else {
+        cbsdx[i] = d;
+        csx[i] = 1;
+      }
+      ctotalstep = fmax(cbsdx[i], ctotalstep);
+    }
+    // modify the sx?? m->mcx and totalstep for this segment
+    STEPBREAK
+    STEPCASE(0)
+    // STEP 5 FINAL
+#ifdef USETIMER1
+    // wait until mctr = 0
+    //zprintf(PSTR("C0A\n"));
+    while (mctr) {
+      //SEI
+      somedelay(15);
+      //CLI
+    }
+    //zprintf(PSTR("C0B\n"));
+#endif
+    CLI
+    memcpy(sx, csx, sizeof csx);
+    memcpy(bsdx, cbsdx, sizeof cbsdx);
+    xtotalseg--;
+    mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0;
+    mctr = totalstep = ctotalstep;
+    rampv = rampseg / mctr;
+
+    acup = oacup * rampv;
+    acdn = oacdn * rampv;
+    motor_0_DIR(sx[0]);
+    motor_1_DIR(sx[1]);
+    motor_2_DIR(sx[2]);
+    motor_3_DIR(sx[3]);
+    pinCommit();
+    dobacklash();
 #ifdef output_enable
-      zprintf(PSTR("\nX:%d %d %d \n"), fi(bsdx[0]), fi(bsdx[1]), fi(bsdx[2]));
-      zprintf(PSTR("Segm:%d Step:%d SX:%d %d %d\n"), fi(xtotalseg), fi(totalstep), fi(sx[0]), fi(sx[1]), fi(sx[2]));
+    zprintf(PSTR("\nX:%d %d %d \n"), fi(bsdx[0]), fi(bsdx[1]), fi(bsdx[2]));
+    zprintf(PSTR("Segm:%d Step:%d SX:%d %d %d\n"), fi(xtotalseg), fi(totalstep), fi(sx[0]), fi(sx[1]), fi(sx[2]));
 #endif
 #ifdef ISPC
-      m->col++;
+    m->col++;
 #endif
+    SEI
   }
 }
 #endif
@@ -915,7 +885,9 @@ int coreloop1() {
     //f = dl/20;//
     f = stepdiv / (float)dl;
     tick = tick + dl; //1.0/timescale;
-    int32_t c = m->col & 7 + 8;
+    int32_t c;
+    c = tail;
+    c = (f - 20) * 4;
 
     //float cf = float(timescale) / dl;
 
@@ -1166,7 +1138,7 @@ NEWMOVE:
     else {
       // call preparation early 15 steps, i think its enough
 #ifdef DRIVE_DELTA
-      if (xtotalseg > 0)calculate_delta_steps(); else r = startmove();
+      if (xtotalseg > 0)calculate_delta_steps(mctr); else r = startmove();
 #else
       r = startmove();
 #endif
@@ -1318,12 +1290,13 @@ void startmovestep(int s)
     // FINAL ?
 #ifdef USETIMER1
     // wait until mctr = 0
-    //zprintf(PSTR("C0\n"));
+    //zprintf(PSTR("C0A\n"));
     while (mctr) {
       //SEI
-      delayMicroseconds(20);
+      somedelay(15);
       //CLI
     }
+    //zprintf(PSTR("C0B\n"));
 #endif
     CLI
     m = wm;
@@ -1566,18 +1539,22 @@ void waitbufferempty()
 {
   prepareramp(head);
   startmove();
-  zprintf(PSTR("Wait %d\n"), fi(mctr));
+#ifdef output_enable
+  //zprintf(PSTR("Wait %d\n"), fi(mctr));
+#endif
   int otail = tail;
   while ((head != tail) || m) //(tail == otail) //
   {
-    SEI
-    domotionloop
-    //delayMicroseconds(20);
-    //zprintf(PSTR("Wa\n"));
-    //CLI
-  }
-  zprintf(PSTR("Empty"));
 
+    domotionloop
+#ifdef USETIMER1
+    if (mctr < 5)otherloop(1);
+#endif
+    zprintf(PSTR("->%d\n"), fi(mctr));
+  }
+#ifdef output_enable
+  //zprintf(PSTR("Empty"));
+#endif
 }
 /*
     =================================================================================================================================================
@@ -1594,11 +1571,12 @@ void needbuffer()
     //wait current move finish
     int t = tail;
     while (t == tail) {
-      SEI
       domotionloop
-      //delayMicroseconds(20);
-      //zprintf(PSTR("Nb\n"));
-      //CLI
+#ifdef USETIMER1
+      if (mctr == 0)break;
+      somedelay(250);
+#endif
+      zprintf(PSTR("%d\n"), fi(mctr));
     }
     //xprintf(PSTR("Done\n"));
   }

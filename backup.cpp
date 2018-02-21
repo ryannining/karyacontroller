@@ -51,6 +51,57 @@ void addmoveDELTA(float cf, float cx2, float cy2 , float cz2, float ce02, int g0
 
 
 
+uint32_t approx_distance_3(uint32_t dx, uint32_t dy, uint32_t dz) {
+  uint32_t min, med, max, approx;
+
+  if ( dx < dy ) {
+    min = dy;
+    med = dx;
+  } else {
+    min = dx;
+    med = dy;
+  }
+
+  if ( dz < min ) {
+    max = med;
+    med = min;
+    min = dz;
+  } else if ( dz < med ) {
+    max = med;
+    med = dz;
+  } else {
+    max = dz;
+  }
+
+  approx = ( max * 860 ) + ( med * 851 ) + ( min * 520 );
+  if ( max < ( med << 1 )) approx -= ( max * 294 );
+  if ( max < ( min << 2 )) approx -= ( max * 113 );
+  if ( med < ( min << 2 )) approx -= ( med *  40 );
+
+  // add 512 for proper rounding
+  return (( approx + 512 ) >> 10 );
+}
+uint32_t approx_distance(uint32_t dx, uint32_t dy) {
+  uint32_t min, max, approx;
+
+  // If either axis is zero, return the other one.
+  if (dx == 0 || dy == 0) return dx + dy;
+
+  if ( dx < dy ) {
+    min = dx;
+    max = dy;
+  } else {
+    min = dy;
+    max = dx;
+  }
+
+  approx = ( max * 1007 ) + ( min * 441 );
+  if ( max < ( min << 4 ))
+    approx -= ( max * 40 );
+
+  // add 512 for proper rounding
+  return (( approx + 512 ) >> 10 );
+}
 
 
 

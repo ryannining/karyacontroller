@@ -47,9 +47,10 @@ int32_t EEMEM DT_TOWERC_OFFSET;
 
 void reload_eeprom() {
   eepromcommit;
-  ax_max[0] = (float)eepromread(EE_xmax) / 100;
-  ax_max[1] = (float)eepromread(EE_ymax) / 100;
-  ax_max[2] = (float)eepromread(EE_zmax) / 100;
+  
+  ax_max[0] = (float)eepromread(EE_xmax) * 0.01;
+  ax_max[1] = (float)eepromread(EE_ymax) * 0.01;
+  ax_max[2] = (float)eepromread(EE_zmax) * 0.01;
   accel = eepromread(EE_accelx);
 
   mvaccel = eepromread(EE_mvaccelx);
@@ -59,10 +60,10 @@ void reload_eeprom() {
   maxf[2] = eepromread(EE_max_z_feedrate);
   maxf[3] = eepromread(EE_max_e_feedrate);
 
-  stepmmx[0] = (float)eepromread(EE_xstepmm) / 1000;
-  stepmmx[1] = (float)eepromread(EE_ystepmm) / 1000;
-  stepmmx[2] = (float)eepromread(EE_zstepmm) / 1000;
-  stepmmx[3] = (float)eepromread(EE_estepmm) / 1000;
+  stepmmx[0] = (float)eepromread(EE_xstepmm)  * 0.001;
+  stepmmx[1] = (float)eepromread(EE_ystepmm)  * 0.001;
+  stepmmx[2] = (float)eepromread(EE_zstepmm)   * 0.001;
+  stepmmx[3] = (float)eepromread(EE_estepmm)   * 0.001;
 
 
 #ifdef USE_BACKLASH
@@ -76,6 +77,7 @@ void reload_eeprom() {
 }
 
 void reset_eeprom() {
+#ifndef SAVE_RESETMOTION
   reset_motion();
   eepromwrite(EE_xmax, fg(ax_max[0]));
   eepromwrite(EE_ymax, fg(ax_max[1]));
@@ -102,6 +104,7 @@ void reset_eeprom() {
   eepromwrite(EE_ebacklash, fi(xback[3]));
 #endif
   eepromcommit;
+#endif  
 }
 #else
 void reload_eeprom() {}

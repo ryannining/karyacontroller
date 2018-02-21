@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 #define TMSCALE 1024L
+extern int somedelay(int32_t n);
+//#define somedelay(n) delayMicroseconds(n);
 extern int feedthedog();
 #ifndef ISPC
 #define timescale 1000000L

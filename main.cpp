@@ -20,7 +20,7 @@ void demofile();
 int main(void)
 {
   /* request autodetection */
-  int gdriver = DETECT, gmode, errorcode;
+  int gdriver =  DETECT, gmode, errorcode;
   int x, y;
 
   /* initialize graphics and local variables */
@@ -38,6 +38,11 @@ int main(void)
   xprintf(PSTR("Simple Motion Control with Acceleration, and lookahead planner\n"));
   xprintf(PSTR("By ryannining@gmail.com\n"));
   initmotion();
+  struct palettetype pal; 
+  //getpalette(&pal);
+  for (int i=0;i<256;i++){
+    //setrgbpalette(i,i,i,i);
+  }
   setcolor(1);
   graphscale = 25;
   line(0, 400, 600, 400);
@@ -55,11 +60,11 @@ int main(void)
   getch();
 }
 void demofile() {
-  //#define fn "d:/git/hipopotamo.gcode"
+  #define fn "d:/git/hipopotamo.gcode"
   //#define fn "d:/git/bowdenlock.gcode" 
   //#define fn "d:/3d/fish_fossilz.gcode"
 
-  #define fn "d:/3d/box1cm.gcode" 
+  //#define fn "d:/3d/box1cm.gcode" 
   FILE *file = fopen(fn,"r");
   char code[100];
   size_t n = 0;
@@ -96,11 +101,11 @@ void demo() {
   tickscale=160;
   fscale=3;
   int f = 100;
-  amove(40, 10, 0, 0, 0);
-  amove(40, 10, 10, 0, 0);
-  amove(40, 10, 25, 0, 0);
-  amove(40, 40, 45, 0, 0);
-  amove(40, 50, 64, 0, 0);
+  amove(10, 10, 0, 0, 0);
+  amove(40, 20, 0, 0, 0);
+  amove(70, 30, 0, 0, 0);
+  amove(30, 40, 0, 0, 0);
+  amove(10, 50, 0, 0, 0);
 /*  
   amove(30, 9.6, 0, 0, 0);
   amove(30, 9.6, -9.3, 0, 0);

@@ -213,9 +213,9 @@
 
 #define SDCARD_CS 10
 #define KBOX_PIN 7
-//#define USETIMER1
+#define USETIMER1
 
-#define NUMBUFFER 13
+#define NUMBUFFER 7
 
 
 /*

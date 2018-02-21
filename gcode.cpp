@@ -69,12 +69,11 @@ static float decfloat_to_float(void) {
   float r = read_digit.mantissa;
   uint8_t	e = read_digit.exponent;
   /*  uint32_t powers=1;
-
     for (e=1; e<read_digit.exponent;e++) powers*=10;
     // e=1 means we've seen a decimal point but no digits after it, and e=2 means we've seen a decimal point with one digit so it's too high by one if not zero
   */
   if (e) r = (r /*+ powers[e-1] / 2*/) / POWERS(e - 1);
-//  if (e) r = (r /*+ powers[e-1] / 2*/) * POWERS(e - 1);
+  //  if (e) r = (r /*+ powers[e-1] / 2*/) * POWERS(e - 1);
   MLOOP
   return read_digit.sign ? -r : r;
 }
@@ -179,13 +178,13 @@ uint8_t gcode_parse_char(uint8_t c) {
         // FIXME: same for T command
         case 'G':
           next_target.seen_G = 1;
-          next_target.seen_M = 0;
-          next_target.M = 0;
+          //next_target.seen_M = 0;
+          //next_target.M = 0;
           break;
         case 'M':
           next_target.seen_M = 1;
-          next_target.seen_G = 0;
-          next_target.G = 0;
+          //next_target.seen_G = 0;
+          //next_target.G = 0;
           break;
 #ifdef ARC_SUPPORT
         case 'I':
@@ -274,12 +273,13 @@ uint8_t gcode_parse_char(uint8_t c) {
   if ((c == 10) || (c == 13)) {
 
     // Assume G1 for unspecified movements.
-    if ( ! next_target.seen_G && ! next_target.seen_M && ! next_target.seen_T &&
-         (next_target.seen_X || next_target.seen_Y || next_target.seen_Z ||
-          next_target.seen_E || next_target.seen_F)) {
-      next_target.seen_G = 1;
-      next_target.G = 1;
-    }
+    /*    if ( ! next_target.seen_G && ! next_target.seen_M && ! next_target.seen_T &&
+             (next_target.seen_X || next_target.seen_Y || next_target.seen_Z ||
+              next_target.seen_E || next_target.seen_F)) {
+          next_target.seen_G = 1;
+          next_target.G = 1;
+        }
+    */
     MLOOP
     process_gcode_command();
 
@@ -326,7 +326,10 @@ void printposition() {
 
 void delay_ms(uint32_t d) {
 #ifndef ISPC
-  delayMicroseconds(d * 1000);
+  while (d) {
+    d--;
+    somedelay(1000);
+  }
 #else
   // delay on pc,
 
@@ -338,7 +341,7 @@ void temp_wait(void) {
   int c = 0;
   while (wait_for_temp && !temp_achieved()) {
     domotionloop
-      if (c++ > 20000) {
+    if (c++ > 20000) {
       c = 0;
       zprintf(PSTR("T:%f\n"), ff(Input));
       //zprintf(PSTR("Heating\n"));
@@ -405,14 +408,7 @@ void process_gcode_command() {
         //?
         //? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
         //?
-        if (!next_target.seen_F) {
-          backup_f = next_target.target.F;
-          //next_target.target.F = maxf[0];
-          enqueue(&next_target.target, 1);
-          next_target.target.F = backup_f;
-        } else
-          //next_target.target.F*=spd;
-          enqueue(&next_target.target, 1);
+        enqueue(&next_target.target, 1);
         break;
 
       case 1:
@@ -452,31 +448,33 @@ void process_gcode_command() {
           }
         }
         break;
+#ifdef output_enable
       case 5:
         reset_eeprom();
         reload_eeprom();
       case 6:
-        amove(100,10, 0, 0, 0);
-        amove(100,10, 10, 0, 0);
-        amove(100,0, 10, 0, 0);
-        amove(100,0, 0, 0, 0);
+        amove(100, 10, 0, 0, 0);
+        amove(100, 10, 10, 0, 0);
+        amove(100, 0, 10, 0, 0);
+        amove(100, 0, 0, 0, 0);
 
-        amove(100,10, 0, 0, 0);
-        amove(100,10, 10, 0, 0);
-        amove(100,0, 10, 0, 0);
-        amove(100,0, 0, 0, 0);
+        amove(100, 10, 0, 0, 0);
+        amove(100, 10, 10, 0, 0);
+        amove(100, 0, 10, 0, 0);
+        amove(100, 0, 0, 0, 0);
 
-        amove(100,10, 0, 0, 0);
-        amove(100,10, 10, 0, 0);
-        amove(100,0, 10, 0, 0);
-        amove(100,0, 0, 0, 0);
+        amove(100, 10, 0, 0, 0);
+        amove(100, 10, 10, 0, 0);
+        amove(100, 0, 10, 0, 0);
+        amove(100, 0, 0, 0, 0);
 
-        amove(100,10, 0, 0, 0);
-        amove(100,10, 10, 0, 0);
-        amove(100,0, 10, 0, 0);
-        amove(100,0, 0, 0, 0);
+        amove(100, 10, 0, 0, 0);
+        amove(100, 10, 10, 0, 0);
+        amove(100, 0, 10, 0, 0);
+        amove(100, 0, 0, 0, 0);
 
         break;
+#endif
       case 28:
         homing();
         next_target.target.axis[X] = cx1;
@@ -696,8 +694,10 @@ void process_gcode_command() {
 
         // unknown mcode: spit an error
 #ifdef USE_EEPROM
+#ifndef SAVE_RESETMOTION
       case 502:
         reset_eeprom();
+#endif
       case 205:
         reload_eeprom();
 #endif
@@ -797,7 +797,7 @@ void process_gcode_command() {
 } // process_gcode_command()
 
 void init_gcode() {
-  next_target.target.F = 100;
+  next_target.target.F = 50;
   next_target.option_all_relative = 0;
 #ifdef USE_EEPROM
   eeprominit

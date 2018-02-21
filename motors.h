@@ -73,9 +73,9 @@ int doback[4];
 
 
 #define STEPDELAY 
-//delayMicroseconds(5);
+//somedelay(5);
 #define STEPDIRDELAY 
-//delayMicroseconds(10);
+//somedelay(10);
 
 #define MOTOR(AX,PENABLE,PDIR,PSTEP)\
   inline void motor_##AX##_INIT(){xpinMode(PENABLE, OUTPUT);xpinMode(PDIR, OUTPUT);xpinMode(PSTEP, OUTPUT);xdigitalWrite(PENABLE,1);}\
@@ -128,6 +128,7 @@ DUMMYMOTOR(3, 0, 0, 0)
 #endif
 
 #ifndef ISPC
+#ifdef USE_BACKLASH
 void dobacklash() {
   for (int i = 0; i < bsteps; i++) {
     if (doback[0]-- > 0) {
@@ -149,9 +150,12 @@ void dobacklash() {
     motor_3_UNSTEP();
 
     pinCommit();
-    delayMicroseconds(500);
+    somedelay(10);
   }
   bsteps=0;
 }
+#else
+#define dobacklash()
+#endif
 #endif
 #endif
