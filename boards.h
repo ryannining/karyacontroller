@@ -215,7 +215,7 @@
 #define KBOX_PIN 7
 #define USETIMER1
 
-#define NUMBUFFER 7
+#define NUMBUFFER 12
 
 
 /*

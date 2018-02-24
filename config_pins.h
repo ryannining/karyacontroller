@@ -43,13 +43,13 @@
 */
 
 //#define BACKPLANNER // 852Bytes code !
-#define USEDIO // this can save almost 20us each bresenham step, is a MUST !
+//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
-#define USETIMER1 // Work in progress // 98 bytes
+//#define USETIMER1 // Work in progress // 98 bytes
+//#define ISRTEMP // 120bytes check board.h
 
 // FLASH SAVING
-#define SAVE_RESETMOTION  // 1030 bytes code, no reset motion, need EEPROM
-
+#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
 
 // ==========================================================
 #ifdef SDCARD_CS
@@ -88,8 +88,8 @@
 #define ZOFFSET 0
 #define EOFFSET 0
 
-#define XACCELL 400
-#define XMOVEACCELL 1000
+#define XACCELL 100
+#define XMOVEACCELL 600
 
 #define XMAXFEEDRATE 100
 #define YMAXFEEDRATE 100

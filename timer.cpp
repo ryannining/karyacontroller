@@ -5,19 +5,17 @@
 #include "common.h"
 #include "motion.h"
 
-/*
- *
- */
+
 int somedelay(int32_t n) {
   float f = 0;
-  int m=150;
+  int m=1;
   
-  while (m--) {
+  //while (m--) {
   int nn=n;
   while (nn--) {
     f +=n;
     asm("");
-  }}
+  }//}
   return f + n;
 }
 
@@ -91,10 +89,11 @@ void timer_stop() {
 void timer_reset() {
 }
 uint8_t timer_set(int32_t delay) {
+  CLI
+  MEMORY_BARRIER()
   TCCR1A = 0;// set entire TCCR1A register to 0
   TCCR1B = (1 << WGM12) | (1 << CS11);
   TCNT1  = 0;//initialize counter value to 0
-  delay *= 2;
   OCR1A = delay; // = (16*10^6) / (1*1024) - 1 (must be <65536)
   TIMSK1 |= (1 << OCIE1A);
 }

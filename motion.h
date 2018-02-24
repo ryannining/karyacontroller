@@ -22,7 +22,7 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-//#define UPDATE_F_EVERY 4000 //us
+#define UPDATE_F_EVERY 4000 //us
 
 
 
@@ -44,49 +44,6 @@ typedef struct {
 #endif
 #ifdef DRIVE_DELTA
   float dtx[NUMAXIS]; // keep the original coordinate before transform
-
-  /*
-      Problems:
-       we dont know exact step needed from start to end
-       so, we need to change the ramping acceleration calculation
-
-       my idea is to stretch, so make the rampup and rampdown as float, and decrease it using a floating number
-       for linear system it decrease by 1, but for non linear, it will interpolate the decrease, so on segment calculation
-       need to change the decreasing value
-
-      totalseg=number segment
-      int segno =-1 // for first calc become 0
-      float sgx = deltax/stepmmx[fastaxis]
-      float sgy = deltay/stepmmx[fastaxis]
-      float sgz = deltaz/stepmmx[fastaxis]
-      float sge = deltae/stepmmx[fastaxis]
-
-      int mctr =0 (to trigger first calculation) stepmmx decreasing if reach zero reset to stepmmx ,segno ++
-      LOOP
-      if mctr<= 0 && totalseg>0
-      {
-        newx=segno++ * sgx + x[0]
-        ...
-
-        transformdelta newx,...
-        deltax=newx-currentx
-        ...
-        // reset bresenham direction
-        mtotalstep= biggest delta
-        mcx[0]=totalstep/2
-
-        currentx=newx
-        ...
-
-        segctr=stepmmx[fastaxis]
-      } else {
-      // segment bresenham
-
-
-
-      }
-
-  */
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
   int32_t rampup;
@@ -206,7 +163,8 @@ extern tmove* m;
 #define fmin(a,b) a>b?b:a
 
 #ifdef USETIMER1
-#define domotionloop SEI ;otherloop(0);
+#define domotionloop somedelay(10);
+//SEI ;otherloop(0);
 #else // timer1
 #define domotionloop motionloop();
 #endif

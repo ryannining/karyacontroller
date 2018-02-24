@@ -63,7 +63,7 @@ static void pinCommit() {
 
 #ifndef ISPC
 
-//    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));\
+//    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));
 
 uint8_t bsteps=0;
 int doback[4];

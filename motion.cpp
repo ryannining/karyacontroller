@@ -18,22 +18,22 @@
 
 //#define steptiming
 
-#define MINIMUMSTEPS 20 // a path less than this steps will merged with next move, to much merged will make it ugly, normally i think this must be less that nozzle diameter steps
-#define MINCORNERSPEED 3 // minimum cornering speed
-#define FASTINVSQRT  // less precice speed faster 4us
+#define MINIMUMSTEPS 10 // a path less than this steps will merged with next move, to much merged will make it ugly, normally i think this must be less that nozzle diameter steps
+#define MINCORNERSPEED 10 // minimum cornering speed
+//#define FASTINVSQRT  // less precice speed faster 4us
 #define DEVIATE 5//;0.02*50 - for centripetal corner safe speed
-#define INTERPOLATEDELAY  // slower 4-8us
+//#define INTERPOLATEDELAY  // slower 4-8us
 #define ADVANCEEXTRUDER
 #ifdef USETIMER1
-#define CLOCKCONSTANT 1000000.f
+#define CLOCKCONSTANT 2000000.f
 #else
 #define CLOCKCONSTANT 1000000.f
 #endif
-#define XYJERK 15
+#define XYJERK 25
 #define ZJERK 5
 
-#define JERK1 //centripetal corner , still not good, back to repetier style jerk
-//#define JERK2 //repetier style jerk
+//#define JERK1 //centripetal corner , still not good, back to repetier style jerk
+#define JERK2 //repetier style jerk
 
 #define X 0
 #define Y 1
@@ -88,9 +88,9 @@ tmove move[NUMBUFFER];
 #define FIXED2 100.f
 #define IFIXED2 1.f/(FIXED2)
 #define Cstepmmx(i) FIXED2
-#else
+#else // ELSE DRIVEDELTA
 #define Cstepmmx(i) stepmmx[i]
-#endif
+#endif // DRIVEDELTA
 
 // to calculate delay from v^2, fast invsqrt hack
 #define INVSCALE 6
@@ -119,8 +119,9 @@ float InvSqrt(float x) {
     DELTA PRINTER FUNCTIONS
     =================================================================================================================================================
 */
-float sqrt32(float x)
+float sqrt3(float x)
 {
+  //zprintf(PSTR("SQRT %f\n"),ff(x));  
   union
   {
     int32_t i;
@@ -131,6 +132,18 @@ float sqrt32(float x)
   u.i = (1L << 29) + (u.i >> 1) - (1L << 22);
   return u.x;
 }
+
+float sqrt7(float x)
+ {
+   uint32_t i = *(uint32_t*) &x; 
+   // adjust bias
+   i  += 127 << 23;
+   // approximation of square root
+   i >>= 1; 
+   return *(float*) &i;
+ } 
+ 
+#define sqrt32(n) sqrt7(n)
 
 #ifdef DRIVE_DELTA
 float sgx[NUMAXIS]; // increment delta each segment
@@ -163,10 +176,26 @@ int8_t lsx[4] = {0, 0, 0, 0};
 void reset_motion() {
 
   // 650bytes code
-#ifndef SAVE_RESETMOTION
-  e_multiplier = f_multiplier = 1;
-
   homingspeed = HOMINGSPEED;
+  e_multiplier = f_multiplier = 1;
+  checkendstop = 0;
+  endstopstatus[0] = 0;
+  endstopstatus[1] = 0;
+  endstopstatus[2] = 0;
+  head = tail = tailok = 0;
+  cx1 = 0;
+  cy1 = 0;
+  cz1 = 0;
+  ce01 = 0;
+#ifdef ISPC
+  tick = 0;
+#endif
+  lsx[0] = 0;
+  lsx[1] = 0;
+  lsx[2] = 0;
+  lsx[3] = 0;
+#ifndef SAVE_RESETMOTION
+
   homeoffset[0] = XOFFSET;
   homeoffset[1] = YOFFSET;
   homeoffset[2] = ZOFFSET;
@@ -192,28 +221,11 @@ void reset_motion() {
   ax_max[1] = YMAX * 10;
   ax_max[2] = ZMAX * 10;
 
-  checkendstop = 0;
-  endstopstatus[0] = 0;
-  endstopstatus[1] = 0;
-  endstopstatus[2] = 0;
-  head = tail = tailok = 0;
-  cx1 = 0;
-  cy1 = 0;
-  cz1 = 0;
-  ce01 = 0;
-#ifdef ISPC
-  tick = 0;
-#endif
-  lsx[0] = 0;
-  lsx[1] = 0;
-  lsx[2] = 0;
-  lsx[3] = 0;
   xback[0] = MOTOR_X_BACKLASH;
   xback[1] = MOTOR_Y_BACKLASH;
   xback[2] = MOTOR_Z_BACKLASH;
   xback[3] = MOTOR_E_BACKLASH;
 
-  e_multiplier = 1;
 #endif
 }
 
@@ -290,7 +302,6 @@ void prepareramp(int32_t bpos)
   m = &move[bpos];
   if (m->status & 4)return; // already calculated
 
-  float t;
   int faxis = FASTAXIS(m);
   int32_t ytotalstep = labs(m->dx[faxis]);
 #define stepmm  Cstepmmx(faxis)
@@ -348,13 +359,15 @@ void prepareramp(int32_t bpos)
       int32_t ls = m->fs;
       tmove* mi;
       bpos = prevbuff(bpos);
-      while (bpos != tail) {
+      MEMORY_BARRIER()
+     while (bpos != tail) {
         mi = &move[bpos];
         int32_t ts = labs(mi->dx[FASTAXIS(mi)]);
         mi->fe = ls;
         float stepmmi = Cstepmmx(FASTAXIS(mi));
         ramplen(mi->rampdown, mi->fe, mi->fs, mi->ac, stepmmi );
-        CORELOOP
+       MEMORY_BARRIER()
+       CORELOOP
         if (mi->rampdown <= ts) {
           int32_t sub = ts - (mi->rampdown + mi->rampup);
           if (sub < 0) {
@@ -367,7 +380,8 @@ void prepareramp(int32_t bpos)
           mi->rampup = 0;
           mi->rampdown = ts;
           mi->fn = mi->fs = speedat(mi->fe, mi->ac, ts, stepmmi);
-          CORELOOP
+        MEMORY_BARRIER()
+        CORELOOP
           ls  = mi->fs;
           bpos = prevbuff(bpos);
         }
@@ -448,7 +462,7 @@ void planner(int32_t h)
 #ifdef JERK1
 #define sqr2(n) n*n
   prevdis = currdis;
-  currdis = sqrt32(sqr2(currf[0]) + sqr2(currf[1]) + sqr2(currf[2]));
+  currdis = sqrt32(2+sqr2(currf[0]) + sqr2(currf[1]) + sqr2(currf[2]));
   CORELOOP
 #endif
   if (bufflen() < 1) return;
@@ -488,10 +502,10 @@ void planner(int32_t h)
 
       if (junc_cos < 350) {
         //junc_cos*=2;
-        junc_cos = fmax(junc_cos, -399); // Check for numerical round-off to avoid divide by zero.
+        junc_cos = fmax(junc_cos, -390); // Check for numerical round-off to avoid divide by zero.
         //zprintf (PSTR("Cos :%f\n"), ff(junc_cos));
-        int32_t sin_theta_d2 = sqrt32((400 - junc_cos) >> 1); // result will be range 0-500// Trig half angle identity. Always positive.
-        CORELOOP
+        int32_t sin_theta_d2 = sqrt32((400 - junc_cos) /2); // result will be range 0-500// Trig half angle identity. Always positive.
+        //CORELOOP
         //zprintf (PSTR("Sin :%f\n"), ff(sin_theta_d2));
         //zprintf (PSTR("Ac :%d\n"), fi(prev->ac));
 
@@ -823,6 +837,7 @@ void calculate_delta_steps(int s) {
     //zprintf(PSTR("C0B\n"));
 #endif
     CLI
+    MEMORY_BARRIER()
     memcpy(sx, csx, sizeof csx);
     memcpy(bsdx, cbsdx, sizeof cbsdx);
     xtotalseg--;
@@ -851,42 +866,18 @@ void calculate_delta_steps(int s) {
 #endif
 
 
-/*
-    =================================================================================================================================================
-    MOTIONLOOP
-    =================================================================================================================================================
-*/
-void otherloop(int r);
+
+#ifdef ISPC
 
 float xs[4] = {0, 0, 0, 0};
 float gx, gy, lx, ly;
-uint32_t cm, ocm,  mctr2, dlmin, dlmax;
-int32_t timing = 0;
-int coreloop1() {
-  if (!m || (mctr <= 0))return 0;
-
-#ifndef USETIMER1
-#ifdef ISPC
-  if (1) {
-#else
-  //cm = micros();
-  if (cm - nextmicros >= dl) { //10 is average miss
-#ifdef steptiming
-    timing = fmax(timing, (cm - nextmicros) - dl);
-#endif
-    nextmicros = cm;
-
-#endif
-#else // not USETIMER1
-  {
-#endif
-
-#ifdef ISPC
-    //f = dl/20;//
+#define graphstep(ix) xs[ix] +=sx[ix]
+void dographics(){
+        //f = dl/20;//
     f = stepdiv / (float)dl;
     tick = tick + dl; //1.0/timescale;
     int32_t c;
-    c = tail;
+    c = (tail & 3) + 10;
     c = (f - 20) * 4;
 
     //float cf = float(timescale) / dl;
@@ -928,18 +919,27 @@ int coreloop1() {
     //putpixel (ex + 150, ey + 150, c);
     putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
 #endif
-    //zprintf(PSTR("%f\n"), cf);
-    //pset (x(1)/stepmmx(1)+50,x(2)/stepmmx(2)+40),c
-#define graphstep(ix) xs[ix] +=sx[ix]
-#else // ispc
+
+}
+#else
 #define graphstep(ix)
 #endif
-    /* ================================================================================================================
-                                                    BRESENHAM CORE
+/*
+    =================================================================================================================================================
+    MOTIONLOOP
+    =================================================================================================================================================
+*/
+void otherloop(int r);
 
-                                  this need to move to interrupt for smooth movement
-       ================================================================================================================
-    */
+uint32_t cm, ocm,  mctr2, dlmin, dlmax;
+int32_t timing = 0;
+
+/* ================================================================================================================
+                                                BRESENHAM CORE
+
+                              this need to move to interrupt for smooth movement
+   ================================================================================================================
+*/
 
 #define bresenham(ix)\
   if ((mcx[ix] -= bsdx[ix]) < 0) {\
@@ -948,7 +948,35 @@ int coreloop1() {
     graphstep(ix); \
   }
 
-    // without DIO min 64us, with DIO can 44us
+#ifdef INTERPOLATEDELAY
+#define CALCDELAY dl = ((dl<<4)+(dlp-dl))>>4; // hack, linear interpolation of the delay
+    //#define CALCDELAY dl = (dlp+dl)>>1; // hack, linear interpolation of the delay
+#else
+#define CALCDELAY dl = dlp;
+#endif
+// ===============================
+
+int coreloop1() {
+  if (!m || (mctr <= 0))return 0;
+
+#ifndef USETIMER1
+    #ifdef ISPC
+      if (1) {
+        dographics();
+        fctr += rampv;
+    #else
+      //cm = micros();
+      if (cm - nextmicros >= dl) { //10 is average miss
+        #ifdef steptiming
+            timing = fmax(timing, (cm - nextmicros) - dl);
+        #endif
+            nextmicros = cm;
+
+    #endif
+
+#else // not USETIMER1
+    {
+#endif
 
     bresenham(0);
     bresenham(1);
@@ -963,9 +991,6 @@ int coreloop1() {
     motor_3_UNSTEP();
     pinCommit();
     // next speed
-#ifdef ISPC
-    fctr += rampv;
-#endif
     if ((rampup -= rampv) > 0) {
       ta += acup;
       goto UPDATEDELAY;
@@ -989,15 +1014,6 @@ UPDATEDELAY:
       // if G1, update every time
       //} else dl = xInvSqrt(ta);
     }
-#ifdef ISPC
-
-#endif
-#ifdef INTERPOLATEDELAY
-#define CALCDELAY dl = ((dl<<4)+(dlp-dl))>>4; // hack, linear interpolation of the delay
-    //#define CALCDELAY dl = (dlp+dl)>>1; // hack, linear interpolation of the delay
-#else
-#define CALCDELAY dl = dlp;
-#endif
 
     CALCDELAY
 
@@ -1006,10 +1022,6 @@ UPDATEDELAY:
 #ifdef output_enable
     //zprintf(PSTR("%d "), dl);
     //zprintf(PSTR("%d "), mctr);
-#endif
-    /* ================================================================================================================ */
-
-#ifdef output_enable
     // write real speed too
     dlmin = fmin(dl, dlmin);
     dlmax = fmax(dl, dlmax);
@@ -1048,6 +1060,7 @@ UPDATEDELAY:
 }
 
 int busy = 0;
+// ===============================================
 int motionloop() {
   int  r;
 #ifndef USETIMER1
@@ -1057,17 +1070,13 @@ int motionloop() {
   if (!m ) r = startmove(); else
 #endif
   {
-    // for auto start motion when idle
-    // main loop
     r = coreloop1();
-    //if (mctr)
-    timer_set(dl);
-#ifndef USETIMER1
+    if (mctr>0)timer_set(dl);
   }
+#ifndef USETIMER1
+// for auto start motion when idle
   otherloop(r);
   busy = 0;
-#else
-  }
 #endif //USETIMER1  
   return r;
 }
@@ -1183,7 +1192,7 @@ int32_t startmove()
 {
   if ((head == tail)) {
     //Serial.println("?");
-    //m = 0; wm = 0; mctr = 0;
+    m = 0; wm = 0; mctr = 0;
     return 0;
   }
 #ifdef USETIMER1
@@ -1293,12 +1302,14 @@ void startmovestep(int s)
     //zprintf(PSTR("C0A\n"));
     while (mctr) {
       //SEI
-      somedelay(15);
+      MEMORY_BARRIER()
+      somedelay(55);
       //CLI
     }
     //zprintf(PSTR("C0B\n"));
 #endif
     CLI
+    MEMORY_BARRIER()
     m = wm;
     wm = 0;
     laxis = fastaxis;
@@ -1314,8 +1325,8 @@ void startmovestep(int s)
     if (f == 0)
       nextmicros = micros();// if from stop
 
-    rampup = m->rampup  * SUBMOTION;
-    rampdown = wtotalstep - rampup - m->rampdown * SUBMOTION;
+    rampup = m->rampup  ;
+    rampdown = wtotalstep - rampup - m->rampdown ;
     mctr2 = mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0; //mctr >> 1;
     tail = wt;
 
@@ -1349,11 +1360,12 @@ void startmovestep(int s)
     if (bsdx[2] == 0)motor_2_OFF();
 #endif // uato motor off
 
-    totalstep = mctr = wtotalstep * SUBMOTION;
+    totalstep = mctr = wtotalstep ;
 #endif
 
 
     SEI
+    MEMORY_BARRIER()
     timer_set(dl);
 
 #ifdef ISPC
@@ -1542,15 +1554,16 @@ void waitbufferempty()
 #ifdef output_enable
   //zprintf(PSTR("Wait %d\n"), fi(mctr));
 #endif
-  int otail = tail;
+  MEMORY_BARRIER()  
   while ((head != tail) || m) //(tail == otail) //
   {
 
     domotionloop
+    MEMORY_BARRIER()
 #ifdef USETIMER1
-    if (mctr < 5)otherloop(1);
+    if (mctr < 6)startmove(); else somedelay(350);    
 #endif
-    zprintf(PSTR("->%d\n"), fi(mctr));
+    //zprintf(PSTR("->%d\n"), fi(tail));
   }
 #ifdef output_enable
   //zprintf(PSTR("Empty"));
@@ -1570,13 +1583,14 @@ void needbuffer()
 #endif
     //wait current move finish
     int t = tail;
+    MEMORY_BARRIER()
     while (t == tail) {
       domotionloop
+      MEMORY_BARRIER()
 #ifdef USETIMER1
-      if (mctr == 0)break;
-      somedelay(250);
+      if (mctr < 6)startmove();else somedelay(150);
 #endif
-      zprintf(PSTR("%d\n"), fi(mctr));
+      //zprintf(PSTR("%d\n"), fi(mctr));
     }
     //xprintf(PSTR("Done\n"));
   }
