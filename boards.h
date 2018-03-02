@@ -116,9 +116,9 @@
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
 #define NUMBUFFER 8
-#define SDCARD_CS 10
-#define INVERTENDSTOP // uncomment for normally open
-#define KBOX_PIN 7
+//#define SDCARD_CS 10
+//#define INVERTENDSTOP // uncomment for normally open
+//#define KBOX_PIN 7
 
 #define ISRTEMP
 /*

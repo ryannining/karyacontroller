@@ -12,13 +12,12 @@ float EEMEM EE_xmax;
 float EEMEM EE_ymax;
 float EEMEM EE_zmax;
 int32_t EEMEM EE_homing;
+int32_t EEMEM EE_jerk;
 
 
 int32_t EEMEM EE_accelx;
 int32_t EEMEM EE_mvaccelx;
 
-int32_t EEMEM EE_jerkxy;
-int32_t EEMEM EE_jerkz;
 
 int32_t EEMEM EE_max_x_feedrate;
 int32_t EEMEM EE_max_y_feedrate;
@@ -67,6 +66,7 @@ void reload_eeprom() {
   stepmmx[2] = (float)eepromread(EE_zstepmm)   * 0.001;
   stepmmx[3] = (float)eepromread(EE_estepmm)   * 0.001;
 
+  xyjerk=eepromread(EE_jerk);
   homingspeed=eepromread(EE_homing);
 #ifdef DRIVE_DELTA
   delta_radius= (float)eepromread(EE_hor_radius)   * 0.001;
@@ -108,6 +108,7 @@ void reset_eeprom() {
   eepromwrite(EE_estepmm, ff(stepmmx[3]));
 
   eepromwrite(EE_homing,homingspeed);
+  eepromwrite(EE_jerk,xyjerk);
 #ifdef DRIVE_DELTA
   eepromwrite(EE_hor_radius,ff(delta_radius));
   eepromwrite(EE_rod_length,ff(delta_diagonal_rod));

@@ -95,6 +95,7 @@
 #define ZOFFSET 0
 #define EOFFSET 0
 
+#define XYJERK 20
 #define XACCELL 100
 #define XMOVEACCELL 600
 

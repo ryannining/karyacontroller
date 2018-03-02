@@ -65,7 +65,7 @@ extern tmove *m;
 extern uint8_t xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
-extern int accel;
+extern int xyjerk,accel;
 extern int mvaccel;
 extern int  maxf[4];
 extern int32_t dlp, dl;

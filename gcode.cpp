@@ -717,6 +717,7 @@ void process_gcode_command() {
         zprintf(PSTR("EPR:2 27 %d E\n"), fi(maxf[3]));
 
 
+        zprintf(PSTR("EPR:3 181 %d Jerk\n"), fi(xyjerk));
         zprintf(PSTR("EPR:3 51 %d Accel\n"), fi(accel));
         zprintf(PSTR("EPR:3 67 %d MVAccel\n"), fi(mvaccel));
         zprintf(PSTR("EPR:3 177 %d Homing\n"), fi(homingspeed));
@@ -768,6 +769,7 @@ void process_gcode_command() {
 
               eprom_wr(67, EE_mvaccelx, S_I);
               eprom_wr(177, EE_homing, S_I);
+              eprom_wr(181, EE_jerk, S_I);
 #ifdef DRIVE_DELTA
               eprom_wr(157, EE_rod_length, S_F);
               eprom_wr(161, EE_hor_radius, S_F);

@@ -115,11 +115,13 @@ static void eepromwrite(int p,int32_t val)
 #define EE_hor_radius 155
 #define EE_rod_length 160
 #endif
+#define EE_jerk 165
 #else
 extern float EEMEM EE_xmax;  
 extern float EEMEM EE_ymax;  
 extern float EEMEM EE_zmax;  
 extern int32_t EEMEM EE_homing;
+extern int32_t EEMEM EE_jerk;
 
 extern int32_t EEMEM EE_accelx;  
 

@@ -34,7 +34,7 @@
 #ifndef __ARM__
 #define FASTINVSQRT  // less precice speed faster 4us
 #endif
-#define INTERPOLATEDELAY  // slower 4-8us
+//#define INTERPOLATEDELAY  // slower 4-8us
 #define ADVANCEEXTRUDER
 
 
@@ -47,9 +47,6 @@
 
 // repetier 1
 #define JERK2 //repetier style jerk
-//#define JERK2A
-#define XYJERK 20
-#define ZJERK 5
 
 #ifdef USETIMER1
 #define CLOCKCONSTANT 2000000.f
@@ -89,7 +86,7 @@ uint8_t xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
 float f_multiplier, e_multiplier;
-int accel;
+int xyjerk,accel;
 int i;
 int mvaccel;
 uint16_t ax_max[3];
@@ -213,6 +210,7 @@ void reset_motion() {
 
   // 650bytes code
   homingspeed = HOMINGSPEED;
+  xyjerk=XYJERK;
   ishoming = 0;
   e_multiplier = f_multiplier = 1;
   checkendstop = 0;
@@ -570,8 +568,8 @@ void planner(int32_t h)
 #endif
     CORELOOP
     float factor = 1;
-    if (jerk > XYJERK) {
-      factor = XYJERK / jerk; // always < 1.0!
+    if (jerk > xyjerk) {
+      factor = float(xyjerk) / jerk; // always < 1.0!
       CORELOOP
       //if (factor * max_f * 2.0 < XYJERK) factor = XYJERK / (2.0 * max_f);
       CORELOOP
@@ -595,7 +593,7 @@ void planner(int32_t h)
       //if (currf[i]*prevf[i] < 0)
       {
         float jerk = abs(currf[i] - prevf[i]);
-        if (jerk > XYJERK) ratio = fmin(ratio, XYJERK / jerk);
+        if (jerk > xyjerk) ratio = fmin(ratio, float(xyjerk) / jerk);
         //else if (jerk > XYJERK) max_f = fmin(max_f, prevf[0] - XYJERK);
         CORELOOP
       }
@@ -654,12 +652,8 @@ uint32_t nextmotoroff;
 void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , int rel)
 {
 
-  cf *= f_multiplier;
-  float x2[4];
-#ifdef __AVR__
-  if (cf > 120)cf = 120; // prevent max speed
-#endif
 
+  int32_t x2[4];
   if (head == tail) {
     //zprintf(PSTR("Empty !\n"));
   }
@@ -721,6 +715,12 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
 
 
 #endif
+  // if no axis movement then dont multiply by multiplier
+if(g0 || ishoming || ((x2[0]==0) && (x2[1]==0) && (x2[2]==0)) ){} else cf *= f_multiplier;
+#ifdef __AVR__
+  if (cf > 120)cf = 120; // prevent max speed
+#endif
+
   CORELOOP
   curr->fn = cf; //curr->fn *= curr->fn;
   curr->fe = 0;
@@ -1581,7 +1581,7 @@ void homing()
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     CLI checkendstop = 1;\
     waitbufferempty();\
-    xx[e] =  - tx[e]/100;\
+    xx[e] =  - tx[e]/150-towerofs[e];\
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     CLI checkendstop = 0;\
     waitbufferempty();\
