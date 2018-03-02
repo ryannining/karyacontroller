@@ -107,10 +107,19 @@ static void eepromwrite(int p,int32_t val)
 #define EE_zbacklash 125
 #define EE_ebacklash 130
 
+#define EE_homing 135
+#ifdef DRIVE_DELTA
+#define EE_towera_ofs 140
+#define EE_towerb_ofs 145
+#define EE_towerc_ofs 150
+#define EE_hor_radius 155
+#define EE_rod_length 160
+#endif
 #else
 extern float EEMEM EE_xmax;  
 extern float EEMEM EE_ymax;  
 extern float EEMEM EE_zmax;  
+extern int32_t EEMEM EE_homing;
 
 extern int32_t EEMEM EE_accelx;  
 
@@ -125,6 +134,14 @@ extern float EEMEM EE_xstepmm;
 extern float EEMEM EE_ystepmm;  
 extern float EEMEM EE_zstepmm;  
 extern float EEMEM EE_estepmm;  
+
+#ifdef DRIVE_DELTA
+extern float EEMEM EE_hor_radius;
+extern float EEMEM EE_rod_length;
+extern float EEMEM EE_towera_ofs;
+extern float EEMEM EE_towerb_ofs;
+extern float EEMEM EE_towerc_ofs;
+#endif
 
 #ifdef USE_BACKLASH
 extern int32_t EEMEM EE_xbacklash;  

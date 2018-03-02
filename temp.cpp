@@ -124,7 +124,7 @@ int v=0;
     ADCREAD(temp_pin)
     v=vanalog[temp_pin];
 #else
-    v = analogRead(temp_pin);
+    v = analogRead(temp_pin) >> ANALOGSHIFT;
 #endif
 
     ctemp = (ctemp + v * 7) / 8;

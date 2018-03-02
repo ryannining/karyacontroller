@@ -33,9 +33,12 @@ extern uint8_t timer_set(int32_t delay);
 
 #ifdef USETIMER1
 #ifdef __AVR__
-#define CLI cli();
-#define SEI sei();
 #define MEMORY_BARRIER() __asm volatile( "" ::: "memory" );
+#define CLI
+//MEMORY_BARRIER() 
+//cli();
+#define SEI 
+//sei();
 
 #endif
 #endif

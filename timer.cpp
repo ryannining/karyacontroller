@@ -64,7 +64,7 @@ uint32_t	next_step_time;
 int busy1 = 0;
 ISR(TIMER1_COMPA_vect) {
   if (busy1) {
-    zprintf(PSTR("Busy\n"));
+    zprintf(PSTR("Busy %d\n"),fi(dl));
     return;
   }
   busy1 = 1;
@@ -79,6 +79,9 @@ void timer_init() {
   TCCR1A = 0;// set entire TCCR1A register to 0
   TCCR1B = 0;// same for TCCR1B
   TIMSK1 = 0;
+  TCCR1A = 0;// set entire TCCR1A register to 0
+  TCCR1B = (1 << WGM12) | (1 << CS11);
+  TCNT1  = 0;//initialize counter value to 0
 
 }
 
@@ -89,13 +92,10 @@ void timer_stop() {
 void timer_reset() {
 }
 uint8_t timer_set(int32_t delay) {
-  CLI
-  MEMORY_BARRIER()
-  TCCR1A = 0;// set entire TCCR1A register to 0
-  TCCR1B = (1 << WGM12) | (1 << CS11);
-  TCNT1  = 0;//initialize counter value to 0
+  noInterrupts();  
   OCR1A = delay; // = (16*10^6) / (1*1024) - 1 (must be <65536)
   TIMSK1 |= (1 << OCIE1A);
+  interrupts();
 }
 #endif
 

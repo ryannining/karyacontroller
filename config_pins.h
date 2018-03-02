@@ -8,28 +8,36 @@
 #include<arduino.h>
 
 //Known board in boards.h
+#define ISRTEMP // 120bytes check board.h
 
+// ==========================================================
+#if defined(__AVR__)
 //#define BOARD_CHCSHIELDV3
 //#define BOARD_TARANTHOLE
 //#define BOARD_SEMEDIYNANO
 //#define BOARD_NANONANO
 //#define BOARD_NANONANO_DELTA
 //#define BOARD_NANONANO_SDCARD
-//#define BOARD_NANONANO_STM32
-//#define BOARD_NANONANO_WEMOS
 //#define BOARD_GEN7
 //#define BOARD_RAMP13
+#define BOARD_RAMP13_DELTA
 //#define BOARD_RAMP13_3DPLEX
-#define BOARD_NANO_3DPLEX
+//#define BOARD_NANO_3DPLEX
 //#define BOARD_SEMEDIY128AU
+#define ANALOGSHIFT 0 // 10bit adc
+// ==========================================================
+#elif defined(__ARM__)
+#define BOARD_NANONANO_STM32
+#define ANALOGSHIFT 2 // 12bit adc
+// ==========================================================
+#elif defined(ESP8266)
+#define BOARD_NANONANO_WEMOS
+#define ANALOGSHIFT 0 // 10bit adc ??
 //#define BOARD_ESP01CNC_V1
+#endif
 
 #include "boards.h"
-
-
-#ifndef ISPC
 #define USE_EEPROM
-#endif
 
 #else
 // for PC no pins
@@ -43,13 +51,12 @@
 */
 
 //#define BACKPLANNER // 852Bytes code !
-//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
+#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
 //#define USETIMER1 // Work in progress // 98 bytes
-//#define ISRTEMP // 120bytes check board.h
 
 // FLASH SAVING
-#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+//#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
 
 // ==========================================================
 #ifdef SDCARD_CS
@@ -77,12 +84,12 @@
 #define TOWER_X_ANGLE_DEG        210
 #define TOWER_Y_ANGLE_DEG        330
 #define TOWER_Z_ANGLE_DEG        90
-#define DELTA_DIAGONAL_ROD 230
-#define DELTA_RADIUS 100
+#define DELTA_DIAGONAL_ROD 180
+#define DELTA_RADIUS 85
 
 // Motion configuration
 
-#define HOMINGSPEED 100
+#define HOMINGSPEED 60
 #define XOFFSET 0
 #define YOFFSET 0
 #define ZOFFSET 0
@@ -93,16 +100,16 @@
 
 #define XMAXFEEDRATE 100
 #define YMAXFEEDRATE 100
-#define ZMAXFEEDRATE 20
+#define ZMAXFEEDRATE 5
 #define E0MAXFEEDRATE 10
 
-#define XSTEPPERMM 131//178
-#define YSTEPPERMM 175//125
-#define ZSTEPPERMM 1020//1020 //420
+#define XSTEPPERMM 100//131//178
+#define YSTEPPERMM 100//175//125
+#define ZSTEPPERMM 4000//1020//1020 //420
 #define E0STEPPERMM 100//340//380
 
 #ifndef NUMBUFFER
-#define NUMBUFFER 12
+#define NUMBUFFER 22
 #endif
 
 #define XMAX 0

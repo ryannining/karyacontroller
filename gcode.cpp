@@ -547,7 +547,7 @@ void process_gcode_command() {
                           cz1 = next_target.target.axis[Z] =
                                   ce01 = next_target.target.axis[E] = 0;
         }
-
+        init_pos();
 
         break;
 
@@ -719,6 +719,14 @@ void process_gcode_command() {
 
         zprintf(PSTR("EPR:3 51 %d Accel\n"), fi(accel));
         zprintf(PSTR("EPR:3 67 %d MVAccel\n"), fi(mvaccel));
+        zprintf(PSTR("EPR:3 177 %d Homing\n"), fi(homingspeed));
+#ifdef DRIVE_DELTA
+        zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
+        zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
+        zprintf(PSTR("EPR:3 165 %f TowerA\n"), ff(towerofs[0]));
+        zprintf(PSTR("EPR:3 169 %f TowerB\n"), ff(towerofs[1]));
+        zprintf(PSTR("EPR:3 173 %f TowerC\n"), ff(towerofs[2]));
+#endif
 
 #ifdef USE_BACKLASH
         zprintf(PSTR("EPR:2 80 %d Xbacklash\n"), fi(xback[0]));
@@ -759,7 +767,15 @@ void process_gcode_command() {
               eprom_wr(51, EE_accelx, S_I);
 
               eprom_wr(67, EE_mvaccelx, S_I);
-
+              eprom_wr(177, EE_homing, S_I);
+#ifdef DRIVE_DELTA
+              eprom_wr(157, EE_rod_length, S_F);
+              eprom_wr(161, EE_hor_radius, S_F);
+              eprom_wr(165, EE_towera_ofs, S_F);
+              eprom_wr(169, EE_towerb_ofs, S_F);
+              eprom_wr(173, EE_towerc_ofs, S_F);
+              
+#endif
 #ifdef USE_BACKLASH
               eprom_wr(80, EE_xbacklash, S_I);
               eprom_wr(84, EE_ybacklash, S_I);

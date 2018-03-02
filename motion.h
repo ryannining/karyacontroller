@@ -43,7 +43,8 @@ typedef struct {
   int32_t fs, fn, fe; // all are in square ! needed to calc real accell
 #endif
 #ifdef DRIVE_DELTA
-  float dtx[NUMAXIS]; // keep the original coordinate before transform
+  float otx[3]; // keep the original coordinate before transform
+  float dtx[3]; // keep the original coordinate before transform
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
   int32_t rampup;
@@ -67,6 +68,7 @@ extern uint8_t homeoffset[4];
 extern int accel;
 extern int mvaccel;
 extern int  maxf[4];
+extern int32_t dlp, dl;
 extern float stepmmx[4];
 extern tmove move[NUMBUFFER];
 extern float cx1, cy1, cz1, ce01;
@@ -94,6 +96,7 @@ extern int32_t motionrunning;
 extern int32_t mctr;
 extern int motionloop();
 
+extern void init_pos();
 extern int coreloop();
 extern void otherloop(int r);
 extern void waitbufferempty();
@@ -103,6 +106,10 @@ extern void initmotion();
 extern void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 , int g0 = 1 , int rel = 0);
 
 #ifdef DRIVE_DELTA
+extern float delta_diagonal_rod;
+extern float DELTA_DIAGONAL_ROD_2;
+extern float delta_radius;
+extern float towerofs[3];
 
 
 // Compile-time trigonometric functions. See Taylor series.

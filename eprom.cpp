@@ -11,6 +11,8 @@
 float EEMEM EE_xmax;
 float EEMEM EE_ymax;
 float EEMEM EE_zmax;
+int32_t EEMEM EE_homing;
+
 
 int32_t EEMEM EE_accelx;
 int32_t EEMEM EE_mvaccelx;
@@ -36,11 +38,11 @@ int32_t EEMEM EE_ebacklash;
 #endif
 
 #ifdef DRIVE_DELTA
-int32_t EEMEM DT_DIAGONAL_ROD;
-int32_t EEMEM DT_RADIUS;
-int32_t EEMEM DT_TOWERA_OFFSET;
-int32_t EEMEM DT_TOWERB_OFFSET;
-int32_t EEMEM DT_TOWERC_OFFSET;
+float EEMEM EE_hor_radius;
+float EEMEM EE_rod_length;
+float EEMEM EE_towera_ofs;
+float EEMEM EE_towerb_ofs;
+float EEMEM EE_towerc_ofs;
 #endif
 
 #endif
@@ -65,6 +67,14 @@ void reload_eeprom() {
   stepmmx[2] = (float)eepromread(EE_zstepmm)   * 0.001;
   stepmmx[3] = (float)eepromread(EE_estepmm)   * 0.001;
 
+  homingspeed=eepromread(EE_homing);
+#ifdef DRIVE_DELTA
+  delta_radius= (float)eepromread(EE_hor_radius)   * 0.001;
+  delta_diagonal_rod= (float)eepromread(EE_rod_length)   * 0.001;
+  towerofs[0]=(float)eepromread(EE_towera_ofs)   * 0.001;
+  towerofs[1]=(float)eepromread(EE_towerb_ofs)   * 0.001;
+  towerofs[2]=(float)eepromread(EE_towerc_ofs)   * 0.001;
+#endif
 
 #ifdef USE_BACKLASH
   xback[0] = eepromread(EE_xbacklash);
@@ -96,6 +106,15 @@ void reset_eeprom() {
   eepromwrite(EE_ystepmm, ff(stepmmx[1]));
   eepromwrite(EE_zstepmm, ff(stepmmx[2]));
   eepromwrite(EE_estepmm, ff(stepmmx[3]));
+
+  eepromwrite(EE_homing,homingspeed);
+#ifdef DRIVE_DELTA
+  eepromwrite(EE_hor_radius,ff(delta_radius));
+  eepromwrite(EE_rod_length,ff(delta_diagonal_rod));
+  eepromwrite(EE_towera_ofs,ff(towerofs[0]));
+  eepromwrite(EE_towerb_ofs,ff(towerofs[1]));
+  eepromwrite(EE_towerc_ofs,ff(towerofs[2]));
+#endif
 
 #ifdef USE_BACKLASH
   eepromwrite(EE_xbacklash, fi(xback[0]));

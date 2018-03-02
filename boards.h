@@ -213,7 +213,7 @@
 
 #define SDCARD_CS 10
 #define KBOX_PIN 7
-#define USETIMER1
+//#define USETIMER1
 
 #define NUMBUFFER 12
 
@@ -256,9 +256,10 @@
 #define temp_pin PB1
 #define heater_pin PA0
 #define fan_pin PA2
+
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
-
+#define NUMBUFFER 20
 
 /*
   ============================================================================================
@@ -320,6 +321,46 @@
 #define temp_pin 0 //analog 0, on pin ABORT
 #define heater_pin A3 // on pin COOLANT
 
+/*
+  ============================================================================================
+     BOARD_RAMP1.3 MEGA ramps 1.4 is same ??
+  ============================================================================================
+*/
+#elif defined(BOARD_RAMP13_DELTA)
+
+#define xenable 38
+#define xdirection 55
+#define xstep 54
+
+#define yenable 56
+#define ydirection 61
+#define ystep 60
+
+#define zenable 62
+#define zdirection 48
+#define zstep 46
+
+#define e0enable 24
+#define e0direction 28
+#define e0step 26
+
+
+
+//#define xmin_pin 3
+//#define ymin_pin 14
+//#define zmin_pin 18
+
+#define xmax_pin 2
+#define ymax_pin 15
+#define zmax_pin 19
+
+#define temp_pin A13
+#define heater_pin 10
+
+#define fan_pin 9
+#define DRIVE_DELTA
+#undef ISRTEMP // 120bytes check board.h
+//#define INVERTENDSTOP // uncomment for normally open
 
 /*
   ============================================================================================
@@ -345,14 +386,14 @@
 #define e0step 26
 
 
-#define xmin_pin 3
-//#define xmax_pin 2
 
-#define ymin_pin 14
-//#define ymax_pin 15
+//#define xmin_pin 3
+//#define ymin_pin 14
+//#define zmin_pin 18
 
-#define zmin_pin 18
-//#define zmax_pin 19
+#define xmax_pin 2
+#define ymax_pin 15
+#define zmax_pin 19
 
 #define temp_pin 13
 #define heater_pin 10

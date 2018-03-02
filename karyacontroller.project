@@ -111,5 +111,6 @@
     <File Name="eprom.h"/>
     <File Name="boards.h"/>
     <File Name="motors.h"/>
+    <File Name="backup.cpp"/>
   </VirtualDirectory>
 </CodeLite_Project>
