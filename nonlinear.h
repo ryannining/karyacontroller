@@ -1,4 +1,16 @@
-// dummy step/mm for planner, 100 is good i think
+/*
+    =================================================================================================================================================
+    DELTA PRINTER FUNCTIONS
+    =================================================================================================================================================
+*/
+
+
+
+
+
+
+
+
 
 #ifdef USETIMER1
 #define CORELOOP
@@ -8,18 +20,24 @@
 
 
 #ifdef NONLINEAR
+
+
+// dummy step/mm for planner, 100 is good i think
+
 #define FIXED2 100.f
 #define IFIXED2 1.f/(FIXED2)
 #define Cstepmmx(i) FIXED2
+
+// 200 = on G0, 50 on G1 ~ 200 =2mm, 50 = 0.5mm
+#define STEPPERSEGMENT 300 : 100
+
 extern int32_t x2[4];
 
 float sgx[NUMAXIS]; // increment delta each segment
 
-
 float delta_diagonal_rod;
 float DELTA_DIAGONAL_ROD_2;
 float delta_radius = (DELTA_RADIUS );
-float towerofs[3] = {0, 0, 0};
 
 float delta_tower1_x;
 float delta_tower1_y;
@@ -47,18 +65,21 @@ float delta_tower3_y ;
 
 void nonlinearprepare(){
   DELTA_DIAGONAL_ROD_2 = delta_diagonal_rod * delta_diagonal_rod;
+  //delta_radius         = (DELTA_RADIUS );
 
-  delta_tower1_x       = (COS(DegToRad(TOWER_X_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower1_y       = (SIN(DegToRad(TOWER_X_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower2_x       = (COS(DegToRad(TOWER_Y_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower2_y       = (SIN(DegToRad(TOWER_Y_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower3_x       = (COS(DegToRad(TOWER_Z_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower3_y       = (SIN(DegToRad(TOWER_Z_ANGLE_DEG)) * DELTA_RADIUS);
+  delta_tower1_x       = (COS(DegToRad(TOWER_X_ANGLE_DEG)) * delta_radius);
+  delta_tower1_y       = (SIN(DegToRad(TOWER_X_ANGLE_DEG)) * delta_radius);
+  delta_tower2_x       = (COS(DegToRad(TOWER_Y_ANGLE_DEG)) * delta_radius);
+  delta_tower2_y       = (SIN(DegToRad(TOWER_Y_ANGLE_DEG)) * delta_radius);
+  delta_tower3_x       = (COS(DegToRad(TOWER_Z_ANGLE_DEG)) * delta_radius);
+  delta_tower3_y       = (SIN(DegToRad(TOWER_Z_ANGLE_DEG)) * delta_radius);
 
-  delta_radius         = (DELTA_RADIUS );
 }
   
 void transformdelta( float x, float y, float z) {
+#ifdef output_enable
+  zprintf(PSTR("transform delta "));
+#endif
   if (ishoming)
   {
     // when homing, no transform
@@ -79,20 +100,20 @@ void transformdelta( float x, float y, float z) {
                                    - sqr2(delta_tower1_x - x)
                                    - sqr2(delta_tower1_y - y)
                                   ) + z);
-    CORELOOP                              
+//    CORELOOP                              
     x2[1]     = stepmmx[1] * (sqrt(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower2_x - x)
                                    - sqr2(delta_tower2_y - y)
                                   ) + z);
-    CORELOOP                              
+//    CORELOOP                              
     x2[2]     = stepmmx[2] * (sqrt(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower3_x - x)
                                    - sqr2(delta_tower3_y - y)
                                   ) + z);
-    CORELOOP                              
+//    CORELOOP                              
   }
 #ifdef output_enable
-  zprintf(PSTR("transform delta : %f %f %f -> %d %d %d\n"), ff(x), ff(y), ff(z), fi(x2[0]), fi(x2[1]), fi(x2[2]));
+  zprintf(PSTR(": %f %f %f -> %d %d %d\n"), ff(x), ff(y), ff(z), fi(x2[0]), fi(x2[1]), fi(x2[2]));
 #endif
 }
 
@@ -116,6 +137,9 @@ void nonlinearprepare(){
 #define SINGLESEGMENT   (ishoming || (wm->dx[0] == 0))
 
 void transformdelta( float x, float y, float z) {
+#ifdef output_enable
+  zprintf(PSTR("transform delta "));
+#endif
   if (ishoming)
   {
     // when homing, no transform
@@ -134,15 +158,15 @@ void transformdelta( float x, float y, float z) {
     x2[0]     = stepmmx[0] * (sqrt(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower1_x - x)
                                   ) + z);
-    CORELOOP                              
+//    CORELOOP                              
     x2[2]     = stepmmx[2] * (sqrt(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower2_x - x)
                                   ) + z);
-    CORELOOP                              
+//    CORELOOP                              
     x2[1] = int32_t(stepmmx[1] * y);
   }
 #ifdef output_enable
-  zprintf(PSTR("transform delta : %f %f %f -> %d %d %d\n"), ff(x), ff(y), ff(z), fi(x2[0]), fi(x2[1]), fi(x2[2]));
+  zprintf(PSTR(": %f %f %f -> %d %d %d\n"), ff(x), ff(y), ff(z), fi(x2[0]), fi(x2[1]), fi(x2[2]));
 #endif
 }
 #endif

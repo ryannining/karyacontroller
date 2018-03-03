@@ -71,9 +71,9 @@ void reload_eeprom() {
 #ifdef NONLINEAR
   delta_radius= (float)eepromread(EE_hor_radius)   * 0.001;
   delta_diagonal_rod= (float)eepromread(EE_rod_length)   * 0.001;
-  towerofs[0]=(float)eepromread(EE_towera_ofs)   * 0.001;
-  towerofs[1]=(float)eepromread(EE_towerb_ofs)   * 0.001;
-  towerofs[2]=(float)eepromread(EE_towerc_ofs)   * 0.001;
+  axisofs[0]=(float)eepromread(EE_towera_ofs)   * 0.001;
+  axisofs[1]=(float)eepromread(EE_towerb_ofs)   * 0.001;
+  axisofs[2]=(float)eepromread(EE_towerc_ofs)   * 0.001;
 #endif
 
 #ifdef USE_BACKLASH
@@ -112,9 +112,9 @@ void reset_eeprom() {
 #ifdef NONLINEAR
   eepromwrite(EE_hor_radius,ff(delta_radius));
   eepromwrite(EE_rod_length,ff(delta_diagonal_rod));
-  eepromwrite(EE_towera_ofs,ff(towerofs[0]));
-  eepromwrite(EE_towerb_ofs,ff(towerofs[1]));
-  eepromwrite(EE_towerc_ofs,ff(towerofs[2]));
+  eepromwrite(EE_towera_ofs,ff(axisofs[0]));
+  eepromwrite(EE_towerb_ofs,ff(axisofs[1]));
+  eepromwrite(EE_towerc_ofs,ff(axisofs[2]));
 #endif
 
 #ifdef USE_BACKLASH

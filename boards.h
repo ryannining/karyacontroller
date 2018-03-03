@@ -358,7 +358,7 @@
 #define heater_pin 10
 
 #define fan_pin 9
-#define DRIVE_DELTASIAN
+#define DRIVE_DELTA
 #undef ISRTEMP // 120bytes check board.h
 //#define INVERTENDSTOP // uncomment for normally open
 #define NUMBUFFER 6

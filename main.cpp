@@ -53,7 +53,7 @@ int main(void)
   float v = 10.1234;
   xprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
   demofile();
-  //demo();
+  demo();
   xprintf (PSTR("WAIT\n"));
   waitbufferempty();
   xprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -101,14 +101,11 @@ void demo() {
   tickscale=160;
   fscale=3;
   int f = 100;
-  amove(80, 10, 0, 0, 0);
-  amove(80, 40, 0, 0, 0);
-  amove(80, 40, 1, 0, 0);
-  amove(80, 10, 1, 0, 0);
-  amove(80, 10, 2, 0, 0);
+  amove(40, 10, 0, 0, 0);
+  amove(40, 20, 10, 0, 0);
+  amove(40, 30, 20, 0, 0);
+  amove(40, 40, 30, 0, 0);
 /*  
-  amove(30, 9.6, 0, 0, 0);
-  amove(30, 9.6, -9.3, 0, 0);
   amove(30, 10, -10, 0, 0);
   amove(30, 25, 0, 0, 1);
   amove(30, 25, 0, 1, 2);

@@ -79,13 +79,17 @@
 //#define DRIVE_COREXY
 //#define DRIVE_COREXZ
 
-//#define DRIVE_DELTA
+#define DRIVE_DELTA
+//#define DRIVE_DELTASIAN
 
 
-#if defined(DRIVE_DELTA) || defined(DRIVE_DELTASIAN)
-//#error Non Linear System
+#ifdef DRIVE_DELTA
 #define NONLINEAR
 #endif 
+#ifdef DRIVE_DELTASIAN
+#define NONLINEAR
+#endif 
+
 
 #define TOWER_X_ANGLE_DEG        210
 #define TOWER_Y_ANGLE_DEG        330
@@ -107,12 +111,12 @@
 
 #define XMAXFEEDRATE 100
 #define YMAXFEEDRATE 100
-#define ZMAXFEEDRATE 5
+#define ZMAXFEEDRATE 100
 #define E0MAXFEEDRATE 10
 
 #define XSTEPPERMM 100//131//178
 #define YSTEPPERMM 100//175//125
-#define ZSTEPPERMM 4000//1020//1020 //420
+#define ZSTEPPERMM 100//1020//1020 //420
 #define E0STEPPERMM 100//340//380
 
 #ifndef NUMBUFFER

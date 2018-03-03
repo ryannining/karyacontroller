@@ -724,9 +724,9 @@ void process_gcode_command() {
 #ifdef NONLINEAR
         zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
         zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
-        zprintf(PSTR("EPR:3 165 %f TowerA\n"), ff(towerofs[0]));
-        zprintf(PSTR("EPR:3 169 %f TowerB\n"), ff(towerofs[1]));
-        zprintf(PSTR("EPR:3 173 %f TowerC\n"), ff(towerofs[2]));
+        zprintf(PSTR("EPR:3 165 %f XOfs\n"), ff(axisofs[0]));
+        zprintf(PSTR("EPR:3 169 %f Yofs\n"), ff(axisofs[1]));
+        zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
 #endif
 
 #ifdef USE_BACKLASH

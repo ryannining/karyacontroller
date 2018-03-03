@@ -98,12 +98,14 @@ int32_t dlp, dl;
 int8_t checkendstop;
 int8_t endstopstatus[3];
 int8_t ishoming;
+float axisofs[3] = {0, 0, 0};
+
 
 float stepmmx[4];
 float cx1, cy1, cz1, ce01;
 tmove move[NUMBUFFER];
 
-#define sqr2(n) n*n
+#define sqr2(n) (n)*(n)
 #include "nonlinear.h"
 
 // to calculate delay from v^2, fast invsqrt hack
@@ -128,11 +130,6 @@ float InvSqrt(float x) {
 #define xInvSqrt(n) n>(INVSCALE3)?stepdiv2*InvSqrt(n):stepdiv
 #define xInvSqrt2(n,stepd,stepd2) n>(INVSCALE3)?stepd2*InvSqrt(n):stepd
 //#define xInvSqrt(n) n>(INVSCALE3)?stepdiv2/sqrt(n):stepdiv
-/*
-    =================================================================================================================================================
-    DELTA PRINTER FUNCTIONS
-    =================================================================================================================================================
-*/
 float sqrt3(float x)
 {
   //zprintf(PSTR("SQRT %f\n"),ff(x));
@@ -167,8 +164,8 @@ float sqrt7(float x)
 #define sqrt32(n) sqrt(n)
 #else
 // for PC
-//#define sqrt32(n) sqrt7(n)
-#define sqrt32(n) sqrt(n)
+#define sqrt32(n) sqrt7(n)
+//#define sqrt32(n) sqrt(n)
 #endif
 
 /*
@@ -204,6 +201,11 @@ void reset_motion() {
   lsx[2] = 0;
   lsx[3] = 0;
 #ifndef SAVE_RESETMOTION
+
+#ifdef NONLINEAR
+  delta_diagonal_rod = DELTA_DIAGONAL_ROD;
+  delta_radius= DELTA_RADIUS;
+#endif
 
   homeoffset[0] = XOFFSET;
   homeoffset[1] = YOFFSET;
@@ -452,6 +454,7 @@ void planner(int32_t h)
     }
   }
   // update all speed and square it up, after this all m->f are squared !
+  scale = 1<<4;
   scale *= curr->fn;
   curr->fn = (scale * scale) >> 8;
   //#define JERK1
@@ -585,30 +588,30 @@ void planner(int32_t h)
 */
 int32_t x1[NUMAXIS], x2[NUMAXIS];
 tmove *m, *wm;
+
 #ifdef ISPC
 float fctr, tick;
 float tickscale, fscale, graphscale;
 #endif
-//int32_t px[4] = {0, 0, 0, 0 };
-#ifdef NONLINEAR
-float rampv;
-float istepmmx[4];
-#else
-#define rampv 1
-#endif
 
-int32_t  f;
 #ifdef NONLINEAR
+float rampv,rampv2;
+float istepmmx[4];
 float rampseg, rampup, rampdown;
 #else
 int32_t rampseg, rampup, rampdown;
+#define rampv 1
+#define rampv2 1
 #endif
+
+int32_t  f;
 int32_t ta, acup, acdn, oacup, oacdn;
 int32_t mctr, xtotalseg;
 uint8_t fastaxis;
 uint32_t nextmicros;
 uint32_t nextdly;
 uint32_t nextmotoroff;
+  float otx[3]; // keep the original coordinate before transform
 
 
 void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , int rel)
@@ -627,17 +630,9 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   //zprintf(PSTR("X:%f Y:%f Z:%f\n"), ff(cx2), ff(cy2), ff(cz2));
   //zprintf(PSTR("-\n"));
   needbuffer();
-  //cf = 30;
   tmove *curr;
   curr = &move[nextbuff(head)];
   curr->status = g0 ? 8 : 0; // reset status:0 planstatus:0 g0:g0
-  //curr->g0 = g0;
-#ifdef ISPC
-  curr->col = 2 + (head % 4) * 4;
-  //curr->xs[0] = cx1 * Cstepmmx(0);
-  //curr->xs[1] = cy1 * Cstepmmx(1);
-  //curr->xs[2] = cz1 * Cstepmmx(2);
-#endif
 
   if (rel) {
     cx1 = cy1 = cz1 = ce01 = 0;
@@ -674,9 +669,11 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   x2[2] = cy1;
 
 #elif defined(NONLINEAR)
-
+   // nothing to do
 
 #endif
+
+
   // if no axis movement then dont multiply by multiplier
 if(g0 || ishoming || ((x2[0]==0) && (x2[1]==0) && (x2[2]==0)) ){} else cf *= f_multiplier;
 #ifdef __AVR__
@@ -702,6 +699,7 @@ if(g0 || ishoming || ((x2[0]==0) && (x2[1]==0) && (x2[2]==0)) ){} else cf *= f_m
       faxis = i;
     }
   }
+  CORELOOP
   // if zero length then cancel
   if (dd < MINIMUMSTEPS)
   {
@@ -716,18 +714,17 @@ if(g0 || ishoming || ((x2[0]==0) && (x2[1]==0) && (x2[2]==0)) ){} else cf *= f_m
     curr->status |= faxis << 4;
     curr->ac = 2 * (g0 ? mvaccel : accel);
     //zprintf(PSTR("F:%f A:%d\n"), ff(cf), fi(curr->ac));
-
-
-
+    if (head==tail){
+        otx[0] = cx1; // save the target, not the original
+        otx[1] = cy1;
+        otx[2] = cz1;
+    }
     // back planner
     head = nextbuff(head);
     curr->status |= 1; // 0: finish 1:ready
     // planner are based on cartesian coord movement on the motor
     planner(head);
 #ifdef NONLINEAR
-    curr->otx[0] = cx1; // save the target, not the original
-    curr->otx[1] = cy1;
-    curr->otx[2] = cz1;
     cx1 = curr->dtx[0] = cx2; // save the target, not the original
     cy1 = curr->dtx[1] = cy2;
     cz1 = curr->dtx[2] = cz2;
@@ -743,9 +740,7 @@ if(g0 || ishoming || ((x2[0]==0) && (x2[1]==0) && (x2[2]==0)) ){} else cf *= f_m
 }
 
 
-#ifndef NONLINEAR
-#define DELTA_TEST
-#else
+#ifdef NONLINEAR
 
 float xc[3];
 int32_t estep,ctotalseg, ctotalstep, cbsdx[3];
@@ -786,6 +781,7 @@ void calculate_delta_steps(int s) {
     STEPBREAK
     STEPCASE(2)
     // STEP 3
+#define newX(n) m->dtx[n]-ctotalseg * sgx[n]    
     transformdelta(xc[0], xc[1], xc[2]);
     STEPBREAK
     STEPCASE(1)
@@ -825,7 +821,7 @@ void calculate_delta_steps(int s) {
     mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0;
     mctr = totalstep = ctotalstep;
     rampv = rampseg / mctr;
-
+    rampv2=sqr2(rampv);
     acup = oacup * rampv;
     acdn = oacdn * rampv;
     motor_0_DIR(sx[0]);
@@ -838,6 +834,7 @@ void calculate_delta_steps(int s) {
     zprintf(PSTR("\nX:%d %d %d \n"), fi(bsdx[0]), fi(bsdx[1]), fi(bsdx[2]));
     zprintf(PSTR("Segm:%d Step:%d SX:%d %d %d\n"), fi(xtotalseg), fi(totalstep), fi(sx[0]), fi(sx[1]), fi(sx[2]));
 #endif
+
 #ifdef ISPC
     m->col++;
 #endif
@@ -856,7 +853,8 @@ float gx, gy, lx, ly;
 void dographics() {
   //f = dl/20;//
   f = stepdiv / (float)dl;
-  tick = tick + dl; //1.0/timescale;
+  f=sqrt32(ta)/10;
+  tick = tick + dl*rampv; //1.0/timescale;
   int32_t c;
   c = (tail & 3) + 10;
   c = (f - 20) * 4;
@@ -875,23 +873,41 @@ void dographics() {
   gx = tick * tickscale / timescale + 10;
   gy = 480 -  fscale * f;
   setcolor(c);
-  //putpixel (gx, gy, c);
-  line(lx, ly, gx, gy);
+  putpixel (gx, gy, c);
+  //line(lx, ly, gx, gy);
   //zprintf(PSTR("X:%f Y:%f\n"), ff(gx), ff(gy));
   setcolor(0);
   line(gx + 1, 480 - 1, gx + 1, 480 - 100 * fscale);
 
-#ifndef DELTA_TEST
+#ifdef NONLINEAR
   float ex = realpos1(0) * graphscale;
   float ey = realpos1(1) * graphscale;
   float ez = realpos1(2) * graphscale;
 
-  putpixel (150, 251 - ex + 0, 0);
-  putpixel (350, 251 - ey + 0, 0);
-  putpixel (250, 201 - ez + 0, 0);
-  putpixel (150, 250 - ex + 0, 9);
-  putpixel (350, 250 - ey + 0, 12);
-  putpixel (250, 200 - ez + 0, 14);
+#if defined( DRIVE_DELTASIAN)
+  putpixel (150, 251 + ex + 0, 0);
+  putpixel (350, 251 + ez + 0, 0);
+  putpixel (251+ ey*0.1, 251 + ey*0.1 + 0, 0);
+  putpixel (150, 249 + ex + 0, 0);
+  putpixel (350, 249 + ez + 0, 0);
+  putpixel (249+ ey*0.1, 249 + ey*0.1 + 0, 0);
+  
+  putpixel (150, 250 + ex + 0, 9);
+  putpixel (350, 250 + ez + 0, 12);
+  putpixel (250+ ey*0.1, 250 + ey*0.1 + 0, 14);
+#elif defined( DRIVE_DELTA)
+  putpixel (150, 251 + ex + 0, 0);
+  putpixel (350, 251 + ey + 0, 0);
+  putpixel (250, 201 + ez + 0, 0);
+  putpixel (150, 249 + ex + 0, 0);
+  putpixel (350, 249 + ey + 0, 0);
+  putpixel (250, 199 + ez + 0, 0);
+  
+  putpixel (150, 250 + ex + 0, 9);
+  putpixel (350, 250 + ey + 0, 12);
+  putpixel (250, 200 + ez + 0, 14);
+#endif
+
 #else
   float ex = realpos1(0) * graphscale;
   float ey = realpos1(1) * graphscale;
@@ -1001,14 +1017,16 @@ UPDATEDELAY:
     mctr--;
     if (mctr  == 0)zprintf(PSTR("\n"));
 #ifdef output_enable
+    zprintf(PSTR("Rampv:%f \n"), ff(rampv));
     //zprintf(PSTR("%d "), dl);
     //zprintf(PSTR("%d "), mctr);
     // write real speed too
     dlmin = fmin(dl, dlmin);
     dlmax = fmax(dl, dlmax);
-    if (mctr2++ % 20 == 0)
+    if (mctr2++ % 9 == 0)
     {
-      //zprintf(PSTR("RU:%f RD:%f "), ff(rampup), ff(rampdown));
+      //zprintf(PSTR("%d "), dl);
+      //zprintf(PSTR("RU:%f RD:%f \n"), ff(rampup), ff(rampdown));
       //printf(PSTR("D:%d RD:%f "), ff(rampup), ff(rampdown));
       //zprintf(PSTR("dmin:%d dmax:%d "), fi(dlmin), fi(dlmax));
       //zprintf(PSTR("Fmin:%d Fmax:%d\n"), fi(stepdiv / dlmax), fi(stepdiv / dlmin));
@@ -1204,7 +1222,7 @@ void startmovestep(int s)
 #define STEPBREAK
   {
 #else // TIMER1
-#define STEPCASE(n) case n:    //zprintf(PSTR("\nStep ##n##\n"));
+#define STEPCASE(n) case n:    //zprintf(PSTR("\nStep %d\n"),fi(n));
 
 #define STEPBREAK if(s>-1)break;
 
@@ -1224,7 +1242,7 @@ void startmovestep(int s)
     wm = &move[wt];
 
     wfastaxis = FASTAXIS(wm);
-    wtotalstep = abs(wm->dx[wfastaxis]);
+    wtotalstep = labs(wm->dx[wfastaxis]);
 
 
     STEPBREAK
@@ -1240,7 +1258,7 @@ void startmovestep(int s)
     // calculate first movement
     //STEP
     STEPCASE(3)
-    stepperseg = (m->status & 8) ? 200 : 50;
+    stepperseg = (wm->status & 8) ? STEPPERSEGMENT;
     // if homing or just z move then no segmentation
     if SINGLESEGMENT wxtotalseg = 1; else {
       wxtotalseg = 1 + (wtotalstep / stepperseg);
@@ -1255,7 +1273,7 @@ void startmovestep(int s)
 
     // STEP
     //transformdelta(wm->dtx[0]-wm->dx[0]/FIXED2, wm->dtx[1]-wm->dx[1]/FIXED2, wm->dtx[2]-wm->dx[2]/FIXED2);
-    transformdelta(wm->otx[0], wm->otx[1], wm->otx[2]);
+    if (wm->fs==0)transformdelta(otx[0], otx[1], otx[2]);
 
     // in the last 4 steps, we  sure the previous move is not using this anymore
     oacup = wacup;
@@ -1498,7 +1516,7 @@ void homing()
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     CLI checkendstop = 1;\
     waitbufferempty();\
-    xx[e] =  - tx[e]/150-towerofs[e];\
+    xx[e] =  - tx[e]/150-axisofs[e];\
     addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
     CLI checkendstop = 0;\
     waitbufferempty();\

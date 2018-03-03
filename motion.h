@@ -22,7 +22,7 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-#define UPDATE_F_EVERY 4000 //us
+#define UPDATE_F_EVERY 2000 //us
 
 
 
@@ -43,7 +43,6 @@ typedef struct {
   int32_t fs, fn, fe; // all are in square ! needed to calc real accell
 #endif
 #ifdef NONLINEAR
-  float otx[3]; // keep the original coordinate before transform
   float dtx[3]; // keep the original coordinate before transform
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
@@ -109,7 +108,7 @@ extern void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 , int
 extern float delta_diagonal_rod;
 extern float DELTA_DIAGONAL_ROD_2;
 extern float delta_radius;
-extern float towerofs[3];
+extern float axisofs[3];
 
 
 // Compile-time trigonometric functions. See Taylor series.
