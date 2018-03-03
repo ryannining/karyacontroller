@@ -112,5 +112,6 @@
     <File Name="boards.h"/>
     <File Name="motors.h"/>
     <File Name="backup.cpp"/>
+    <File Name="nonlinear.h"/>
   </VirtualDirectory>
 </CodeLite_Project>

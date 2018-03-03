@@ -721,7 +721,7 @@ void process_gcode_command() {
         zprintf(PSTR("EPR:3 51 %d Accel\n"), fi(accel));
         zprintf(PSTR("EPR:3 67 %d MVAccel\n"), fi(mvaccel));
         zprintf(PSTR("EPR:3 177 %d Homing\n"), fi(homingspeed));
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
         zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
         zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
         zprintf(PSTR("EPR:3 165 %f TowerA\n"), ff(towerofs[0]));
@@ -770,7 +770,7 @@ void process_gcode_command() {
               eprom_wr(67, EE_mvaccelx, S_I);
               eprom_wr(177, EE_homing, S_I);
               eprom_wr(181, EE_jerk, S_I);
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
               eprom_wr(157, EE_rod_length, S_F);
               eprom_wr(161, EE_hor_radius, S_F);
               eprom_wr(165, EE_towera_ofs, S_F);

@@ -42,7 +42,7 @@ typedef struct {
   int32_t ac; // needed for backplanner
   int32_t fs, fn, fe; // all are in square ! needed to calc real accell
 #endif
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
   float otx[3]; // keep the original coordinate before transform
   float dtx[3]; // keep the original coordinate before transform
 #endif
@@ -105,7 +105,7 @@ extern int32_t startmove();
 extern void initmotion();
 extern void addmove(float cf, float cx2, float cy2 , float cz2, float ce02 , int g0 = 1 , int rel = 0);
 
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
 extern float delta_diagonal_rod;
 extern float DELTA_DIAGONAL_ROD_2;
 extern float delta_radius;

@@ -81,6 +81,12 @@
 
 //#define DRIVE_DELTA
 
+
+#if defined(DRIVE_DELTA) || defined(DRIVE_DELTASIAN)
+//#error Non Linear System
+#define NONLINEAR
+#endif 
+
 #define TOWER_X_ANGLE_DEG        210
 #define TOWER_Y_ANGLE_DEG        330
 #define TOWER_Z_ANGLE_DEG        90

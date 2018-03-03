@@ -36,7 +36,7 @@ int32_t EEMEM EE_zbacklash;
 int32_t EEMEM EE_ebacklash;
 #endif
 
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
 float EEMEM EE_hor_radius;
 float EEMEM EE_rod_length;
 float EEMEM EE_towera_ofs;
@@ -68,7 +68,7 @@ void reload_eeprom() {
 
   xyjerk=eepromread(EE_jerk);
   homingspeed=eepromread(EE_homing);
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
   delta_radius= (float)eepromread(EE_hor_radius)   * 0.001;
   delta_diagonal_rod= (float)eepromread(EE_rod_length)   * 0.001;
   towerofs[0]=(float)eepromread(EE_towera_ofs)   * 0.001;
@@ -109,7 +109,7 @@ void reset_eeprom() {
 
   eepromwrite(EE_homing,homingspeed);
   eepromwrite(EE_jerk,xyjerk);
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
   eepromwrite(EE_hor_radius,ff(delta_radius));
   eepromwrite(EE_rod_length,ff(delta_diagonal_rod));
   eepromwrite(EE_towera_ofs,ff(towerofs[0]));

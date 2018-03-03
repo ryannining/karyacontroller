@@ -115,7 +115,7 @@
 
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
-#define NUMBUFFER 8
+#define NUMBUFFER 6
 //#define SDCARD_CS 10
 //#define INVERTENDSTOP // uncomment for normally open
 //#define KBOX_PIN 7
@@ -358,9 +358,10 @@
 #define heater_pin 10
 
 #define fan_pin 9
-#define DRIVE_DELTA
+#define DRIVE_DELTASIAN
 #undef ISRTEMP // 120bytes check board.h
 //#define INVERTENDSTOP // uncomment for normally open
+#define NUMBUFFER 6
 
 /*
   ============================================================================================
@@ -399,6 +400,7 @@
 #define heater_pin 10
 
 #define fan_pin 9
+#define NUMBUFFER 16
 /*
   ============================================================================================
      BOARD_RAMP1.3 MEGA ramps 1.4 is same ??

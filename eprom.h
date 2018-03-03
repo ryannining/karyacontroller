@@ -108,7 +108,7 @@ static void eepromwrite(int p,int32_t val)
 #define EE_ebacklash 130
 
 #define EE_homing 135
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
 #define EE_towera_ofs 140
 #define EE_towerb_ofs 145
 #define EE_towerc_ofs 150
@@ -137,7 +137,7 @@ extern float EEMEM EE_ystepmm;
 extern float EEMEM EE_zstepmm;  
 extern float EEMEM EE_estepmm;  
 
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
 extern float EEMEM EE_hor_radius;
 extern float EEMEM EE_rod_length;
 extern float EEMEM EE_towera_ofs;

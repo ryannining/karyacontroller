@@ -103,15 +103,8 @@ float stepmmx[4];
 float cx1, cy1, cz1, ce01;
 tmove move[NUMBUFFER];
 
-
-#ifdef DRIVE_DELTA
-// dummy step/mm for planner, 100 is good i think
-#define FIXED2 100.f
-#define IFIXED2 1.f/(FIXED2)
-#define Cstepmmx(i) FIXED2
-#else // ELSE DRIVEDELTA
-#define Cstepmmx(i) stepmmx[i]
-#endif // DRIVEDELTA
+#define sqr2(n) n*n
+#include "nonlinear.h"
 
 // to calculate delay from v^2, fast invsqrt hack
 #define INVSCALE 6
@@ -177,25 +170,6 @@ float sqrt7(float x)
 //#define sqrt32(n) sqrt7(n)
 #define sqrt32(n) sqrt(n)
 #endif
-
-#ifdef DRIVE_DELTA
-float sgx[NUMAXIS]; // increment delta each segment
-
-float delta_diagonal_rod;
-float DELTA_DIAGONAL_ROD_2;
-float delta_radius = (DELTA_RADIUS );
-float towerofs[3] = {0, 0, 0};
-
-float delta_tower1_x;
-float delta_tower1_y;
-float delta_tower2_x ;
-float delta_tower2_y ;
-float delta_tower3_x ;
-float delta_tower3_y ;
-
-
-
-#endif // delta
 
 /*
     =================================================================================================================================================
@@ -265,17 +239,9 @@ void reset_motion() {
 }
 
 void preparecalc() {
-#ifdef DRIVE_DELTA
-  DELTA_DIAGONAL_ROD_2 = delta_diagonal_rod * delta_diagonal_rod;
+#ifdef NONLINEAR
 
-  delta_tower1_x       = (COS(DegToRad(TOWER_X_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower1_y       = (SIN(DegToRad(TOWER_X_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower2_x       = (COS(DegToRad(TOWER_Y_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower2_y       = (SIN(DegToRad(TOWER_Y_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower3_x       = (COS(DegToRad(TOWER_Z_ANGLE_DEG)) * DELTA_RADIUS);
-  delta_tower3_y       = (SIN(DegToRad(TOWER_Z_ANGLE_DEG)) * DELTA_RADIUS);
-
-  delta_radius         = (DELTA_RADIUS );
+    nonlinearprepare();
 
 #endif
 
@@ -288,11 +254,8 @@ int32_t mcx[NUMAXIS];
     =================================================================================================================================================
 */
 
-#ifdef USETIMER1
-#define CORELOOP
-#else
-#define CORELOOP if(m)motionloop();
-#endif
+
+
 #define FASTAXIS(n) n->status >> 4
 //if(m)coreloop();
 #include "motors.h"
@@ -494,7 +457,6 @@ void planner(int32_t h)
   //#define JERK1
 
 #ifdef JERK1
-#define sqr2(n) n*n
   prevdis = currdis;
   currdis = sqrt32(2 + sqr2(currf[0]) + sqr2(currf[1]) + sqr2(currf[2]));
   CORELOOP
@@ -628,7 +590,7 @@ float fctr, tick;
 float tickscale, fscale, graphscale;
 #endif
 //int32_t px[4] = {0, 0, 0, 0 };
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
 float rampv;
 float istepmmx[4];
 #else
@@ -636,7 +598,7 @@ float istepmmx[4];
 #endif
 
 int32_t  f;
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
 float rampseg, rampup, rampdown;
 #else
 int32_t rampseg, rampup, rampdown;
@@ -685,7 +647,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   curr->col = 2 + (head % 4) * 4;
 #endif
 // this x2 is local 
-#ifndef DRIVE_DELTA
+#ifndef NONLINEAR
   x2[0] = (int32_t)(cx2 * Cstepmmx(0)) - (int32_t)(cx1 * Cstepmmx(0))  ;
   x2[1] = (int32_t)(cy2 * Cstepmmx(1)) - (int32_t)(cy1 * Cstepmmx(1)) ;
   x2[2] = (int32_t)(cz2 * Cstepmmx(2)) - (int32_t)(cz1 * Cstepmmx(2)) ;
@@ -711,7 +673,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
   x2[0] = cx1;
   x2[2] = cy1;
 
-#elif defined(DRIVE_DELTA)
+#elif defined(NONLINEAR)
 
 
 #endif
@@ -762,7 +724,7 @@ if(g0 || ishoming || ((x2[0]==0) && (x2[1]==0) && (x2[2]==0)) ){} else cf *= f_m
     curr->status |= 1; // 0: finish 1:ready
     // planner are based on cartesian coord movement on the motor
     planner(head);
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
     curr->otx[0] = cx1; // save the target, not the original
     curr->otx[1] = cy1;
     curr->otx[2] = cz1;
@@ -781,56 +743,9 @@ if(g0 || ishoming || ((x2[0]==0) && (x2[1]==0) && (x2[2]==0)) ){} else cf *= f_m
 }
 
 
-#ifndef DRIVE_DELTA
+#ifndef NONLINEAR
 #define DELTA_TEST
 #else
-#define sqrtstep(x) stepmmx[0]* sqrt(x)
-// maybe we should use fixed point to increase performance, or make all already multiplied with the steppermm (steppermm as the pixed point multiplicator)
-void transformdelta( float x, float y, float z) {
-  if (ishoming)
-  {
-    // when homing, no transform
-    x2[0] = int32_t(stepmmx[0] * x);
-    x2[1] = int32_t(stepmmx[1] * y);
-    x2[2] = int32_t(stepmmx[2] * z);
-
-  }  else {
-    //#define DELTA_TEST
-#ifndef DELTA_TEST
-
-#ifdef ISPC
-    float ex = x * graphscale;
-    float ey = y * graphscale;
-    float ez = z * graphscale;
-
-    putpixel (ex + ey * 0.3 + 250, ey * 0.3 - ez + 250, 15);
-#endif
-    x2[0]     = stepmmx[0] * (sqrt(DELTA_DIAGONAL_ROD_2
-                                   - (delta_tower1_x - x) * (delta_tower1_x - x)
-                                   - (delta_tower1_y - y) * (delta_tower1_y - y)
-                                  ) + z);
-    CORELOOP                              
-    x2[1]     = stepmmx[1] * (sqrt(DELTA_DIAGONAL_ROD_2
-                                   - (delta_tower2_x - x) * (delta_tower2_x - x)
-                                   - (delta_tower2_y - y) * (delta_tower2_y - y)
-                                  ) + z);
-    CORELOOP                              
-    x2[2]     = stepmmx[2] * (sqrt(DELTA_DIAGONAL_ROD_2
-                                   - (delta_tower3_x - x) * (delta_tower3_x - x)
-                                   - (delta_tower3_y - y) * (delta_tower3_y - y)
-                                  ) + z);
-    CORELOOP                              
-#else
-    // test segmentation work
-    x2[0] = int32_t(stepmmx[0] * x);
-    x2[1] = int32_t(stepmmx[1] * y);
-    x2[2] = int32_t(stepmmx[2] * z);
-#endif
-  }
-#ifdef output_enable
-  zprintf(PSTR("transform delta : %f %f %f -> %d %d %d\n"), ff(x), ff(y), ff(z), fi(x2[0]), fi(x2[1]), fi(x2[2]));
-#endif
-}
 
 float xc[3];
 int32_t estep,ctotalseg, ctotalstep, cbsdx[3];
@@ -1157,7 +1072,7 @@ void otherloop(int r) {
   if (r && m && (mctr < 6)) {
     if (mctr == 0) {
 
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
       // delta need to check if totalseg
       if (xtotalseg > 0) {
         // next segment
@@ -1181,7 +1096,7 @@ NEWMOVE:
       }
     }
     else {
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
       if (xtotalseg > 0)calculate_delta_steps(mctr); else r = startmove();
 #else
       r = startmove();
@@ -1195,7 +1110,7 @@ NEWMOVE:
   if (m && (mctr < 6)) {
     if (mctr == 0) {
 
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
       // delta need to check if totalseg
       if (xtotalseg > 0) {
       } else
@@ -1212,7 +1127,7 @@ NEWMOVE:
     }
     else {
       // call preparation early 15 steps, i think its enough
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
       if (xtotalseg > 0)calculate_delta_steps(mctr); else r = startmove();
 #else
       r = startmove();
@@ -1320,16 +1235,18 @@ void startmovestep(int s)
     if (wm->rampdown)wacdn = -((int32_t)(wm->fn  - wm->fe ) << INVSCALE ) / (float)wm->rampdown;
     STEPBREAK
 
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
     // DELTA HERE
     // calculate first movement
     //STEP
     STEPCASE(3)
     stepperseg = (m->status & 8) ? 200 : 50;
     // if homing or just z move then no segmentation
-    if (ishoming || ((wm->dx[0] == 0) && (wm->dx[1] == 0)))wxtotalseg = 1; else {
+    if SINGLESEGMENT wxtotalseg = 1; else {
       wxtotalseg = 1 + (wtotalstep / stepperseg);
     }
+
+
     wbsdx3 = abs((wm->dx[3]) / wxtotalseg);
     wsx3 = wm->dx[3] < 0 ? -1 : 1;
     ts = 1.f / (wxtotalseg);
@@ -1403,7 +1320,7 @@ void startmovestep(int s)
     mctr2 = mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0; //mctr >> 1;
     tail = wt;
 
-#ifdef DRIVE_DELTA
+#ifdef NONLINEAR
     // i dont know how to break this because previous move still running and they still use the variables. especially the totalseg value
     sx[3] = wsx3;
     bsdx[3] = wbsdx3;
@@ -1598,10 +1515,9 @@ void homing()
   }
   checkendstop = ce01 = 0;
 
-#ifdef DRIVE_DELTA
-  cx1 = 0;
-  cy1  = 0;
-  cz1 = ax_max[2] * 0.1;
+#ifdef NONLINEAR
+
+NONLINEARHOME
 
 #else
 #ifdef xmax_pin
