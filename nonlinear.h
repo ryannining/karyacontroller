@@ -12,11 +12,7 @@ extern float sqrt3(float x);
 
 
 
-#ifdef USETIMER1
-#define CORELOOP
-#else
 #define CORELOOP if(m)motionloop();
-#endif
 
 
 #ifdef NONLINEAR

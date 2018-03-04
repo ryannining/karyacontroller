@@ -48,11 +48,7 @@
 // repetier 1
 #define JERK2 //repetier style jerk
 
-#ifdef USETIMER1
-#define CLOCKCONSTANT 2000000.f
-#else
 #define CLOCKCONSTANT 1000000.f
-#endif
 
 
 
@@ -863,7 +859,6 @@ int32_t timing = 0;
 int coreloop1() {
   if (!m || (mctr <= 0))return 0;
 
-#ifndef USETIMER1
 #ifdef ISPC
   if (1) {
     dographics();
@@ -876,10 +871,6 @@ int coreloop1() {
 #endif
     nextmicros = cm;
 
-#endif
-
-#else // not USETIMER1
-  {
 #endif
 
     bresenham(0);
@@ -969,21 +960,17 @@ int busy = 0;
 // ===============================================
 int motionloop() {
   int  r;
-#ifndef USETIMER1
   if (busy)return 0;
   busy = 1;
   cm = micros();
   if (!m ) r = startmove(); else
-#endif
   {
     r = coreloop1();
     if (mctr > 0)timer_set(dl);
   }
-#ifndef USETIMER1
   // for auto start motion when idle
   otherloop(r);
   busy = 0;
-#endif //USETIMER1  
   return r;
 }
 
