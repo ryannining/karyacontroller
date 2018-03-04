@@ -69,13 +69,13 @@ extern int xyjerk,accel;
 extern int mvaccel;
 extern int  maxf[4];
 extern int32_t dlp, dl;
-extern float stepmmx[4];
+extern float stepmmx[4],xyscale;
 extern tmove move[NUMBUFFER];
 extern float cx1, cy1, cz1, ce01;
 extern uint8_t head, tail;
 extern int8_t checkendstop;
 extern int8_t endstopstatus[3];
-extern uint16_t ax_max[3];
+extern float ax_max[3];
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 
@@ -169,12 +169,7 @@ extern tmove* m;
 #define fmax(a,b) a<b?b:a
 #define fmin(a,b) a>b?b:a
 
-#ifdef USETIMER1
-#define domotionloop somedelay(10);
-//SEI ;otherloop(0);
-#else // timer1
 #define domotionloop motionloop();
-#endif
 
 #endif
 

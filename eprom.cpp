@@ -28,6 +28,7 @@ float EEMEM EE_xstepmm;
 float EEMEM EE_ystepmm;
 float EEMEM EE_zstepmm;
 float EEMEM EE_estepmm;
+float EEMEM EE_xyscale;
 
 #ifdef USE_BACKLASH
 int32_t EEMEM EE_xbacklash;
@@ -49,9 +50,9 @@ float EEMEM EE_towerc_ofs;
 void reload_eeprom() {
   eepromcommit;
   
-  ax_max[0] = (float)eepromread(EE_xmax) * 0.01;
-  ax_max[1] = (float)eepromread(EE_ymax) * 0.01;
-  ax_max[2] = (float)eepromread(EE_zmax) * 0.01;
+  ax_max[0] = (float)eepromread(EE_xmax) * 0.001;
+  ax_max[1] = (float)eepromread(EE_ymax) * 0.001;
+  ax_max[2] = (float)eepromread(EE_zmax) * 0.001;
   accel = eepromread(EE_accelx);
 
   mvaccel = eepromread(EE_mvaccelx);
@@ -68,6 +69,7 @@ void reload_eeprom() {
 
   xyjerk=eepromread(EE_jerk);
   homingspeed=eepromread(EE_homing);
+  xyscale = (float)eepromread(EE_xyscale) * 0.001;
 #ifdef NONLINEAR
   delta_radius= (float)eepromread(EE_hor_radius)   * 0.001;
   delta_diagonal_rod= (float)eepromread(EE_rod_length)   * 0.001;
@@ -109,6 +111,7 @@ void reset_eeprom() {
 
   eepromwrite(EE_homing,homingspeed);
   eepromwrite(EE_jerk,xyjerk);
+  eepromwrite(EE_xyscale,xyscale);
 #ifdef NONLINEAR
   eepromwrite(EE_hor_radius,ff(delta_radius));
   eepromwrite(EE_rod_length,ff(delta_diagonal_rod));

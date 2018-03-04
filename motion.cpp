@@ -81,11 +81,11 @@ uint8_t homeoffset[4] ;
 uint8_t xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
-float f_multiplier, e_multiplier;
+float xyscale,f_multiplier, e_multiplier;
 int xyjerk,accel;
 int i;
 int mvaccel;
-uint16_t ax_max[3];
+float ax_max[3];
 float stepdiv, stepdiv2;
 int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
@@ -152,7 +152,7 @@ float sqrt7(float x)
 }
 
 #ifdef __AVR__
-#define sqrt32(n) sqrt3(n)
+#define sqrt32(n) sqrt7(n)
 //#define sqrt32(n) sqrt(n)
 #elif defined(__ARM__)
 #define sqrt32(n) sqrt(n)
@@ -160,7 +160,7 @@ float sqrt7(float x)
 #define sqrt32(n) sqrt(n)
 #else
 // for PC
-#define sqrt32(n) sqrt3(n)
+#define sqrt32(n) sqrt7(n)
 //#define sqrt32(n) sqrt(n)
 #endif
 
@@ -178,6 +178,7 @@ void reset_motion() {
   // 650bytes code
   homingspeed = HOMINGSPEED;
   xyjerk=XYJERK;
+  xyscale=1;
   ishoming = 0;
   e_multiplier = f_multiplier = 1;
   checkendstop = 0;
@@ -224,9 +225,9 @@ void reset_motion() {
   stepmmx[2] = ZSTEPPERMM;
   stepmmx[3] = E0STEPPERMM;
 
-  ax_max[0] = XMAX * 10;
-  ax_max[1] = YMAX * 10;
-  ax_max[2] = ZMAX * 10;
+  ax_max[0] = XMAX;
+  ax_max[1] = YMAX;
+  ax_max[2] = ZMAX;
 
   xback[0] = MOTOR_X_BACKLASH;
   xback[1] = MOTOR_Y_BACKLASH;
@@ -614,6 +615,7 @@ void addmove(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , in
 
 
   int32_t x2[4];
+  XYSCALING  
   if (head == tail) {
     //zprintf(PSTR("Empty !\n"));
   }
@@ -975,12 +977,8 @@ int motionloop() {
 }
 
 void otherloop(int r) {
-#ifdef USETIMER1
-  cm = micros();
-#endif
 
   // NON TIMER
-#ifndef USETIMER1
   if (r && m && (mctr < 11)) {
     if (mctr == 0) {
 
@@ -1016,40 +1014,6 @@ NEWMOVE:
 
     }
   }
-#else //ifndef USETIMER1  
-  // TIMER ===================================================
-  if (!m) startmove();
-  if (m && (mctr < 11)) {
-    if (mctr == 0) {
-
-#ifdef NONLINEAR
-      // delta need to check if totalseg
-      if (xtotalseg > 0) {
-      } else
-#endif //delta
-      {
-        // coreloop ended, check if there is still move ahead in the buffer
-        //zprintf(PSTR("Finish:%d %f\n"), fi(mctr2), ff(fctr));
-
-        m->status = 0;
-        if (m->fe == 0)f = 0;
-        m = 0;
-        //startmove();
-      }
-    }
-    else {
-      // call preparation early 15 steps, i think its enough
-#ifdef NONLINEAR
-      zprintf(PSTR("CC:%d \n"),mctr);  
-      if (xtotalseg > 0)calculate_delta_steps(mctr); else r = startmove();
-#else
-      r = startmove();
-#endif
-
-    }
-  }
-
-#endif
 #ifndef ISPC
 
   // this both check take 8us
@@ -1095,11 +1059,6 @@ void calculate_delta_steps(int s) {
 //  zprintf(PSTR("\nSEG PRECALC %d\n"), s);
 #endif
 
-#ifdef USETIMER1
-#define STEPCASE(n) //zprintf(PSTR("Step %d\n"),fi(n));
-#define STEPBREAK
-  {
-#else // TIMER1
 #define STEPCASE(n) case n:    //zprintf(PSTR("\nCStep %d\n"),fi(n));
 
 #define STEPBREAK if(s>-1)break;
@@ -1108,8 +1067,6 @@ void calculate_delta_steps(int s) {
     case -1:
       //zprintf(PSTR("\nSEGPRECALC %d\n"), fi(s));
       //      getch();
-
-#endif
 
     STEPCASE(4)
     // STEP 1
@@ -1154,16 +1111,6 @@ void calculate_delta_steps(int s) {
     STEPBREAK
     STEPCASE(0)
     // STEP 5 FINAL
-#ifdef USETIMER1
-    // wait until mctr = 0
-    //zprintf(PSTR("C0A\n"));
-    while (mctr) {
-      //SEI
-      somedelay(15);
-      //CLI
-    }
-    //zprintf(PSTR("C0B\n"));
-#endif
     CLI
     MEMORY_BARRIER()
     memcpy(sx, csx, sizeof csx);
@@ -1203,17 +1150,10 @@ int32_t startmove()
     //m = 0; wm = 0; mctr = 0; // thi cause bug on homing delta
     return 0;
   }
-#ifdef USETIMER1
-  if (m && (mctr < 1)) {
-    //if ((mctr>0) && (nextbuff(tail)==head)) return 0;
-    startmovestep(mctr);
-  }
-#else
   if (wm || (m && (mctr == 10))) {
     startmovestep(mctr);
     return !mctr;
   }
-#endif
   // last calculation
   if (m ) return 0; // if empty then exit
   // if no precalculation, then calculate all
@@ -1226,11 +1166,6 @@ int32_t startmove()
 // break start move in some 5 steps to prevent long delay
 void startmovestep(int s)
 {
-#ifdef USETIMER1
-#define STEPCASE(n) //zprintf(PSTR("Step %d\n"),fi(n));
-#define STEPBREAK
-  {
-#else // TIMER1
 #define STEPCASE(n) case n:    //zprintf(PSTR("\nStep %d\n"),fi(n));
 
 #define STEPBREAK if(s>-1)break;
@@ -1239,8 +1174,6 @@ void startmovestep(int s)
     case -1:
       //zprintf(PSTR("\nPRECALC %d\n"), fi(s));
       //      getch();
-
-#endif
     STEPCASE(10)
     // STEP 1
     wt = nextbuff(tail);
@@ -1327,20 +1260,6 @@ void startmovestep(int s)
     STEPBREAK
     STEPCASE(0)
     // FINAL ?
-#ifdef USETIMER1
-    // wait until mctr = 0
-    //zprintf(PSTR("C0A\n"));
-    LOOP_IN(1)
-    MEMORY_BARRIER()
-    while (mctr) {
-      //SEI
-      MEMORY_BARRIER()
-      somedelay(55);
-      //CLI
-    }
-    LOOP_OUT(1)
-    //zprintf(PSTR("C0B\n"));
-#endif
     CLI
     MEMORY_BARRIER()
     m = wm;
@@ -1560,19 +1479,19 @@ NONLINEARHOME
 
 #else
 #ifdef xmax_pin
-  cx1 = ax_max[0] * 0.1;
+  cx1 = ax_max[0];
 #else
   cx1 = 0;
 #endif
 
 #ifdef ymax_pin
-  cy1 = ax_max[1] * 0.1;
+  cy1 = ax_max[1];
 #else
   cy1  = 0;
 #endif
 
 #ifdef zmax_pin
-  cz1 = ax_max[2] * 0.1;
+  cz1 = ax_max[2];
 #else
   cz1 = 0;
 #endif
@@ -1607,9 +1526,6 @@ void waitbufferempty()
 
     domotionloop
     MEMORY_BARRIER()
-#ifdef USETIMER1
-    if (mctr < 6)startmove(); else somedelay(350);
-#endif
     //zprintf(PSTR("->%d\n"), fi(mctr));
   }
   LOOP_OUT(2)
@@ -1636,9 +1552,6 @@ void needbuffer()
     while (t == tail) {
       domotionloop
       MEMORY_BARRIER()
-#ifdef USETIMER1
-      if (mctr < 6)startmove(); else somedelay(150);
-#endif
       //zprintf(PSTR("%d\n"), fi(mctr));
     }
     //xprintf(PSTR("Done\n"));
@@ -1663,9 +1576,6 @@ void initmotion() {
   disableDebugPorts();
 #endif
 
-#ifdef USETIMER1
-  timer_init();
-#endif
   reset_motion();
   preparecalc();
   dl = 5000;

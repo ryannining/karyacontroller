@@ -28,8 +28,8 @@ void sendf_P(PGM_P format_P, ...);
 
 #define zprintf   sendf_P
 
-#define ff(f) (int32_t)(f)*1000
-#define fg(f) (int32_t)(f)*100
+#define ff(f) int32_t(f*1000)
+#define fg(f) int32_t(f*100)
 #define fi(f) (int32_t)f
 
 

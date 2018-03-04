@@ -75,6 +75,45 @@
 
 /*
   ============================================================================================
+     BOARD_NANONANO
+  ============================================================================================
+*/
+#elif defined(BOARD_NANONANO_DELTA_NOSD)
+
+#define xenable 2
+#define xdirection 6
+#define xstep 4
+
+#define yenable 7
+#define ydirection 9
+#define ystep 8
+
+#define zenable 10
+#define zdirection A5
+#define zstep A4
+
+#define e0enable 5
+#define e0direction A2
+#define e0step A3
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+#define xmin_pin A1
+#define ymin_pin A0
+#define zmax_pin 13
+#define temp_pin 6 //analog 6 because we use ISR
+#define heater_pin 3
+
+#define ISRTEMP
+#define NUMBUFFER 8
+/*
+  ============================================================================================
      BOARD_NANONANO_DELTA
   ============================================================================================
 */

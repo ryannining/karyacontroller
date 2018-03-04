@@ -4,11 +4,7 @@
     =================================================================================================================================================
 */
 
-
-extern float sqrt7(float x);
-extern float sqrt3(float x);
-
-
+#define SQRT sqrt
 
 
 
@@ -48,6 +44,7 @@ extern float F_SCALE;
 
 // maybe we should use fixed point to increase performance, or make all already multiplied with the steppermm (steppermm as the pixed point multiplicator)
 
+#define stepsqrt(s,n) 
 
 /* ====================================================================================================== * 
  * 
@@ -56,8 +53,9 @@ extern float F_SCALE;
  */
 
 #if defined(DRIVE_DELTA)
+#define XYSCALING   cx2*=xyscale;  cy2*=xyscale;
 
-#define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2] * 0.1;
+#define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2];
 #define SINGLESEGMENT (ishoming || ((wm->dx[0] == 0) && (wm->dx[1] == 0)))
 // only X and Y cause segmentation
 #define STEPSEGMENT fmax(labs(wm->dx[0]),labs(wm->dx[1]))
@@ -95,17 +93,17 @@ void transformdelta( float x, float y, float z) {
 
     putpixel (ex + ey * 0.3 + 250, ey * 0.3 - ez + 250, 15);
 #endif
-    x2[0]     = stepmmx[0] * (sqrt(DELTA_DIAGONAL_ROD_2
+    x2[0]     = stepmmx[0] * (SQRT(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower1_x - x)
                                    - sqr2(delta_tower1_y - y)
                                   ) + z);
 //    CORELOOP                              
-    x2[1]     = stepmmx[1] * (sqrt(DELTA_DIAGONAL_ROD_2
+    x2[1]     = stepmmx[1] * (SQRT(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower2_x - x)
                                    - sqr2(delta_tower2_y - y)
                                   ) + z);
 //    CORELOOP                              
-    x2[2]     = stepmmx[2] * (sqrt(DELTA_DIAGONAL_ROD_2
+    x2[2]     = stepmmx[2] * (SQRT(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower3_x - x)
                                    - sqr2(delta_tower3_y - y)
                                   ) + z);
@@ -133,7 +131,7 @@ void nonlinearprepare(){
   delta_radius         = (DELTA_RADIUS );
 }
 
-#define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2] * 0.1;
+#define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2];
 #define SINGLESEGMENT   (ishoming || (wm->dx[0] == 0))
 
 // only X cause segmentation
@@ -178,6 +176,7 @@ void transformdelta( float x, float y, float z) {
 
 #else // ELSE DRIVEDELTA
 #define Cstepmmx(i) stepmmx[i]
+#define XYSCALING
 #endif // DRIVEDELTA
 
 
