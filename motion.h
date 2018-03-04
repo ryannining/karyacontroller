@@ -43,6 +43,7 @@ typedef struct {
   int32_t fs, fn, fe; // all are in square ! needed to calc real accell
 #endif
 #ifdef NONLINEAR
+  //float otx[3]; // keep the original coordinate before transform
   float dtx[3]; // keep the original coordinate before transform
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform

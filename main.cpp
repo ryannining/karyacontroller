@@ -52,7 +52,7 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   xprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  demofile();
+  //demofile();
   demo();
   xprintf (PSTR("WAIT\n"));
   waitbufferempty();
@@ -102,9 +102,9 @@ void demo() {
   fscale=3;
   int f = 100;
   amove(40, 10, 0, 0, 0);
-  amove(40, 20, 10, 0, 0);
-  amove(40, 30, 20, 0, 0);
-  amove(40, 40, 30, 0, 0);
+  amove(40, 20, 0, 0, 0);
+  amove(40, 30, 0, 0, 0);
+  amove(40, 40, 0, 0, 0);
 /*  
   amove(30, 10, -10, 0, 0);
   amove(30, 25, 0, 0, 1);

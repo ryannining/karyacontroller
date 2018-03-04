@@ -5,8 +5,8 @@
 */
 
 
-
-
+extern float sqrt7(float x);
+extern float sqrt3(float x);
 
 
 
@@ -46,6 +46,7 @@ float delta_tower2_y ;
 float delta_tower3_x ;
 float delta_tower3_y ;
 
+extern float F_SCALE;
 
 
 
@@ -62,6 +63,8 @@ float delta_tower3_y ;
 
 #define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2] * 0.1;
 #define SINGLESEGMENT (ishoming || ((wm->dx[0] == 0) && (wm->dx[1] == 0)))
+// only X and Y cause segmentation
+#define STEPSEGMENT fmax(labs(wm->dx[0]),labs(wm->dx[1]))
 
 void nonlinearprepare(){
   DELTA_DIAGONAL_ROD_2 = delta_diagonal_rod * delta_diagonal_rod;
@@ -110,7 +113,8 @@ void transformdelta( float x, float y, float z) {
                                    - sqr2(delta_tower3_x - x)
                                    - sqr2(delta_tower3_y - y)
                                   ) + z);
-//    CORELOOP                              
+//    CORELOOP
+    //F_SCALE=DELTA_DIAGONAL_ROD_2/(sqr2(delta_radius)+x*x+y*y);
   }
 #ifdef output_enable
   zprintf(PSTR(": %f %f %f -> %d %d %d\n"), ff(x), ff(y), ff(z), fi(x2[0]), fi(x2[1]), fi(x2[2]));
@@ -135,6 +139,9 @@ void nonlinearprepare(){
 
 #define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2] * 0.1;
 #define SINGLESEGMENT   (ishoming || (wm->dx[0] == 0))
+
+// only X cause segmentation
+#define STEPSEGMENT labs(wm->dx[0])
 
 void transformdelta( float x, float y, float z) {
 #ifdef output_enable
