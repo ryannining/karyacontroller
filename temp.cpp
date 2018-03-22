@@ -143,7 +143,7 @@ int v=0;
       analogWrite(heater_pin, Output*17/20);
       #endif
       if (wait_for_temp ) 
-      zprintf(PSTR("Temp:%f PID:%f\n"), ff(Input),ff(Output));
+      zprintf(PSTR("Temp:%f @%f\n"), ff(Input),ff(Output));
 
 #endif
     }

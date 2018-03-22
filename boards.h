@@ -155,9 +155,9 @@
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
 #define NUMBUFFER 6
-//#define SDCARD_CS 10
+#define SDCARD_CS 10
 //#define INVERTENDSTOP // uncomment for normally open
-//#define KBOX_PIN 7
+#define KBOX_PIN 7
 
 #define ISRTEMP
 /*
@@ -206,7 +206,7 @@
 #define KBOX_PIN 7
 //#define USETIMER1
 
-#define NUMBUFFER 13
+#define NUMBUFFER 8
 
 /*
   ============================================================================================
@@ -400,7 +400,12 @@
 #define DRIVE_DELTA
 #undef ISRTEMP // 120bytes check board.h
 //#define INVERTENDSTOP // uncomment for normally open
-#define NUMBUFFER 6
+#define NUMBUFFER 10
+#define MOTOR_0_DIR 1 // 1: normal -1:inverted
+#define MOTOR_1_DIR 1 // 1: normal -1:inverted
+#define MOTOR_2_DIR 1 // 1: normal -1:inverted
+#define MOTOR_3_DIR -1 // 1: normal -1:inverted
+
 
 /*
   ============================================================================================

@@ -7,9 +7,11 @@
 #define SQRT sqrt
 
 
-
-#define CORELOOP if(m)motionloop();
-
+#ifdef USETIMER1
+#define CORELOOP 
+#else
+#define CORELOOP coreloopm();
+#endif
 
 #ifdef NONLINEAR
 
@@ -21,9 +23,12 @@
 #define Cstepmmx(i) FIXED2
 
 // 200 = on G0, 50 on G1 ~ 200 =2mm, 50 = 0.5mm
-#define STEPPERSEGMENT 300 : 100
+// Travel : print
+// actually this doesnot effect the buffer, so make it as low as minimum (15step) is no problem.
+// since the actual motor step maybe not 100 then the minimum is 15
+#define STEPPERSEGMENT 100
 
-extern int32_t x2[4];
+extern int32_t x2[NUMAXIS];
 
 float sgx[NUMAXIS]; // increment delta each segment
 
@@ -56,9 +61,9 @@ extern float F_SCALE;
 #define XYSCALING   cx2*=xyscale;  cy2*=xyscale;
 
 #define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2];
-#define SINGLESEGMENT (ishoming || ((wm->dx[0] == 0) && (wm->dx[1] == 0)))
+#define SINGLESEGMENT (ishoming || ((m->dx[0] == 0) && (m->dx[1] == 0)))
 // only X and Y cause segmentation
-#define STEPSEGMENT fmax(labs(wm->dx[0]),labs(wm->dx[1]))
+#define STEPSEGMENT fmax(labs(m->dx[0]),labs(m->dx[1]))
 
 void nonlinearprepare(){
   DELTA_DIAGONAL_ROD_2 = delta_diagonal_rod * delta_diagonal_rod;
@@ -73,10 +78,11 @@ void nonlinearprepare(){
 
 }
   
-void transformdelta( float x, float y, float z) {
+void transformdelta( float x, float y, float z, float e) {
 #ifdef output_enable
-  zprintf(PSTR("transform delta "));
+  //zprintf(PSTR("transform delta "));
 #endif
+    x2[3]     = stepmmx[3] *e;
   if (ishoming)
   {
     // when homing, no transform
@@ -97,21 +103,21 @@ void transformdelta( float x, float y, float z) {
                                    - sqr2(delta_tower1_x - x)
                                    - sqr2(delta_tower1_y - y)
                                   ) + z);
-//    CORELOOP                              
+    CORELOOP                              
     x2[1]     = stepmmx[1] * (SQRT(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower2_x - x)
                                    - sqr2(delta_tower2_y - y)
                                   ) + z);
-//    CORELOOP                              
+    CORELOOP                              
     x2[2]     = stepmmx[2] * (SQRT(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower3_x - x)
                                    - sqr2(delta_tower3_y - y)
                                   ) + z);
-//    CORELOOP
+    CORELOOP
     //F_SCALE=DELTA_DIAGONAL_ROD_2/(sqr2(delta_radius)+x*x+y*y);
   }
 #ifdef output_enable
-  zprintf(PSTR(": %f %f %f -> %d %d %d\n"), ff(x), ff(y), ff(z), fi(x2[0]), fi(x2[1]), fi(x2[2]));
+  //zprintf(PSTR(": %f %f %f -> %d %d %d\n"), ff(x), ff(y), ff(z), fi(x2[0]), fi(x2[1]), fi(x2[2]));
 #endif
 }
 
@@ -132,15 +138,16 @@ void nonlinearprepare(){
 }
 
 #define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2];
-#define SINGLESEGMENT   (ishoming || (wm->dx[0] == 0))
+#define SINGLESEGMENT   (ishoming || (m->dx[0] == 0))
 
 // only X cause segmentation
-#define STEPSEGMENT labs(wm->dx[0])
+#define STEPSEGMENT labs(m->dx[0])
 
-void transformdelta( float x, float y, float z) {
+void transformdelta( float x, float y, float z,float e) {
 #ifdef output_enable
   zprintf(PSTR("transform delta "));
 #endif
+    x2[3]     = stepmmx[3] *e;
   if (ishoming)
   {
     // when homing, no transform
@@ -159,11 +166,11 @@ void transformdelta( float x, float y, float z) {
     x2[0]     = stepmmx[0] * (sqrt(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower1_x - x)
                                   ) + z);
-//    CORELOOP                              
+    CORELOOP                              
     x2[2]     = stepmmx[2] * (sqrt(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower2_x - x)
                                   ) + z);
-//    CORELOOP                              
+   CORELOOP                              
     x2[1] = int32_t(stepmmx[1] * y);
   }
 #ifdef output_enable
@@ -177,7 +184,9 @@ void transformdelta( float x, float y, float z) {
 #else // ELSE DRIVEDELTA
 #define Cstepmmx(i) stepmmx[i]
 #define XYSCALING
+//#define fmul 1
 #endif // DRIVEDELTA
+
 
 
 

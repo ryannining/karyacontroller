@@ -20,9 +20,7 @@ extern uint32_t micros();
 
 extern uint32_t	next_step_time;
 extern void timer_init();
-extern void timer_stop();
-extern void timer_reset();
-extern uint8_t timer_set(int32_t delay);
+extern  void timer_set(uint16_t delay);
 
 
 #ifndef MASK
@@ -34,12 +32,17 @@ extern uint8_t timer_set(int32_t delay);
 #ifdef USETIMER1
 #ifdef __AVR__
 #define MEMORY_BARRIER() __asm volatile( "" ::: "memory" );
-#define CLI
-//MEMORY_BARRIER() 
-//cli();
-#define SEI 
-//sei();
+#define CLI cli();
+#define SEI sei();
 
+#define ATOMIC_START { \
+                       uint8_t save_reg = SREG; \
+                       cli(); \
+                       MEMORY_BARRIER();
+
+#define ATOMIC_END   MEMORY_BARRIER(); \
+                     SREG = save_reg; \
+                   }
 #endif
 #endif
 
@@ -48,4 +51,6 @@ extern uint8_t timer_set(int32_t delay);
 #define CLI
 #define SEI
 #define MEMORY_BARRIER()
+#define ATOMIC_START
+#define ATOMIC_END
 #endif

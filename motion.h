@@ -22,14 +22,13 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-#define UPDATE_F_EVERY 2000 //us
+//#define UPDATE_F_EVERY 2000 //us
 
 
 
 
 typedef struct {
-  uint8_t cmd  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
-  uint16_t dly;
+  uint16_t cmddly  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor  
 } tcmd;
 
 
@@ -44,7 +43,7 @@ typedef struct {
 #endif
 #ifdef NONLINEAR
   //float otx[3]; // keep the original coordinate before transform
-  float dtx[3]; // keep the original coordinate before transform
+  float dtx[NUMAXIS]; // keep the original coordinate before transform
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
   int32_t rampup;
@@ -76,6 +75,9 @@ extern uint8_t head, tail;
 extern int8_t checkendstop;
 extern int8_t endstopstatus[3];
 extern float ax_max[3];
+//extern int8_t lsx[4];
+extern int8_t  sx[NUMAXIS];
+
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 
@@ -98,6 +100,7 @@ extern int motionloop();
 
 extern void init_pos();
 extern int coreloop();
+extern int coreloopm();
 extern void otherloop(int r);
 extern void waitbufferempty();
 extern void needbuffer();

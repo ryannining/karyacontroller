@@ -3,12 +3,18 @@
     AVR
   ============================================================================================
 */
+
 #include "motion.h"
 #ifndef ISPC
 #include<arduino.h>
 
 //Known board in boards.h
 #define ISRTEMP // 120bytes check board.h
+#define MOTOR_0_DIR -1 // 1: normal -1:inverted
+#define MOTOR_1_DIR -1 // 1: normal -1:inverted
+#define MOTOR_2_DIR -1 // 1: normal -1:inverted
+#define MOTOR_3_DIR 1 // 1: normal -1:inverted
+
 
 // ==========================================================
 #if defined(__AVR__)
@@ -51,12 +57,11 @@
   ============================================================================================
 */
 
-//#define BACKPLANNER // 852Bytes code !
-#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
+#define BACKPLANNER // 852Bytes code !
+#define BACKPLANNERRATIO 2 // twice acceleration
+//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
-//#define USETIMER1 // Work in progress // 98 bytes
-
-// FLASH SAVING
+#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
 //#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
 
 // ==========================================================
@@ -75,12 +80,12 @@
 #endif
 
 
-#define motortimeout 10000000 // 10 seconds
+//#define motortimeout 10000000 // 10 seconds
 
 //#define DRIVE_COREXY
 //#define DRIVE_COREXZ
 
-#define DRIVE_DELTA
+//#define DRIVE_DELTA
 //#define DRIVE_DELTASIAN
 
 
@@ -106,22 +111,22 @@
 #define ZOFFSET 0
 #define EOFFSET 0
 
-#define XYJERK 20
-#define XACCELL 100
+#define XYJERK 15
+#define XACCELL 300
 #define XMOVEACCELL 600
 
-#define XMAXFEEDRATE 100
-#define YMAXFEEDRATE 100
-#define ZMAXFEEDRATE 100
-#define E0MAXFEEDRATE 10
+#define XMAXFEEDRATE 80
+#define YMAXFEEDRATE 80
+#define ZMAXFEEDRATE 80
+#define E0MAXFEEDRATE 20
 
-#define XSTEPPERMM 100//131//178
-#define YSTEPPERMM 100//175//125
-#define ZSTEPPERMM 100//1020//1020 //420
-#define E0STEPPERMM 100//340//380
+#define XSTEPPERMM 400//131//178
+#define YSTEPPERMM 400//175//125
+#define ZSTEPPERMM 400//1020//1020 //420
+#define E0STEPPERMM 720//340//380
 
 #ifndef NUMBUFFER
-#define NUMBUFFER 22
+#define NUMBUFFER 6
 #endif
 
 #define XMAX 0
@@ -135,11 +140,6 @@
 
 //#define AUTO_MOTOR_Z_OFF
 
-
-#define MOTOR_0_DIR 1 // 1: normal -1:inverted
-#define MOTOR_1_DIR 1 // 1: normal -1:inverted
-#define MOTOR_2_DIR 1 // 1: normal -1:inverted
-#define MOTOR_3_DIR 1 // 1: normal -1:inverted
 
 
 //#define INVERTENDSTOP // uncomment for normally open

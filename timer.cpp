@@ -6,17 +6,19 @@
 #include "motion.h"
 
 
-int somedelay(int32_t n) {
-  float f = 0;
-  int m=1;
-  
-  //while (m--) {
-  int nn=n;
-  while (nn--) {
-    f +=n;
-    asm("");
-  }//}
-  return f + n;
+int somedelay(int32_t n)
+{
+    float f = 0;
+    int m=1;
+
+    while (m--) {
+        int nn=n;
+        while (nn--) {
+            f +=n;
+            asm("");
+        }
+    }
+    return f + n;
 }
 
 //#define somedelay(n) delayMicroseconds(n);
@@ -31,27 +33,28 @@ int dogfeed = 0;
 #include<sys/time.h>
 uint32_t micros()
 {
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  return 1000000 * tv.tv_sec + tv.tv_usec;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return 1000000 * tv.tv_sec + tv.tv_usec;
 }
 
 #endif
 
-int feedthedog() {
-  if (dogfeed++ > dogfeedevery) {
-    dogfeed = 0;
+int feedthedog()
+{
+    if (dogfeed++ > dogfeedevery) {
+        dogfeed = 0;
 #if defined(__AVR__)
-    // AVR specific code here
+        // AVR specific code here
 #elif defined(ESP8266)
-    // ESP8266 specific code here
-    ESP.wdtFeed();
+        // ESP8266 specific code here
+        ESP.wdtFeed();
 #else
 #endif
-    //xprintf(PSTR("Feed the dog\n"));
-    return 1;
-  }
-  return 0;
+        //xprintf(PSTR("Feed the dog\n"));
+        return 1;
+    }
+    return 0;
 }
 
 
@@ -62,41 +65,47 @@ uint32_t	next_step_time;
 #ifdef __AVR__
 #define USETIMEROK
 int busy1 = 0;
-ISR(TIMER1_COMPA_vect) {
-  if (busy1) {
-    zprintf(PSTR("Busy %d\n"),fi(dl));
-    return;
-  }
-  busy1 = 1;
-  TIMSK1 &= ~(1 << OCIE1A);
-
-  // stepper tick
-  motionloop();
-  busy1 = 0;
+uint16_t ndelay;
+ISR(TIMER1_COMPA_vect)
+{
+    if (busy1) {
+#ifdef output_enable
+        zprintf(PSTR("Busy %d\n"),fi(delay));
+#endif
+        zprintf(PSTR("Busy %d\n"),fi(delay));
+        return;
+    }
+    busy1 = 1;
+    CLI
+    //TIMSK1 &= ~(1 << OCIE1A);
+    ndelay =240;
+    // stepper tick
+    coreloopm();
+    TCNT1 =0;
+    OCR1A=(ndelay);
+    //TIMSK1 |= (1 << OCIE1A);
+    busy1 = 0;
+    //zprintf(PSTR("%d\n"),fi(ndelay));
+    SEI
 }
 
-void timer_init() {
-  TCCR1A = 0;// set entire TCCR1A register to 0
-  TCCR1B = 0;// same for TCCR1B
-  TIMSK1 = 0;
-  TCCR1A = 0;// set entire TCCR1A register to 0
-  TCCR1B = (1 << WGM12) | (1 << CS11);
-  TCNT1  = 0;//initialize counter value to 0
-
+ void timer_set(uint16_t delay)
+{
+#ifdef output_enable
+    zprintf(PSTR("TmSet %d\n"),fi(delay));
+#endif    
+    ndelay = delay;
+}
+void timer_init()
+{
+    TCCR1A = 0;  // Steup timer 1 interrupt to no prescale CTC mode
+    TIMSK1 = 0;
+    TCNT1 =0;
+    TCCR1B = (1 << CS10); // no prescaler == 0.0625 usec tick | 001 = clk/1
+    OCR1A  =65500; //start off with a slow frequency.
+    TIMSK1 |= (1<<OCIE1A); // Enable interrupt
 }
 
-void timer_stop() {
-  // disable all interrupts
-  TIMSK1 = 0;
-}
-void timer_reset() {
-}
-uint8_t timer_set(int32_t delay) {
-  noInterrupts();  
-  OCR1A = delay; // = (16*10^6) / (1*1024) - 1 (must be <65536)
-  TIMSK1 |= (1 << OCIE1A);
-  interrupts();
-}
 #endif
 
 #endif
@@ -104,8 +113,6 @@ uint8_t timer_set(int32_t delay) {
 
 //#elif defined(__ARM__)//avr
 #ifndef USETIMEROK
-void timer_init() {};
-void timer_stop() {};
-void timer_reset() {};
-uint8_t timer_set(int32_t delay) {};
+    void timer_init() {};
+     void timer_set(int32_t delay) {};
 #endif

@@ -52,8 +52,8 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   xprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  //demofile();
-  demo();
+  demofile();
+  //demo();
   xprintf (PSTR("WAIT\n"));
   waitbufferempty();
   xprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -63,19 +63,20 @@ void demofile() {
   #define fn "d:/git/hipopotamo.gcode"
   //#define fn "d:/git/bowdenlock.gcode" 
   //#define fn "d:/3d/fish_fossilz.gcode"
+  //#define fn "d:/3d/cube20.gcode"
 
   //#define fn "d:/3d/box1cm.gcode" 
   FILE *file = fopen(fn,"r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 10;
+  graphscale = 7;
   tickscale=200;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l=0;
   while ((c = fgetc(file)) != EOF) {
-    //if (l>60)break;
+    //if (l>35)break;
     if (c == ';')comment = 1;
     code[n++] = (char) c;
     if (c == '\n') {
@@ -97,14 +98,13 @@ void demofile() {
 }
 
 void demo() {
-  graphscale = 20;
+  graphscale = 10;
   tickscale=160;
   fscale=3;
   int f = 100;
-  amove(40, 10, 0, 0, 0);
-  amove(40, 20, 0, 0, 0);
-  amove(40, 30, 0, 0, 0);
-  amove(40, 40, 0, 0, 0);
+  amove(80, 20, 0, 0, 1);
+  amove(80, 50, 0, 0, 2);
+  amove(15, 50, 0, 0, -1);
 /*  
   amove(30, 10, -10, 0, 0);
   amove(30, 25, 0, 0, 1);

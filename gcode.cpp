@@ -4,6 +4,7 @@
 #include "motion.h"
 #include "config_pins.h"
 #include "temp.h"
+#include "motors.h"
 
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
 // generic sdcard add about 800uint8_t ram and 8kb code
@@ -49,7 +50,7 @@ void demoSD() {
 #ifdef USETIMER1
 #define MLOOP
 #else
-#define MLOOP if(m)motionloop();
+#define MLOOP coreloopm();
 #endif
 
 #include<stdint.h>
@@ -475,8 +476,21 @@ void process_gcode_command() {
 
         break;
 #endif
-      case 28:
-        homing();
+      case 7: // baby step in S in milimeter
+        int nstep;
+        if (next_target.seen_X) move_motor(0, sx[0],next_target.target.axis[X] * stepmmx[0]);
+        if (next_target.seen_Y) move_motor(1, sx[1],next_target.target.axis[Y] * stepmmx[1]);
+        if (next_target.seen_Z) move_motor(2, sx[2],next_target.target.axis[Z] * stepmmx[2]);
+        if (next_target.seen_S) {
+          move_motor(0, sx[0],next_target.S * stepmmx[0]);
+          move_motor(1, sx[1],next_target.S * stepmmx[1]);
+          move_motor(2, sx[2],next_target.S * stepmmx[2]);
+        }
+
+        
+        break;
+    case 28:
+      homing();
         next_target.target.axis[X] = cx1;
         next_target.target.axis[Y] = cy1;
         next_target.target.axis[Z] = cz1;
@@ -778,7 +792,7 @@ void process_gcode_command() {
               eprom_wr(165, EE_towera_ofs, S_F);
               eprom_wr(169, EE_towerb_ofs, S_F);
               eprom_wr(173, EE_towerc_ofs, S_F);
-              
+
 #endif
 #ifdef USE_BACKLASH
               eprom_wr(80, EE_xbacklash, S_I);

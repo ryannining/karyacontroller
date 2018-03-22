@@ -81,12 +81,7 @@ void gcode_loop() {
   uint32_t t1 = micros();
 #endif
 
-#ifdef USETIMER1
-  SEI
-  otherloop(0);
-#else
   if (motionloop())
-#endif
   {
 #ifdef timing
     uint32_t t2 = micros()-t1;
@@ -162,6 +157,8 @@ void setup() {
   init_gcode();
   init_temp();
   reload_eeprom();
+  timer_init();
+  SEI
   zprintf(PSTR("start\nok\n"));
 #ifdef KBOX_PIN
   pinMode(KBOX_PIN, INPUT_PULLUP);
