@@ -11,7 +11,7 @@
 #include "timer.h"
 #include "eprom.h"
 #include "motion.h"
-
+//#include "u8glib_ex.h"
 #include<stdint.h>
 
 int line_done, ack_waiting = 0;
@@ -79,11 +79,8 @@ void gcode_loop() {
   */
 #ifdef timing
   uint32_t t1 = micros();
-#endif
-
   if (motionloop())
   {
-#ifdef timing
     uint32_t t2 = micros()-t1;
     tmax=fmax(t2,tmax);
     tmin=fmin(t2,tmin);
@@ -94,8 +91,10 @@ void gcode_loop() {
       tmin=1000;
       ct = 0;
     }
-#endif
   }
+#else  
+  for (int i=0;i<5;i++){if (!motionloop())break;}
+#endif
   if (ack_waiting) {
     zprintf(PSTR("ok\n"));
     ack_waiting = 0;

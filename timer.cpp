@@ -66,34 +66,29 @@ uint32_t	next_step_time;
 #define USETIMEROK
 int busy1 = 0;
 uint16_t ndelay;
+
+
 ISR(TIMER1_COMPA_vect)
+//void tm()
 {
-    if (busy1) {
-#ifdef output_enable
-        zprintf(PSTR("Busy %d\n"),fi(delay));
-#endif
-        zprintf(PSTR("Busy %d\n"),fi(delay));
-        return;
-    }
-    busy1 = 1;
-    CLI
-    //TIMSK1 &= ~(1 << OCIE1A);
-    ndelay =240;
+    TIMSK1 &= ~(1 << OCIE1A);
+
     // stepper tick
+    //cli();
     coreloopm();
     TCNT1 =0;
-    OCR1A=(ndelay);
-    //TIMSK1 |= (1 << OCIE1A);
-    busy1 = 0;
-    //zprintf(PSTR("%d\n"),fi(ndelay));
-    SEI
+    ndelay=fmax(20,ndelay);
+    OCR1A=ndelay;
+    //sei();
+    TIMSK1 |= (1 << OCIE1A);
+    //if (ndelay>40)zprintf(PSTR("%d\n"),fi(ndelay));
 }
 
- void timer_set(uint16_t delay)
+void timer_set(uint16_t delay)
 {
 #ifdef output_enable
     zprintf(PSTR("TmSet %d\n"),fi(delay));
-#endif    
+#endif
     ndelay = delay;
 }
 void timer_init()
@@ -101,7 +96,7 @@ void timer_init()
     TCCR1A = 0;  // Steup timer 1 interrupt to no prescale CTC mode
     TIMSK1 = 0;
     TCNT1 =0;
-    TCCR1B = (1 << CS10); // no prescaler == 0.0625 usec tick | 001 = clk/1
+    TCCR1B = (1 << CS11); // no prescaler == 0.0625 usec tick | 001 = clk/1
     OCR1A  =65500; //start off with a slow frequency.
     TIMSK1 |= (1<<OCIE1A); // Enable interrupt
 }
@@ -113,6 +108,6 @@ void timer_init()
 
 //#elif defined(__ARM__)//avr
 #ifndef USETIMEROK
-    void timer_init() {};
-     void timer_set(int32_t delay) {};
+void timer_init() {};
+void timer_set(int32_t delay) {};
 #endif

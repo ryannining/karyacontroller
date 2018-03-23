@@ -27,9 +27,9 @@
 //#define BOARD_NANONANO_SDCARD
 //#define BOARD_GEN7
 //#define BOARD_RAMP13
-#define BOARD_RAMP13_DELTA
+//#define BOARD_RAMP13_DELTA
 //#define BOARD_RAMP13_3DPLEX
-//#define BOARD_NANO_3DPLEX
+#define BOARD_NANO_3DPLEX
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
 // ==========================================================
@@ -59,7 +59,7 @@
 
 #define BACKPLANNER // 852Bytes code !
 #define BACKPLANNERRATIO 2 // twice acceleration
-//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
+#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
 //#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
@@ -74,6 +74,7 @@
 #undef USEDIO
 #undef ISRTEMP
 #endif
+
 #ifdef ISPC
 #undef USETIMER1
 #undef SAVE_RESETMOTION

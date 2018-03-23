@@ -113,5 +113,6 @@
     <File Name="motors.h"/>
     <File Name="backup.cpp"/>
     <File Name="nonlinear.h"/>
+    <File Name="u8glib_ex.h"/>
   </VirtualDirectory>
 </CodeLite_Project>

@@ -26,7 +26,7 @@
 // Travel : print
 // actually this doesnot effect the buffer, so make it as low as minimum (15step) is no problem.
 // since the actual motor step maybe not 100 then the minimum is 15
-#define STEPPERSEGMENT 100
+#define STEPPERSEGMENT 50
 
 extern int32_t x2[NUMAXIS];
 

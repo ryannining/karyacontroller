@@ -29,17 +29,15 @@
 #endif
 
 
-#define MINIMUMSTEPS 5 // a path less than this steps will merged with next move, to much merged will make it ugly, normally i think this must be less that nozzle diameter steps
 #ifndef __ARM__
 #define FASTINVSQRT  // less precice speed faster 4us
 #endif
-//#define INTERPOLATEDELAY  // slower 4-8us
-#define ADVANCEEXTRUDER
+#define INTERPOLATEDELAY  // slower 4-8us
 
 
 // JERK Setting
 #define MINCORNERSPEED 2 // minimum cornering speed
-
+#define MINSTEP 0
 // Centripetal
 //#define JERK1 //centripetal corner , still not good, back to repetier style jerk
 #define DEVIATE 5//;0.02*50 - for centripetal corner safe speed
@@ -48,32 +46,23 @@
 #define JERK2 //repetier style jerk
 //#define JERK2A //repetier style jerk
 
-#ifdef USETIMER1
-#define CLOCKCONSTANT 16000000.f        // 1 PRESCALER is 16.000.000mhz
-#else
 #define CLOCKCONSTANT 1000000.f        // microseconds
+
+
+#ifdef USETIMER1
+#ifdef __AVR__
+#define DSCALE 3   // use 2Mhz timer
+#define DIRDELAY 20
+#endif
+#else
+#define DSCALE 2
+#define DIRDELAY 2
 #endif
 
 #define X 0
 #define Y 1
 #define Z 2
 #define E 3
-
-// idea: a simple ring buffer contain a simple command to 4 motor stepper
-// command: -set direction param : 4 bit send to direction pin
-//          -motor step : 4 bit, if active then send step command
-// so 2 bit command, and 4 bit for parameter
-// delay: at least for lowest 1mm/s and 100step/mm is 10000, so i think int 16 bit is enough
-// so 3 bit, and at least to prevent runout buffer because of heavy calculation, need at least
-// for 200mm/s at 100step/mm need -> 1000000/(200x100) 50us
-// and from what i see, heavy calculation need atleast 1500us, so need 30buffer x 3 =90bytes ram
-//
-// the new motion loop will read from this buffer, as simple as possible and must able to be called from anywhere code
-// this mean it will easy to port to timer interrupt model
-// ======
-// currently, i just implemented the spreading calculation in some bresenham steps to prevent long delay when a path finished
-// actually, i think the previous idea is simpler, i will implement it later.
-//
 
 
 uint8_t homingspeed;
@@ -97,7 +86,7 @@ int8_t ishoming;
 float axisofs[3] = {0, 0, 0};
 float F_SCALE = 1;
 
-float fmul, stepmmx[4];
+float stepmmx[4];
 float cx1, cy1, cz1, ce01;
 tmove move[NUMBUFFER];
 
@@ -110,6 +99,7 @@ tmove move[NUMBUFFER];
 #define INVSCALE 6
 #define INVSCALE2 (1<<(INVSCALE/2))
 
+#define xInvSqrt(f) 1/sqrt(f)
 float InvSqrt(float x)
 {
 #ifdef FASTINVSQRT
@@ -126,46 +116,9 @@ float InvSqrt(float x)
 }
 
 #define INVSCALE3 1 << INVSCALE
-//#define xInvSqrt(n) n>(INVSCALE3)?stepdiv2*InvSqrt(n):stepdiv
 #define xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
-//#define xInvSqrt2(n,stepd,stepd2) n>(INVSCALE3)?stepd2*InvSqrt(n):stepd
-//#define xInvSqrt(n) n>(INVSCALE3)?stepdiv2/sqrt(n):stepdiv
-float sqrt3(float x)
-{
-    //zprintf(PSTR("SQRT %f\n"),ff(x));
-    union {
-        int32_t i;
-        float x;
-    } u;
 
-    u.x = x;
-    u.i = (1L << 29) + (u.i >> 1) - (1L << 22);
-    return u.x;
-}
-
-// this one is faster
-float sqrt7(float x)
-{
-    uint32_t i = *(uint32_t*) &x;
-    // adjust bias
-    i  += 127 << 23;
-    // approximation of square root
-    i >>= 1;
-    return *(float*) &i;
-}
-
-#ifdef __AVR__
-#define sqrt32(n) sqrt7(n)
-//#define sqrt32(n) sqrt(n)
-#elif defined(__ARM__)
 #define sqrt32(n) sqrt(n)
-#elif defined(ESP8266)
-#define sqrt32(n) sqrt(n)
-#else
-// for PC
-#define sqrt32(n) sqrt7(n)
-//#define sqrt32(n) sqrt(n)
-#endif
 
 /*
     =================================================================================================================================================
@@ -560,7 +513,7 @@ void planner(int32_t h)
 #endif
         max_f *= max_f;
 
-#else// jerk2
+#else // jerk2
         float ratio = 1;
         for (int i = 0; i < 3; i++) {
             //if (currf[i]*prevf[i] < 0)
@@ -636,8 +589,6 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     xprintf(PSTR("F:%f From X:%f Y:%f Z:%f\n"), ff(cf), ff(cx1), ff(cy1), ff(cz1));
     xprintf(PSTR("To X:%f Y:%f Z:%f\n"),  ff(cx2), ff(cy2), ff(cz2));
 #endif
-    //zprintf(PSTR("X:%f Y:%f Z:%f\n"), ff(cx2), ff(cy2), ff(cz2));
-    //zprintf(PSTR("-\n"));
     tmove *curr;
     curr = &move[nextbuff(head)];
     curr->status = g0 ? 8 : 0; // reset status:0 planstatus:0 g0:g0
@@ -685,7 +636,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     // if no axis movement then dont multiply by multiplier
     if (g0 || ishoming || ((x2[0] == 0) && (x2[1] == 0) && (x2[2] == 0)) ) {} else cf *= f_multiplier;
 #ifdef __AVR__
-    if (cf > 120)cf = 120; // prevent max speed
+    //cf = fmin(cf,120); // prevent max speed
 #endif
 
     CORELOOP
@@ -709,11 +660,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     }
     CORELOOP
     // if zero length then cancel
-    if (dd < MINIMUMSTEPS) {
-#ifdef output_enable
-        zprintf(PSTR("Step:%d F:%f A:%d\n"), fi(dd), ff(cf), fi(curr->ac));
-#endif
-    } else {
+    if (dd>MINSTEP) {
 #ifdef output_enable
         xprintf(PSTR("Totalstep AX%d %d\n"), (int32_t)faxis, (int32_t)curr->dx[faxis]);
 #endif
@@ -726,10 +673,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
             otx[2] = cz1;
             otx[3] = ce01;
             curr->status |= 128;
-            //transformdelta(otx[0], otx[1], otx[2]);
         }
-        //curr->otx[0] = cx1; curr->otx[1] = cy1; curr->otx[2] = cz1;
-        // back planner
         head = nextbuff(head);
         curr->status |= 1; // 0: finish 1:ready
         // planner are based on cartesian coord movement on the motor
@@ -746,7 +690,6 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
         ce01 = ce02;
 #endif
     }
-    zprintf(PSTR("\n"));
 
 }
 
@@ -775,7 +718,7 @@ void dographics()
     // color by segment
     c = (tail & 3) + 10;
     // color by speed
-    c = (f - 20) * 4;
+    //c = (f - 20) * 4;
 
     //float cf = float(timescale) / dl;
 
@@ -867,47 +810,38 @@ static uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit;
 
 static int8_t mo = 0;
 #define cmdfull (nextbuffm(cmhead)==cmtail)
+#define cmdnotfull (nextbuffm(cmhead)!=cmtail)
 #define cmdempty (cmhead==cmtail)
 static int nextok = 0;
 
 
 static void decodecmd()
 {
-    if ((cmdempty)) {
+    if (cmdempty) {
         return;
     }
     uint16_t cmd = cmddelay[cmtail];
 
     cmcmd = cmd & 1;
     cmbit = (cmd >> 1) & 15;
-    cmdly = (cmd >> 5) << 2;
-    if (cmcmd == 0) {
-        //        zprintf(PSTR("-CMD:%d  BIT:%d DLY:%d\n"), fi(cmcmd),fi(cmbit),fi(cmdly));
-    }
-//    zprintf(PSTR("-CMD:%d  BIT:%d DLY:%d\n"), fi(cmcmd),fi(cmbit),fi(cmdly));
-#ifdef ISPC
-    //zprintf(PSTR("DLY:%d \n"), fi(cmdly));
-#endif
-    //zprintf(PSTR("DLY:%d \n"), fi(cmdly));
+    cmdly = (cmd >> 5) << DSCALE;
     nextok = 1;
     cmtail = nextbuffm(cmtail);
 #ifdef USETIMER1
     timer_set(cmdly);
 #endif
+#ifdef ISPC
+    zprintf(PSTR("DLY:%d \n"), fi(cmdly));
+#endif
 }
 
-uint32_t mc;
-int coreloopm() // m = micros - nextmicros  value
+uint32_t mc,dmc;
+void coreloopm()  // m = micros - nextmicros  value
 {
-    //zprintf(PSTR("%d\n"),fi(micros()-mc));
-    mc=micros();
-#ifdef output_enable
-    if (nextok)zprintf(PSTR("CORELOOP %d\n"),fi(nextok));
-#endif
-//    zprintf(PSTR("CORELOOP %d %d\n"),fi(cmtail),fi(cmhead));
+    //dmc=(micros()-mc); mc=micros();
     if (!nextok) {
         decodecmd();
-        if(!nextok)return;
+        if(!nextok) return;
     }
 #ifdef USETIMER1
     {
@@ -924,7 +858,7 @@ int coreloopm() // m = micros - nextmicros  value
             if (cmbit & 2)motor_1_STEP();
             if (cmbit & 4)motor_2_STEP();
             pinCommit();
-            //STEPDELAY ;
+            //somedelay(1) ;
             motor_0_UNSTEP();
             motor_1_UNSTEP();
             motor_2_UNSTEP();
@@ -940,7 +874,7 @@ int coreloopm() // m = micros - nextmicros  value
             dographics();
 #endif
 
-            if (checkendstop && !cmtail) {
+            if (checkendstop && !cmtail) { // check endstop every 30 step
                 docheckendstop();
             }
 
@@ -961,22 +895,22 @@ int coreloopm() // m = micros - nextmicros  value
         // next command
         nextok = 0;
         decodecmd();
-        return 1;
     }
-    return 0;
 }
+
 static void pushcmd()
 {
-    //zprintf(PSTR("+CMD %d:%d\n"), fi(cmhead), fi(cmd));
     if (cmdfull) {
 #ifdef output_enable
-        zprintf(PSTR("CMD FULL "));
+        zprintf(PSTR("CMD FULL\n"));
 #endif
+//       zprintf(PSTR("CMD FULL\n"));
     }
 
+// wait until a buffer freed
     while (cmdfull) {
 #ifdef USETIMER1
-        MEMORY_BARRIER()
+        MEMORY_BARRIER();
 #endif
         CORELOOP
     }
@@ -986,12 +920,8 @@ static void pushcmd()
 
 void newdircommand()
 {
- // change dir command
-    #ifdef USETIMER
-    cmd0 = 240<<5;  // because of prescaler 16mhz
-    #else
-    cmd0 = 30<<5;
-    #endif
+// change dir command
+    cmd0 = DIRDELAY<<5;
     if (sx[0] > 0)cmd0 |= 2;
     if (sx[1] > 0)cmd0 |= 4;
     if (sx[2] > 0)cmd0 |= 8;
@@ -1020,16 +950,13 @@ void newdircommand()
 #define CALCDELAY dl = dlp;
 #endif
 // ===============================
-#define FMUL 1
-//#define FMUL fmul
 int coreloop1()
 {
 
     if (!m || (mctr <= 0))return 0;
 
 
-    //if (cmdnotfull)
-    {
+    if (cmdnotfull){
         cmd0 = 1; //step command
 
         bresenham(0);
@@ -1049,16 +976,16 @@ UPDATEDELAY:
             // if G0 update delay not every step to make the motor move faster
             //if (m->status & 8) {
 #ifdef UPDATE_F_EVERY
-            nextdly += dl;
-            if (nextdly > UPDATE_F_EVERY) {
-                nextdly -= UPDATE_F_EVERY;
-                dlp = xInvSqrt(ta * FMUL); //*F_SCALE;
-            };
+                nextdly += dl;
+                if (nextdly > UPDATE_F_EVERY) {
+                    nextdly -= UPDATE_F_EVERY;
+                    dlp = xInvSqrt(ta); //*F_SCALE;
+                };
 #else
-            dlp = xInvSqrt(ta * FMUL); //*F_SCALE;
+                dlp = xInvSqrt(ta); //*F_SCALE;
 #endif
-            // if G1, update every time
-            //} else dl = xInvSqrt(ta);
+                // if G1, update every time
+            //} else dlp = xInvSqrt(ta);
         }
 
         CALCDELAY
@@ -1116,7 +1043,7 @@ int busy = 0;
 int motionloop()
 {
 
-    if (busy)return 0;
+    if (busy )return 0;
     busy = 1;
     CORELOOP
     int  r;
@@ -1133,10 +1060,9 @@ int motionloop()
 
 void otherloop(int r)
 {
-#ifdef USETIMER1
     cm = micros();
-#endif
     // NON TIMER
+//    zprintf(PSTR("%d\n"),fi(dmc));
     if (m) {
         nextmotoroff = cm;
         if (mctr == 0) {
@@ -1157,7 +1083,6 @@ void otherloop(int r)
                 m->status = 0;
                 if (m->fe == 0)f = 0;
                 m = 0;
-NEWMOVE:
                 r = startmove();
             }
         }
@@ -1168,16 +1093,18 @@ NEWMOVE:
     temp_loop(cm);
 #ifdef motortimeout
     if (!m   && (cm - nextmotoroff >= motortimeout)) {
-        //xprintf(PSTR("Motor off\n"));
+        xprintf(PSTR("Motor off\n"));
         nextmotoroff = cm;
         power_off();
     }
 #endif // motortimeout
 
-#endif // ispc
 #if defined(ESP8266)
     feedthedog();
 #endif
+
+
+#endif // ispc
 }
 
 /*
@@ -1188,7 +1115,7 @@ NEWMOVE:
 */
 int laxis;
 
-float ts, dgx;
+float ts;
 float xc[NUMAXIS];
 int32_t estep;
 
@@ -1209,10 +1136,13 @@ void calculate_delta_steps()
     memcpy(x1, x2, sizeof x1);
 
     // STEP 2
-    if (xtotalseg)
-        for (int i = 0; i < 4; i++) {
-            xc[i] -= xtotalseg * sgx[i];
-        }
+    if (xtotalseg) {
+#define PSEGMENT(i) xc[i] -= xtotalseg * sgx[i];
+        PSEGMENT(0)
+        PSEGMENT(1)
+        PSEGMENT(2)
+        PSEGMENT(3)
+    }
     // STEP 3
     transformdelta(xc[0], xc[1], xc[2], xc[3]);
     // STEP 4
@@ -1232,13 +1162,10 @@ void calculate_delta_steps()
     // modify the sx?? m->mcx and totalstep for this segment
     // STEP 5 FINAL
     mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0;
-    mctr = totalstep;
-    rampv = rampseg / mctr;
-    stepdiv2 = wstepdiv2* rampv;
-    // try to make center and outer have almost same speed ratio
-    if (!ishoming) {
-        fmul = dgx * ((fmax(bsdx[0], bsdx[1]) + 4));
-    }
+    rampv = rampseg / totalstep;
+
+    // convert from virtual step/mm value to original step/mm value
+    stepdiv2 = wstepdiv2 * rampv;
     acup = oacup * rampv;
     acdn = oacdn * rampv;
 
@@ -1258,11 +1185,9 @@ void calculate_delta_steps()
             sx[i] = -1;
         }
     }
-    newdircommand();
-
-    mctr = totalstep ;
 #endif // nonlinear
 
+    mctr = totalstep ;
     newdircommand();
 
 #ifdef ISPC
@@ -1283,14 +1208,11 @@ int32_t startmove()
     }
     // last calculation
     if (m ) return 0; // if empty then exit
-    // if no precalculation, then calculate all
 #ifdef ISPC
     //zprintf(PSTR("\nSTARTMOVE\n"));
 #endif
     // STEP 1
     int t = nextbuff(tail);
-    // start bresenham variable
-    //zprintf(PSTR("Fastaxis:%d\n"),fi(fastaxis));
     // prepare ramp (for last move)
     prepareramp(t);
     m = &move[t];
@@ -1309,32 +1231,30 @@ int32_t startmove()
 
 #ifdef NONLINEAR
     // DELTA HERE
-    // calculate first movement
     //STEP
-    //stepperseg = (wm->status & 8) ? STEPPERSEGMENT;
     // if homing or just z move then no segmentation
     if (SINGLESEGMENT) xtotalseg = 1;
     else {
         xtotalseg = 1 + (( STEPSEGMENT ) / STEPPERSEGMENT);
     }
 
-    //incalc=1;
+    // if from halt, then need to transform first point, if not then next first point is previous point
     if (m->status & 128) {
         transformdelta(otx[0], otx[1], otx[2], otx[3]);
     }
 
     // STEP
 
-    // in the last 4 steps, we  sure the previous move is not using this anymore
     ts = 1.f / (xtotalseg);
     rampseg = (float)(totalstep) * ts;
     ts *= IFIXED2;
 
-    sgx[0] = float(m->dx[0]) * ts; // original delta in mm
-    sgx[1] = float(m->dx[1]) * ts;
-    sgx[2] = float(m->dx[2]) * ts;
-    sgx[3] = float(m->dx[3]) * ts;
-    if (!ishoming) dgx = 1.0f / (stepmmx[0] * fmax(fabs(sgx[0]), fabs(sgx[1])) + 4); // only from x and y we calculate fscale
+#define CSGX(i) sgx[i] = float(m->dx[i]) * ts;
+    CSGX(0)
+    CSGX(1)
+    CSGX(2)
+    CSGX(3)
+
 #ifdef ISPC
     zprintf(PSTR("\nTotalSeg:%d RampSeg:%f Sx:%f Sy:%f Sz:%f\n"), fi(xtotalseg), ff(rampseg), ff(sgx[0]), ff(sgx[1]), ff(sgx[2]));
     zprintf(PSTR("Dx:%d Dy:%d Dz:%d\n"), fi(m->dtx[0]), fi(m->dtx[1]), fi(m->dtx[2]));
@@ -1343,18 +1263,13 @@ int32_t startmove()
 
     // STEP
     ta = (int32_t)(m->fs ) << INVSCALE ;
-    stepdiv = CLOCKCONSTANT / (stepmmx[fastaxis] );
+    stepdiv = CLOCKCONSTANT / (Cstepmmx(fastaxis));
     stepdiv2 = wstepdiv2 = stepdiv * INVSCALE2;
     m->status &= ~3;
     m->status |= 2;
 
 
-    // FINAL ?
     if (f == 0) nextmicros = micros();// if from stop
-    fmul = 1;
-    //if (m->status & 128)
-    //if (ta<0)ta=0;
-    //if (ta>120*120)ta=120*120;
 
     rampup = m->rampup  ;
     rampdown = totalstep - rampup - m->rampdown ;
@@ -1374,7 +1289,7 @@ int32_t startmove()
 
 #endif
     calculate_delta_steps();
-    dlp = dl = xInvSqrt(ta * FMUL);
+    dlp = xInvSqrt(ta);
     return 1;
 }
 

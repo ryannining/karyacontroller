@@ -22,7 +22,7 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-//#define UPDATE_F_EVERY 2000 //us
+#define UPDATE_F_EVERY 2000 //us
 
 
 
@@ -36,7 +36,7 @@ typedef struct {
   int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
 #ifdef __AVR__
   int16_t ac; // needed for backplanner
-  int16_t fs, fn, fe; // all are in square ! needed to calc real accell
+  uint16_t fs, fn, fe; // all are in square ! needed to calc real accell
 #else
   int32_t ac; // needed for backplanner
   int32_t fs, fn, fe; // all are in square ! needed to calc real accell
@@ -81,16 +81,9 @@ extern int8_t  sx[NUMAXIS];
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 
-//static byte nextbuff(byte x){return (x) < NUMBUFFER-1 ? (x) + 1 : 0;}
-//static byte prevbuff(byte x){return (x) > 0 ? (x) - 1 : NUMBUFFER-1;}
 
 #define degtorad(x) x*22/(7*180);
 
-/*
-  static int32_t ramplen(float v0, float v1, float a , float stepmm);
-  static float speedat(float v0, float a, float s, float stp);
-  static float accelat(float v0, float v1, float s);
-*/
 
 extern void power_off();
 
@@ -100,7 +93,7 @@ extern int motionloop();
 
 extern void init_pos();
 extern int coreloop();
-extern int coreloopm();
+extern void coreloopm();
 extern void otherloop(int r);
 extern void waitbufferempty();
 extern void needbuffer();
