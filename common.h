@@ -13,6 +13,28 @@ const int32_t PROGMEM powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 1000
 //#include <avr/pgmspace.h>
 #include <arduino.h>
 
+#define CORESERIAL // smaller serial
+
+#ifdef CORESERIAL
+extern uint8_t serial_popchar();
+extern void serial_writechar(uint8_t data);
+extern void serial_init(float  BAUD);
+extern uint8_t serial_available();
+
+
+#define serialwr(s) serial_writechar(s)
+#define serialrd(s) s=serial_popchar()
+#define serialav() serial_available()
+#define serialinit(baud) serial_init(baud)
+
+#else
+
+#define serialwr(s) Serial.write(s)
+#define serialrd(s) s=Serial.read()
+#define serialav() Serial.available()
+#define serialinit(baud) Serial.begin(baud)
+
+#endif
 
 
 void sendf_P(PGM_P format_P, ...);

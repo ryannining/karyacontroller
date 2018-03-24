@@ -114,5 +114,6 @@
     <File Name="backup.cpp"/>
     <File Name="nonlinear.h"/>
     <File Name="u8glib_ex.h"/>
+    <File Name="serial_avr.h"/>
   </VirtualDirectory>
 </CodeLite_Project>

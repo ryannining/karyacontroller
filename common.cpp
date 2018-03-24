@@ -2,11 +2,14 @@
 #include "motion.h"
 #include "timer.h"
 
-
 #ifndef ISPC
 // functions for sending decimal
 #include<arduino.h>
 #include <stdarg.h>
+
+#ifdef CORESERIAL
+#include "serial_avr.h"
+#endif
 
 #define write_uint8(v, w)  write_uint32(v, w)
 #define write_int8(v, w)   write_int32(v, w)
@@ -35,7 +38,7 @@ void write_uint32(uint32_t v) {
   do
   {
     for (t = 0; v >= POWERS(e); v -= POWERS(e), t++);
-    Serial.write(t + '0');
+    serialwr(t + '0');
   }
   while (e--);
 }
@@ -45,7 +48,7 @@ void write_uint32(uint32_t v) {
 */
 void write_int32(int32_t v) {
   if (v < 0) {
-    Serial.write('-');
+    serialwr('-');
     v = -v;
   }
 
@@ -70,9 +73,9 @@ void write_uint32_vf(uint32_t v, uint8_t fp) {
   do
   {
     for (t = 0; v >= POWERS(e); v -= POWERS(e), t++);
-    Serial.write(t + '0');
+    serialwr(t + '0');
     if (e == fp)
-      Serial.write('.');
+      serialwr('.');
   }
   while (e--);
 }
@@ -83,7 +86,7 @@ void write_uint32_vf(uint32_t v, uint8_t fp) {
 */
 void write_int32_vf(int32_t v, uint8_t fp) {
   if (v < 0) {
-    Serial.write('-');
+    serialwr('-');
     v = -v;
   }
 
@@ -118,7 +121,7 @@ void sendf_P(PGM_P format_P, ...) {
           j = 0;
           break;
         default:
-          Serial.write(c);
+          serialwr(c);
           j = 0;
           break;
       }
@@ -128,7 +131,7 @@ void sendf_P(PGM_P format_P, ...) {
         j = 4;
       }
       else {
-        Serial.write(c);
+        serialwr(c);
       }
     }
   }

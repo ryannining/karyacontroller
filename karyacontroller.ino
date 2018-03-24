@@ -22,9 +22,57 @@ uint32_t kctr = 0;
 
 
 
+/*
+ * 
+ * 
+ * 
+ * 
+ */
+#ifdef OLEDDISPLAY
+#include "SSD1306Ascii.h"
+#include "SSD1306AsciiAvrI2c.h"
 
+// 0X3C+SA0 - 0x3C or 0x3D
+#define I2C_ADDRESS 0x3C
+
+// Define proper RST_PIN if required.
+#define RST_PIN -1
+
+SSD1306AsciiAvrI2c oled;
+//------------------------------------------------------------------------------
+void setupdisplay() {
+
+#if RST_PIN >= 0
+  oled.begin(&Adafruit128x64, I2C_ADDRESS, RST_PIN);
+#else // RST_PIN >= 0
+  oled.begin(&Adafruit128x64, I2C_ADDRESS);
+#endif // RST_PIN >= 0
+
+  oled.setFont(Adafruit5x7);
+
+  uint32_t m = micros();
+  oled.clear();
+  oled.println("Hello world!");
+  oled.println("A long line may be truncated");
+  oled.println();
+}
+void display_loop(){
+  
+}
+void control_loop(){
+  
+}
+#else
+#define setupdisplay()
+#define display_loop()
+#define control_loop()
+
+#endif
+/*
+      =========================================================================================================================================================
+ */
 int akey = 0, lkey = 0;
-int kdl = 500;
+int kdl = 200;
 int tmax,tmin;
 void gcode_loop() {
 
@@ -60,7 +108,7 @@ void gcode_loop() {
           }
         }
         lkey = 0;
-        kdl = 1000;
+        kdl = 200;
         break;
     }
     //zprintf(PSTR("Key:%d\n"), fi(key));
@@ -77,6 +125,7 @@ void gcode_loop() {
 
       =========================================================================================================================================================
   */
+    int32_t zz;
 #ifdef timing
   uint32_t t1 = micros();
   if (motionloop())
@@ -103,13 +152,13 @@ void gcode_loop() {
 
 
   char c = 0;
-  if (Serial.available() > 0)
+  if (serialav())
   {
     if (n) {
       gt = micros();
       n = 0;
     }
-    c = Serial.read();
+    serialrd(c);
   }
 #ifdef USE_SDCARD
   if (sdcardok == 2) {
@@ -129,7 +178,7 @@ void gcode_loop() {
 
   if (c) {
 #ifdef echoserial
-    Serial.write(c);
+    serialwr(c);
 #endif
     line_done = gcode_parse_char(c);
     if (line_done) {
@@ -147,7 +196,7 @@ void gcode_loop() {
 void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
-  Serial.begin(115200);//115200);
+  serialinit(115200);//115200);
   //while (!Serial.available())continue;
 #ifdef USE_SDCARD
   demoSD();
@@ -168,12 +217,13 @@ void setup() {
 
   //timer_set(5000);
   //zprintf(PSTR("Motion demo\nok\n"));
-
+  setupdisplay();
 }
 
 void loop() {
   //demo();
   gcode_loop();
+  display_loop();
   /*  if (feedthedog()){
       float f=123.456;
       int32_t i=1234;

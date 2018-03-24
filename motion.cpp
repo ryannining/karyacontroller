@@ -636,7 +636,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     // if no axis movement then dont multiply by multiplier
     if (g0 || ishoming || ((x2[0] == 0) && (x2[1] == 0) && (x2[2] == 0)) ) {} else cf *= f_multiplier;
 #ifdef __AVR__
-    //cf = fmin(cf,120); // prevent max speed
+    if (cf>100)cf=100; // prevent max speed
 #endif
 
     CORELOOP

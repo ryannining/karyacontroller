@@ -27,9 +27,9 @@
 //#define BOARD_NANONANO_SDCARD
 //#define BOARD_GEN7
 //#define BOARD_RAMP13
-//#define BOARD_RAMP13_DELTA
+#define BOARD_RAMP13_DELTA
 //#define BOARD_RAMP13_3DPLEX
-#define BOARD_NANO_3DPLEX
+//#define BOARD_NANO_3DPLEX
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
 // ==========================================================
@@ -57,13 +57,13 @@
   ============================================================================================
 */
 
-#define BACKPLANNER // 852Bytes code !
+//#define BACKPLANNER // 852Bytes code !
 #define BACKPLANNERRATIO 2 // twice acceleration
-#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
+//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-//#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
-
+#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+#define OLEDDISPLAY // more than 2.5K , simple oled controller
 // ==========================================================
 #ifdef SDCARD_CS
 #define USE_SDCARD
@@ -171,7 +171,7 @@
 #define KBOX_KEY3_R 670 ... 695
 #define KBOX_KEY3_ACTION if (sdcardok) {sdcardok = sdcardok == 1 ? 2 : 1;zprintf(PSTR("SD\n"));} else demoSD();
 #define KBOX_KEY4_R 760 ... 780
-#define KBOX_KEY4_ACTION sdcardok=0;zprintf(PSTR("STOP\n"));
+#define KBOX_KEY4_ACTION sdcardok=0;zprintf(PSTR("STOP\n"));power_off();
 
 #define KBOX_DO_CHECK  KBOX_KEY_CHECK(1) KBOX_KEY_CHECK(2) KBOX_KEY_CHECK(3) KBOX_KEY_CHECK(4)
 #define KBOX_DO_ACT  KBOX_KEY_ACT(1) KBOX_KEY_ACT(2) KBOX_KEY_ACT(3) KBOX_KEY_ACT(4)

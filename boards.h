@@ -214,6 +214,10 @@
   ============================================================================================
 */
 #elif defined(BOARD_NANO_3DPLEX)
+// 2 3 4 6 7 8 9 10 a0 a2 a3 a4 a5 a6
+// free  5 a1 a7
+// for i2c work, free a4 a5
+// so move a4 to 5 and a5 to a1
 
 #define xenable 2
 #define xdirection 6
@@ -254,7 +258,7 @@
 #define KBOX_PIN 7
 //#define USETIMER1
 
-#define NUMBUFFER 12
+#define NUMBUFFER 7
 
 
 /*

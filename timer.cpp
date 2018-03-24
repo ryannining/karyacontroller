@@ -75,6 +75,7 @@ ISR(TIMER1_COMPA_vect)
 
     // stepper tick
     //cli();
+    ndelay=20;
     coreloopm();
     TCNT1 =0;
     ndelay=fmax(20,ndelay);
