@@ -1,4 +1,68 @@
 /*
+
+  ============================================================================================
+     NAMEBOARD
+  ============================================================================================
+#ifdef BOARD_NAMEBOARD
+
+// motors PIN
+#define xenable 2
+#define xdirection 6
+#define xstep 4
+
+#define yenable 7
+#define ydirection 9
+#define ystep 8
+
+#define zenable 10
+#define zdirection A5
+#define zstep A4
+
+#define e0enable 11
+#define e0direction A2
+#define e0step A3
+
+
+// ENDSTOPS PIN, can be using just 1 pin
+#define xmin_pin 0
+#define xmax_pin 0
+#define ymin_pin 0
+#define ymax_pin 0
+#define zmin_pin 0
+#define zmax_pin 0
+#define emin_pin 0
+#define emax_pin 0
+
+
+#define temp_pin 6
+#define temp2_pin 6
+#define heater_pin 3
+#define heater2_pin 3
+
+#define DRIVE_XYYZ
+#define DRIVE_COREXY
+#define DRIVE_COREXZ
+#define DRIVE_DELTA
+#define DRIVE_DELTASIAN
+
+#define ISRTEMP    // avr reading using interrupt
+#define USETIMER1  // using timer1 or other timer (implemented timer1 on avr)
+#define CORESERIAL // reduce code on AVR 
+#define OLEDDISPLAY // still WIP
+#define SDCARD_CS // pin for SDCARD
+#define KBOX_PIN // 4 key Kontrolbox using analog pin and serial resistors
+
+#define MOTOR_0_DIR 1 // 1: normal -1:inverted
+#define MOTOR_1_DIR 1 // 1: normal -1:inverted
+#define MOTOR_2_DIR 1 // 1: normal -1:inverted
+#define MOTOR_3_DIR 1 // 1: normal -1:inverted
+
+#define USE_EEPROM 
+*/
+
+
+/*
+
   ============================================================================================
      TARANTHOLE
   ============================================================================================
@@ -228,8 +292,8 @@
 #define ystep 8
 
 #define zenable 2
-#define zdirection A5
-#define zstep A4
+#define zdirection A1 //A5
+#define zstep 5 //A4
 
 #define e0enable 2
 #define e0direction A2
@@ -255,7 +319,8 @@
 //#define INVERTENDSTOP // uncomment for normally open
 
 #define SDCARD_CS 10
-#define KBOX_PIN 7
+//#define KBOX_PIN 7
+#define OLED_CONTROL_PIN 7
 //#define USETIMER1
 
 #define NUMBUFFER 7
@@ -303,7 +368,101 @@
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
 #define NUMBUFFER 20
+/*
+  ============================================================================================
+     BOARD_ST3DV1
+  ============================================================================================
+*/
+#elif defined(BOARD_ST33DV1_STM32)
 
+#define xenable PB9
+#define xdirection PB7
+#define xstep PB8
+
+#define yenable PB9
+#define ydirection PB5
+#define ystep PB6
+
+#define zenable PB9
+#define zdirection PB3
+#define zstep PB4
+
+#define e0enable PB9
+#define e0direction PB14
+#define e0step PB15
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+#define xmin_pin PB12
+#define ymin_pin PB12
+#define zmax_pin PB12
+
+//#define INVERTENDSTOP
+
+#define temp_pin PB1
+#define temp2_pin PB0
+#define heater_pin PA0
+#define heater2_pin PA1
+#define fan_pin PA3
+
+//#define SDCARD_CS PA4
+//#define KBOX_PIN PA3
+#define NUMBUFFER 20
+/*
+  ============================================================================================
+     BOARD_ST3DV1 XYYZ
+  ============================================================================================
+*/
+#elif defined(BOARD_ST33DV1_XYYZ_STM32)
+
+#define xenable PB9
+#define xdirection PB7
+#define xstep PB8
+
+#define yenable PB9
+#define ydirection PB5
+#define ystep PB6
+
+#define zenable PB9
+#define zdirection PB3
+#define zstep PB4
+
+#define e0enable PB9
+#define e0direction PB14
+#define e0step PB15
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+#define xmin_pin PB12
+#define ymin_pin PB12
+#define zmin_pin PB12
+#define emax_pin PB12
+
+
+//#define INVERTENDSTOP
+
+#define temp_pin PB1
+#define temp2_pin PB0
+#define heater_pin PA0
+#define heater2_pin PA1
+#define fan_pin PA3
+
+//#define SDCARD_CS PA4
+//#define KBOX_PIN PA3
+#define NUMBUFFER 20
+#define DRIVE_XYYZ
 /*
   ============================================================================================
      BOARD_GEN7

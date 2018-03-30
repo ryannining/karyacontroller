@@ -1,6 +1,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 #include "motion.h"
+#include "config_pins.h"
 //const float powers[] = {1.f, 0.1f, 0.01f,0.001f,0.0001f, 0.00001f, 0.000001f, 0.0000001f, 0.00000001f, 0.000000001f};;
 //#define POWERS(e) (powers[e])
 //#define POWERS(e) (float)pgm_read_float(&(powers[e]))
@@ -13,7 +14,6 @@ const int32_t PROGMEM powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 1000
 //#include <avr/pgmspace.h>
 #include <arduino.h>
 
-#define CORESERIAL // smaller serial
 
 #ifdef CORESERIAL
 extern uint8_t serial_popchar();
@@ -22,14 +22,18 @@ extern void serial_init(float  BAUD);
 extern uint8_t serial_available();
 
 
-#define serialwr(s) serial_writechar(s)
+#define serialwr serial_writechar
 #define serialrd(s) s=serial_popchar()
 #define serialav() serial_available()
 #define serialinit(baud) serial_init(baud)
 
 #else
 
-#define serialwr(s) Serial.write(s)
+#ifdef __ARM__
+static void serialwr(uint8_t s){Serial.write(s);}
+#else
+#define serialwr Serial.write
+#endif
 #define serialrd(s) s=Serial.read()
 #define serialav() Serial.available()
 #define serialinit(baud) Serial.begin(baud)
@@ -37,18 +41,15 @@ extern uint8_t serial_available();
 #endif
 
 
-void sendf_P(PGM_P format_P, ...);
+void sendf_P(void (*writechar)(uint8_t),PGM_P format_P, ...);
 // No __attribute__ ((format (printf, 1, 2)) here because %q isn't supported.
 
 
 //#define xprintf(...) sendf_P(serial_writechar, __VA_ARGS__)
 //#define sersendf_P(...) sendf_P(serial_writechar, __VA_ARGS__)
-#ifdef output_enable
-#define xprintf   sendf_P
-#define sersendf_P sendf_P
-#endif
 
-#define zprintf   sendf_P
+#define zprintf(...)   sendf_P(serialwr, __VA_ARGS__)
+#define xprintf(...)   sendf_P(serialwr, __VA_ARGS__)
 
 #define ff(f) int32_t(1000.f*f)
 #define fg(f) int32_t(100.f*f)
@@ -74,9 +75,9 @@ static void serial_writechar(uint8_t data) {
 #define ff(f) (float(f))
 #define fg(f) (int32_t(f))
 #define fi(f) int32_t(f)
+#define sersendf_P printf
 #define xprintf printf
 #define zprintf printf
-#define sersendf_P printf
 #endif
 
 

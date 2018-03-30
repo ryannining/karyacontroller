@@ -734,18 +734,22 @@ void process_gcode_command() {
         zprintf(PSTR("EPR:3 181 %d Jerk\n"), fi(xyjerk));
         zprintf(PSTR("EPR:3 51 %d Accel\n"), fi(accel));
         zprintf(PSTR("EPR:3 67 %d MVAccel\n"), fi(mvaccel));
-        zprintf(PSTR("EPR:3 177 %d Homing\n"), fi(homingspeed));
+        zprintf(PSTR("EPR:3 177 %d FHome\n"), fi(homingspeed));
         zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
 #ifdef NONLINEAR
         zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
         zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
-        zprintf(PSTR("EPR:3 165 %f XOfs\n"), ff(axisofs[0]));
+#endif
+        zprintf(PSTR("EPR:3 165 %f Xofs\n"), ff(axisofs[0]));
+        #ifdef DRIVE_XYY
+        zprintf(PSTR("EPR:3 169 %f Y1ofs\n"), ff(axisofs[1]));
+        zprintf(PSTR("EPR:3 173 %f Y2ofs\n"), ff(axisofs[2]));
+        #else
         zprintf(PSTR("EPR:3 169 %f Yofs\n"), ff(axisofs[1]));
         zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
-#endif
-
+        #endif
 #ifdef USE_BACKLASH
-        zprintf(PSTR("EPR:2 80 %d Xbacklash\n"), fi(xback[0]));
+        zprintf(PSTR("EPR:2 80 %d Xbcklsh\n"), fi(xback[0]));
         zprintf(PSTR("EPR:2 84 %d Y\n"), fi(xback[1]));
         zprintf(PSTR("EPR:2 88 %d Z\n"), fi(xback[2]));
         zprintf(PSTR("EPR:2 92 %d E\n"), fi(xback[3]));

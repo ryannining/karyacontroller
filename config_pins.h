@@ -27,9 +27,9 @@
 //#define BOARD_NANONANO_SDCARD
 //#define BOARD_GEN7
 //#define BOARD_RAMP13
-#define BOARD_RAMP13_DELTA
+//#define BOARD_RAMP13_DELTA
 //#define BOARD_RAMP13_3DPLEX
-//#define BOARD_NANO_3DPLEX
+#define BOARD_NANO_3DPLEX
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
 // ==========================================================
@@ -62,20 +62,28 @@
 //#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+//#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
 #define OLEDDISPLAY // more than 2.5K , simple oled controller
+#define CORESERIAL // smaller footprint 500byte, only AVR
 // ==========================================================
+//#undef SDCARD_CS
 #ifdef SDCARD_CS
 #define USE_SDCARD
 #endif
 
 
 #ifndef __AVR__
+
+// not implemented on non AVR
 #undef USEDIO
 #undef ISRTEMP
+#undef CORESERIAL
+#undef OLEDDISPLAY
+//#undef USETIMER1
 #endif
 
 #ifdef ISPC
+// not implemented on PC
 #undef USETIMER1
 #undef SAVE_RESETMOTION
 #endif
@@ -83,6 +91,7 @@
 
 //#define motortimeout 10000000 // 10 seconds
 
+//#define DRIVE_XYYZ  // dual Y individual homing
 //#define DRIVE_COREXY
 //#define DRIVE_COREXZ
 
@@ -92,10 +101,10 @@
 
 #ifdef DRIVE_DELTA
 #define NONLINEAR
-#endif 
+#endif
 #ifdef DRIVE_DELTASIAN
 #define NONLINEAR
-#endif 
+#endif
 
 
 #define TOWER_X_ANGLE_DEG        210
@@ -158,25 +167,26 @@
 
 */
 
-//#ifdef KBOX_PIN
 
 #define KBOX_KEY_CHECK(k)   case KBOX_KEY##k##_R : lkey = k;kdl=500;break;
-#define KBOX_KEY_ACT(k)   case k: KBOX_KEY##k##_ACTION;break;
 
 
 #define KBOX_KEY1_R 0 ... 10
-#define KBOX_KEY1_ACTION zprintf(PSTR("HOMING\n"));homing();
 #define KBOX_KEY2_R 500 ... 530
-#define KBOX_KEY2_ACTION zprintf(PSTR("HEATING\n"));set_temp(190);
 #define KBOX_KEY3_R 670 ... 695
-#define KBOX_KEY3_ACTION if (sdcardok) {sdcardok = sdcardok == 1 ? 2 : 1;zprintf(PSTR("SD\n"));} else demoSD();
 #define KBOX_KEY4_R 760 ... 780
+#define KBOX_DO_CHECK  KBOX_KEY_CHECK(1) KBOX_KEY_CHECK(2) KBOX_KEY_CHECK(3) KBOX_KEY_CHECK(4)
+
+#ifdef KBOX_PIN
+#define KBOX_KEY_ACT(k)   case k: KBOX_KEY##k##_ACTION;break;
+#define KBOX_KEY1_ACTION zprintf(PSTR("HOMING\n"));homing();
+#define KBOX_KEY2_ACTION zprintf(PSTR("HEATING\n"));set_temp(190);
+#define KBOX_KEY3_ACTION if (sdcardok) {sdcardok = sdcardok == 1 ? 2 : 1;zprintf(PSTR("SD\n"));} else demoSD();
 #define KBOX_KEY4_ACTION sdcardok=0;zprintf(PSTR("STOP\n"));power_off();
 
-#define KBOX_DO_CHECK  KBOX_KEY_CHECK(1) KBOX_KEY_CHECK(2) KBOX_KEY_CHECK(3) KBOX_KEY_CHECK(4)
 #define KBOX_DO_ACT  KBOX_KEY_ACT(1) KBOX_KEY_ACT(2) KBOX_KEY_ACT(3) KBOX_KEY_ACT(4)
-
-//#endif
+#else // no controller
+#define KBOX_DO_ACT
 #endif
 
-
+#endif

@@ -91,9 +91,9 @@ void reload_eeprom() {
 void reset_eeprom() {
 #ifndef SAVE_RESETMOTION
   reset_motion();
-  eepromwrite(EE_xmax, fg(ax_max[0]));
-  eepromwrite(EE_ymax, fg(ax_max[1]));
-  eepromwrite(EE_zmax, fg(ax_max[2]));
+  eepromwrite(EE_xmax, ff(ax_max[0]));
+  eepromwrite(EE_ymax, ff(ax_max[1]));
+  eepromwrite(EE_zmax, ff(ax_max[2]));
 
   eepromwrite(EE_accelx, fi(accel));
   
@@ -111,7 +111,7 @@ void reset_eeprom() {
 
   eepromwrite(EE_homing,homingspeed);
   eepromwrite(EE_jerk,xyjerk);
-  eepromwrite(EE_xyscale,xyscale);
+  eepromwrite(EE_xyscale,ff(xyscale));
 #ifdef NONLINEAR
   eepromwrite(EE_hor_radius,ff(delta_radius));
   eepromwrite(EE_rod_length,ff(delta_diagonal_rod));

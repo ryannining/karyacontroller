@@ -19,6 +19,8 @@ int ct = 0;
 uint32_t gt = 0;
 int n = 0;
 uint32_t kctr = 0;
+int akey = 0, lkey = 0;
+int kdl = 200;
 
 
 
@@ -38,7 +40,42 @@ uint32_t kctr = 0;
 // Define proper RST_PIN if required.
 #define RST_PIN -1
 
+void menu_up(){
+
+}
+void menu_down(){
+
+}
+void menu_click(){
+
+}
+void menu_back(){
+
+}
+
+#define KBOX_KEY_ACT(k)   case k: KBOX_KEY##k##_ACTION;break;
+#define KBOX_KEY1_ACTION menu_up()
+#define KBOX_KEY2_ACTION menu_down()
+#define KBOX_KEY3_ACTION menu_click()
+#define KBOX_KEY4_ACTION menu_back()
+
+#define KBOX_DO_ACT  KBOX_KEY_ACT(1) KBOX_KEY_ACT(2) KBOX_KEY_ACT(3) KBOX_KEY_ACT(4)
+
+
 SSD1306AsciiAvrI2c oled;
+void oledwr(uint8_t c){
+  oled.write(c);
+}
+#define oprintf(...)   sendf_P(oledwr, __VA_ARGS__)
+#define gotoxy(x,y) oled.setCursor(x,y)
+#define gotox(x) oled.setCol(x)
+#define gotoy(y) oled.setRow(y)
+#define f1x() oled.set1X()
+#define f2x() oled.set2X()
+#define oclear() oled.clear()
+#define oclearln() oled.clearToEOL()
+
+
 //------------------------------------------------------------------------------
 void setupdisplay() {
 
@@ -48,18 +85,48 @@ void setupdisplay() {
   oled.begin(&Adafruit128x64, I2C_ADDRESS);
 #endif // RST_PIN >= 0
 
-  oled.setFont(Adafruit5x7);
+  oled.setFont(Callibri14);
 
-  uint32_t m = micros();
-  oled.clear();
-  oled.println("Hello world!");
-  oled.println("A long line may be truncated");
-  oled.println();
+  oclear();
+  gotoxy(0,0);
+  
+  oled.print("Karyacontroller\n");
 }
 void display_loop(){
-  
+  gotoxy(0,2);
+  oprintf(PSTR("Suhu:%f\n   "),ff(Input));    
+  gotoxy(0,4);
+  oprintf(PSTR("SDCARD Ok"));    
 }
 void control_loop(){
+#ifdef OLED_CONTROL_PIN
+
+  if (millis() - kctr > kdl) {
+    kctr = millis();
+#ifdef ISRTEMP
+    int key = vanalog[OLED_CONTROL_PIN];
+    ADCREAD(OLED_CONTROL_PIN)
+#else
+    int key = analogRead(OLED_CONTROL_PIN);
+#endif
+
+    switch (key) {
+        KBOX_DO_CHECK  // standart 4 key control box
+ 
+      case 1021 ... 1023:
+        if (lkey) {
+          zprintf(PSTR("LKey:%d\n"), fi(lkey));
+          switch (lkey) {
+            KBOX_DO_ACT
+          }
+        }
+        lkey = 0;
+        kdl = 200;
+        break;
+    }
+    //zprintf(PSTR("Key:%d\n"), fi(key));
+  }
+#endif
   
 }
 #else
@@ -71,8 +138,6 @@ void control_loop(){
 /*
       =========================================================================================================================================================
  */
-int akey = 0, lkey = 0;
-int kdl = 200;
 int tmax,tmin;
 void gcode_loop() {
 
@@ -223,6 +288,7 @@ void setup() {
 void loop() {
   //demo();
   gcode_loop();
+  control_loop();
   display_loop();
   /*  if (feedthedog()){
       float f=123.456;

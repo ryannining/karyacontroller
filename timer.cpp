@@ -62,10 +62,11 @@ int feedthedog()
 
 uint32_t	next_step_time;
 #ifdef USETIMER1
-#ifdef __AVR__
-#define USETIMEROK
 int busy1 = 0;
 uint16_t ndelay;
+
+#ifdef __AVR__
+#define USETIMEROK
 
 
 ISR(TIMER1_COMPA_vect)
@@ -85,13 +86,6 @@ ISR(TIMER1_COMPA_vect)
     //if (ndelay>40)zprintf(PSTR("%d\n"),fi(ndelay));
 }
 
-void timer_set(uint16_t delay)
-{
-#ifdef output_enable
-    zprintf(PSTR("TmSet %d\n"),fi(delay));
-#endif
-    ndelay = delay;
-}
 void timer_init()
 {
     TCCR1A = 0;  // Steup timer 1 interrupt to no prescale CTC mode
@@ -102,7 +96,37 @@ void timer_init()
     TIMSK1 |= (1<<OCIE1A); // Enable interrupt
 }
 
+#endif // avr timer
+#ifdef __ARM__
+#define USETIMEROK
+//HardwareTimer timer1(2);
+
+void tm()
+{
+    Timer2.pause();
+    ndelay=20;
+    coreloopm();
+    ndelay=fmax(20,ndelay);
+    Timer2.setPeriod(ndelay);
+    Timer2.resume();
+}
+
+void timer_init()
+{
+    Timer2.setChannel1Mode(TIMER_OUTPUTCOMPARE);
+    Timer2.setPeriod(1000000); // in microseconds
+    Timer2.attachCompare1Interrupt(tm);
+}
+
+#endif // arm
+
+void timer_set(uint16_t delay)
+{
+#ifdef output_enable
+    zprintf(PSTR("TmSet %d\n"),fi(delay));
 #endif
+    ndelay = delay;
+}
 
 #endif
 

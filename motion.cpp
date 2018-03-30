@@ -53,6 +53,9 @@
 #ifdef __AVR__
 #define DSCALE 3   // use 2Mhz timer
 #define DIRDELAY 20
+#else defined __ARM__
+#define DSCALE 0   // use usec
+#define DIRDELAY 6 // usec
 #endif
 #else
 #define DSCALE 2
@@ -81,7 +84,7 @@ uint32_t bsdx[NUMAXIS];
 int8_t  sx[NUMAXIS];
 int32_t dlp, dl;
 int8_t checkendstop;
-int8_t endstopstatus[3];
+int8_t endstopstatus[NUMAXIS];
 int8_t ishoming;
 float axisofs[3] = {0, 0, 0};
 float F_SCALE = 1;
@@ -579,7 +582,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
 
 
     needbuffer();
-    int32_t x2[4];
+    int32_t x2[NUMAXIS];
     XYSCALING
     if (head == tail) {
         //zprintf(PSTR("Empty !\n"));
@@ -626,7 +629,15 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     cy1 = x2[0] - x2[2];
     x2[0] = cx1;
     x2[2] = cy1;
-
+#elif defined(DRIVE_XYY)
+    // copy dZ to dE and  dY to dZ, for CNC with 2 separate Y axis at homing.
+    if (isHoming) {
+        // when homing the z will threat as normal cartesian Z that can be homing normally.
+    } else {
+        //
+        x2[3] = x2[2];
+        x2[2] = x2[1];
+    }
 #elif defined(NONLINEAR)
     // nothing to do
 
@@ -956,7 +967,7 @@ int coreloop1()
     if (!m || (mctr <= 0))return 0;
 
 
-    if (cmdnotfull){
+    if (cmdnotfull) {
         cmd0 = 1; //step command
 
         bresenham(0);
@@ -976,15 +987,15 @@ UPDATEDELAY:
             // if G0 update delay not every step to make the motor move faster
             //if (m->status & 8) {
 #ifdef UPDATE_F_EVERY
-                nextdly += dl;
-                if (nextdly > UPDATE_F_EVERY) {
-                    nextdly -= UPDATE_F_EVERY;
-                    dlp = xInvSqrt(ta); //*F_SCALE;
-                };
-#else
+            nextdly += dl;
+            if (nextdly > UPDATE_F_EVERY) {
+                nextdly -= UPDATE_F_EVERY;
                 dlp = xInvSqrt(ta); //*F_SCALE;
+            };
+#else
+            dlp = xInvSqrt(ta); //*F_SCALE;
 #endif
-                // if G1, update every time
+            // if G1, update every time
             //} else dlp = xInvSqrt(ta);
         }
 
@@ -1331,11 +1342,18 @@ void docheckendstop()
 #else
     endstopstatus[2] = 0;
 #endif
+#ifdef emin_pin
+    endstopstatus[3] = emin_pin;
+#elif defined(emax_pin)
+    endstopstatus[3] = emax_pin;
+#else
+    endstopstatus[3] = 0;
+#endif
 
 
 
 #ifndef ISPC
-    for (int e = 0; e < 3; e++) {
+    for (int e = 0; e < 4; e++) {
         if (endstopstatus[e]) {
             int nc = 0;
             for (int d = 0; d < 2; d++) {
@@ -1368,11 +1386,12 @@ void homing()
     cx1 = 0;
     cy1 = 0;
     cz1 = 0;
+    ce01 = 0;
 
-    x2[0] = x2[1] = x2[2] = 0;
+    x2[0] = x2[1] = x2[2] =x2[3]= 0;
 
-    int32_t tx[4];
-    tx[0] =  tx[1] = tx[2] = 0;
+    int32_t tx[NUMAXIS];
+    tx[0] =  tx[1] = tx[2]=tx[3] = 0;
 #define mmax ENDSTOP_MOVE*200
 #ifdef xmin_pin
     tx[0] = -mmax;
@@ -1390,15 +1409,20 @@ void homing()
 #elif defined(zmax_pin)
     tx[2] = mmax;
 #endif
+#ifdef emin_pin
+    tx[3] = -mmax;
+#elif defined(emax_pin)
+    tx[3] = mmax;
+#endif
     // fast check every 31 step
     checkendstop = 31;
     //zprintf(PSTR("Homing to %d %d %d\n"), tx[0], tx[1], tx[2]);
-    addmove(homingspeed, tx[0], tx[1], tx[2], ce01);
+    addmove(homingspeed, tx[0], tx[1], tx[2], tx[3]);
 
     // now slow down and check endstop once again
     waitbufferempty();
     //docheckendstop();
-    float xx[4];
+    float xx[NUMAXIS];
     //xprintf(PSTR("ENDSTOP %d %d %d\n"), (int32_t)endstopstatus[0], (int32_t)endstopstatus[1], (int32_t)endstopstatus[2]);
     //xprintf(PSTR("Position %f %f %f \n"), ff(cx1), ff(cy1), ff(cz1));
     // move away from endstop
@@ -1407,25 +1431,25 @@ void homing()
             xx[0]=xx[1]=xx[2]=xx[3]=0;\
             xx[e] =  - tx[e]/200;\
             checkendstop = 0;\
-            addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
+            addmove(F, xx[0], xx[1], xx[2], xx[3],1,1);\
             waitbufferempty();\
         }\
     }
 #define xcheckendstop(e,F) {\
         xx[0]=xx[1]=xx[2]=0;\
         xx[e] = tx[e];\
-        addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
+        addmove(F, xx[0], xx[1], xx[2], xx[3],1,1);\
         checkendstop = 1;\
         waitbufferempty();\
         xx[e] =  - tx[e]/200-axisofs[e];\
-        addmove(F, xx[0], xx[1], xx[2], 0,1,1);\
+        addmove(F, xx[0], xx[1], xx[2], xx[3],1,1);\
         checkendstop = 0;\
         waitbufferempty();\
     }
-    for (int32_t e = 0; e < 3; e++) {
+    for (int32_t e = 0; e < NUMAXIS; e++) {
         moveaway(e, homingspeed);
     }
-    for (int32_t e = 0; e < 3; e++) {
+    for (int32_t e = 0; e < NUMAXIS; e++) {
         if (tx[e]) {
             // check endstop again fast
             xcheckendstop(e, 25);
@@ -1438,7 +1462,8 @@ void homing()
 
     NONLINEARHOME
 
-#else
+#else // NONLINEAR
+
 #ifdef xmax_pin
     cx1 = ax_max[0];
 #else
@@ -1456,9 +1481,8 @@ void homing()
 #else
     cz1 = 0;
 #endif
-#endif
+#endif // NONLINEAR
 
-    ce01 = 0;
     //xprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
     ishoming = 0;
     init_pos();
