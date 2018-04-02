@@ -51,14 +51,15 @@
 
 #ifdef USETIMER1
 #ifdef __AVR__
-#define DSCALE 3   // use 2Mhz timer
+#define DSCALE 1   // use 2Mhz timer
 #define DIRDELAY 20
-#else defined __ARM__
-#define DSCALE 0   // use usec
-#define DIRDELAY 6 // usec
 #endif
-#else
-#define DSCALE 2
+#ifdef __ARM__
+#define DSCALE 0   // use usec
+#define DIRDELAY 20 // usec
+#endif
+#else // usetimer1
+#define DSCALE 0
 #define DIRDELAY 2
 #endif
 
@@ -82,11 +83,11 @@ float wstepdiv2;
 int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
 int8_t  sx[NUMAXIS];
-int32_t dlp, dl;
+int32_t dlp, dl,dln;
 int8_t checkendstop;
-int8_t endstopstatus[NUMAXIS];
+int16_t endstopstatus[NUMAXIS];
 int8_t ishoming;
-float axisofs[3] = {0, 0, 0};
+float axisofs[4] = {0, 0, 0,0};
 float F_SCALE = 1;
 
 float stepmmx[4];
@@ -102,8 +103,9 @@ tmove move[NUMBUFFER];
 #define INVSCALE 6
 #define INVSCALE2 (1<<(INVSCALE/2))
 
-#define xInvSqrt(f) 1/sqrt(f)
-float InvSqrt(float x)
+#define InvSqrt(f) 1/sqrt(f)
+
+float zInvSqrt(float x)
 {
 #ifdef FASTINVSQRT
     int32_t* i = (int32_t*)&x;           // store floating-point bits in integer
@@ -139,11 +141,13 @@ void reset_motion()
     xyjerk = XYJERK;
     xyscale = 1;
     ishoming = 0;
+    cmctr=0;
     e_multiplier = f_multiplier = 1;
     checkendstop = 0;
     endstopstatus[0] = 0;
     endstopstatus[1] = 0;
     endstopstatus[2] = 0;
+    endstopstatus[3] = 0;
     head = tail = tailok = 0;
     cx1 = 0;
     cy1 = 0;
@@ -629,9 +633,9 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     cy1 = x2[0] - x2[2];
     x2[0] = cx1;
     x2[2] = cy1;
-#elif defined(DRIVE_XYY)
+#elif defined(DRIVE_XYYZ)
     // copy dZ to dE and  dY to dZ, for CNC with 2 separate Y axis at homing.
-    if (isHoming) {
+    if (ishoming) {
         // when homing the z will threat as normal cartesian Z that can be homing normally.
     } else {
         //
@@ -813,10 +817,10 @@ int32_t timing = 0;
     COMMAND BUFFER
     =================================================================================================================================================
 */
-#define NUMCMDBUF 30
+#define NUMCMDBUF 25
 #define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 
-static uint16_t cmddelay[NUMCMDBUF], cmd0;
+static uint32_t cmddelay[NUMCMDBUF], cmd0;
 static uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit;
 
 static int8_t mo = 0;
@@ -831,7 +835,7 @@ static void decodecmd()
     if (cmdempty) {
         return;
     }
-    uint16_t cmd = cmddelay[cmtail];
+    uint32_t cmd = cmddelay[cmtail];
 
     cmcmd = cmd & 1;
     cmbit = (cmd >> 1) & 15;
@@ -842,11 +846,11 @@ static void decodecmd()
     timer_set(cmdly);
 #endif
 #ifdef ISPC
-    zprintf(PSTR("DLY:%d \n"), fi(cmdly));
+    //zprintf(PSTR("DLY:%d \n"), fi(cmdly));
 #endif
 }
 
-uint32_t mc,dmc;
+uint32_t mc,dmc,cmctr;
 void coreloopm()  // m = micros - nextmicros  value
 {
     //dmc=(micros()-mc); mc=micros();
@@ -860,9 +864,17 @@ void coreloopm()  // m = micros - nextmicros  value
     {
 #else
     cm = micros();
+
+//if (checkendstop && ((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0))) {
+//  cmtail=cmhead;
+//  nextok=0;
+//  return; // no more move and clear cmdbuffer if endstop hit/
+//}
+
     if (cm - nextmicros >= cmdly) {
         nextmicros = cm;
 #endif
+        cmctr++;
         if (cmcmd) { // 1: set dir
             if (cmbit & 8)motor_3_STEP();
             if (cmbit & 1)motor_0_STEP();
@@ -887,6 +899,18 @@ void coreloopm()  // m = micros - nextmicros  value
 
             if (checkendstop && !cmtail) { // check endstop every 30 step
                 docheckendstop();
+                if (((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0))) {
+                    cmtail=cmhead;
+                    nextok=0;
+                    endstopstatus[0] = endstopstatus[1] = endstopstatus[2] = endstopstatus[3] = 0;
+                    /*
+                                    m->status = 0;
+                                    mctr = 0;
+                                    m = 0;
+                                    head = tail;
+                    */
+                    return; // no more move and clear cmdbuffer if endstop hit/
+                }
             }
 
         } else { // 0: motor step
@@ -947,6 +971,7 @@ void newdircommand()
    ================================================================================================================
 */
 
+
 #define bresenham(ix)\
     if ((mcx[ix] -= bsdx[ix]) < 0) {\
         cmd0 |=2<<ix;\
@@ -982,7 +1007,7 @@ int coreloop1()
             goto UPDATEDELAY;
         } else if ((rampdown -= rampv) < 0) {
             ta += acdn;
-            // calculate new delay only if we accelerating
+        //    // calculate new delay only if we accelerating
 UPDATEDELAY:
             // if G0 update delay not every step to make the motor move faster
             //if (m->status & 8) {
@@ -997,10 +1022,10 @@ UPDATEDELAY:
 #endif
             // if G1, update every time
             //} else dlp = xInvSqrt(ta);
-        }
+        } else dlp=dln; // at nominal speed
 
         CALCDELAY
-        cmd0 |= (dl >> 2) << 5;
+        cmd0 |= (dl) << 5;
         pushcmd();
         mctr--;
         CORELOOP
@@ -1034,13 +1059,13 @@ UPDATEDELAY:
         if (checkendstop && ((mctr & checkendstop) == 0)) {
             //      docheckendstop();
             //zprintf(PSTR("%d \n"),fi(mctr));
-            if ((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0)) {
+            if ((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0)) {
                 zprintf(PSTR("Endstop hit"));
                 m->status = 0;
                 mctr = 0;
                 m = 0;
                 head = tail;
-                endstopstatus[0] = endstopstatus[1] = endstopstatus[2] = 0;
+                endstopstatus[0] = endstopstatus[1] = endstopstatus[2] = endstopstatus[3] = 0;
                 return 0;
             }
         }
@@ -1124,7 +1149,7 @@ void otherloop(int r)
     =================================================================================================================================================
   Mulai menjalankan 1 unit di buffer gerakan terakhir
 */
-int laxis;
+int subp=1,laxis;
 
 float ts;
 float xc[NUMAXIS];
@@ -1173,7 +1198,6 @@ void calculate_delta_steps()
     // modify the sx?? m->mcx and totalstep for this segment
     // STEP 5 FINAL
     mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0;
-    rampv = rampseg / totalstep;
 
     // convert from virtual step/mm value to original step/mm value
     stepdiv2 = wstepdiv2 * rampv;
@@ -1197,6 +1221,37 @@ void calculate_delta_steps()
         }
     }
 #endif // nonlinear
+
+
+// lets do the subpixel thing.
+
+// calculate the microseconds betwen step,
+    dln=xInvSqrt((int32_t)(m->fn ) << INVSCALE );
+#ifdef SUBPIXELMAX
+    int u;
+    for (u=2; u<=(SUBPIXELMAX); u++) {
+        if (LOWESTDELAY*u>dln) {
+            break;
+        }
+    }
+    u--;
+    subp=u;
+    zprintf(PSTR("Subpixel %d %d ->"),fi(u),fi(dln));
+    if (u>1) {
+        totalstep*=u;
+        acup/=u;
+        acdn/=u;
+        stepdiv2/=u;
+        stepdiv/=u;
+        dln/=u;
+#ifdef NONLINEAR
+        rampv /=u;
+#endif
+
+    }
+    zprintf(PSTR(" %d\n"),fi(dln));
+#endif
+//
 
     mctr = totalstep ;
     newdircommand();
@@ -1300,6 +1355,11 @@ int32_t startmove()
 
 #endif
     calculate_delta_steps();
+#ifdef SUBPIXELMAX
+    rampup*=subp;
+    rampdown*=subp;
+    zprintf(PSTR("%d %d %d\n"),fi(subp),fi(rampup),fi(rampdown));
+#endif
     dlp = xInvSqrt(ta);
     return 1;
 }
@@ -1353,13 +1413,14 @@ void docheckendstop()
 
 
 #ifndef ISPC
-    for (int e = 0; e < 4; e++) {
+
+    for (int e = 0; e < NUMAXIS; e++) {
         if (endstopstatus[e]) {
             int nc = 0;
-            for (int d = 0; d < 2; d++) {
+            for (int d = 0; d < 3; d++) {
                 if (ENDCHECK dread(endstopstatus[e]))nc++;
             }
-            if (nc > 0)endstopstatus[e] = -1;
+            if (nc > 1)endstopstatus[e] = -1;
         }
     }
 #else
@@ -1390,9 +1451,11 @@ void homing()
 
     x2[0] = x2[1] = x2[2] =x2[3]= 0;
 
+    int32_t stx[NUMAXIS];
+    stx[0] =  stx[1] = stx[2]=stx[3] = 0;
     int32_t tx[NUMAXIS];
     tx[0] =  tx[1] = tx[2]=tx[3] = 0;
-#define mmax ENDSTOP_MOVE*200
+#define mmax HOMING_MOVE
 #ifdef xmin_pin
     tx[0] = -mmax;
 #elif defined(xmax_pin)
@@ -1414,10 +1477,49 @@ void homing()
 #elif defined(emax_pin)
     tx[3] = mmax;
 #endif
+#define smmax ENDSTOP_MOVE
+#ifdef xmin_pin
+    stx[0] = -smmax;
+#elif defined(xmax_pin)
+    stx[0] = smmax;
+#endif
+
+#ifdef ymin_pin
+    stx[1] = -smmax;
+#elif defined(ymax_pin)
+    stx[1] = smmax;
+#endif
+#ifdef zmin_pin
+    stx[2] = -smmax;
+#elif defined(zmax_pin)
+    stx[2] = smmax;
+#endif
+#ifdef emin_pin
+    stx[3] = -smmax;
+#elif defined(emax_pin)
+    stx[3] = smmax;
+#endif
     // fast check every 31 step
+    zprintf(PSTR("Homing to %d %d %d\n"), tx[0], tx[1], tx[2]);
+
+// move away before endstop
+    checkendstop = 0;
+    addmove(homingspeed, -stx[0], -stx[1], -stx[2], -stx[3],1,1);
+    waitbufferempty();
+
     checkendstop = 31;
-    //zprintf(PSTR("Homing to %d %d %d\n"), tx[0], tx[1], tx[2]);
-    addmove(homingspeed, tx[0], tx[1], tx[2], tx[3]);
+#ifdef DRIVE_XYYZ
+    addmove(homingspeed, 0, tx[1], tx[2], 0,1,1);
+    waitbufferempty();
+    checkendstop = 0;
+    addmove(homingspeed, 0, -stx[1], -stx[2], 0,1,1);
+    waitbufferempty();
+    checkendstop = 31;
+    addmove(homingspeed, tx[0], 0, 0, tx[3],1,1);
+#else
+    addmove(homingspeed, tx[0], tx[1], tx[2], tx[3],1,1);
+#endif
+
 
     // now slow down and check endstop once again
     waitbufferempty();
@@ -1427,9 +1529,9 @@ void homing()
     //xprintf(PSTR("Position %f %f %f \n"), ff(cx1), ff(cy1), ff(cz1));
     // move away from endstop
 #define moveaway(e,F) {\
-        if (tx[e]) {\
+        if (stx[e]) {\
             xx[0]=xx[1]=xx[2]=xx[3]=0;\
-            xx[e] =  - tx[e]/200;\
+            xx[e] =  - stx[e];\
             checkendstop = 0;\
             addmove(F, xx[0], xx[1], xx[2], xx[3],1,1);\
             waitbufferempty();\
@@ -1437,11 +1539,11 @@ void homing()
     }
 #define xcheckendstop(e,F) {\
         xx[0]=xx[1]=xx[2]=0;\
-        xx[e] = tx[e];\
+        xx[e] = stx[e];\
         addmove(F, xx[0], xx[1], xx[2], xx[3],1,1);\
         checkendstop = 1;\
         waitbufferempty();\
-        xx[e] =  - tx[e]/200-axisofs[e];\
+        xx[e] =  - stx[e]-axisofs[e];\
         addmove(F, xx[0], xx[1], xx[2], xx[3],1,1);\
         checkendstop = 0;\
         waitbufferempty();\
@@ -1595,6 +1697,13 @@ void initmotion()
 #endif
 #ifdef zmax_pin
     pinMode(zmax_pin, ENDPIN);
+#endif
+
+#ifdef emin_pin
+    pinMode(emin_pin, ENDPIN);
+#endif
+#ifdef emax_pin
+    pinMode(emax_pin, ENDPIN);
 #endif
     pinMotorInit
 #endif

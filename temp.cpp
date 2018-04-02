@@ -9,6 +9,16 @@ uint16_t ctemp = 0;
 double Setpoint, Input, Output;
 int wait_for_temp = 0;
 
+int fan_val = 0;
+void setfan_val(int val) {
+#ifdef fan_pin
+    pinMode(fan_pin, OUTPUT);
+  analogWrite(fan_pin, val);
+//  digitalWrite(fan_pin, val);
+  fan_val = val;
+#endif
+}
+
 
 #if defined(temp_pin) && !defined(ISPC)
 #include <PID_v1.h>
@@ -20,14 +30,6 @@ int wait_for_temp = 0;
 PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 
 
-int fan_val = 0;
-void setfan_val(int val) {
-#ifdef fan_pin
-    pinMode(fan_pin, OUTPUT);
-  analogWrite(fan_pin, val);
-  fan_val = val;
-#endif
-}
 
 #if defined(__AVR__) && defined(ISRTEMP)
 int vanalog[8];
@@ -160,8 +162,7 @@ int temp_achieved() {
 }
 void set_temp(float set) {
 }
-void setfan_val(int val) {
-}
+
 void init_temp()
 {
 }

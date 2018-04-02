@@ -34,7 +34,9 @@
 #define ANALOGSHIFT 0 // 10bit adc
 // ==========================================================
 #elif defined(__ARM__)
-#define BOARD_NANONANO_STM32
+//#define BOARD_NANONANO_STM32
+//#define BOARD_ST33DV1_STM32
+#define BOARD_ST33DV1_XYYZ_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 // ==========================================================
 #elif defined(ESP8266)
@@ -57,7 +59,7 @@
   ============================================================================================
 */
 
-//#define BACKPLANNER // 852Bytes code !
+#define BACKPLANNER // 852Bytes code !
 #define BACKPLANNERRATIO 2 // twice acceleration
 //#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
@@ -125,23 +127,23 @@
 #define XACCELL 300
 #define XMOVEACCELL 600
 
-#define XMAXFEEDRATE 80
-#define YMAXFEEDRATE 80
-#define ZMAXFEEDRATE 80
-#define E0MAXFEEDRATE 20
+#define XMAXFEEDRATE 180
+#define YMAXFEEDRATE 180
+#define ZMAXFEEDRATE 180
+#define E0MAXFEEDRATE 120
 
-#define XSTEPPERMM 400//131//178
-#define YSTEPPERMM 400//175//125
-#define ZSTEPPERMM 400//1020//1020 //420
-#define E0STEPPERMM 720//340//380
+#define XSTEPPERMM 106//131//178
+#define YSTEPPERMM 106//175//125
+#define ZSTEPPERMM 106//1020//1020 //420
+#define E0STEPPERMM 106//340//380
 
 #ifndef NUMBUFFER
 #define NUMBUFFER 6
 #endif
 
-#define XMAX 0
-#define YMAX 0
-#define ZMAX 152.4
+#define XMAX 1200
+#define YMAX 1800
+#define ZMAX 20
 
 #define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
 #define MOTOR_Y_BACKLASH 0
@@ -154,8 +156,8 @@
 
 //#define INVERTENDSTOP // uncomment for normally open
 
-#define ENDSTOP_MOVE 2.5   //2mm move back after endstop hit, warning, must 
-
+#define ENDSTOP_MOVE 3   //2mm move back after endstop hit, warning, must 
+#define HOMING_MOVE 2000
 
 // KontrolBox a series resistor with switch to a analog PIN
 // MCU only

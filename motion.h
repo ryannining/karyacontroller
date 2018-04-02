@@ -23,12 +23,15 @@
 #include "config_pins.h"
 #define NUMAXIS 4
 #define UPDATE_F_EVERY 2000 //us
+#define SUBPIXELMAX 6
+#define LOWESTDELAY 45 // IF LESS than this microsec then do the subpixel
 
 
 
 
 typedef struct {
-    uint16_t cmddly  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
+    uint8_t cmd  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
+    uint16_t dly  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
 } tcmd;
 
 
@@ -73,11 +76,11 @@ extern tmove move[NUMBUFFER];
 extern float cx1, cy1, cz1, ce01;
 extern uint8_t head, tail;
 extern int8_t checkendstop;
-extern int8_t endstopstatus[NUMAXIS];
+extern int16_t endstopstatus[NUMAXIS];
 extern float ax_max[3];
 //extern int8_t lsx[4];
 extern int8_t  sx[NUMAXIS];
-
+extern uint32_t cmctr;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 
@@ -100,7 +103,7 @@ extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();
 extern void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, int rel = 0);
-extern float axisofs[3];
+extern float axisofs[4];
 
 #ifdef NONLINEAR
 extern float delta_diagonal_rod;

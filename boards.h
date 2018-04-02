@@ -433,7 +433,7 @@
 #define zdirection PB3
 #define zstep PB4
 
-#define e0enable PB9
+#define e0enable PB13
 #define e0direction PB14
 #define e0step PB15
 
@@ -448,19 +448,23 @@
 #define xmin_pin PB12
 #define ymin_pin PB12
 #define zmin_pin PB12
-#define emax_pin PB12
+//#define emax_pin PB12
 
 
-//#define INVERTENDSTOP
+#define INVERTENDSTOP // uncomment for normally open
 
+/*
 #define temp_pin PB1
 #define temp2_pin PB0
 #define heater_pin PA0
 #define heater2_pin PA1
 #define fan_pin PA3
+*/
+#define fan_pin PA0 // laser PIN
 
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
+
 #define NUMBUFFER 20
 #define DRIVE_XYYZ
 /*

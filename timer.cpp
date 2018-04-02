@@ -103,19 +103,30 @@ void timer_init()
 
 void tm()
 {
-    Timer2.pause();
+    Timer1.pause();
     ndelay=20;
     coreloopm();
     ndelay=fmax(20,ndelay);
-    Timer2.setPeriod(ndelay);
-    Timer2.resume();
+    Timer1.setPeriod(ndelay);
+    //Timer1.refresh();
+    Timer1.resume();
 }
 
 void timer_init()
 {
-    Timer2.setChannel1Mode(TIMER_OUTPUTCOMPARE);
-    Timer2.setPeriod(1000000); // in microseconds
-    Timer2.attachCompare1Interrupt(tm);
+
+  /*
+   *     Timer2.setMode(TIMER_CH1, TIMER_OUTPUTCOMPARE);
+    Timer2.setPeriod(LED_RATE); // in microseconds
+    Timer2.setCompare(TIMER_CH1, 1);      // overflow might be small
+    Timer2.attachInterrupt(TIMER_CH1, handler_led);
+   */
+    //Timer1.pause();
+    Timer1.setMode(TIMER_CH1, TIMER_OUTPUTCOMPARE);
+    Timer1.setPeriod(1000); // in microseconds
+    Timer1.setCompare(TIMER_CH1, 1);      // overflow might be small
+    Timer1.attachInterrupt(TIMER_CH1,tm);
+    //Timer1.resume();
 }
 
 #endif // arm

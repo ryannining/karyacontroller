@@ -338,6 +338,8 @@ void delay_ms(uint32_t d) {
 
 }
 void temp_wait(void) {
+  
+#ifdef heater_pin
   wait_for_temp = 1;
   int c = 0;
   while (wait_for_temp && !temp_achieved()) {
@@ -349,6 +351,8 @@ void temp_wait(void) {
     }
   }
   wait_for_temp = 0;
+#endif
+
 }
 //int32_t mvc = 0;
 static void enqueue(TARGET *) __attribute__ ((always_inline));
@@ -478,19 +482,19 @@ void process_gcode_command() {
 #endif
       case 7: // baby step in S in milimeter
         int nstep;
-        if (next_target.seen_X) move_motor(0, sx[0],next_target.target.axis[X] * stepmmx[0]);
-        if (next_target.seen_Y) move_motor(1, sx[1],next_target.target.axis[Y] * stepmmx[1]);
-        if (next_target.seen_Z) move_motor(2, sx[2],next_target.target.axis[Z] * stepmmx[2]);
+        if (next_target.seen_X) move_motor(0, sx[0], next_target.target.axis[X] * stepmmx[0]);
+        if (next_target.seen_Y) move_motor(1, sx[1], next_target.target.axis[Y] * stepmmx[1]);
+        if (next_target.seen_Z) move_motor(2, sx[2], next_target.target.axis[Z] * stepmmx[2]);
         if (next_target.seen_S) {
-          move_motor(0, sx[0],next_target.S * stepmmx[0]);
-          move_motor(1, sx[1],next_target.S * stepmmx[1]);
-          move_motor(2, sx[2],next_target.S * stepmmx[2]);
+          move_motor(0, sx[0], next_target.S * stepmmx[0]);
+          move_motor(1, sx[1], next_target.S * stepmmx[1]);
+          move_motor(2, sx[2], next_target.S * stepmmx[2]);
         }
 
-        
+
         break;
-    case 28:
-      homing();
+      case 28:
+        homing();
         next_target.target.axis[X] = cx1;
         next_target.target.axis[Y] = cy1;
         next_target.target.axis[Z] = cz1;
@@ -577,9 +581,13 @@ void process_gcode_command() {
     switch (next_target.M) {
 #ifndef ISPC
       case 200: // keybox action
-        switch (next_target.P) {
-            KBOX_DO_ACT
-        }
+        if (next_target.seen_P){
+          
+          zprintf(PSTR("DOKEY:%d\n"),next_target.P);
+          switch (next_target.P) {
+              KBOX_DO_ACT
+          }}
+        break;
 #endif
       case 0:
       //? --- M0: machine stop ---
@@ -699,7 +707,7 @@ void process_gcode_command() {
         //? firmware to the host.
         docheckendstop();
         zprintf(PSTR("END:"));
-        for (int e = 0; e < 3; e++) {
+        for (int e = 0; e < NUMAXIS; e++) {
           zprintf(endstopstatus[e] < 0 ? PSTR("1 ") : PSTR("0 "));
         }
         zprintf(PSTR("\n"));
@@ -741,13 +749,13 @@ void process_gcode_command() {
         zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
 #endif
         zprintf(PSTR("EPR:3 165 %f Xofs\n"), ff(axisofs[0]));
-        #ifdef DRIVE_XYY
+#ifdef DRIVE_XYY
         zprintf(PSTR("EPR:3 169 %f Y1ofs\n"), ff(axisofs[1]));
         zprintf(PSTR("EPR:3 173 %f Y2ofs\n"), ff(axisofs[2]));
-        #else
+#else
         zprintf(PSTR("EPR:3 169 %f Yofs\n"), ff(axisofs[1]));
         zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
-        #endif
+#endif
 #ifdef USE_BACKLASH
         zprintf(PSTR("EPR:2 80 %d Xbcklsh\n"), fi(xback[0]));
         zprintf(PSTR("EPR:2 84 %d Y\n"), fi(xback[1]));
