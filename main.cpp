@@ -60,10 +60,10 @@ int main(void)
   getch();
 }
 void demofile() {
-  #define fn "d:/git/hipopotamo.gcode"
+  //#define fn "d:/git/hipopotamo.gcode"
   //#define fn "d:/git/bowdenlock.gcode" 
   //#define fn "d:/3d/fish_fossilz.gcode"
-  //#define fn "d:/3d/cube20.gcode"
+  #define fn "d:/3d/cube20.gcode"
 
   //#define fn "d:/3d/box1cm.gcode" 
   FILE *file = fopen(fn,"r");
@@ -100,11 +100,10 @@ void demofile() {
 void demo() {
   graphscale = 10;
   tickscale=160;
-  fscale=3;
+  fscale=8;
   int f = 100;
-  amove(80, 20, 0, 0, 1);
-  amove(80, 50, 0, 0, 2);
-  amove(15, 50, 0, 0, -1);
+  amove(20, 10, 0, 0, 0);
+  amove(10, 20, 0, 0, 0);
 /*  
   amove(30, 10, -10, 0, 0);
   amove(30, 25, 0, 0, 1);

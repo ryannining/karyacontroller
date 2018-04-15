@@ -53,7 +53,11 @@ extern double Input;
 extern int wait_for_temp;
 extern int vanalog[8];
 extern int adcpin;
-#ifdef __AVR
-#define ADCREAD(pin) adcpin=pin; ADMUX = bit (REFS0) | (pin);ADCSRA |= bit (ADSC) | bit (ADIE);
+#ifdef __AVR__
+#define ADCREAD(pin) adcpin=pin;\
+                ADMUX = bit (REFS0) | (pin);\
+                if(pin>8)ADCSRB |= _BV(MUX5);else ADCSRB &= ~_BV(MUX5);\
+                ADCSRA |= bit (ADSC) | bit (ADIE);
+  
 #endif
 

@@ -8,12 +8,21 @@
 
 
 #ifdef USETIMER1
-#define CORELOOP 
+#define CORELOOP
 #else
 #define CORELOOP coreloopm();
 #endif
 
-#ifdef NONLINEAR
+
+#ifndef NONLINEAR
+
+// LINEAR DRIVE IS SIMPLE
+#define Cstepmmx(i) stepmmx[i]
+// no scaling
+#define XYSCALING
+
+#else
+// NONLINEAR HERE
 
 
 // dummy step/mm for planner, 100 is good i think
@@ -49,13 +58,13 @@ extern float F_SCALE;
 
 // maybe we should use fixed point to increase performance, or make all already multiplied with the steppermm (steppermm as the pixed point multiplicator)
 
-#define stepsqrt(s,n) 
+#define stepsqrt(s,n)
 
-/* ====================================================================================================== * 
- * 
- *  DELTA
- * ====================================================================================================== * 
- */
+/* ====================================================================================================== *
+
+    DELTA
+   ======================================================================================================
+*/
 
 #if defined(DRIVE_DELTA)
 #define XYSCALING   cx2*=xyscale;  cy2*=xyscale;
@@ -65,7 +74,7 @@ extern float F_SCALE;
 // only X and Y cause segmentation
 #define STEPSEGMENT fmax(labs(m->dx[0]),labs(m->dx[1]))
 
-void nonlinearprepare(){
+void nonlinearprepare() {
   DELTA_DIAGONAL_ROD_2 = delta_diagonal_rod * delta_diagonal_rod;
   //delta_radius         = (DELTA_RADIUS );
 
@@ -77,12 +86,12 @@ void nonlinearprepare(){
   delta_tower3_y       = (SIN(DegToRad(TOWER_Z_ANGLE_DEG)) * delta_radius);
 
 }
-  
+
 void transformdelta( float x, float y, float z, float e) {
 #ifdef output_enable
   //zprintf(PSTR("transform delta "));
 #endif
-    x2[3]     = stepmmx[3] *e;
+  x2[3]     = stepmmx[3] * e;
   if (ishoming)
   {
     // when homing, no transform
@@ -103,12 +112,12 @@ void transformdelta( float x, float y, float z, float e) {
                                    - sqr2(delta_tower1_x - x)
                                    - sqr2(delta_tower1_y - y)
                                   ) + z);
-    CORELOOP                              
+    CORELOOP
     x2[1]     = stepmmx[1] * (SQRT(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower2_x - x)
                                    - sqr2(delta_tower2_y - y)
                                   ) + z);
-    CORELOOP                              
+    CORELOOP
     x2[2]     = stepmmx[2] * (SQRT(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower3_x - x)
                                    - sqr2(delta_tower3_y - y)
@@ -121,15 +130,15 @@ void transformdelta( float x, float y, float z, float e) {
 #endif
 }
 
-/* ====================================================================================================== * 
- * 
- *  DELTASIAN
- * ====================================================================================================== * 
- */
+/* ====================================================================================================== *
+
+    DELTASIAN
+   ======================================================================================================
+*/
 
 #elif defined(DRIVE_DELTASIAN)
 
-void nonlinearprepare(){
+void nonlinearprepare() {
   DELTA_DIAGONAL_ROD_2 = delta_diagonal_rod * delta_diagonal_rod;
 
   delta_tower1_x       = -DELTA_RADIUS;
@@ -143,11 +152,11 @@ void nonlinearprepare(){
 // only X cause segmentation
 #define STEPSEGMENT labs(m->dx[0])
 
-void transformdelta( float x, float y, float z,float e) {
+void transformdelta( float x, float y, float z, float e) {
 #ifdef output_enable
   zprintf(PSTR("transform delta "));
 #endif
-    x2[3]     = stepmmx[3] *e;
+  x2[3]     = stepmmx[3] * e;
   if (ishoming)
   {
     // when homing, no transform
@@ -166,11 +175,11 @@ void transformdelta( float x, float y, float z,float e) {
     x2[0]     = stepmmx[0] * (sqrt(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower1_x - x)
                                   ) + z);
-    CORELOOP                              
+    CORELOOP
     x2[2]     = stepmmx[2] * (sqrt(DELTA_DIAGONAL_ROD_2
                                    - sqr2(delta_tower2_x - x)
                                   ) + z);
-   CORELOOP                              
+    CORELOOP
     x2[1] = int32_t(stepmmx[1] * y);
   }
 #ifdef output_enable
@@ -181,12 +190,6 @@ void transformdelta( float x, float y, float z,float e) {
 
 
 
-#else // ELSE DRIVEDELTA
-#define Cstepmmx(i) stepmmx[i]
-#define XYSCALING
-//#define fmul 1
-#endif // DRIVEDELTA
-
-
+#endif // LINEAR
 
 

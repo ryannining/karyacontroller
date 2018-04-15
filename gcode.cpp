@@ -344,6 +344,7 @@ void temp_wait(void) {
   int c = 0;
   while (wait_for_temp && !temp_achieved()) {
     domotionloop
+    servo_loop();
     if (c++ > 20000) {
       c = 0;
       zprintf(PSTR("T:%f\n"), ff(Input));
@@ -363,6 +364,13 @@ inline void enqueue(TARGET *t, int g0 = 1) {
         , t->axis[Z]
         , t->axis[E]
         , g0);
+}
+inline void enqueuearc(TARGET *t,float I,float J,int cw) {
+  draw_arc(t->F , t->axis[X]
+        , t->axis[Y]
+        , t->axis[Z]
+        , t->axis[E]
+        , I,J,cw);
 }
 
 void process_gcode_command() {
@@ -432,9 +440,15 @@ void process_gcode_command() {
       //	G3 - Arc anti Clockwise
       case 2:
       case 3:
-        // we havent immplement R
-        ///*
-        //*/
+#ifdef ARC_SUPPORT                
+                temp_wait();
+                
+                if (!next_target.seen_I) next_target.I=0;
+                if (!next_target.seen_J) next_target.J=0;
+                //if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
+                    
+                enqueuearc(&next_target.target,next_target.I,next_target.J,next_target.G==2);
+#endif                
         break;
 
       case 4:
@@ -458,6 +472,10 @@ void process_gcode_command() {
         reset_eeprom();
         reload_eeprom();
       case 6:
+        amove(2, 10, 5, 0, 0);
+        amove(2, 15, 15, 5, 0);
+        amove(2, 20, 25, 10, 0);
+      /*
         amove(100, 10, 0, 0, 0);
         amove(100, 10, 10, 0, 0);
         amove(100, 0, 10, 0, 0);
@@ -477,7 +495,7 @@ void process_gcode_command() {
         amove(100, 10, 10, 0, 0);
         amove(100, 0, 10, 0, 0);
         amove(100, 0, 0, 0, 0);
-
+*/
         break;
 #endif
       case 7: // baby step in S in milimeter
@@ -638,6 +656,23 @@ void process_gcode_command() {
         //? Undocumented.
         // disable laser/spindle
         break;
+#ifdef servo_pin
+      case 300:
+        waitbufferempty();
+        setfan_val(255); // turn on power
+        zprintf(PSTR("Servo:%d\n"),fi(next_target.S));
+        //pinMode(servo_pin,OUTPUT);
+        servo_set(next_target.S*(2000/180));
+        if (!next_target.seen_P)next_target.P=1000; // 1 second wait
+        // wait loop
+        uint32_t mc;
+        mc=millis();
+        while ((millis()-mc)<next_target.P){
+          domotionloop
+        }
+        setfan_val(0); // turn off power
+        break;
+#endif
       case 104:
         set_temp(next_target.S);
         break;

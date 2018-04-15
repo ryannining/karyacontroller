@@ -23,9 +23,15 @@
 #include "config_pins.h"
 #define NUMAXIS 4
 #define UPDATE_F_EVERY 2000 //us
-#define SUBPIXELMAX 6
-#define LOWESTDELAY 45 // IF LESS than this microsec then do the subpixel
+#ifndef ISPC
+//#define SUBPIXELMAX 6
+#endif
 
+#ifdef __AVR__
+#define LOWESTDELAY 540 // IF LESS than this microsec then do the subpixel
+#else
+#define LOWESTDELAY 120 // IF LESS than this microsec then do the subpixel
+#endif
 
 
 
@@ -103,6 +109,8 @@ extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();
 extern void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, int rel = 0);
+extern void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, float fJ, uint8_t isclockwise);
+
 extern float axisofs[4];
 
 #ifdef NONLINEAR

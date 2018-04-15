@@ -29,7 +29,8 @@
 //#define BOARD_RAMP13
 //#define BOARD_RAMP13_DELTA
 //#define BOARD_RAMP13_3DPLEX
-#define BOARD_NANO_3DPLEX
+//#define BOARD_NANO_3DPLEX
+#define BOARD_DIY_4XI
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
 // ==========================================================
@@ -59,14 +60,15 @@
   ============================================================================================
 */
 
-#define BACKPLANNER // 852Bytes code !
-#define BACKPLANNERRATIO 2 // twice acceleration
+//#define ARC_SUPPORT // 3kb 
+//#define BACKPLANNERRATIO 3 // twice acceleration
+//#define BACKPLANNER // 852Bytes code !
 //#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
-#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
+//#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
 //#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
-#define OLEDDISPLAY // more than 2.5K , simple oled controller
-#define CORESERIAL // smaller footprint 500byte, only AVR
+//#define OLEDDISPLAY // more than 2.5K , simple oled controller
+//#define CORESERIAL // smaller footprint 500byte, only AVR
 // ==========================================================
 //#undef SDCARD_CS
 #ifdef SDCARD_CS
@@ -124,21 +126,21 @@
 #define EOFFSET 0
 
 #define XYJERK 15
-#define XACCELL 300
-#define XMOVEACCELL 600
+#define XACCELL 100
+#define XMOVEACCELL 100
 
 #define XMAXFEEDRATE 180
 #define YMAXFEEDRATE 180
 #define ZMAXFEEDRATE 180
 #define E0MAXFEEDRATE 120
 
-#define XSTEPPERMM 106//131//178
-#define YSTEPPERMM 106//175//125
-#define ZSTEPPERMM 106//1020//1020 //420
-#define E0STEPPERMM 106//340//380
+#define XSTEPPERMM 200//131//178
+#define YSTEPPERMM 200//175//125
+#define ZSTEPPERMM 200//1020//1020 //420
+#define E0STEPPERMM 200//340//380
 
 #ifndef NUMBUFFER
-#define NUMBUFFER 6
+#define NUMBUFFER 16
 #endif
 
 #define XMAX 1200

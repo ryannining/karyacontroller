@@ -292,6 +292,60 @@
 #define ystep 8
 
 #define zenable 2
+#define zdirection A5
+#define zstep A4
+
+#define e0enable 2
+#define e0direction A2
+#define e0step A3
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+//#define xmin_pin A0
+//#define ymin_pin A0
+#define zmax_pin A0
+
+#define temp_pin 6 //analog 6 because we use ISR
+#define heater_pin 3
+//#define fan_pin 5
+
+#define ISRTEMP
+//#define INVERTENDSTOP // uncomment for normally open
+
+#define SDCARD_CS 10
+#define KBOX_PIN 7
+//#define OLED_CONTROL_PIN 7
+#define USETIMER1
+
+#define NUMBUFFER 7
+
+/*
+  ============================================================================================
+     BOARD_NANO_3DPLEX
+  ============================================================================================
+*/
+
+#elif defined(BOARD_NANO_3DPLEX2)
+// 2 3 4 6 7 8 9 10 a0 a2 a3 a4 a5 a6
+// free  5 a1 a7
+// for i2c work, free a4 a5
+// so move a4 to 5 and a5 to a1
+
+#define xenable 2
+#define xdirection 6
+#define xstep 4
+
+#define yenable 2
+#define ydirection 9
+#define ystep 8
+
+#define zenable 2
 #define zdirection A1 //A5
 #define zstep 5 //A4
 
@@ -319,11 +373,64 @@
 //#define INVERTENDSTOP // uncomment for normally open
 
 #define SDCARD_CS 10
-//#define KBOX_PIN 7
-#define OLED_CONTROL_PIN 7
-//#define USETIMER1
+#define KBOX_PIN 7
+//#define OLED_CONTROL_PIN 7
+#define USETIMER1
 
 #define NUMBUFFER 7
+
+
+/*
+  ============================================================================================
+     BOARD_DIY_4XI
+  ============================================================================================
+*/
+#elif defined(BOARD_DIY_4XI)
+#define DRIVE_COREXY
+
+#define xenable 2
+#define xdirection 7
+#define xstep 6
+
+#define yenable 2
+#define ydirection 4
+#define ystep 5
+/*
+#define zenable 2
+#define zdirection A1 //A5
+#define zstep 5 //A4
+
+#define e0enable 2
+#define e0direction A2
+#define e0step A3
+
+*/
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+//#define xmin_pin A0
+//#define ymin_pin A0
+//#define zmax_pin A0
+
+//#define temp_pin 6 //analog 6 because we use ISR
+//#define heater_pin 3
+#define fan_pin 3
+#define servo_pin 11
+
+//#define ISRTEMP
+//#define INVERTENDSTOP // uncomment for normally open
+
+//#define SDCARD_CS 10
+//#define KBOX_PIN 7
+//#define OLED_CONTROL_PIN 7
+#define USETIMER1
+
+#define NUMBUFFER 15
 
 
 /*
@@ -572,7 +679,7 @@
 #define MOTOR_1_DIR 1 // 1: normal -1:inverted
 #define MOTOR_2_DIR 1 // 1: normal -1:inverted
 #define MOTOR_3_DIR -1 // 1: normal -1:inverted
-
+#define USETIMER1
 
 /*
   ============================================================================================

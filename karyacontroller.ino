@@ -144,16 +144,19 @@ void gcode_loop() {
 
 #ifndef ISPC
 
-    if (millis() - dbtm> 1000) {
-      dbtm=millis();
+///*
+    if (micros() - dbtm> 1000000) {
+      dbtm=micros();
       extern int32_t dlp;
       extern int subp;
-      float f=(cmctr-dbcm)/(subp*106.0);
+      float f=(cmctr-dbcm);
+      f/=XSTEPPERMM;
       
-      if (f>0)zprintf(PSTR("STEP:%d %f %d\n"),cmctr,ff(f),fi(dlp));
+      //if (f>0)
+      zprintf(PSTR("Subp:%d STEP:%d %f %d\n"),fi(subp),cmctr,ff(f),fi(dlp/8));
       dbcm=cmctr;
     }
-
+//*/
 
   /*
       =========================================================================================================================================================
@@ -221,6 +224,7 @@ void gcode_loop() {
 #else  
   for (int i=0;i<5;i++){if (!motionloop())break;}
 #endif
+  servo_loop();
   if (ack_waiting) {
     zprintf(PSTR("ok\n"));
     ack_waiting = 0;
@@ -283,6 +287,7 @@ void setup() {
   init_temp();
   reload_eeprom();
   timer_init();
+  servo_init();
   SEI
   zprintf(PSTR("start\nok\n"));
 #ifdef KBOX_PIN
