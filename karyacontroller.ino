@@ -107,7 +107,7 @@ void control_loop(){
     int key = vanalog[OLED_CONTROL_PIN];
     ADCREAD(OLED_CONTROL_PIN)
 #else
-    int key = analogRead(OLED_CONTROL_PIN);
+    int key = analogRead(OLED_CONTROL_PIN) >> ANALOGSHIFT;
 #endif
 
     switch (key) {
@@ -124,7 +124,7 @@ void control_loop(){
         kdl = 200;
         break;
     }
-    //zprintf(PSTR("Key:%d\n"), fi(key));
+    zprintf(PSTR("Key:%d\n"), fi(key));
   }
 #endif
   
@@ -153,7 +153,7 @@ void gcode_loop() {
       f/=XSTEPPERMM;
       
       //if (f>0)
-      zprintf(PSTR("Subp:%d STEP:%d %f %d\n"),fi(subp),cmctr,ff(f),fi(dlp/8));
+      //zprintf(PSTR("Subp:%d STEP:%d %f %d\n"),fi(subp),cmctr,ff(f),fi(dlp/8));
       dbcm=cmctr;
     }
 //*/
@@ -173,7 +173,7 @@ void gcode_loop() {
     int key = vanalog[KBOX_PIN];
     ADCREAD(KBOX_PIN)
 #else
-    int key = analogRead(KBOX_PIN);
+    int key = analogRead(KBOX_PIN) >> ANALOGSHIFT;
 #endif
 
     switch (key) {
@@ -191,7 +191,10 @@ void gcode_loop() {
         kdl = 200;
         break;
     }
-    //zprintf(PSTR("Key:%d\n"), fi(key));
+    #ifdef KBOX_SHOW_VALUE
+    zprintf(PSTR("Key:%d\n"), fi(key));
+    #endif
+    
   }
 #endif
   /*
@@ -291,7 +294,11 @@ void setup() {
   SEI
   zprintf(PSTR("start\nok\n"));
 #ifdef KBOX_PIN
+  #ifdef __ARM__
+  pinMode(KBOX_PIN, INPUT_ANALOG);
+  #else
   pinMode(KBOX_PIN, INPUT_PULLUP);
+  #endif  
 #ifdef ISRTEMP
   vanalog[KBOX_PIN] = 1023; // first read is error, throw it
 #endif

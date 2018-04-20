@@ -13,7 +13,7 @@
 static int8_t lsx[4] = {0, 0, 0, 0};
 
 
- 
+
 #ifndef ISPC
 
 

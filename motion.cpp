@@ -31,7 +31,6 @@
 
 
 
-//#define INTERPOLATEDELAY  // slower 4-8us
 
 
 // JERK Setting
@@ -88,7 +87,7 @@ int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
 int8_t  sx[NUMAXIS];
 int32_t dlp, dl, dln;
-int8_t checkendstop;
+int8_t checkendstop, ctcheckendstop, checkendstopevery;
 int16_t endstopstatus[NUMAXIS];
 int8_t ishoming;
 float axisofs[4] = {0, 0, 0, 0};
@@ -365,7 +364,7 @@ void prepareramp(int32_t bpos)
 #else
       // just set the actual exit speed
       m->rampup = 0;
-      //m->fn = m->fs;
+      m->fn = m->fs;
       m->rampdown = ytotalstep;
 
 #endif
@@ -394,7 +393,7 @@ void prepareramp(int32_t bpos)
 
 */
 
-int32_t currf[5], prevf[5];
+float currf[5], prevf[5];
 void planner(int32_t h)
 {
   // mengubah semua cross feedrate biar optimal secepat mungkin
@@ -403,7 +402,7 @@ void planner(int32_t h)
   tmove *prev;
 
   curr = &move[h];
-  int32_t  scale = 1 << 4;
+  float  scale = 1;
   int32_t xtotalstep = abs(curr->dx[FASTAXIS(curr)]);
   memcpy(prevf, currf, sizeof prevf);
 #ifdef JERK2
@@ -414,13 +413,13 @@ void planner(int32_t h)
     currf[i] = 0;
     if (curr->dx[i] != 0) {
 
-      int32_t cdx = int32_t(curr->fn) * curr->dx[i];
-      int32_t scale2 = (maxf[i] << 4) * xtotalstep / abs(cdx);
+      float cdx = int32_t(curr->fn) * curr->dx[i];
+      float scale2 = (maxf[i]) * xtotalstep / fabs(cdx);
       if (scale2 < scale) scale = scale2;
 #ifdef JERK1
-      currf[i] = curr->dx[i] >> 3; // * 100 / stepmmx[i];
+      currf[i] = curr->dx[i]; // * 100 / stepmmx[i];
 #else
-      currf[i] = (cdx << 4 ) / xtotalstep;
+      currf[i] = float(cdx) / xtotalstep;
 #endif
       CORELOOP
     }
@@ -430,7 +429,7 @@ void planner(int32_t h)
   zprintf (PSTR("Fratio :%f\n"), ff(scale / 16.0));
 #endif
   scale *= curr->fn;
-  curr->fn = (scale * scale) >> 8;
+  curr->fn = (scale * scale);
 #ifdef output_enable
   zprintf (PSTR("FN :%d\n"), fi(curr->fn));
 #endif
@@ -500,20 +499,24 @@ void planner(int32_t h)
 #elif defined(JERK2)
     max_f = fmax(currf[4], prevf[4]);
 #ifdef JERK2A
-    float jerk = max_f * 0.7 * (1 - (currf[0] * prevf[0] + currf[1] * prevf[1] + currf[2] * prevf[2]) / ((currf[4] * prevf[4]) >> 8));
+    float jerk = max_f * 0.7 * (1 - (currf[0] * prevf[0] + currf[1] * prevf[1] + currf[2] * prevf[2]) / ((currf[4] * prevf[4])));
 #else
     int32_t fdx = currf[0] - prevf[0];
     int32_t fdy = currf[1] - prevf[1];
     int32_t fdz = currf[2] - prevf[2];
 
-    float jerk = sqrt32(fdx * fdx + fdy * fdy + fdz * fdz) * 0.0625 ;
+    float jerk = sqrt(fdx * fdx + fdy * fdy + fdz * fdz);
 #endif
     CORELOOP
     float factor = 1;
     if (jerk > xyjerk) {
       factor = float(xyjerk) / jerk; // always < 1.0!
       CORELOOP
-      if (factor * max_f * 2.0 < XYJERK) factor = XYJERK / (2.0 * max_f);      CORELOOP
+      if (factor * max_f * 2.0 < xyjerk)
+      {
+        factor = xyjerk / (2.0 * max_f);
+        CORELOOP
+      }
     }
 
     //if (jerk > XYJERK) max_f = XYJERK * max_f / jerk;
@@ -616,6 +619,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   curr->col = 2 + (head % 4) * 4;
 #endif
   // this x2 is local
+  //curr->dis=sqrt(sqr2(cx2-cx1)+sqr2(cy2-cy1)+sqr2(cz2-cz1));
 #ifndef NONLINEAR
   x2[0] = (int32_t)(cx2 * Cstepmmx(0)) - (int32_t)(cx1 * Cstepmmx(0))  ;
   x2[1] = (int32_t)(cy2 * Cstepmmx(1)) - (int32_t)(cy1 * Cstepmmx(1)) ;
@@ -652,7 +656,6 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   }
 #elif defined(NONLINEAR)
   // nothing to do
-
 #endif
 
 
@@ -762,7 +765,7 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
 #endif
 
   //uint32_t linear_travel = 0; //target[axis_linear] - position[axis_linear];
-  float ne=ce01;
+  float ne = ce01;
   uint32_t extruder_travel = (ce02 - ce01) * Cstepmmx(3)  * e_multiplier;
 
   float r_axis0 = -fI;  // Radius vector from center to current location
@@ -791,7 +794,7 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
   {
     return;// treat as succes because there is nothing to do;
   }
-  uint32_t segments = fmax(1,millimeters_of_travel >> 11);
+  uint32_t segments = fmax(1, millimeters_of_travel >> 11);
   float theta_per_segment = angular_travel / segments;
   float extruder_per_segment = (extruder_travel) / segments;
 
@@ -839,10 +842,10 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
     float ny = cy + r_axis1;
     ne += extruder_per_segment;
     //move.axis[E] = extscaled>>4;
-    addmove(cf,nx,ny,cz2,ne);
+    addmove(cf, nx, ny, cz2, ne);
   }
   // Ensure last segment arrives at target location.
-  addmove(cf,cx2,cy2,cz2,ce02);
+  addmove(cf, cx2, cy2, cz2, ce02);
 }
 #endif
 
@@ -864,9 +867,9 @@ int pcsx[4];
 #define graphstep(ix) xs[ix] +=pcsx[ix]
 void dographics()
 {
-  f = stepdiv / cmdly;
+  f = 10 * stepdiv / cmdly;
   //f = stepdiv / (float)dl;
-  f = 2*sqrt(ta);
+  //f = 2 * sqrt(ta);
   tick = tick + cmdly; //1.0/timescale;
   int32_t c;
   // color by segment
@@ -933,8 +936,8 @@ void dographics()
   float ey = realpos1(1) * graphscale;
   float ez = realpos1(2) * graphscale;
 
-  //putpixel (ex + 150, ey + 150, c);
-  putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
+  putpixel (ex + 320, ey + 150, c);
+  //putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
 #endif
 
 }
@@ -1015,10 +1018,13 @@ void coreloopm()  // m = micros - nextmicros  value
   if (cm - nextmicros >= cmdly) {
     nextmicros = cm;
 #endif
-    
+
     if (cmcmd) { // 1: set dir
       if (cmbit & 8)motor_3_STEP();
-      if (cmbit & 1){cmctr++;motor_0_STEP();}
+      if (cmbit & 1) {
+        cmctr++;
+        motor_0_STEP();
+      }
       if (cmbit & 2)motor_1_STEP();
       if (cmbit & 4)motor_2_STEP();
       pinCommit();
@@ -1038,7 +1044,8 @@ void coreloopm()  // m = micros - nextmicros  value
       dographics();
 #endif
 
-      if (checkendstop && !cmtail) { // check endstop every 30 step
+      if (checkendstop && (ctcheckendstop++ >= checkendstopevery)) { // check endstop every 30 step
+        ctcheckendstop = 0;
         docheckendstop();
         if (((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0))) {
           cmtail = cmhead;
@@ -1447,7 +1454,7 @@ int32_t startmove()
   // last calculation
   if (m ) return 0; // if empty then exit
 #ifdef output_enable
-  zprintf(PSTR("\nSTARTMOVE\n"));
+  //zprintf(PSTR("\nSTARTMOVE\n"));
 #endif
   // STEP 1
   int t = nextbuff(tail);
@@ -1532,7 +1539,9 @@ int32_t startmove()
 #ifdef SUBPIXELMAX
   rampup *= subp;
   rampdown *= subp;
-  //zprintf(PSTR("SUB:%d RAMP:%d %d ACC:%d %d\n"), fi(subp), fi(rampup), fi(rampdown), fi(acup), fi(acdn));
+#ifdef output_enable
+  zprintf(PSTR("SUB:%d RAMP:%d %d ACC:%d %d\n"), fi(subp), fi(rampup), fi(rampdown), fi(acup), fi(acdn));
+#endif
 #endif
   dlp = xInvSqrt(ta);
   return 1;
@@ -1624,6 +1633,7 @@ void homing()
   ce01 = 0;
 
   x2[0] = x2[1] = x2[2] = x2[3] = 0;
+  checkendstopevery = CHECKENDSTOP_EVERY * stepmmx[2];
 
   int32_t stx[NUMAXIS];
   stx[0] =  stx[1] = stx[2] = stx[3] = 0;
@@ -1713,56 +1723,57 @@ void homing()
     }\
   }
 #define xcheckendstop(e,F) {\
-    xx[0]=xx[1]=xx[2]=0;\
-    xx[e] = tx[e];\
-    addmove(F, xx[0], xx[1], xx[2], xx[3],1,1);\
-    checkendstop = 1;\
-    waitbufferempty();\
-    xx[e] =  - stx[e]-axisofs[e];\
-    addmove(F, xx[0], xx[1], xx[2], xx[3],1,1);\
-    checkendstop = 0;\
-    waitbufferempty();\
+    checkendstopevery = CHECKENDSTOP_EVERY*stepmmx[e];
+  xx[0] = xx[1] = xx[2] = 0; \
+  xx[e] = tx[e]; \
+  addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
+  checkendstop = 1; \
+  waitbufferempty(); \
+  xx[e] =  - stx[e] - axisofs[e]; \
+  addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
+  checkendstop = 0; \
+  waitbufferempty(); \
+}
+for (int32_t e = 0; e < NUMAXIS; e++) {
+  moveaway(e, homingspeed);
+}
+for (int32_t e = 0; e < NUMAXIS; e++) {
+  if (tx[e]) {
+    // check endstop again fast
+    xcheckendstop(e, 25);
+    xcheckendstop(e, 15);
   }
-  for (int32_t e = 0; e < NUMAXIS; e++) {
-    moveaway(e, homingspeed);
-  }
-  for (int32_t e = 0; e < NUMAXIS; e++) {
-    if (tx[e]) {
-      // check endstop again fast
-      xcheckendstop(e, 25);
-      xcheckendstop(e, 15);
-    }
-  }
-  checkendstop = ce01 = 0;
+}
+checkendstop = ce01 = 0;
 
 #ifdef NONLINEAR
 
-  NONLINEARHOME
+NONLINEARHOME
 
 #else // NONLINEAR
 
 #ifdef xmax_pin
-  cx1 = ax_max[0];
+cx1 = ax_max[0];
 #else
-  cx1 = 0;
+cx1 = 0;
 #endif
 
 #ifdef ymax_pin
-  cy1 = ax_max[1];
+cy1 = ax_max[1];
 #else
-  cy1  = 0;
+cy1  = 0;
 #endif
 
 #ifdef zmax_pin
-  cz1 = ax_max[2];
+cz1 = ax_max[2];
 #else
-  cz1 = 0;
+cz1 = 0;
 #endif
 #endif // NONLINEAR
 
-  //xprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
-  ishoming = 0;
-  init_pos();
+//xprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
+ishoming = 0;
+init_pos();
 
 }
 

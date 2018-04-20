@@ -9,8 +9,8 @@
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
 // generic sdcard add about 800uint8_t ram and 8kb code
 #ifdef ESP8266 || __ARM__
-#include <SPI.h>
-#include <SD.h>
+#include "SdFat.h"
+SdFat SD;
 #else
 #include "SdFat.h"
 SdFat SD;
@@ -338,7 +338,7 @@ void delay_ms(uint32_t d) {
 
 }
 void temp_wait(void) {
-  
+
 #ifdef heater_pin
   wait_for_temp = 1;
   int c = 0;
@@ -365,12 +365,12 @@ inline void enqueue(TARGET *t, int g0 = 1) {
         , t->axis[E]
         , g0);
 }
-inline void enqueuearc(TARGET *t,float I,float J,int cw) {
+inline void enqueuearc(TARGET *t, float I, float J, int cw) {
   draw_arc(t->F , t->axis[X]
-        , t->axis[Y]
-        , t->axis[Z]
-        , t->axis[E]
-        , I,J,cw);
+           , t->axis[Y]
+           , t->axis[Z]
+           , t->axis[E]
+           , I, J, cw);
 }
 
 void process_gcode_command() {
@@ -440,15 +440,15 @@ void process_gcode_command() {
       //	G3 - Arc anti Clockwise
       case 2:
       case 3:
-#ifdef ARC_SUPPORT                
-                temp_wait();
-                
-                if (!next_target.seen_I) next_target.I=0;
-                if (!next_target.seen_J) next_target.J=0;
-                //if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
-                    
-                enqueuearc(&next_target.target,next_target.I,next_target.J,next_target.G==2);
-#endif                
+#ifdef ARC_SUPPORT
+        temp_wait();
+
+        if (!next_target.seen_I) next_target.I = 0;
+        if (!next_target.seen_J) next_target.J = 0;
+        //if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
+
+        enqueuearc(&next_target.target, next_target.I, next_target.J, next_target.G == 2);
+#endif
         break;
 
       case 4:
@@ -475,27 +475,27 @@ void process_gcode_command() {
         amove(2, 10, 5, 0, 0);
         amove(2, 15, 15, 5, 0);
         amove(2, 20, 25, 10, 0);
-      /*
-        amove(100, 10, 0, 0, 0);
-        amove(100, 10, 10, 0, 0);
-        amove(100, 0, 10, 0, 0);
-        amove(100, 0, 0, 0, 0);
+        /*
+          amove(100, 10, 0, 0, 0);
+          amove(100, 10, 10, 0, 0);
+          amove(100, 0, 10, 0, 0);
+          amove(100, 0, 0, 0, 0);
 
-        amove(100, 10, 0, 0, 0);
-        amove(100, 10, 10, 0, 0);
-        amove(100, 0, 10, 0, 0);
-        amove(100, 0, 0, 0, 0);
+          amove(100, 10, 0, 0, 0);
+          amove(100, 10, 10, 0, 0);
+          amove(100, 0, 10, 0, 0);
+          amove(100, 0, 0, 0, 0);
 
-        amove(100, 10, 0, 0, 0);
-        amove(100, 10, 10, 0, 0);
-        amove(100, 0, 10, 0, 0);
-        amove(100, 0, 0, 0, 0);
+          amove(100, 10, 0, 0, 0);
+          amove(100, 10, 10, 0, 0);
+          amove(100, 0, 10, 0, 0);
+          amove(100, 0, 0, 0, 0);
 
-        amove(100, 10, 0, 0, 0);
-        amove(100, 10, 10, 0, 0);
-        amove(100, 0, 10, 0, 0);
-        amove(100, 0, 0, 0, 0);
-*/
+          amove(100, 10, 0, 0, 0);
+          amove(100, 10, 10, 0, 0);
+          amove(100, 0, 10, 0, 0);
+          amove(100, 0, 0, 0, 0);
+        */
         break;
 #endif
       case 7: // baby step in S in milimeter
@@ -599,12 +599,13 @@ void process_gcode_command() {
     switch (next_target.M) {
 #ifndef ISPC
       case 200: // keybox action
-        if (next_target.seen_P){
-          
-          zprintf(PSTR("DOKEY:%d\n"),next_target.P);
+        if (next_target.seen_P) {
+
+          zprintf(PSTR("DOKEY:%d\n"), next_target.P);
           switch (next_target.P) {
               KBOX_DO_ACT
-          }}
+          }
+        }
         break;
 #endif
       case 0:
@@ -660,14 +661,14 @@ void process_gcode_command() {
       case 300:
         waitbufferempty();
         setfan_val(255); // turn on power
-        zprintf(PSTR("Servo:%d\n"),fi(next_target.S));
+        zprintf(PSTR("Servo:%d\n"), fi(next_target.S));
         //pinMode(servo_pin,OUTPUT);
-        servo_set(next_target.S*(2000/180));
-        if (!next_target.seen_P)next_target.P=1000; // 1 second wait
+        servo_set(next_target.S * (2000 / 180));
+        if (!next_target.seen_P)next_target.P = 1000; // 1 second wait
         // wait loop
         uint32_t mc;
-        mc=millis();
-        while ((millis()-mc)<next_target.P){
+        mc = millis();
+        while ((millis() - mc) < next_target.P) {
           domotionloop
         }
         setfan_val(0); // turn off power
@@ -870,8 +871,36 @@ void process_gcode_command() {
         MLOOP
 
         break;
-
-      default:;
+      case 600: // change filament M600 Sxxx          S = length mm to unload filament, it will add 10mm when load, click endstop to resume
+        waitbufferempty();
+        float backupE = ce01;
+        float backupX = cx1;
+        float backupY = cy1;
+        float backupZ = cz1;
+        
+        addmove(50,0,0,0,-2,0,1); // retract
+        addmove(50,0,0,30,0,0,1); // move up
+        addmove(50,0,0,0,-next_target.S,0,1); // unload filament
+        waitbufferempty();
+        checkendstop=1;
+        zprintf(PSTR("change filemant, then push endstop\n"));
+        while(1){
+           docheckendstop();
+           if (((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0))) break;
+           domotionloop
+           
+        }
+        checkendstop=0;
+        addmove(5,0,0,0,next_target.S+10,0,1); // load filament
+        addmove(50,0,0,-30,0,0,1);
+        waitbufferempty();
+        ce01=backupE;
+        cx1=backupX;
+        cy1=backupY;
+        cz1=backupZ;
+          
+        break;        
+//      default:
         //zprintf(PSTR("E:M%d\nok\n"), next_target.M);
     } // switch (next_target.M)
   } // else if (next_target.seen_M)

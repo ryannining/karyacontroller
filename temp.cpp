@@ -141,6 +141,8 @@ int v=0;
       myPID.Compute();
       #ifdef ESP8266
       analogWrite(heater_pin, Output*4);
+      #elif defined __ARM__
+      analogWrite(heater_pin, Output*2);
       #else
       analogWrite(heater_pin, Output*17/20);
       #endif

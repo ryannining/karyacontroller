@@ -22,10 +22,6 @@
 #include<stdint.h>
 #include "config_pins.h"
 #define NUMAXIS 4
-#define UPDATE_F_EVERY 2000 //us
-#ifndef ISPC
-//#define SUBPIXELMAX 6
-#endif
 
 #ifdef __AVR__
 #define LOWESTDELAY 540 // IF LESS than this microsec then do the subpixel
@@ -36,30 +32,31 @@
 
 
 typedef struct {
-    uint8_t cmd  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
-    uint16_t dly  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
+  uint8_t cmd  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
+  uint16_t dly  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
 } tcmd;
 
 
 typedef struct {
-    int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+  int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+  //float dis;
 #ifdef __AVR__
-    int16_t ac; // needed for backplanner
-    uint16_t fs, fn, fe; // all are in square ! needed to calc real accell
+  int16_t ac; // needed for backplanner
+  uint16_t fs, fn, fe; // all are in square ! needed to calc real accell
 #else
-    int32_t ac; // needed for backplanner
-    int32_t fs, fn, fe; // all are in square ! needed to calc real accell
+  int32_t ac; // needed for backplanner
+  int32_t fs, fn, fe; // all are in square ! needed to calc real accell
 #endif
 #ifdef NONLINEAR
-    //float otx[3]; // keep the original coordinate before transform
-    float dtx[NUMAXIS]; // keep the original coordinate before transform
+  //float otx[3]; // keep the original coordinate before transform
+  float dtx[NUMAXIS]; // keep the original coordinate before transform
 #endif
-    int32_t dx[NUMAXIS]; //original delta before transform
-    int32_t rampup;
-    int32_t rampdown;
+  int32_t dx[NUMAXIS]; //original delta before transform
+  int32_t rampup;
+  int32_t rampdown;
 #ifdef ISPC
-    // for graphics
-    int col;
+  // for graphics
+  int col;
 #endif
 } tmove;
 
@@ -73,11 +70,11 @@ extern tmove *m;
 extern uint8_t xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
-extern int xyjerk,accel;
+extern int xyjerk, accel;
 extern int mvaccel;
 extern int  maxf[4];
 extern int32_t dlp, dl;
-extern float stepmmx[4],xyscale;
+extern float stepmmx[4], xyscale;
 extern tmove move[NUMBUFFER];
 extern float cx1, cy1, cz1, ce01;
 extern uint8_t head, tail;

@@ -20,7 +20,7 @@ ISR (TIMER2_OVF_vect)
     TCNT2 =  remainder;   // yes, set count for overflow after remainder ticks
   }
   if (ISRCount ==  (counter + 1))
-  { 
+  {
     digitalWrite( servo_pin, LOW  ); // pulse this channel low if active
   }
   else if (ISRCount >  157)
@@ -38,7 +38,7 @@ void servo_set(int us) {
 }
 
 void servo_init() {
-    pinMode(servo_pin, OUTPUT);
+  pinMode(servo_pin, OUTPUT);
 
 #ifdef __AVR__
   servo_set(1000);
@@ -80,7 +80,7 @@ void servo_set(int us) {}
 int somedelay(int32_t n)
 {
   float f = 0;
-  int m = 1;
+  int m = 10;
 
   while (m--) {
     int nn = n;
@@ -137,8 +137,8 @@ int busy1 = 0;
 uint16_t ndelay;
 
 /*
- *  AVR TIMER
- */
+    AVR TIMER
+*/
 #ifdef __AVR__
 #define USETIMEROK
 
@@ -173,8 +173,8 @@ void timer_init()
 #endif // avr timer
 
 /*
- *  ARM TIMER
- */
+    ARM TIMER
+*/
 #ifdef __ARM__
 #define USETIMEROK
 //HardwareTimer timer1(2);
@@ -194,7 +194,7 @@ void tm()
 void timer_init()
 {
   /*
-   Timer2.setMode(TIMER_CH1, TIMER_OUTPUTCOMPARE);
+    Timer2.setMode(TIMER_CH1, TIMER_OUTPUTCOMPARE);
     Timer2.setPeriod(LED_RATE); // in microseconds
     Timer2.setCompare(TIMER_CH1, 1);      // overflow might be small
     Timer2.attachInterrupt(TIMER_CH1, handler_led);

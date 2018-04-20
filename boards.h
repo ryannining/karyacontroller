@@ -464,8 +464,8 @@
   #define zmin_pin 0
 */
 
-#define xmin_pin PB12
-#define ymin_pin PB12
+//#define xmin_pin PB12
+//#define ymin_pin PB12
 #define zmax_pin PB12
 #define INVERTENDSTOP
 #define temp_pin PB1
@@ -474,6 +474,52 @@
 
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
+#define NUMBUFFER 20
+/*
+  ============================================================================================
+     BOARD_ST3DV1
+  ============================================================================================
+*/
+#elif defined(BOARD_ST33DV1_STM32_3DPLEX)
+
+#define xenable PB9
+#define xdirection PB7
+#define xstep PB8
+
+#define yenable PB9
+#define ydirection PB5
+#define ystep PB6
+
+#define zenable PB9
+#define zdirection PB3
+#define zstep PB4
+
+#define e0enable PB9
+#define e0direction PB14
+#define e0step PB15
+
+
+/*#define xmin_pin 0
+  #define xmax_pin 0
+  #define ymin_pin 0
+  #define ymax_pin 0
+  #define zmin_pin 0
+*/
+
+#define xmin_pin PB12
+#define ymin_pin PB12
+#define zmax_pin PB12
+
+//#define INVERTENDSTOP
+
+#define temp_pin PB1
+#define temp2_pin PB0
+#define heater_pin PA0
+#define heater2_pin PA1
+#define fan_pin PA2
+
+#define SDCARD_CS SS
+#define KBOX_PIN PA3
 #define NUMBUFFER 20
 /*
   ============================================================================================
