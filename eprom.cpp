@@ -8,9 +8,9 @@
 #include "eprom.h"
 
 #ifdef __AVR__
-float EEMEM EE_xmax;
-float EEMEM EE_ymax;
-float EEMEM EE_zmax;
+float EEMEM EE_xhome;
+float EEMEM EE_yhome;
+float EEMEM EE_zhome;
 int32_t EEMEM EE_homing;
 int32_t EEMEM EE_jerk;
 
@@ -50,9 +50,9 @@ float EEMEM EE_towerc_ofs;
 void reload_eeprom() {
   eepromcommit;
   
-  ax_max[0] = (float)eepromread(EE_xmax) * 0.001;
-  ax_max[1] = (float)eepromread(EE_ymax) * 0.001;
-  ax_max[2] = (float)eepromread(EE_zmax) * 0.001;
+  ax_home[0] = ((float)eepromread(EE_xhome)) * 0.001;
+  ax_home[1] = ((float)eepromread(EE_yhome)) * 0.001;
+  ax_home[2] = ((float)eepromread(EE_zhome)) * 0.001;
   accel = eepromread(EE_accelx);
 
   mvaccel = eepromread(EE_mvaccelx);
@@ -91,9 +91,9 @@ void reload_eeprom() {
 void reset_eeprom() {
 #ifndef SAVE_RESETMOTION
   reset_motion();
-  eepromwrite(EE_xmax, ff(ax_max[0]));
-  eepromwrite(EE_ymax, ff(ax_max[1]));
-  eepromwrite(EE_zmax, ff(ax_max[2]));
+  eepromwrite(EE_xhome, ff(ax_home[0]));
+  eepromwrite(EE_yhome, ff(ax_home[1]));
+  eepromwrite(EE_zhome, ff(ax_home[2]));
 
   eepromwrite(EE_accelx, fi(accel));
   

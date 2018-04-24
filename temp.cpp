@@ -120,6 +120,7 @@ void temp_loop(uint32_t cm)
 {
   if ((next_temp < cm) && (cm - next_temp < 1000000)) {
     next_temp = cm + 1000000; // each half second
+  if (Setpoint==0)return;
 int v=0;
 #if defined( __AVR__) && defined(ISRTEMP)
     // automatic in ESR
@@ -154,7 +155,9 @@ int v=0;
   }
 }
 int temp_achieved() {
-  return fabs(Input - Setpoint) < 10;
+  return Input >= Setpoint- 10;
+
+//  return fabs(Input - Setpoint) < 10;
 }
 
 #else

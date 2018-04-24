@@ -80,19 +80,19 @@ float xyscale, f_multiplier, e_multiplier;
 int xyjerk, accel;
 int i;
 int mvaccel;
-float ax_max[3];
+float ax_home[NUMAXIS];
 float stepdiv, stepdiv2;
 float wstepdiv2;
 int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
 int8_t  sx[NUMAXIS];
 int32_t dlp, dl, dln;
-int8_t checkendstop, ctcheckendstop, checkendstopevery;
-int16_t endstopstatus[NUMAXIS];
+int8_t checkendstop, xctstep, yctstep, zctstep, ectstep, xcheckevery, ycheckevery, zcheckevery, echeckevery;
+int16_t endstopstatus;
 int8_t ishoming;
 float axisofs[4] = {0, 0, 0, 0};
 float F_SCALE = 1;
-
+int8_t RUNNING=1;
 float stepmmx[4];
 float cx1, cy1, cz1, ce01;
 tmove move[NUMBUFFER];
@@ -151,10 +151,12 @@ void reset_motion()
   cmctr = 0;
   e_multiplier = f_multiplier = 1;
   checkendstop = 0;
-  endstopstatus[0] = 0;
-  endstopstatus[1] = 0;
-  endstopstatus[2] = 0;
-  endstopstatus[3] = 0;
+  endstopstatus = 0;
+  xcheckevery = CHECKENDSTOP_EVERY * stepmmx[0];
+  ycheckevery = CHECKENDSTOP_EVERY * stepmmx[1];
+  zcheckevery = CHECKENDSTOP_EVERY * stepmmx[2];
+  echeckevery = CHECKENDSTOP_EVERY * stepmmx[3];
+
   head = tail = tailok = 0;
   cx1 = 0;
   cy1 = 0;
@@ -187,9 +189,9 @@ void reset_motion()
   stepmmx[2] = ZSTEPPERMM;
   stepmmx[3] = E0STEPPERMM;
 
-  ax_max[0] = XMAX;
-  ax_max[1] = YMAX;
-  ax_max[2] = ZMAX;
+  ax_home[0] = XMAX;
+  ax_home[1] = YMAX;
+  ax_home[2] = ZMAX;
 
   xback[0] = MOTOR_X_BACKLASH;
   xback[1] = MOTOR_Y_BACKLASH;
@@ -936,8 +938,8 @@ void dographics()
   float ey = realpos1(1) * graphscale;
   float ez = realpos1(2) * graphscale;
 
-  putpixel (ex + 320, ey + 150, c);
-  //putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
+  //putpixel (ex + 320, ey + 150, c);
+  putpixel (ex + ey * 0.3 + 120, ey * 0.3 - ez + 150, c);
 #endif
 
 }
@@ -1007,26 +1009,37 @@ void coreloopm()  // m = micros - nextmicros  value
 #elif defined(ISPC)
   {
 #else
+  if (!RUNNING){
+    
+    // halt and clear buffer
+    checkendstop=1;
+    endstopstatus=-1;
+    return;
+  }
   cm = micros();
-
-  //if (checkendstop && ((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0))) {
-  //  cmtail=cmhead;
-  //  nextok=0;
-  //  return; // no more move and clear cmdbuffer if endstop hit/
-  //}
-
+  
   if (cm - nextmicros >= cmdly) {
     nextmicros = cm;
 #endif
 
     if (cmcmd) { // 1: set dir
-      if (cmbit & 8)motor_3_STEP();
+      if (cmbit & 8) {
+        ectstep++;
+        motor_3_STEP();
+      }
       if (cmbit & 1) {
         cmctr++;
+        xctstep++;
         motor_0_STEP();
       }
-      if (cmbit & 2)motor_1_STEP();
-      if (cmbit & 4)motor_2_STEP();
+      if (cmbit & 2) {
+        yctstep++;
+        motor_1_STEP();
+      }
+      if (cmbit & 4) {
+        zctstep++;
+        motor_2_STEP();
+      }
       pinCommit();
       //somedelay(1) ;
       motor_0_UNSTEP();
@@ -1044,19 +1057,16 @@ void coreloopm()  // m = micros - nextmicros  value
       dographics();
 #endif
 
-      if (checkendstop && (ctcheckendstop++ >= checkendstopevery)) { // check endstop every 30 step
-        ctcheckendstop = 0;
-        docheckendstop();
-        if (((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0))) {
-          cmtail = cmhead;
-          nextok = 0;
-          /*
-                          m->status = 0;
-                          mctr = 0;
-                          m = 0;
-                          head = tail;
-          */
-          return; // no more move and clear cmdbuffer if endstop hit/
+      if (checkendstop) { // check endstop every 30 step
+        if ((xctstep >= xcheckevery) || (yctstep >= ycheckevery) || (zctstep >= zcheckevery) || (ectstep >= echeckevery) )
+        {
+          xctstep = yctstep = zctstep = ectstep = 0;
+          docheckendstop();
+          if (endstopstatus < 0) {
+            cmtail = cmhead;
+            nextok = 0;
+            return; // no more move and clear cmdbuffer if endstop hit/
+          }
         }
       }
 
@@ -1229,17 +1239,17 @@ UPDATEDELAY:
     //if (mctr2++ % 20 == 0) Serial.println("");
 #endif
     //    if (mctr % 10 == 0)zprintf(PSTR("endstp %d\n"),fi(checkendstop));
-    if (checkendstop && ((mctr & checkendstop) == 0)) {
+    if (checkendstop) {
       //      docheckendstop();
       //zprintf(PSTR("%d \n"),fi(mctr));
-      if ((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0)) {
-        zprintf(PSTR("Endstop hit"));
-        endstopstatus[0] = endstopstatus[1] = endstopstatus[2] = endstopstatus[3] = 0;
+      if (endstopstatus < 0) {
+        //zprintf(PSTR("Endstop hit"));
+        endstopstatus = 0;
         m->status = 0;
         mctr = 0;
         m = 0;
         head = tail;
-        endstopstatus[0] = endstopstatus[1] = endstopstatus[2] = endstopstatus[3] = 0;
+        RUNNING=1;
         return 0;
       }
     }
@@ -1562,58 +1572,25 @@ int32_t startmove()
 
 void docheckendstop()
 {
+
   // AVR specific code here
   // read end stop
-#ifdef xmin_pin
-  endstopstatus[0] = xmin_pin;
-#elif defined(xmax_pin)
-  endstopstatus[0] = xmax_pin;
-#else
-  endstopstatus[0] = 0;
-#endif
-#ifdef ymin_pin
-  endstopstatus[1] = ymin_pin;
-#elif defined(ymax_pin)
-  endstopstatus[1] = ymax_pin;
-#else
-  endstopstatus[1] = 0;
-#endif
-#ifdef zmin_pin
-  endstopstatus[2] = zmin_pin;
-#elif defined(zmax_pin)
-  endstopstatus[2] = zmax_pin;
-#else
-  endstopstatus[2] = 0;
-#endif
-#ifdef emin_pin
-  endstopstatus[3] = emin_pin;
-#elif defined(emax_pin)
-  endstopstatus[3] = emax_pin;
-#else
-  endstopstatus[3] = 0;
-#endif
 
 
 
 #ifndef ISPC
 
-  for (int e = 0; e < NUMAXIS; e++) {
-    if (endstopstatus[e]) {
-      int nc = 0;
-      for (int d = 0; d < 3; d++) {
-        if (ENDCHECK dread(endstopstatus[e]))nc++;
-      }
-      if (nc > 1)endstopstatus[e] = -1;
-    }
+#ifdef limit_pin
+  int nc = 0;
+  endstopstatus=0;
+  for (int d = 0; d < 3; d++) {
+    if (ENDCHECK dread(limit_pin))nc++;
   }
+  if (nc > 1)endstopstatus = -1;
+#endif
+
 #else
   // PC
-  if (!m) return;
-  // simulate endstop if x y z is 0
-  for (int32_t e = 0; e < NUMAXIS; e++) {
-    if (x1[e] < 0) endstopstatus[e] < 0;
-    else  endstopstatus[e] = 0;
-  }
 #endif
 }
 
@@ -1625,6 +1602,7 @@ void docheckendstop()
 void homing()
 {
   // clear buffer
+  addmove(100, 0, 0, cz1, ce01);
   waitbufferempty();
   ishoming = 1;
   cx1 = 0;
@@ -1633,58 +1611,23 @@ void homing()
   ce01 = 0;
 
   x2[0] = x2[1] = x2[2] = x2[3] = 0;
-  checkendstopevery = CHECKENDSTOP_EVERY * stepmmx[2];
 
   int32_t stx[NUMAXIS];
-  stx[0] =  stx[1] = stx[2] = stx[3] = 0;
+//  stx[0] =  stx[1] = stx[2] = stx[3] = 0;
   int32_t tx[NUMAXIS];
-  tx[0] =  tx[1] = tx[2] = tx[3] = 0;
+//  tx[0] =  tx[1] = tx[2] = tx[3] = 0;
 #define mmax HOMING_MOVE
-#ifdef xmin_pin
-  tx[0] = -mmax;
-#elif defined(xmax_pin)
-  tx[0] = mmax;
-#endif
-
-#ifdef ymin_pin
-  tx[1] = -mmax;
-#elif defined(ymax_pin)
-  tx[1] = mmax;
-#endif
-#ifdef zmin_pin
-  tx[2] = -mmax;
-#elif defined(zmax_pin)
-  tx[2] = mmax;
-#endif
-#ifdef emin_pin
-  tx[3] = -mmax;
-#elif defined(emax_pin)
-  tx[3] = mmax;
-#endif
 #define smmax ENDSTOP_MOVE
-#ifdef xmin_pin
-  stx[0] = -smmax;
-#elif defined(xmax_pin)
-  stx[0] = smmax;
-#endif
+  int vx[4] = { -1, -1, -1, -1};
+  for (int t = 0; t < NUMAXIS; t++) {
+    if (ax_home[t] > 1)vx[t] = 1;
+    if (ax_home[t] < 1)vx[t] = 0;
+    tx[t] = mmax * vx[t];
+    stx[t] = smmax * vx[t];
+  }
 
-#ifdef ymin_pin
-  stx[1] = -smmax;
-#elif defined(ymax_pin)
-  stx[1] = smmax;
-#endif
-#ifdef zmin_pin
-  stx[2] = -smmax;
-#elif defined(zmax_pin)
-  stx[2] = smmax;
-#endif
-#ifdef emin_pin
-  stx[3] = -smmax;
-#elif defined(emax_pin)
-  stx[3] = smmax;
-#endif
   // fast check every 31 step
-  zprintf(PSTR("Homing to %d %d %d\n"), tx[0], tx[1], tx[2]);
+  //zprintf(PSTR("Homing to %d %d %d\n"), tx[0], tx[1], tx[2]);
 
   // move away before endstop
 #ifdef DRIVE_XYYZ
@@ -1708,13 +1651,9 @@ void homing()
 
   // now slow down and check endstop once again
   waitbufferempty();
-  //docheckendstop();
   float xx[NUMAXIS];
-  //xprintf(PSTR("ENDSTOP %d %d %d\n"), (int32_t)endstopstatus[0], (int32_t)endstopstatus[1], (int32_t)endstopstatus[2]);
-  //xprintf(PSTR("Position %f %f %f \n"), ff(cx1), ff(cy1), ff(cz1));
-  // move away from endstop
 #define moveaway(e,F) {\
-    if (stx[e]) {\
+    if (vx[e]) {\
       xx[0]=xx[1]=xx[2]=xx[3]=0;\
       xx[e] =  - stx[e];\
       checkendstop = 0;\
@@ -1723,57 +1662,43 @@ void homing()
     }\
   }
 #define xcheckendstop(e,F) {\
-    checkendstopevery = CHECKENDSTOP_EVERY*stepmmx[e];
-  xx[0] = xx[1] = xx[2] = 0; \
-  xx[e] = tx[e]; \
-  addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
-  checkendstop = 1; \
-  waitbufferempty(); \
-  xx[e] =  - stx[e] - axisofs[e]; \
-  addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
-  checkendstop = 0; \
-  waitbufferempty(); \
-}
-for (int32_t e = 0; e < NUMAXIS; e++) {
-  moveaway(e, homingspeed);
-}
-for (int32_t e = 0; e < NUMAXIS; e++) {
-  if (tx[e]) {
-    // check endstop again fast
-    xcheckendstop(e, 25);
-    xcheckendstop(e, 15);
+    xx[0] = xx[1] = xx[2] = 0; \
+    xx[e] = tx[e]; \
+    addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
+    checkendstop = 1; \
+    waitbufferempty(); \
+    xx[e] =  - stx[e] - axisofs[e]; \
+    addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
+    checkendstop = 0; \
+    waitbufferempty(); \
   }
-}
-checkendstop = ce01 = 0;
+  for (int e = 0; e < NUMAXIS; e++) {
+    moveaway(e, homingspeed);
+  }
+  for (int e = 0; e < NUMAXIS; e++) {
+    if (vx[e]) {
+      // check endstop again fast
+      xcheckendstop(e, 25);
+      xcheckendstop(e, 15);
+    }
+  }
+  checkendstop = ce01 = 0;
 
 #ifdef NONLINEAR
 
-NONLINEARHOME
+  NONLINEARHOME
 
 #else // NONLINEAR
 
-#ifdef xmax_pin
-cx1 = ax_max[0];
-#else
-cx1 = 0;
-#endif
+  if (vx[0] > 0) cx1 = ax_home[0]; else  cx1 = 0;
+  if (vx[1] > 0) cy1 = ax_home[1]; else  cy1 = 0;
+  if (vx[2] > 0) cz1 = ax_home[2]; else  cz1 = 0;
 
-#ifdef ymax_pin
-cy1 = ax_max[1];
-#else
-cy1  = 0;
-#endif
-
-#ifdef zmax_pin
-cz1 = ax_max[2];
-#else
-cz1 = 0;
-#endif
 #endif // NONLINEAR
 
-//xprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
-ishoming = 0;
-init_pos();
+  //xprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
+  ishoming = 0;
+  init_pos();
 
 }
 
@@ -1866,32 +1791,8 @@ void initmotion()
   motor_3_INIT();
 
 #ifndef ISPC
-#ifdef xmin_pin
-  pinMode(xmin_pin, ENDPIN);
-#endif
-#ifdef xmax_pin
-  pinMode(xmax_pin, ENDPIN);
-#endif
-
-#ifdef ymin_pin
-  pinMode(ymin_pin, ENDPIN);
-#endif
-#ifdef ymax_pin
-  pinMode(ymax_pin, ENDPIN);
-#endif
-
-#ifdef zmin_pin
-  pinMode(zmin_pin, ENDPIN);
-#endif
-#ifdef zmax_pin
-  pinMode(zmax_pin, ENDPIN);
-#endif
-
-#ifdef emin_pin
-  pinMode(emin_pin, ENDPIN);
-#endif
-#ifdef emax_pin
-  pinMode(emax_pin, ENDPIN);
+#ifdef limit_pin
+  pinMode(limit_pin, ENDPIN);
 #endif
   pinMotorInit
 #endif

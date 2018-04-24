@@ -58,9 +58,9 @@ static void eepromwrite(int p,int32_t val)
 
 #ifndef __AVR__
 /*
-#define EE_xmax 145
-#define EE_ymax 149
-#define EE_zmax 153
+#define EE_home 145
+#define EE_home 149
+#define EE_home 153
 #define EE_accelx 51
 #define EE_accely 55
 #define EE_accelz 59
@@ -83,9 +83,9 @@ static void eepromwrite(int p,int32_t val)
 #define EE_ebacklash 92
 */
 
-#define EE_xmax 0
-#define EE_ymax 5
-#define EE_zmax 10
+#define EE_xhome 0
+#define EE_yhome 5
+#define EE_zhome 10
 #define EE_accelx 15
 #define EE_accely 20
 #define EE_accelz 25
@@ -118,9 +118,9 @@ static void eepromwrite(int p,int32_t val)
 #define EE_jerk 165
 #define EE_xyscale 170
 #else
-extern float EEMEM EE_xmax;  
-extern float EEMEM EE_ymax;  
-extern float EEMEM EE_zmax;  
+extern float EEMEM EE_xhome;  
+extern float EEMEM EE_yhome;  
+extern float EEMEM EE_zhome;  
 extern int32_t EEMEM EE_homing;
 extern int32_t EEMEM EE_jerk;
 extern float EEMEM EE_xyscale;

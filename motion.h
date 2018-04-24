@@ -79,11 +79,12 @@ extern tmove move[NUMBUFFER];
 extern float cx1, cy1, cz1, ce01;
 extern uint8_t head, tail;
 extern int8_t checkendstop;
-extern int16_t endstopstatus[NUMAXIS];
-extern float ax_max[3];
+extern int16_t endstopstatus;
+extern float ax_home[NUMAXIS];
 //extern int8_t lsx[4];
 extern int8_t  sx[NUMAXIS];
 extern uint32_t cmctr;
+extern int8_t RUNNING;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 
@@ -166,7 +167,7 @@ extern float delta_radius;
 
 extern void homing();
 extern int32_t bufflen();
-extern void docheckendstop();
+void docheckendstop();
 extern void reset_motion();
 extern void preparecalc();
 extern tmove* m;

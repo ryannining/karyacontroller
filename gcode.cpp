@@ -16,6 +16,7 @@ SdFat SD;
 SdFat SD;
 #endif
 #endif
+int32_t linecount,lineprocess;
 
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
 
@@ -40,7 +41,22 @@ void demoSD() {
   // re-open the file for reading:
   myFile = SD.open("print.gco");
   if (myFile) {
-    zprintf(PSTR("gco ok\n"));
+    // calc total length
+    char c;
+    linecount=1000;
+    lineprocess=1;
+    /*
+    while (myFile.available()) {
+      c = myFile.read();
+      if (c=='\n')linecount++;
+      //myFile.write(c);
+    }
+    // close the file:
+    myFile.close();    
+  
+    myFile = SD.open("print.gco");
+    */
+    zprintf(PSTR("gco ok %d\n"),linecount);
     sdcardok = 1;
   } else {
     zprintf(PSTR("no gco\n"));
@@ -77,6 +93,37 @@ static float decfloat_to_float(void) {
   //  if (e) r = (r /*+ powers[e-1] / 2*/) * POWERS(e - 1);
   MLOOP
   return read_digit.sign ? -r : r;
+}
+
+void changefilament(float l) {
+  #ifdef CHANGEFILAMENT
+  waitbufferempty();
+  float backupE = ce01;
+  float backupX = cx1;
+  float backupY = cy1;
+  float backupZ = cz1;
+
+  addmove(50, 0, 0, 0, -2, 0, 1); // retract
+  addmove(50, 0, 0, 30, 0, 0, 1); // move up
+  addmove(50, 0, 0, 0, -l, 0, 1); // unload filament
+  waitbufferempty();
+  checkendstop = 1;
+  //zprintf(PSTR("change filemant, then push endstop\n"));
+  while (1) {
+    docheckendstop();
+    if (endstopstatus < 0) break;
+    domotionloop
+
+  }
+  checkendstop = 0;
+  addmove(5, 0, 0, 0, l + 10, 0, 1); // load filament
+  addmove(50, 0, 0, -30, 0, 0, 1);
+  waitbufferempty();
+  ce01 = backupE;
+  cx1 = backupX;
+  cy1 = backupY;
+  cz1 = backupZ;
+#endif
 }
 
 uint8_t gcode_parse_char(uint8_t c) {
@@ -500,7 +547,7 @@ void process_gcode_command() {
 #endif
       case 7: // baby step in S in milimeter
         int nstep;
-        if (next_target.seen_X) move_motor(0, sx[0], next_target.target.axis[X] * stepmmx[0]);
+        /*if (next_target.seen_X) move_motor(0, sx[0], next_target.target.axis[X] * stepmmx[0]);
         if (next_target.seen_Y) move_motor(1, sx[1], next_target.target.axis[Y] * stepmmx[1]);
         if (next_target.seen_Z) move_motor(2, sx[2], next_target.target.axis[Z] * stepmmx[2]);
         if (next_target.seen_S) {
@@ -508,7 +555,15 @@ void process_gcode_command() {
           move_motor(1, sx[1], next_target.S * stepmmx[1]);
           move_motor(2, sx[2], next_target.S * stepmmx[2]);
         }
-
+        
+        float bx,by,bz;
+        bx=cx1;
+        by=cy1;
+        bz=cz1;
+        if (next_target.seen_Z) addmove(50,bx,by,next_target.Z+bz,ce01);
+        cx1=bx;
+        cy1=by;
+        cz1=bz;*/
 
         break;
       case 28:
@@ -597,7 +652,7 @@ void process_gcode_command() {
     //uint8_t i;
 
     switch (next_target.M) {
-#ifndef ISPC
+/*#ifndef ISPC
       case 200: // keybox action
         if (next_target.seen_P) {
 
@@ -608,6 +663,7 @@ void process_gcode_command() {
         }
         break;
 #endif
+*/
       case 0:
       //? --- M0: machine stop ---
       //?
@@ -618,6 +674,9 @@ void process_gcode_command() {
       //?
 
       case 2:
+        // stop and clear all buffer
+        RUNNING=0; 
+        break;
       case 84: // For compatibility with slic3rs default end G-code.
         //? --- M2: program end ---
         //?
@@ -632,16 +691,20 @@ void process_gcode_command() {
         zprintf(PSTR("\nstop\n"));
         break;
 
-      case 6:
+/*      case 6:
         //? --- M6: tool change ---
         //?
         //? Undocumented.
         //tool = next_tool;
         break;
-
-      // M3/M101- extruder on
+*/
+      // M3/M101- extruder on M3 S -> PWM output to heated pin
+#ifdef heater_pin
       case 3:
-      case 101:
+        analogWrite(heater_pin, map(next_target.S, 0, 1000, 0, 65535));
+        break;
+#endif
+/*      case 101:
         //? --- M101: extruder on ---
         //?
         //? Undocumented.
@@ -657,6 +720,7 @@ void process_gcode_command() {
         //? Undocumented.
         // disable laser/spindle
         break;
+*/
 #ifdef servo_pin
       case 300:
         waitbufferempty();
@@ -732,7 +796,7 @@ void process_gcode_command() {
 
       case 115:
         //        zprintf(PSTR("FIRMWARE_NAME:Repetier_1.9 FIRMWARE_URL:null PROTOCOL_VERSION:1.0 MACHINE_TYPE:teacup EXTRUDER_COUNT:1 REPETIER_PROTOCOL:\n"));
-        zprintf(PSTR("FIRMWARE_NAME:Repetier_1.9 PROTOCOL_VERSION:1.0 REPETIER_PROTOCOL:\n"));
+        zprintf(PSTR("FIRMWARE_NAME:Repetier_1.9\n"));
 
         break;
 
@@ -743,9 +807,8 @@ void process_gcode_command() {
         //? firmware to the host.
         docheckendstop();
         zprintf(PSTR("END:"));
-        for (int e = 0; e < NUMAXIS; e++) {
-          zprintf(endstopstatus[e] < 0 ? PSTR("1 ") : PSTR("0 "));
-        }
+        zprintf(endstopstatus < 0 ? PSTR("HI ") : PSTR("LOW "));
+
         zprintf(PSTR("\n"));
 
         break;
@@ -760,9 +823,9 @@ void process_gcode_command() {
         reload_eeprom();
 #endif
       case 503:
-        zprintf(PSTR("EPR:3 145 %f Xmax\n"), ff(ax_max[0]));
-        zprintf(PSTR("EPR:3 149 %f Y\n"), ff(ax_max[1]));
-        zprintf(PSTR("EPR:3 153 %f Z\n"), ff(ax_max[2]));
+        zprintf(PSTR("EPR:3 145 %f Xhome\n"), ff(ax_home[0]));
+        zprintf(PSTR("EPR:3 149 %f Y\n"), ff(ax_home[1]));
+        zprintf(PSTR("EPR:3 153 %f Z\n"), ff(ax_home[2]));
 
         zprintf(PSTR("EPR:3 3 %f StepX\n"), ff(stepmmx[0]));
         zprintf(PSTR("EPR:3 7 %f Y\n"), ff(stepmmx[1]));
@@ -814,9 +877,9 @@ void process_gcode_command() {
     eepromwrite(pos, val);\
     break;\
   }
-              eprom_wr(145, EE_xmax, S_F);
-              eprom_wr(149, EE_ymax, S_F);
-              eprom_wr(153, EE_zmax, S_F);
+              eprom_wr(145, EE_xhome, S_F);
+              eprom_wr(149, EE_yhome, S_F);
+              eprom_wr(153, EE_zhome, S_F);
               eprom_wr(0, EE_estepmm, S_F);
               eprom_wr(3, EE_xstepmm, S_F);
               eprom_wr(7, EE_ystepmm, S_F);
@@ -872,35 +935,9 @@ void process_gcode_command() {
 
         break;
       case 600: // change filament M600 Sxxx          S = length mm to unload filament, it will add 10mm when load, click endstop to resume
-        waitbufferempty();
-        float backupE = ce01;
-        float backupX = cx1;
-        float backupY = cy1;
-        float backupZ = cz1;
-        
-        addmove(50,0,0,0,-2,0,1); // retract
-        addmove(50,0,0,30,0,0,1); // move up
-        addmove(50,0,0,0,-next_target.S,0,1); // unload filament
-        waitbufferempty();
-        checkendstop=1;
-        zprintf(PSTR("change filemant, then push endstop\n"));
-        while(1){
-           docheckendstop();
-           if (((endstopstatus[0] < 0) || (endstopstatus[1] < 0) || (endstopstatus[2] < 0) || (endstopstatus[3] < 0))) break;
-           domotionloop
-           
-        }
-        checkendstop=0;
-        addmove(5,0,0,0,next_target.S+10,0,1); // load filament
-        addmove(50,0,0,-30,0,0,1);
-        waitbufferempty();
-        ce01=backupE;
-        cx1=backupX;
-        cy1=backupY;
-        cz1=backupZ;
-          
-        break;        
-//      default:
+        changefilament(next_target.S);
+        break;
+        //      default:
         //zprintf(PSTR("E:M%d\nok\n"), next_target.M);
     } // switch (next_target.M)
   } // else if (next_target.seen_M)

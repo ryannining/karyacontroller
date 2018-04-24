@@ -64,14 +64,16 @@ void demofile() {
   //#define fn "d:/git/bowdenlock.gcode"
   //#define fn "d:/3d/fish_fossilz.gcode"
   //#define fn "d:/3d/cube20.gcode"
-  #define fn "d:/3d/bowdenlock.gcode"
+  //#define fn "d:/3d/bowdenlock.gcode"
+  //#define fn "d:/3d/gecko.gcode"
+  #define fn "d:/3d/foam.gcode"
 
   //#define fn "d:/3d/box1cm.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 7;
+  graphscale = 1;
   tickscale = 200;
   if (file == NULL) return; //could not open file
   int comment = 0;

@@ -1,3 +1,4 @@
+
 /*
 
   ============================================================================================
@@ -24,15 +25,7 @@
 
 
 // ENDSTOPS PIN, can be using just 1 pin
-#define xmin_pin 0
-#define xmax_pin 0
-#define ymin_pin 0
-#define ymax_pin 0
-#define zmin_pin 0
-#define zmax_pin 0
-#define emin_pin 0
-#define emax_pin 0
-
+#define limit_pin 0
 
 #define temp_pin 6
 #define temp2_pin 6
@@ -86,14 +79,9 @@
 #define e0step A3
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
 
-#define zmax_pin 13
+#define limit_pin 13
+
 #define temp_pin 6
 #define heater_pin 3
 
@@ -122,16 +110,13 @@
 #define e0step A3
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
+// this not work anymore, must link all limit to 1 pin
+//#define xmin_pin A1
+//#define ymin_pin A0
+//#define zmax_pin 13
+#define limit_pin A1
 
-#define xmin_pin A1
-#define ymin_pin A0
-#define zmax_pin 13
+
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
 
@@ -161,16 +146,12 @@
 #define e0step A3
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
+// this not work anymore, must link all limit to 1 pin
+//#define xmin_pin A1
+//#define ymin_pin A0
+//#define zmax_pin 13
+#define limit_pin A1
 
-#define xmin_pin A1
-#define ymin_pin A0
-#define zmax_pin 13
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
 
@@ -204,17 +185,11 @@
 #define e0step A3
 
 
-
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
-
-#define xmax_pin A0
-#define ymax_pin A0
-#define zmax_pin A0
+// this not work anymore, must link all limit to 1 pin
+//#define xmin_pin A1
+//#define ymin_pin A0
+//#define zmax_pin 13
+#define limit_pin A0
 
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
@@ -248,16 +223,7 @@
 #define e0step A3
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
-
-#define xmin_pin A0
-#define ymin_pin A0
-#define zmax_pin A0
+#define limit_pin A0
 
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 5
@@ -300,16 +266,10 @@
 #define e0step A3
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
 
 //#define xmin_pin A0
 //#define ymin_pin A0
-#define zmax_pin A0
+#define limit_pin A0
 
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
@@ -354,16 +314,9 @@
 #define e0step A3
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
-
 //#define xmin_pin A0
 //#define ymin_pin A0
-#define zmax_pin A0
+#define limit_pin A0
 
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
@@ -406,16 +359,8 @@
 
 */
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
-
-//#define xmin_pin A0
-//#define ymin_pin A0
-//#define zmax_pin A0
+// no limit switch ?
+//#define limit_pin A0
 
 //#define temp_pin 6 //analog 6 because we use ISR
 //#define heater_pin 3
@@ -457,16 +402,9 @@
 #define e0step PB15
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
 
-//#define xmin_pin PB12
-//#define ymin_pin PB12
-#define zmax_pin PB12
+#define limit_pin PB12
+
 #define INVERTENDSTOP
 #define temp_pin PB1
 #define heater_pin PA0
@@ -499,18 +437,9 @@
 #define e0step PB15
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
+#define limit_pin PB12
 
-#define xmin_pin PB12
-#define ymin_pin PB12
-#define zmax_pin PB12
-
-//#define INVERTENDSTOP
+#define INVERTENDSTOP
 
 #define temp_pin PB1
 #define temp2_pin PB0
@@ -545,16 +474,7 @@
 #define e0step PB15
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
-
-#define xmin_pin PB12
-#define ymin_pin PB12
-#define zmax_pin PB12
+#define limit_pin PB12
 
 //#define INVERTENDSTOP
 
@@ -591,17 +511,8 @@
 #define e0step PB15
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
 
-#define xmin_pin PB12
-#define ymin_pin PB12
-#define zmin_pin PB12
-//#define emax_pin PB12
+#define limit_pin PB12
 
 
 #define INVERTENDSTOP // uncomment for normally open
@@ -618,7 +529,7 @@
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
 
-#define NUMBUFFER 20
+#define NUMBUFFER 30
 #define DRIVE_XYYZ
 /*
   ============================================================================================
@@ -643,10 +554,12 @@
 #define e0direction 18
 #define e0step 19
 
+// this doesnot work anymore, please link all pin to xmin_pin
+//#define xmin_pin 0
+//#define ymin_pin 1
+//#define zmin_pin 2
+#define limit_pin 0
 
-#define xmin_pin 0
-#define ymin_pin 1
-#define zmin_pin 2
 #define temp_pin A1 //analog 1
 #define heater_pin 4
 /*
@@ -672,10 +585,8 @@
 #define e0direction 13
 #define e0step 12
 
+#define limit_pin 0
 
-#define xmin_pin 0
-#define ymin_pin 1
-#define zmin_pin 2
 
 #define temp_pin 0 //analog 0, on pin ABORT
 #define heater_pin A3 // on pin COOLANT
@@ -709,9 +620,8 @@
 //#define ymin_pin 14
 //#define zmin_pin 18
 
-#define xmax_pin 2
-#define ymax_pin 15
-#define zmax_pin 19
+// this doesnot work anymore, please link all pin to xmax_pin
+#define limit_pin 2
 
 #define temp_pin A13
 #define heater_pin 10
@@ -756,9 +666,7 @@
 //#define ymin_pin 14
 //#define zmin_pin 18
 
-#define xmax_pin 2
-#define ymax_pin 15
-#define zmax_pin 19
+#define limit_pin 2
 
 #define temp_pin 13
 #define heater_pin 10
@@ -788,15 +696,7 @@
 #define e0direction 28
 #define e0step 26
 
-
-//#define xmin_pin 3
-//#define xmax_pin 2
-
-//#define ymin_pin 14
-//#define ymax_pin 15
-
-//#define zmin_pin 18
-#define zmax_pin 19
+#define limit_pin 2
 
 #define temp_pin A13
 #define heater_pin 10
@@ -827,14 +727,7 @@
 #define e0direction 24//31
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
-
-#define zmax_pin 13
+#define limit_pin 13
 //#define temp_pin A6
 //#define heater_pin 3
 
@@ -863,16 +756,8 @@
 #define e0step A4
 
 
-/*#define xmin_pin 0
-  #define xmax_pin 0
-  #define ymin_pin 0
-  #define ymax_pin 0
-  #define zmin_pin 0
-*/
+#define limit_pin 7
 
-#define xmin_pin 9
-#define ymin_pin 8
-#define zmax_pin 7
 #define temp_pin 6
 #define heater_pin 10
 /*
@@ -892,7 +777,7 @@
 #define zdirection D2
 #define zstep D3
 
-#define zmax_pin D5
+#define limit_pin D5
 
 #define temp_pin A0
 #define heater_pin D6
@@ -925,9 +810,7 @@
 #define zenable D3
 #define e0enable D3
 
-#define zmax_pin D1
-#define xmin_pin D1
-#define ymin_pin D1
+#define limit_pin D1
 
 #define temp_pin A0
 #define heater_pin D4

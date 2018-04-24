@@ -29,16 +29,16 @@
 //#define BOARD_RAMP13
 //#define BOARD_RAMP13_DELTA
 //#define BOARD_RAMP13_3DPLEX
-#define BOARD_NANO_3DPLEX
-//#define BOARD_DIY_4XI
+//#define BOARD_NANO_3DPLEX
+#define BOARD_DIY_4XI
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
 // ==========================================================
 #elif defined(__ARM__)
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
-#define BOARD_ST33DV1_STM32_3DPLEX
-//#define BOARD_ST33DV1_XYYZ_STM32
+//#define BOARD_ST33DV1_STM32_3DPLEX
+#define BOARD_ST33DV1_XYYZ_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 // ==========================================================
 #elif defined(ESP8266)
@@ -61,22 +61,23 @@
   ============================================================================================
 */
 
-//#define ARC_SUPPORT // 3kb 
-//#define BACKPLANNER // 852Bytes code !
+//#define ARC_SUPPORT // 3kb
+#define BACKPLANNER // 852Bytes code !
 #define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 //#define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
-//#define OLEDDISPLAY // more than 2.5K , simple oled controller
+//#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+//#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
 #define CORESERIAL // smaller footprint 500byte, only AVR
+#define CHANGEFILAMENT //580byte
 // ==========================================================
 
-//#define INTERPOLATEDELAY  // slower 4-8us
+#define INTERPOLATEDELAY  // slower 4-8us
 
-#define BACKPLANNERRATIO 3 // twice acceleration
-#define UPDATE_F_EVERY 4000 //us = 250 tick/sec acceleration change
+#define BACKPLANNERRATIO 1 // twice acceleration
+//#define UPDATE_F_EVERY 1000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
-//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+//#define SUBPIXELMAX 4  // multiple axis smoothing / AMASS maximum subpixel
 #else
 //#define SUBPIXELMAX 4
 #endif
@@ -94,7 +95,7 @@
 #undef USEDIO
 #undef ISRTEMP
 #undef CORESERIAL
-//#undef OLEDDISPLAY
+//#undef LCDDISPLAY
 //#undef USETIMER1
 #endif
 
@@ -130,7 +131,7 @@
 #define DELTA_RADIUS 85
 
 // Motion configuration
-#define CHECKENDSTOP_EVERY 0.05  // mm
+#define CHECKENDSTOP_EVERY 0.05  // mm this translate to 200step if step/mm is 4000, must lower than 255 (byte size)
 #define HOMINGSPEED 60
 #define XOFFSET 0
 #define YOFFSET 0
@@ -146,13 +147,13 @@
 #define ZMAXFEEDRATE 180
 #define E0MAXFEEDRATE 120
 
-#define XSTEPPERMM 200//131//178
-#define YSTEPPERMM 200//175//125
-#define ZSTEPPERMM 200//1020//1020 //420
-#define E0STEPPERMM 200//340//380
+#define XSTEPPERMM 100//131//178
+#define YSTEPPERMM 100//175//125
+#define ZSTEPPERMM 100//1020//1020 //420
+#define E0STEPPERMM 100//340//380
 
 #ifndef NUMBUFFER
-#define NUMBUFFER 16
+#define NUMBUFFER 20
 #endif
 
 #define XMAX 1200
@@ -186,31 +187,24 @@
 
 #define KBOX_KEY_CHECK(k)   case KBOX_KEY##k##_R : lkey = k;kdl=500;break;
 //#define KBOX_SHOW_VALUE
-#ifdef __AVR__
-// value of each button, can be different
 #define KBOX_KEY1_R 0 ... 10
 #define KBOX_KEY2_R 500 ... 530
 #define KBOX_KEY3_R 670 ... 695
 #define KBOX_KEY4_R 750 ... 780
-#else
-#define KBOX_KEY1_R 0 ... 10
-#define KBOX_KEY2_R 500 ... 530
-#define KBOX_KEY3_R 670 ... 695
-#define KBOX_KEY4_R 750 ... 780
-#endif
+
 #define KBOX_DO_CHECK  KBOX_KEY_CHECK(1) KBOX_KEY_CHECK(2) KBOX_KEY_CHECK(3) KBOX_KEY_CHECK(4)
 
 
 #ifdef KBOX_PIN
-#define KBOX_KEY_ACT(k)   case k: KBOX_KEY##k##_ACTION;break;
-#define KBOX_KEY1_ACTION zprintf(PSTR("HOMING\n"));homing();
-#define KBOX_KEY2_ACTION zprintf(PSTR("HEATING\n"));set_temp(190);
-#define KBOX_KEY3_ACTION if (sdcardok) {sdcardok = sdcardok == 1 ? 2 : 1;zprintf(PSTR("SD\n"));} else demoSD();
-#define KBOX_KEY4_ACTION sdcardok=0;zprintf(PSTR("STOP\n"));power_off();
+#define KBOX_KEY4_ACTION zprintf(PSTR("HOMING\n"));homing();
+#define KBOX_KEY3_ACTION zprintf(PSTR("HEATING\n"));set_temp(190);
+#define KBOX_KEY2_ACTION if (sdcardok) {sdcardok = sdcardok == 1 ? 2 : 1;zprintf(PSTR("SD\n"));} else demoSD();
+#define KBOX_KEY1_ACTION RUNNING=0;sdcardok=0;zprintf(PSTR("STOP\n"));power_off();
 
+#define KBOX_KEY_ACT(k)   case k: zprintf(PSTR("Act %d\n"),k); KBOX_KEY##k##_ACTION  ;break;
 #define KBOX_DO_ACT  KBOX_KEY_ACT(1) KBOX_KEY_ACT(2) KBOX_KEY_ACT(3) KBOX_KEY_ACT(4)
 #else // no controller
-#define KBOX_DO_ACT
+//#define KBOX_DO_ACT
 #endif
 
 #endif

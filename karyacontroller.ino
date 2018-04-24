@@ -11,7 +11,6 @@
 #include "timer.h"
 #include "eprom.h"
 #include "motion.h"
-//#include "u8glib_ex.h"
 #include<stdint.h>
 
 int line_done, ack_waiting = 0;
@@ -25,14 +24,16 @@ int kdl = 200;
 
 
 /*
- * 
- * 
- * 
- * 
- */
-#ifdef OLEDDISPLAY
-#include "SSD1306Ascii.h"
-#include "SSD1306AsciiAvrI2c.h"
+
+
+
+
+*/
+#ifdef LCDDISPLAY
+#include  <Wire.h>
+#include  <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(LCDDISPLAY, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // 0X3C+SA0 - 0x3C or 0x3D
 #define I2C_ADDRESS 0x3C
@@ -40,16 +41,16 @@ int kdl = 200;
 // Define proper RST_PIN if required.
 #define RST_PIN -1
 
-void menu_up(){
+void menu_up() {
 
 }
-void menu_down(){
+void menu_down() {
 
 }
-void menu_click(){
+void menu_click() {
 
 }
-void menu_back(){
+void menu_back() {
 
 }
 
@@ -62,60 +63,79 @@ void menu_back(){
 #define KBOX_DO_ACT  KBOX_KEY_ACT(1) KBOX_KEY_ACT(2) KBOX_KEY_ACT(3) KBOX_KEY_ACT(4)
 
 
-SSD1306AsciiAvrI2c oled;
-void oledwr(uint8_t c){
-  oled.write(c);
+void oledwr(uint8_t c) {
+  lcd.write(c);
 }
 #define oprintf(...)   sendf_P(oledwr, __VA_ARGS__)
-#define gotoxy(x,y) oled.setCursor(x,y)
-#define gotox(x) oled.setCol(x)
-#define gotoy(y) oled.setRow(y)
-#define f1x() oled.set1X()
-#define f2x() oled.set2X()
-#define oclear() oled.clear()
-#define oclearln() oled.clearToEOL()
+#define gotoxy(x,y) lcd.setCursor(x,y)
+#define oclear() lcd.clear()
 
 
 //------------------------------------------------------------------------------
 void setupdisplay() {
 
-#if RST_PIN >= 0
-  oled.begin(&Adafruit128x64, I2C_ADDRESS, RST_PIN);
-#else // RST_PIN >= 0
-  oled.begin(&Adafruit128x64, I2C_ADDRESS);
-#endif // RST_PIN >= 0
-
-  oled.setFont(Callibri14);
-
-  oclear();
-  gotoxy(0,0);
-  
-  oled.print("Karyacontroller\n");
+  lcd.begin();                      // initialize the lcd
+  lcd.backlight();
+  gotoxy(0, 0);
+  oprintf(PSTR("Karyacontroller"));
 }
-void display_loop(){
-  gotoxy(0,2);
-  oprintf(PSTR("Suhu:%f\n   "),ff(Input));    
-  gotoxy(0,4);
-  oprintf(PSTR("SDCARD Ok"));    
-}
-void control_loop(){
-#ifdef OLED_CONTROL_PIN
+uint32_t sw, next_lcd = 0;
+void display_loop() {
 
-  if (millis() - kctr > kdl) {
+  uint32_t lcm = millis();
+  if (lcm - next_lcd < 500) return;
+  next_lcd = lcm; // each half second
+  if (sw++ > 3)sw = 0;
+  switch (sw) {
+    case 0:
+      gotoxy(0, 0);
+#ifdef USE_SDCARD
+      if (sdcardok == 1) {
+        oprintf(PSTR("SD:%d lines"), fi(linecount));
+      } else if (sdcardok == 2) {
+        oprintf(PSTR("Printing:%d"), fi(lineprocess));
+      } else
+#endif
+      {
+        oprintf(PSTR("Suhu:%f         "), ff(Input));
+      }
+      break;
+    case 1:
+      gotoxy(0, 1);
+      //              ----------------
+#ifdef USE_SDCARD
+      if (sdcardok == 1) {
+        oprintf(PSTR("Home Heat Prn -"));
+      }
+      else if (sdcardok == 2) {
+        oprintf(PSTR("- -  Pause Off"));
+      }
+#endif
+      {
+        oprintf(PSTR("Home Heat SD Off"));
+      }
+      break;
+  }
+}
+void control_loop() {
+  /*
+    #ifdef OLED_CONTROL_PIN
+
+    if (millis() - kctr > kdl) {
     kctr = millis();
-#ifdef ISRTEMP
+    #ifdef ISRTEMP
     int key = vanalog[OLED_CONTROL_PIN];
     ADCREAD(OLED_CONTROL_PIN)
-#else
+    #else
     int key = analogRead(OLED_CONTROL_PIN) >> ANALOGSHIFT;
-#endif
+    #endif
 
     switch (key) {
         KBOX_DO_CHECK  // standart 4 key control box
- 
+
       case 1021 ... 1023:
         if (lkey) {
-          zprintf(PSTR("LKey:%d\n"), fi(lkey));
+          zprintf(PSTR("KKey:%d\n"), fi(lkey));
           switch (lkey) {
             KBOX_DO_ACT
           }
@@ -125,9 +145,9 @@ void control_loop(){
         break;
     }
     zprintf(PSTR("Key:%d\n"), fi(key));
-  }
-#endif
-  
+    }
+    #endif
+  */
 }
 #else
 #define setupdisplay()
@@ -137,26 +157,26 @@ void control_loop(){
 #endif
 /*
       =========================================================================================================================================================
- */
-int tmax,tmin;
-uint32_t dbtm,dbcm=0;
+*/
+int tmax, tmin;
+uint32_t dbtm, dbcm = 0;
 void gcode_loop() {
 
 #ifndef ISPC
 
-///*
-    if (micros() - dbtm> 1000000) {
-      dbtm=micros();
-      extern int32_t dlp;
-      extern int subp;
-      float f=(cmctr-dbcm);
-      f/=XSTEPPERMM;
-      
-      //if (f>0)
-      //zprintf(PSTR("Subp:%d STEP:%d %f %d\n"),fi(subp),cmctr,ff(f),fi(dlp/8));
-      dbcm=cmctr;
-    }
-//*/
+  ///*
+  if (micros() - dbtm > 1000000) {
+    dbtm = micros();
+    extern int32_t dlp;
+    extern int subp;
+    float f = (cmctr - dbcm);
+    f /= XSTEPPERMM;
+
+    //if (f>0)
+    //zprintf(PSTR("Subp:%d STEP:%d %f %d\n"),fi(subp),cmctr,ff(f),fi(dlp/8));
+    dbcm = cmctr;
+  }
+  //*/
 
   /*
       =========================================================================================================================================================
@@ -178,12 +198,17 @@ void gcode_loop() {
 
     switch (key) {
         KBOX_DO_CHECK
-
       case 1021 ... 1023:
         if (lkey) {
-          zprintf(PSTR("LKey:%d\n"), fi(lkey));
+          //zprintf(PSTR("LKey:%d\n"), fi(lkey));
           switch (lkey) {
-              KBOX_DO_ACT
+            case 4: zprintf(PSTR("HOMING\n")); homing(); break;
+            case 3: zprintf(PSTR("HEATING\n")); set_temp(190); break;
+            case 2: if (sdcardok) {
+                sdcardok = sdcardok == 1 ? 2 : 1;
+                zprintf(PSTR("SD\n"));
+              } else demoSD(); break;
+            case 1: RUNNING = 0; sdcardok = 0; zprintf(PSTR("STOP\n")); power_off(); break;
 
           }
         }
@@ -191,10 +216,10 @@ void gcode_loop() {
         kdl = 200;
         break;
     }
-    #ifdef KBOX_SHOW_VALUE
+#ifdef KBOX_SHOW_VALUE
     zprintf(PSTR("Key:%d\n"), fi(key));
-    #endif
-    
+#endif
+
   }
 #endif
   /*
@@ -208,24 +233,26 @@ void gcode_loop() {
 
       =========================================================================================================================================================
   */
-    int32_t zz;
+  int32_t zz;
 #ifdef timing
   uint32_t t1 = micros();
   if (motionloop())
   {
-    uint32_t t2 = micros()-t1;
-    tmax=fmax(t2,tmax);
-    tmin=fmin(t2,tmin);
-    
+    uint32_t t2 = micros() - t1;
+    tmax = fmax(t2, tmax);
+    tmin = fmin(t2, tmin);
+
     if (ct++ > 1) {
-      zprintf(PSTR("%d %dus\n"), fi(tmin),fi(tmax));
-      tmax=0;
-      tmin=1000;
+      zprintf(PSTR("%d %dus\n"), fi(tmin), fi(tmax));
+      tmax = 0;
+      tmin = 1000;
       ct = 0;
     }
   }
-#else  
-  for (int i=0;i<5;i++){if (!motionloop())break;}
+#else
+  for (int i = 0; i < 5; i++) {
+    if (!motionloop())break;
+  }
 #endif
   servo_loop();
   if (ack_waiting) {
@@ -261,6 +288,7 @@ void gcode_loop() {
 #endif
 
   if (c) {
+    if (c == '\n')lineprocess++;
 #ifdef echoserial
     serialwr(c);
 #endif
@@ -294,11 +322,11 @@ void setup() {
   SEI
   zprintf(PSTR("start\nok\n"));
 #ifdef KBOX_PIN
-  #ifdef __ARM__
+#ifdef __ARM__
   pinMode(KBOX_PIN, INPUT_ANALOG);
-  #else
+#else
   pinMode(KBOX_PIN, INPUT_PULLUP);
-  #endif  
+#endif
 #ifdef ISRTEMP
   vanalog[KBOX_PIN] = 1023; // first read is error, throw it
 #endif

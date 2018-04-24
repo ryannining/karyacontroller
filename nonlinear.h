@@ -69,7 +69,7 @@ extern float F_SCALE;
 #if defined(DRIVE_DELTA)
 #define XYSCALING   cx2*=xyscale;  cy2*=xyscale;
 
-#define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2];
+#define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_home[2];
 #define SINGLESEGMENT (ishoming || ((m->dx[0] == 0) && (m->dx[1] == 0)))
 // only X and Y cause segmentation
 #define STEPSEGMENT fmax(labs(m->dx[0]),labs(m->dx[1]))
@@ -146,7 +146,7 @@ void nonlinearprepare() {
   delta_radius         = (DELTA_RADIUS );
 }
 
-#define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_max[2];
+#define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1 = ax_home[2];
 #define SINGLESEGMENT   (ishoming || (m->dx[0] == 0))
 
 // only X cause segmentation

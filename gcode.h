@@ -81,12 +81,14 @@ typedef struct {
   //uint8_t						checksum_calculated;	///< checksum we calculated
 } GCODE_COMMAND;
 
+extern int32_t linecount,lineprocess;
 #ifdef USE_SDCARD
 extern File myFile;
 extern void demoSD();
 #else
 static void demoSD() {}
 #endif
+extern void changefilament(float l);
 extern void process_gcode_command();
 extern uint8_t gcode_parse_char(uint8_t c);
 extern void init_gcode();
