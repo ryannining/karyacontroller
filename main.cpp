@@ -63,23 +63,24 @@ void demofile() {
   //#define fn "d:/git/hipopotamo.gcode"
   //#define fn "d:/git/bowdenlock.gcode"
   //#define fn "d:/3d/fish_fossilz.gcode"
-  //#define fn "d:/3d/cube20.gcode"
+  #define fn "d:/3d/cube20.gcode"
   //#define fn "d:/3d/bowdenlock.gcode"
   //#define fn "d:/3d/gecko.gcode"
-  #define fn "d:/3d/foam.gcode"
+  //#define fn "d:/3d/foam.gcode"
 
   //#define fn "d:/3d/box1cm.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 1;
+  graphscale = 10;
   tickscale = 200;
+  fscale=4;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l = 0;
   while ((c = fgetc(file)) != EOF) {
-    //if (l > 55)break;
+    //if (l > 35)break;
     if (c == ';')comment = 1;
     code[n++] = (char) c;
     if (c == '\n') {
@@ -103,10 +104,14 @@ void demofile() {
 void demo() {
   graphscale = 10;
   tickscale = 160;
-  fscale = 8;
+  fscale = 2;
   int f = 100;
-  amove(20, 10, 0, 0, 0);
-  amove(10, 20, 0, 0, 0);
+  amove(30, 10, 0, 0, 0);
+  amove(30, 20, 0, 0, 0);
+  amove(50, 30, 0, 0, 0);
+  amove(50, 40, 0, 0, 0);
+  amove(40, 50, 0, 0, 0);
+  amove(40, 60, 0, 0, 0);
   /*
     amove(30, 10, -10, 0, 0);
     amove(30, 25, 0, 0, 1);

@@ -73,11 +73,11 @@
 // ==========================================================
 
 #define INTERPOLATEDELAY  // slower 4-8us
-
+#define LASERMODE
 #define BACKPLANNERRATIO 1 // twice acceleration
-//#define UPDATE_F_EVERY 1000 //us = 250 tick/sec acceleration change
+//#define UPDATE_F_EVERY 2000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
-//#define SUBPIXELMAX 4  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 4  // multiple axis smoothing / AMASS maximum subpixel
 #else
 //#define SUBPIXELMAX 4
 #endif
@@ -97,11 +97,13 @@
 #undef CORESERIAL
 //#undef LCDDISPLAY
 //#undef USETIMER1
+
 #endif
 
 #ifdef ISPC
 // not implemented on PC
 #undef USETIMER1
+#undef LASERMODE
 #undef SAVE_RESETMOTION
 #endif
 

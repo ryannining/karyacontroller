@@ -16,8 +16,7 @@ SdFat SD;
 SdFat SD;
 #endif
 #endif
-int32_t linecount,lineprocess;
-
+int32_t linecount, lineprocess;
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
 
 // SD card chip select pin.
@@ -43,20 +42,20 @@ void demoSD() {
   if (myFile) {
     // calc total length
     char c;
-    linecount=1000;
-    lineprocess=1;
+    linecount = 1000;
+    lineprocess = 1;
     /*
-    while (myFile.available()) {
+      while (myFile.available()) {
       c = myFile.read();
       if (c=='\n')linecount++;
       //myFile.write(c);
-    }
-    // close the file:
-    myFile.close();    
-  
-    myFile = SD.open("print.gco");
+      }
+      // close the file:
+      myFile.close();
+
+      myFile = SD.open("print.gco");
     */
-    zprintf(PSTR("gco ok %d\n"),linecount);
+    zprintf(PSTR("gco ok %d\n"), linecount);
     sdcardok = 1;
   } else {
     zprintf(PSTR("no gco\n"));
@@ -96,7 +95,7 @@ static float decfloat_to_float(void) {
 }
 
 void changefilament(float l) {
-  #ifdef CHANGEFILAMENT
+#ifdef CHANGEFILAMENT
   waitbufferempty();
   float backupE = ce01;
   float backupX = cx1;
@@ -548,22 +547,22 @@ void process_gcode_command() {
       case 7: // baby step in S in milimeter
         int nstep;
         /*if (next_target.seen_X) move_motor(0, sx[0], next_target.target.axis[X] * stepmmx[0]);
-        if (next_target.seen_Y) move_motor(1, sx[1], next_target.target.axis[Y] * stepmmx[1]);
-        if (next_target.seen_Z) move_motor(2, sx[2], next_target.target.axis[Z] * stepmmx[2]);
-        if (next_target.seen_S) {
+          if (next_target.seen_Y) move_motor(1, sx[1], next_target.target.axis[Y] * stepmmx[1]);
+          if (next_target.seen_Z) move_motor(2, sx[2], next_target.target.axis[Z] * stepmmx[2]);
+          if (next_target.seen_S) {
           move_motor(0, sx[0], next_target.S * stepmmx[0]);
           move_motor(1, sx[1], next_target.S * stepmmx[1]);
           move_motor(2, sx[2], next_target.S * stepmmx[2]);
-        }
-        
-        float bx,by,bz;
-        bx=cx1;
-        by=cy1;
-        bz=cz1;
-        if (next_target.seen_Z) addmove(50,bx,by,next_target.Z+bz,ce01);
-        cx1=bx;
-        cy1=by;
-        cz1=bz;*/
+          }
+
+          float bx,by,bz;
+          bx=cx1;
+          by=cy1;
+          bz=cz1;
+          if (next_target.seen_Z) addmove(50,bx,by,next_target.Z+bz,ce01);
+          cx1=bx;
+          cy1=by;
+          cz1=bz;*/
 
         break;
       case 28:
@@ -652,18 +651,18 @@ void process_gcode_command() {
     //uint8_t i;
 
     switch (next_target.M) {
-/*#ifndef ISPC
-      case 200: // keybox action
-        if (next_target.seen_P) {
+      /*#ifndef ISPC
+            case 200: // keybox action
+              if (next_target.seen_P) {
 
-          zprintf(PSTR("DOKEY:%d\n"), next_target.P);
-          switch (next_target.P) {
-              KBOX_DO_ACT
-          }
-        }
-        break;
-#endif
-*/
+                zprintf(PSTR("DOKEY:%d\n"), next_target.P);
+                switch (next_target.P) {
+                    KBOX_DO_ACT
+                }
+              }
+              break;
+        #endif
+      */
       case 0:
       //? --- M0: machine stop ---
       //?
@@ -675,7 +674,7 @@ void process_gcode_command() {
 
       case 2:
         // stop and clear all buffer
-        RUNNING=0; 
+        RUNNING = 0;
         break;
       case 84: // For compatibility with slic3rs default end G-code.
         //? --- M2: program end ---
@@ -691,36 +690,49 @@ void process_gcode_command() {
         zprintf(PSTR("\nstop\n"));
         break;
 
-/*      case 6:
-        //? --- M6: tool change ---
-        //?
-        //? Undocumented.
-        //tool = next_tool;
-        break;
-*/
-      // M3/M101- extruder on M3 S -> PWM output to heated pin
-#ifdef heater_pin
+        /*      case 6:
+                //? --- M6: tool change ---
+                //?
+                //? Undocumented.
+                //tool = next_tool;
+                break;
+        */
+        // M3/M101- extruder on M3 S -> PWM output to heated pin
+#ifdef LASERMODE
       case 3:
-        analogWrite(heater_pin, map(next_target.S, 0, 1000, 0, 65535));
+        //analogWrite(heater_pin, map(next_target.S, 0, 1000, 0, 65535));
+        int lo;
+        lo = next_target.S > 100;
+        laserOn = lo;
+        if (!m) {
+          pinMode(heater_pin, OUTPUT);
+          digitalWrite(heater_pin, lo);
+          if (next_target.seen_P) {
+            delay(next_target.P);
+            digitalWrite(heater_pin, LOW);
+          }
+        }
+        //if (!laserOn)waitbufferempty();
+
         break;
 #endif
-/*      case 101:
-        //? --- M101: extruder on ---
-        //?
-        //? Undocumented.
-        temp_wait();
-        // enable the laser or spindle
-        break;
+        /*      case 101:
+                //? --- M101: extruder on ---
+                //?
+                //? Undocumented.
+                temp_wait();
+                // enable the laser or spindle
+                break;
 
-      // M5/M103- extruder off
-      case 5:
-      case 103:
-        //? --- M103: extruder off ---
-        //?
-        //? Undocumented.
-        // disable laser/spindle
-        break;
-*/
+              // M5/M103- extruder off
+              case 5:
+              case 103:
+                //? --- M103: extruder off ---
+                //?
+                //? Undocumented.
+                // disable laser/spindle
+                break;
+        */
 #ifdef servo_pin
       case 300:
         waitbufferempty();

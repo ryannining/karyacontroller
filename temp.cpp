@@ -57,7 +57,7 @@ ISR (ADC_vect)
 
 void set_temp(float set) {
   Setpoint = set;
-  //pinMode(heater_pin, OUTPUT);
+  pinMode(heater_pin, OUTPUT);
   analogWrite(heater_pin, 0);
 
 }

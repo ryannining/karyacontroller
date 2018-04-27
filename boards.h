@@ -520,11 +520,11 @@
 /*
 #define temp_pin PB1
 #define temp2_pin PB0
-#define heater_pin PA0
-#define heater2_pin PA1
 #define fan_pin PA3
+#define heater2_pin PA1
 */
-#define fan_pin PA0 // laser PIN
+#define heater_pin PA0
+//#define fan_pin PA0 // laser PIN
 
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3

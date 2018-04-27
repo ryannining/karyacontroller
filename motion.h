@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
   int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
-  //float dis;
+  int32_t dis,maxe;
 #ifdef __AVR__
   int16_t ac; // needed for backplanner
   uint16_t fs, fn, fe; // all are in square ! needed to calc real accell
@@ -97,7 +97,7 @@ extern void power_off();
 extern int32_t motionrunning;
 extern int32_t mctr;
 extern int motionloop();
-
+extern int laserOn;
 extern void init_pos();
 extern int coreloop();
 extern void coreloopm();
