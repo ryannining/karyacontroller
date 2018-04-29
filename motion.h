@@ -39,21 +39,19 @@ typedef struct {
 
 typedef struct {
   int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
-  int32_t dis,maxe;
+  float dis; // max start speed, maxcorner
 #ifdef __AVR__
   int16_t ac; // needed for backplanner
-  uint16_t fs, fn, fe; // all are in square ! needed to calc real accell
+  uint16_t fs, fn,maxs; // all are in square ! needed to calc real accell
 #else
   int32_t ac; // needed for backplanner
-  int32_t fs, fn, fe; // all are in square ! needed to calc real accell
+  int32_t fs, fn,maxs; // all are in square ! needed to calc real accell
 #endif
 #ifdef NONLINEAR
   //float otx[3]; // keep the original coordinate before transform
   float dtx[NUMAXIS]; // keep the original coordinate before transform
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
-  int32_t rampup;
-  int32_t rampdown;
 #ifdef ISPC
   // for graphics
   int col;

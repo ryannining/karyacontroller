@@ -72,12 +72,12 @@
 #define CHANGEFILAMENT //580byte
 // ==========================================================
 
-#define INTERPOLATEDELAY  // slower 4-8us
+//#define INTERPOLATEDELAY  // slower 4-8us
 #define LASERMODE
 #define BACKPLANNERRATIO 1 // twice acceleration
-//#define UPDATE_F_EVERY 2000 //us = 250 tick/sec acceleration change
+#define UPDATE_F_EVERY 2000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
-#define SUBPIXELMAX 4  // multiple axis smoothing / AMASS maximum subpixel
+//#define SUBPIXELMAX 4  // multiple axis smoothing / AMASS maximum subpixel
 #else
 //#define SUBPIXELMAX 4
 #endif
@@ -140,9 +140,9 @@
 #define ZOFFSET 0
 #define EOFFSET 0
 
-#define XYJERK 15
-#define XACCELL 100
-#define XMOVEACCELL 100
+#define XYJERK 22
+#define XACCELL 400
+#define XMOVEACCELL 400
 
 #define XMAXFEEDRATE 180
 #define YMAXFEEDRATE 180
