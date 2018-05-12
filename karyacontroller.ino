@@ -279,6 +279,9 @@ void gcode_loop() {
       //myFile.write(c);
     } else {
       // close the file:
+      #ifdef POWERFAILURE
+          eepromwrite(EE_lastline, fi(0));
+      #endif
       myFile.close();
       sdcardok = 0;
       zprintf(PSTR("Done\n"));
@@ -304,12 +307,9 @@ void gcode_loop() {
 #endif
 
 }
+int setupok = 0;
 
-void setup() {
-  // put your setup code here, to run once:
-  //  Serial.setDebugOutput(true);
-  serialinit(115200);//115200);
-  //while (!Serial.available())continue;
+void setupother() {
 #ifdef USE_SDCARD
   demoSD();
 #endif
@@ -335,17 +335,28 @@ void setup() {
   //timer_set(5000);
   //zprintf(PSTR("Motion demo\nok\n"));
   setupdisplay();
-}
+  setupok = 1;
 
+}
+uint32_t t1;
+void setup() {
+  // put your setup code here, to run once:
+  //  Serial.setDebugOutput(true);
+  serialinit(115200);//115200);
+  t1 = millis();
+  //while (!Serial.available())continue;
+#ifndef DELAYEDSETUP
+  setupother();
+#endif
+}
 void loop() {
   //demo();
-  gcode_loop();
-  control_loop();
-  display_loop();
-  /*  if (feedthedog()){
-      float f=123.456;
-      int32_t i=1234;
-      xprintf("%f",ff(f),i);
-    }
-  */
+#ifdef DELAYSETUP
+  if (!setupok && (t1-millis()>DELAYSETUP*1000))setupother();
+#endif
+  if (setupok) {
+    gcode_loop();
+    control_loop();
+    display_loop();
+  }
 }

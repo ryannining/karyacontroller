@@ -44,8 +44,8 @@ typedef struct {
   int16_t ac; // needed for backplanner
   uint16_t fs, fn,maxs; // all are in square ! needed to calc real accell
 #else
-  int32_t ac; // needed for backplanner
-  int32_t fs, fn,maxs; // all are in square ! needed to calc real accell
+  float ac; // needed for backplanner
+  float fs, fn,maxs; // all are in square ! needed to calc real accell
 #endif
 #ifdef NONLINEAR
   //float otx[3]; // keep the original coordinate before transform
@@ -65,7 +65,7 @@ extern float tick, tickscale, fscale, graphscale;
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 //extern int32_t px[4];
-extern uint8_t xback[4];
+extern int xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
 extern int xyjerk, accel;

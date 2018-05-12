@@ -75,14 +75,8 @@ static void pinCommit() {
 
 #ifndef ISPC
 
-//    zprintf(PSTR("Backlash AX%d %d\n"),fi(AX),fi(PSTEP));
 
 static uint8_t bsteps = 0;
-static int doback[4];
-#define MOTORBACKLASH(AX,d,PSTEP) \
-  if (PSTEP && lsx[AX] && (lsx[AX]!=d)) {if(bsteps<PSTEP)bsteps=PSTEP; doback[AX]=PSTEP;};\
-  lsx[AX]=d;
-
 
 #define STEPDELAY somedelay(10);
 #define STEPDIRDELAY
@@ -94,7 +88,7 @@ static int doback[4];
   inline void motor_##AX##_OFF() { xdigitalWrite(PENABLE,1);}\
   inline void motor_##AX##_STEP(){  xdigitalWrite(PSTEP,1);}\
   inline void motor_##AX##_UNSTEP(){  xdigitalWrite(PSTEP,0);}\
-  inline void motor_##AX##_DIR(int d){ doback[AX]=0;if(!d)return;xdigitalWrite(PENABLE,0);xdigitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);STEPDIRDELAY;MOTORBACKLASH(AX,d,xback[AX]);}\
+  inline void motor_##AX##_DIR(int d){ if(!d)return;xdigitalWrite(PENABLE,0);xdigitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);STEPDIRDELAY;}\
 
 #else
 #define STEPDELAY
@@ -107,9 +101,8 @@ static int doback[4];
   inline void motor_##AX##_OFF() { zprintf(PSTR("Motor ##AX## Disable\n"));}\
   inline void motor_##AX##_STEP(){  zprintf(PSTR("Motor ##AX## step\n"));}\
   inline void motor_##AX##_UNSTEP(){  zprintf(PSTR("Motor ##AX## unstep"\n));}\
-  inline void motor_##AX##_DIR(int d){ zprintf(PSTR("Motor ##AX## Dir %d Backlash %d\n"),d,MOTOR_##AX##_BACKLASH);}\
+  inline void motor_##AX##_DIR(int d){ zprintf(PSTR("Motor ##AX## Dir %d\n"),d);}\
 
-  static void dobacklash() {}
 
 #endif
 
@@ -172,35 +165,6 @@ static void move_motor(int n, int oldir, long nstep) {
 }
 
 #ifndef ISPC
-#ifdef USE_BACKLASH
-static void dobacklash() {
-  for (int i = 0; i < bsteps; i++) {
-    if (doback[0]-- > 0) {
-      motor_0_STEP();
-    }
-    if (doback[1]-- > 0) {
-      motor_1_STEP();
-    }
-    if (doback[2]-- > 0) {
-      motor_2_STEP();
-    }
-    if (doback[3]-- > 0) {
-      motor_3_STEP();
-    }
-    pinCommit();
-    motor_0_UNSTEP();
-    motor_1_UNSTEP();
-    motor_2_UNSTEP();
-    motor_3_UNSTEP();
-
-    pinCommit();
-    somedelay(10);
-  }
-  bsteps = 0;
-}
-#else
-#define dobacklash()
-#endif
 #endif
 
 

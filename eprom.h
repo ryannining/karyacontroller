@@ -108,15 +108,22 @@ static void eepromwrite(int p,int32_t val)
 #define EE_ebacklash 130
 
 #define EE_homing 135
-#ifdef NONLINEAR
 #define EE_towera_ofs 140
 #define EE_towerb_ofs 145
 #define EE_towerc_ofs 150
+#ifdef NONLINEAR
 #define EE_hor_radius 155
 #define EE_rod_length 160
 #endif
+
 #define EE_jerk 165
 #define EE_xyscale 170
+
+#ifdef POWERFAILURE
+#define EE_lastline 200
+#endif
+
+
 #else
 extern float EEMEM EE_xhome;  
 extern float EEMEM EE_yhome;  
@@ -153,6 +160,12 @@ extern int32_t EEMEM EE_ybacklash;
 extern int32_t EEMEM EE_zbacklash;  
 extern int32_t EEMEM EE_ebacklash;  
 #endif
+
+
+#ifdef POWERFAILURE
+extern int32_t EEMEM EE_lastline;
+#endif
+
 #endif
 
 

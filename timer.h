@@ -20,7 +20,7 @@ extern uint32_t micros();
 
 extern uint32_t	next_step_time;
 extern void timer_init();
-extern  void timer_set(uint16_t delay);
+extern  void timer_set(uint32_t delay);
 extern void servo_loop();
 extern void servo_init();
 extern void servo_set(int us);

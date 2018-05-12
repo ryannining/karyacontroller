@@ -10,6 +10,7 @@
 
 #ifndef ISPC
 #include<arduino.h>
+#include "eprom.h"
 #else
 #include <graphics.h>
 #include <stdlib.h>
@@ -34,8 +35,7 @@
 
 
 // JERK Setting
-//#define AJERK 5
-#define MINCORNERSPEED 1 // minimum cornering speed
+#define MINCORNERSPEED 0 // minimum cornering speed
 #define MINSTEP 0
 // Centripetal
 //#define JERK1 //centripetal corner , still not good, back to repetier style jerk
@@ -73,7 +73,7 @@
 
 int laserOn = 0, isG0;
 uint8_t homingspeed;
-uint8_t xback[4];
+int xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
 float xyscale, f_multiplier, e_multiplier;
@@ -103,8 +103,6 @@ tmove move[NUMBUFFER];
 #include "nonlinear.h"
 
 // to calculate delay from v^2, fast invsqrt hack
-#define INVSCALE 3
-#define INVSCALE2 (1<<(INVSCALE/2))
 #ifdef __AVR__
 //#define FASTINVSQRT  // less precice speed faster 4us
 
@@ -127,8 +125,8 @@ float InvSqrt(float x)
 #define InvSqrt(f) 1.0/sqrt(f)
 #endif
 
-#define INVSCALE3 1 << INVSCALE
-#define xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
+//#define xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
+#define xInvSqrt(n) n>0.2?stepdiv2*InvSqrt(n):25
 
 #define sqrt32(n) sqrt(n)
 
@@ -257,7 +255,7 @@ void power_off()
     24-4-2018, i change the math of ramp calculation using mm distance
 
  * */
-int32_t currdis, prevdis,fe;
+float currdis, prevdis,fe;
 
 #ifdef NONLINEAR
 float rampv;
@@ -268,8 +266,8 @@ int32_t rampseg, rampup, rampdown;
 #define rampv 1
 #endif
 #define sqr(x) x*x
-#define ramplenq(oo,v0,v1,stepa) if (v1>v0)oo=((int32_t)v1-(int32_t)v0)*stepa;
-#define speedat(v0,a,s,stp) ((int32_t)a * s / stp + (int32_t)v0)
+#define ramplenq(oo,v0,v1,stepa) if (v1>v0)oo=(v1-v0)*stepa;
+#define speedat(v0,a,s,stp) (a * s / stp + v0)
 
 /*#define ramplen(oo,v0,v1,a,stepmm) oo=((int32_t)v1-(int32_t)v0)*stepmm/(a);
 #define accelat(v0,v1,s) ((int32_t)v1  - (int32_t)v0 ) / (2 * s)
@@ -282,10 +280,10 @@ int32_t rampseg, rampup, rampdown;
 void prepareramp(int32_t bpos)
 {
 
-#define preprampdebug
+//#define preprampdebug
     tmove *m,*next;
     m = &move[bpos];
-    if (m->status & 4)return; // already calculated
+    //if (m->status & 4)return; // already calculated
 
     int faxis = FASTAXIS(m);
     int32_t ytotalstep = labs(m->dx[faxis]);
@@ -297,7 +295,7 @@ void prepareramp(int32_t bpos)
         next=&move[nextbuff(bpos)];
         fe=next->fs;
     } else fe=0;
-    
+    rampup=rampdown=0;
     ramplenq(rampup, m->fs, m->fn, stepa);
     ramplenq(rampdown, fe, m->fn, stepa);
 
@@ -311,8 +309,10 @@ void prepareramp(int32_t bpos)
         rampup -= r;
         rampdown -= r;
         if (rampup<0)rampup=0;
+        if (rampdown<0)rampdown=0;
         if (rampdown>ytotalstep)rampdown=ytotalstep;
-//        m->fn=speedat(m->fs,m->ac,rampup,stepmm);
+        if (rampup>ytotalstep)rampup=ytotalstep;
+        m->fn=speedat(m->fs,m->ac,rampup,stepmm);
     }
 
     CORELOOP
@@ -321,7 +321,6 @@ void prepareramp(int32_t bpos)
     zprintf(PSTR("========FINAL========\nRU:%d Rd:%d\n"), rampup,rampdown);
     zprintf(PSTR("FS:%f AC:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->ac), ff(m->fn),  ff(fe));
 #endif
-    //if (m->fs < 1) m->fs = 1;
     m->status |= 4;
     CORELOOP
 }
@@ -336,7 +335,7 @@ void prepareramp(int32_t bpos)
 */
 
 float currf[5], prevf[5];
-int32_t lastf=0;
+float lastf=0;
 
 void backforward()
 {
@@ -357,7 +356,7 @@ void backforward()
         next=curr;
         curr=&move[h];
         if (curr->fs!=curr->maxs) {
-            int32_t fs=next->fs+(curr->ac*curr->dis);
+            float fs=next->fs+(curr->ac*curr->dis);
             //zprintf(PSTR("back. %d\n"),fs);
             if (fs<curr->maxs) {
                 curr->fs=fs;
@@ -370,18 +369,24 @@ void backforward()
     }
 
 // forward
-    next=&move[tailok];
+    //h=nextbuff(tailok);
+    //if (h==head) {
+    //    return;
+    //}
+    h=tailok;
+    next=&move[h];
     h=nextbuff(tailok);
     while (h!=head) {
         curr=next;
         next=&move[h];
         if (curr->fs<next->fs) {
-            int32_t fs=curr->fs+(curr->ac*curr->dis);
+            float fs=curr->fs+(curr->ac*curr->dis);
             //zprintf(PSTR("Forw. %d\n"),fs);
             if (fs<next->fs) {
                 next->fs=fs;
                 tailok=h;
             }
+            curr->fn=fmin(fs,curr->fn);
         }
         if (next->fs==next->maxs) tailok=h;
         h=nextbuff(h);
@@ -406,8 +411,8 @@ void planner(int32_t h)
         currf[i] = 0;
         if (curr->dx[i] != 0) {
 
-            float cdx = int32_t(curr->fn) * curr->dx[i];
-            float scale2 = (maxf[i]) * xtotalstep / fabs(cdx);
+            float cdx = curr->fn * curr->dx[i];
+            float scale2 = float(maxf[i]) * xtotalstep / fabs(cdx);
             if (scale2 < scale) scale = scale2;
 
             currf[i] = float(cdx) / xtotalstep;
@@ -433,7 +438,7 @@ void planner(int32_t h)
 
     // ==================================
     // Centripetal corner max speed calculation, copy from other firmware
-    int32_t max_f = MINCORNERSPEED * MINCORNERSPEED;
+    float max_f = MINCORNERSPEED * MINCORNERSPEED;
     if (bufflen()>1) {
 
 
@@ -455,7 +460,7 @@ void planner(int32_t h)
             factor = float(xyjerk) / jerk; // always < 1.0!
             CORELOOP
             if (factor * max_f * 2.0 < xyjerk) {
-                factor = xyjerk / (2.0 * max_f);
+            //    factor = xyjerk / (2.0 * max_f);
                 CORELOOP
             }
         }
@@ -477,7 +482,7 @@ void planner(int32_t h)
     curr->maxs=fmin(curr->fn,lastf);
     curr->maxs=fmin(curr->maxs,max_f);
 #ifdef output_enable
-    zprintf(PSTR("maxs. %d\n"),fi(curr->maxs));
+    zprintf(PSTR("maxs. %d\n"),ff(curr->maxs));
 #endif
     lastf=curr->fn;
     //zprintf(PSTR(">> currfs,max %d %d\n"),fi(curr->fs),fi(curr->maxs));
@@ -502,7 +507,7 @@ float tickscale, fscale, graphscale;
 #endif
 
 int32_t  f;
-int32_t ta, acup, acdn, oacup, oacdn;
+float ta, acup, acdn, oacup, oacdn;
 int32_t mctr, xtotalseg;
 uint8_t fastaxis;
 uint32_t nextmicros;
@@ -511,6 +516,9 @@ uint32_t nextmotoroff;
 float otx[NUMAXIS]; // keep the original coordinate before transform
 int8_t repos = 0;
 
+#ifdef USE_BACKLASH
+int ldir[NUMAXIS]={0,0,0,0};
+#endif
 void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int rel)
 {
 
@@ -531,7 +539,10 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     curr->status = g0 ? 8 : 0; // reset status:0 planstatus:0 g0:g0
 
     if (rel) {
-        cx1 = cy1 = cz1 = ce01 = 0;
+        cx2+=cx1;
+        cy2+=cy1;
+        cz2+= cz1;
+        ce02+= ce01;
     }
 
 #ifdef ISPC
@@ -595,6 +606,19 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     // calculate the delta, and direction
     for (int i = 0; i < NUMAXIS; i++) {
 #define delta  x2[i]
+#ifdef USE_BACKLASH
+        int dir;
+        if (delta<0)dir=-1;
+        else if (delta>0)dir=1;
+        else dir=0;
+        if ((ldir[i]!=0) && (dir!=0) && (ldir[i]!=dir)){
+          // add backlash steps to this axis
+          delta+=xback[i]*dir;
+        }
+
+        ldir[i]=dir;
+#endif        
+        
         curr->dx[i] = delta;
         delta = abs(delta);
         if (delta > dd) {
@@ -637,7 +661,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
 
 }
 
-#define N_ARC_CORRECTION 25
+#define N_ARC_CORRECTION  
 #ifdef ARC_SUPPORT
 
 /*
@@ -768,7 +792,7 @@ void calculate_delta_steps();
 #endif
 
 
-static int32_t cmdly;
+static uint32_t cmdly;
 
 
 #ifdef ISPC
@@ -806,7 +830,7 @@ void dographics()
     //line(lx, ly, gx, gy);
     //zprintf(PSTR("X:%f Y:%f\n"), ff(gx), ff(gy));
     setcolor(0);
-    line(gx + 1, 480 - 1, gx + 1, 480 - 100);
+    //line(gx + 1, 480 - 1, gx + 1, 480 - 100);
     gy = 480 -  fscale * 100 * 0.1;
     setcolor(1);
     line(0, gy, 200, gy);
@@ -873,7 +897,7 @@ int32_t timing = 0;
     COMMAND BUFFER
     =================================================================================================================================================
 */
-#define NUMCMDBUF 25
+#define NUMCMDBUF 70
 #define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
@@ -903,9 +927,6 @@ static void decodecmd()
     cmtail = nextbuffm(cmtail);
 #ifdef USETIMER1
     timer_set(cmdly);
-#endif
-#ifdef output_enable //ISPC
-    //zprintf(PSTR("DLY:%d \n"), fi(cmdly));
 #endif
 }
 
@@ -989,10 +1010,9 @@ void coreloopm()  // m = micros - nextmicros  value
             motor_3_DIR((cmbit & 8) ? -1 : 1);
 
             pinCommit();
-            dobacklash();
 
 #ifdef LASERMODE
-            digitalWrite(heater_pin, cmcmd1);
+            digitalWrite(laser_pin, laser_invert cmcmd1);
 #endif
 #ifdef ISPC
             pcsx[0] = (cmbit & 1) ? 1 : -1;
@@ -1062,15 +1082,21 @@ void newdircommand(int laser)
 
 
 #ifdef INTERPOLATEDELAY
-#define CALCDELAY dl = ((dl<<3)+(dlp-dl))>>3; // hack, linear interpolation of the delay
+#define CALCDELAY dl = ((dl<<4)+(dlp-dl))>>4; // hack, linear interpolation of the delay
 //#define CALCDELAY dl = (dlp+dl)>>1; // hack, linear interpolation of the delay
 #else
 #define CALCDELAY dl = dlp;
 #endif
 // ===============================
-int32_t _ac = 0;
+float _ac = 0;
+float pta=0;
 int coreloop1()
 {
+#ifdef ISPC
+    if(mctr==10)zprintf(PSTR("DLY:%d \n"), fi(cmdly));
+#else
+    //if(mctr==10)zprintf(PSTR("DLY:%d \n"), fi(cmdly));
+#endif
 
     if (!m || (mctr <= 0)) {
         return 0;
@@ -1089,16 +1115,6 @@ int coreloop1()
         bresenham(3);
 
         // next speed
-#ifdef AJERK
-        if ((rampup -= rampv) > 0) {
-            if (_ac < acup)_ac += AJERK;
-        } else if ((rampdown -= rampv) < 0) {
-            if (_ac > acdn)_ac -= AJERK;
-        } else {
-            if (_ac < 0) _ac += AJERK;
-            else if (_ac > 0) _ac -= AJERK;
-        }
-#else
         if ((rampup -= rampv) > 0) {
             _ac = acup;
         } else if ((rampdown -= rampv) < 0) {
@@ -1106,11 +1122,12 @@ int coreloop1()
         } else {
             _ac = 0;
         }
-#endif
         //    // calculate new delay only if we accelerating
 UPDATEDELAY:
+
         if (_ac) {
             ta += _ac;
+            if (ta<0.01)ta=0.01;
             //zprintf(PSTR("%d\n"),fi(ta));
             // if G0 update delay not every step to make the motor move faster
             //if (m->status & 8) {
@@ -1123,9 +1140,11 @@ UPDATEDELAY:
 #else
             dlp = xInvSqrt(ta); //*F_SCALE;
 #endif
-        }  else dlp = dln;
+        }  else dlp = dln; //
 
         CALCDELAY
+        
+        
         cmd0 |= (dl) << 6;
         pushcmd();
         mctr--;
@@ -1226,7 +1245,7 @@ void otherloop(int r)
                 m = 0;
 #ifdef LASERMODE
                 if (head == tail) {
-                    digitalWrite(heater_pin, LOW);
+                    digitalWrite(laser_pin, laser_invert LOW);
                 }
 #endif
                 r = startmove();
@@ -1335,7 +1354,7 @@ void calculate_delta_steps()
     // lets do the subpixel thing.
 
     // calculate the microseconds betwen step,
-    dln = xInvSqrt((int32_t)(m->fn ) << INVSCALE );
+    dln = xInvSqrt((m->fn ));
 #ifdef SUBPIXELMAX
     int u;
     for (u = 2; u <= (SUBPIXELMAX); u++) {
@@ -1404,13 +1423,9 @@ int32_t startmove()
     // 24-4-2018
     // Now need to convert mm rampup to step rampup
 
-    //int acramp=((m->status & 8)?(accel):(mvaccel))/(AJERK);
-    //m->rampdown-=acramp*2;
-//    acup=(m->ac<<(INVSCALE))/Cstepmmx(fastaxis);
-//    acdn=(-m->ac<<(INVSCALE))/Cstepmmx(fastaxis);
-    
-    if (rampup)acup = ((int32_t)(m->fn  - m->fs ) << (INVSCALE) ) / rampup; //(fmax(1,m->rampup-acramp));
-    if (rampdown)acdn = -((int32_t)(m->fn  - fe ) << (INVSCALE) ) / rampdown; //(fmax(1,m->rampdown-acramp));
+
+    if (rampup)acup = ((m->fn  - m->fs )) / rampup; //(fmax(1,m->rampup-acramp));
+    if (rampdown)acdn = -((m->fn  - fe )) / rampdown; //(fmax(1,m->rampdown-acramp));
 
     oacup = acup;
     oacdn = acdn;
@@ -1448,9 +1463,9 @@ int32_t startmove()
 #endif
 
     // STEP
-    ta = (((int32_t)(m->fs ) << INVSCALE)) ;
+    ta = m->fs ;
     stepdiv = CLOCKCONSTANT / (Cstepmmx(fastaxis));
-    stepdiv2 = wstepdiv2 = stepdiv * INVSCALE2;
+    stepdiv2 = wstepdiv2 = stepdiv;
     m->status &= ~3;
     m->status |= 2;
 
@@ -1596,7 +1611,7 @@ void homing()
         addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
         checkendstop = 1; \
         waitbufferempty(); \
-        xx[e] =  - stx[e] - axisofs[e]; \
+        xx[e] =  - stx[e] + axisofs[e]; \
         addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
         checkendstop = 0; \
         waitbufferempty(); \
@@ -1694,6 +1709,27 @@ void needbuffer()
     }
 
 }
+
+void faildetected(){
+#ifdef POWERFAILURE
+// save the print last line only if printing using SDCARD
+  if (sdcardok==2){
+    motor_0_OFF();
+    motor_1_OFF();
+    motor_2_OFF();
+    motor_3_OFF();
+    setfan_val(0);
+    set_temp(0);
+    // save last gcode in eeprom
+    eepromwrite(EE_lastline, fi(lineprocess));
+    delay(1000);
+    checkendstop=31;
+//void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int rel)
+    addmove(200,-2000,0,0,0,1,1);
+    waitbufferempty();
+  }
+#endif
+}
 /*
     =================================================================================================================================================
     initmotion
@@ -1723,8 +1759,14 @@ void initmotion()
     motor_3_INIT();
 
 #ifndef ISPC
+#ifdef POWERFAILURE
+pinMode(powerpin,INPUT_PULLUP);
+attachInterrupt(powerpin, faildetected, CHANGE);
+#endif
+
 #ifdef LASERMODE
-    pinMode(heater_pin, OUTPUT);
+    pinMode(laser_pin, OUTPUT);
+    digitalWrite(laser_pin, laser_invert LOW);
 #endif
 #ifdef limit_pin
     pinMode(limit_pin, ENDPIN);

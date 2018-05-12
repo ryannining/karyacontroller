@@ -39,10 +39,12 @@
 //#define BOARD_ST33DV1_STM32
 //#define BOARD_ST33DV1_STM32_3DPLEX
 #define BOARD_ST33DV1_XYYZ_STM32
+//#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 // ==========================================================
 #elif defined(ESP8266)
 #define BOARD_NANONANO_WEMOS
+#define BOARD_MINICNC_ESP01
 #define ANALOGSHIFT 0 // 10bit adc ??
 //#define BOARD_ESP01CNC_V1
 #endif
@@ -62,22 +64,27 @@
 */
 
 //#define ARC_SUPPORT // 3kb
-#define BACKPLANNER // 852Bytes code !
 #define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
-//#define USE_BACKLASH  // 400bytes code
+#define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
 //#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
 //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
 #define CORESERIAL // smaller footprint 500byte, only AVR
 #define CHANGEFILAMENT //580byte
+
 // ==========================================================
 
 //#define INTERPOLATEDELAY  // slower 4-8us
+
+#ifdef powerpin
+#define POWERFAILURE
+#endif
+#ifdef laser_pin
 #define LASERMODE
-#define BACKPLANNERRATIO 1 // twice acceleration
-#define UPDATE_F_EVERY 2000 //us = 250 tick/sec acceleration change
+#endif
+#define UPDATE_F_EVERY 3000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
-//#define SUBPIXELMAX 4  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 4  // multiple axis smoothing / AMASS maximum subpixel
 #else
 //#define SUBPIXELMAX 4
 #endif
@@ -141,13 +148,13 @@
 #define EOFFSET 0
 
 #define XYJERK 22
-#define XACCELL 400
-#define XMOVEACCELL 400
+#define XACCELL 140
+#define XMOVEACCELL 140
 
-#define XMAXFEEDRATE 180
-#define YMAXFEEDRATE 180
-#define ZMAXFEEDRATE 180
-#define E0MAXFEEDRATE 120
+#define XMAXFEEDRATE 240
+#define YMAXFEEDRATE 240
+#define ZMAXFEEDRATE 240
+#define E0MAXFEEDRATE 220
 
 #define XSTEPPERMM 100//131//178
 #define YSTEPPERMM 100//175//125

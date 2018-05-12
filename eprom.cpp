@@ -40,12 +40,20 @@ int32_t EEMEM EE_ebacklash;
 #ifdef NONLINEAR
 float EEMEM EE_hor_radius;
 float EEMEM EE_rod_length;
+#endif
 float EEMEM EE_towera_ofs;
 float EEMEM EE_towerb_ofs;
 float EEMEM EE_towerc_ofs;
+
+
+#ifdef POWERFAILURE
+int32_t EEMEM EE_lastline;
 #endif
 
 #endif
+
+
+
 
 void reload_eeprom() {
   eepromcommit;
@@ -73,10 +81,10 @@ void reload_eeprom() {
 #ifdef NONLINEAR
   delta_radius= (float)eepromread(EE_hor_radius)   * 0.001;
   delta_diagonal_rod= (float)eepromread(EE_rod_length)   * 0.001;
+#endif
   axisofs[0]=(float)eepromread(EE_towera_ofs)   * 0.001;
   axisofs[1]=(float)eepromread(EE_towerb_ofs)   * 0.001;
   axisofs[2]=(float)eepromread(EE_towerc_ofs)   * 0.001;
-#endif
 
 #ifdef USE_BACKLASH
   xback[0] = eepromread(EE_xbacklash);
@@ -115,10 +123,10 @@ void reset_eeprom() {
 #ifdef NONLINEAR
   eepromwrite(EE_hor_radius,ff(delta_radius));
   eepromwrite(EE_rod_length,ff(delta_diagonal_rod));
+#endif
   eepromwrite(EE_towera_ofs,ff(axisofs[0]));
   eepromwrite(EE_towerb_ofs,ff(axisofs[1]));
   eepromwrite(EE_towerc_ofs,ff(axisofs[2]));
-#endif
 
 #ifdef USE_BACKLASH
   eepromwrite(EE_xbacklash, fi(xback[0]));

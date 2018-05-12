@@ -31,7 +31,7 @@ typedef struct {
 
 typedef struct {
   float axis[NUMAXIS];
-  int  F;
+  float  F;
 
   //float  f_multiplier;
   uint8_t   e_relative        : 1; ///< bool: e axis relative? Overrides all_relative

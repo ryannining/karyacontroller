@@ -450,6 +450,8 @@
 #define SDCARD_CS SS
 #define KBOX_PIN PA3
 #define NUMBUFFER 20
+
+#define powerpin PC15
 /*
   ============================================================================================
      BOARD_ST3DV1
@@ -524,13 +526,63 @@
 #define heater2_pin PA1
 */
 #define heater_pin PA0
+#define laser_pin PA0
+#define laser_invert //!// TTL
+
 //#define fan_pin PA0 // laser PIN
 
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
 
-#define NUMBUFFER 30
+#define NUMBUFFER 20
 #define DRIVE_XYYZ
+/*
+  ============================================================================================
+     BOARD_ST3DV1 XYYZ
+  ============================================================================================
+*/
+#elif defined(BOARD_ST33DV1_CNC_STM32)
+
+#define xenable PB9
+#define xdirection PB7
+#define xstep PB8
+
+#define yenable PB9
+#define ydirection PB5
+#define ystep PB6
+
+#define zenable PB9
+#define zdirection PB3
+#define zstep PB4
+
+#define e0enable PB13
+#define e0direction PB14
+#define e0step PB15
+
+
+
+#define limit_pin PB12
+
+
+#define INVERTENDSTOP // uncomment for normally open
+
+/*
+#define temp_pin PB1
+#define temp2_pin PB0
+#define fan_pin PA3
+#define heater2_pin PA1
+*/
+#define heater_pin PA0
+#define laser_pin PA0
+#define laser_invert //!// TTL
+
+//#define fan_pin PA0 // laser PIN
+
+//#define SDCARD_CS PA4
+//#define KBOX_PIN PA3
+
+#define NUMBUFFER 20
+
 /*
   ============================================================================================
      BOARD_GEN7
@@ -818,6 +870,46 @@
 
 #define INVERTENDSTOP
 #define SDCARD_CS D8
+#define NUMBUFFER 20
+/*
+  ============================================================================================
+     NANONANO_WEMOS
+  ============================================================================================
+*/
+#elif defined(BOARD_MINICNC_ESP01)
+
+// shift register for all motor step and direction (8 pin)
+#define USE_SHIFTREG
+#define pinclock TX
+#define pinlatch D0
+#define pindata D1
+
+// Implemented shift register pin for motors
+#define xdirection 6
+#define xstep 7
+#define ydirection 4
+#define ystep 5
+#define zdirection 3
+#define zstep 2
+#define e0direction 0
+#define e0step 1
+
+
+#define xenable D3
+#define yenable D3
+#define zenable D3
+#define e0enable D3
+
+//#define limit_pin D1
+
+//#define temp_pin A0
+#define heater_pin RX
+//#define fan_pin D4
+
+#define ENABLEWIFI 10
+
+#define INVERTENDSTOP
+//#define SDCARD_CS D8
 #define NUMBUFFER 20
 #else
 #error No BOARD Defined !

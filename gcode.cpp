@@ -5,6 +5,8 @@
 #include "config_pins.h"
 #include "temp.h"
 #include "motors.h"
+#include "eprom.h"
+
 
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
 // generic sdcard add about 800uint8_t ram and 8kb code
@@ -44,18 +46,25 @@ void demoSD() {
     char c;
     linecount = 1000;
     lineprocess = 1;
-    /*
-      while (myFile.available()) {
-      c = myFile.read();
-      if (c=='\n')linecount++;
-      //myFile.write(c);
+#ifdef POWERFAILURE
+  // continue from last line if needed
+    int32_t ll = eepromread(EE_lastline);
+    if (ll > 0) {
+      linecount = 1;
+      while (linecount<ll) {
+        c = myFile.read();
+
+        // todo : parse the last X Y Z E
+        //        need faster reading
+        
+        if (c == '\n')linecount++;
       }
       // close the file:
       myFile.close();
-
       myFile = SD.open("print.gco");
-    */
-    zprintf(PSTR("gco ok %d\n"), linecount);
+    }
+    zprintf(PSTR("Resume %d\n"), linecount);
+#endif
     sdcardok = 1;
   } else {
     zprintf(PSTR("no gco\n"));
@@ -402,20 +411,20 @@ void temp_wait(void) {
 
 }
 //int32_t mvc = 0;
-static void enqueue(TARGET *) __attribute__ ((always_inline));
+static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
-inline void enqueue(TARGET *t, int g0 = 1) {
-  amove(t->F , t->axis[X]
-        , t->axis[Y]
-        , t->axis[Z]
-        , t->axis[E]
+inline void enqueue(GCODE_COMMAND *t, int g0 = 1) {
+  amove(t->target.F , t->seen_X?t->target.axis[X]:cx1
+        , t->seen_Y?t->target.axis[Y]:cy1
+        , t->seen_Z?t->target.axis[Z]:cz1
+        , t->seen_E?t->target.axis[E]:ce01
         , g0);
 }
-inline void enqueuearc(TARGET *t, float I, float J, int cw) {
-  draw_arc(t->F , t->axis[X]
-           , t->axis[Y]
-           , t->axis[Z]
-           , t->axis[E]
+inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw) {
+  draw_arc(t->target.F , t->seen_X?t->target.axis[X]:cx1
+        , t->seen_Y?t->target.axis[Y]:cy1
+        , t->seen_Z?t->target.axis[Z]:cz1
+        , t->seen_E?t->target.axis[E]:ce01
            , I, J, cw);
 }
 
@@ -467,7 +476,7 @@ void process_gcode_command() {
         //?
         //? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
         //?
-        enqueue(&next_target.target, 1);
+        enqueue(&next_target, 1);
         break;
 
       case 1:
@@ -479,7 +488,7 @@ void process_gcode_command() {
         //?
         //next_target.target.axis[E]=0;
         // auto retraction change
-        enqueue(&next_target.target, 0);
+        enqueue(&next_target, 0);
         break;
 
       //	G2 - Arc Clockwise
@@ -493,7 +502,7 @@ void process_gcode_command() {
         if (!next_target.seen_J) next_target.J = 0;
         //if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
 
-        enqueuearc(&next_target.target, next_target.I, next_target.J, next_target.G == 2);
+        enqueuearc(&next_target, next_target.I, next_target.J, next_target.G == 2);
 #endif
         break;
 
@@ -690,32 +699,32 @@ void process_gcode_command() {
         zprintf(PSTR("\nstop\n"));
         break;
 
-        /*      case 6:
-                //? --- M6: tool change ---
-                //?
-                //? Undocumented.
-                //tool = next_tool;
-                break;
-        */
-        // M3/M101- extruder on M3 S -> PWM output to heated pin
-#ifdef LASERMODE
+      /*      case 6:
+              //? --- M6: tool change ---
+              //?
+              //? Undocumented.
+              //tool = next_tool;
+              break;
+      */
+      // M3/M101- extruder on M3 S -> PWM output to heated pin
       case 3:
-        //analogWrite(heater_pin, map(next_target.S, 0, 1000, 0, 65535));
+#ifdef LASERMODE
         int lo;
-        lo = next_target.S > 100;
+        lo = next_target.S > 50;
         laserOn = lo;
-        if (!m) {
-          pinMode(heater_pin, OUTPUT);
-          digitalWrite(heater_pin, lo);
+        if (!m || next_target.seen_P) {
+          if (next_target.seen_P)waitbufferempty();
+          pinMode(laser_pin, OUTPUT);
+          digitalWrite(laser_pin, laser_invert lo);
           if (next_target.seen_P) {
             delay(next_target.P);
-            digitalWrite(heater_pin, LOW);
+            digitalWrite(laser_pin, laser_invert LOW);
           }
         }
         //if (!laserOn)waitbufferempty();
 
-        break;
 #endif
+        break;
         /*      case 101:
                 //? --- M101: extruder on ---
                 //?
@@ -860,7 +869,7 @@ void process_gcode_command() {
         zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
 #endif
         zprintf(PSTR("EPR:3 165 %f Xofs\n"), ff(axisofs[0]));
-#ifdef DRIVE_XYY
+#ifdef DRIVE_XYYZ
         zprintf(PSTR("EPR:3 169 %f Y1ofs\n"), ff(axisofs[1]));
         zprintf(PSTR("EPR:3 173 %f Y2ofs\n"), ff(axisofs[2]));
 #else
@@ -912,11 +921,11 @@ void process_gcode_command() {
 #ifdef NONLINEAR
               eprom_wr(157, EE_rod_length, S_F);
               eprom_wr(161, EE_hor_radius, S_F);
+#endif
               eprom_wr(165, EE_towera_ofs, S_F);
               eprom_wr(169, EE_towerb_ofs, S_F);
               eprom_wr(173, EE_towerc_ofs, S_F);
 
-#endif
 #ifdef USE_BACKLASH
               eprom_wr(80, EE_xbacklash, S_I);
               eprom_wr(84, EE_ybacklash, S_I);

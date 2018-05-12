@@ -134,7 +134,7 @@ int feedthedog()
 uint32_t	next_step_time;
 #ifdef USETIMER1
 int busy1 = 0;
-uint16_t ndelay;
+uint32_t ndelay;
 
 /*
     AVR TIMER
@@ -150,11 +150,15 @@ ISR(TIMER1_COMPA_vect)
 
   // stepper tick
   //cli();
-  ndelay = 20;
-  coreloopm();
-  TCNT1 = 0;
-  ndelay = fmax(20, ndelay);
-  OCR1A = ndelay;
+  if (ndelay < 30000) {
+    ndelay = 20;
+    coreloopm();
+    TCNT1 = 0;
+    ndelay = fmax(20, ndelay);
+  } else {
+    ndelay = fmax(20, ndelay - 30100);
+  }
+  OCR1A = ndelay > 30000 ? 30000 : ndelay;
   //sei();
   TIMSK1 |= (1 << OCIE1A);
   //if (ndelay>40)zprintf(PSTR("%d\n"),fi(ndelay));
@@ -183,10 +187,14 @@ void tm()
 {
   //Timer1.pause();
   //zprintf(PSTR(".\n"));
-  ndelay = 30;
-  coreloopm();
-  ndelay = fmax(30, ndelay);
-  Timer1.setOverflow(ndelay);
+  if (ndelay < 30000) {
+    ndelay = 30;
+    coreloopm();
+    ndelay = fmax(30, ndelay);
+  } else {
+    ndelay = fmax(30, ndelay - 30000);
+  }
+  Timer1.setOverflow(ndelay >= 30000 ? 30000 : ndelay);
   //Timer1.refresh();
   //Timer1.resume();
 }
@@ -209,9 +217,9 @@ void timer_init()
 #endif // arm
 // ---------------------------------------------------------------------------------------------------------
 
-void timer_set(uint16_t delay)
+void timer_set(uint32_t delay)
 {
-  ndelay = delay;
+  ndelay = fmin(45000,delay);
 }
 
 #endif

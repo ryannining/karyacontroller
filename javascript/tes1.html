@@ -1,0 +1,274 @@
+
+<head>
+</head>
+<html>
+<body>
+  <canvas id=drw width="200" height="100"></canvas>
+<script>
+var c = document.getElementById("drw");
+var ctx = c.getContext("2d");
+
+var moves=[{},{},{},{},{},{},{},{},{},{},{},{}];
+var head=0;
+var tail=0;
+var NUMBUFFER=10;
+var x1=0;
+var y1=0;
+var z1=0;
+var e1=0;
+var stepmm=100;
+var accell=100;
+var xyjerk=15;
+var maxf=100;
+
+function bufflen()
+{
+    return  head >= tail ? head - tail : (NUMBUFFER + head) - tail; // 5+0 - 4
+}
+
+function nextbuff(x){
+  return (x) < NUMBUFFER-1 ? (x) + 1 : 0;
+}
+function prevbuff(x) {
+  return ((x) > 0 ? (x) - 1 : NUMBUFFER-1);
+}
+function copy(a,b){
+  for (var i=0;i<b.length;i++){
+    a[i]=b[i];
+  }
+}
+
+function int(x){return Math.floor(x);}
+function max(a,b){return (a>=b)?a:b;}
+function min(a,b){return (a<=b)?a:b;}
+function abs(a){return Math.abs(a);}
+var sqrt=Math.sqrt;
+function sqr2(x){return x*x;}
+var MINCORNERSPEED=1;
+var lastf=0;
+var currf=[0,0,0,0,0];
+var prevf=[0,0,0,0,0];
+var tailok=0;
+var rampup=0;
+var rampdown=0;
+
+function ramplenq(v0,v1,stepa) {
+  if (v1>v0)return (v1-v0)*stepa;
+  return 0;
+}
+function speedat(v0,a,s,stp) {
+    return (int(a) * s / stp + int(v0));
+}
+
+function prepareramp(bpos)
+{
+
+    var m = moves[bpos];
+
+    faxis = m.faxis;
+    ytotalstep = abs(m.dx[faxis]);
+
+    stepa = stepmm / (m.ac);
+    if (bpos!=(head)) {
+        next=moves[nextbuff(bpos)];
+        fe=next.fs;
+    } else fe=0;
+
+    rampup=ramplenq(m.fs, m.fn, stepa);
+    rampdown=ramplenq(fe, m.fn, stepa);
+
+    if (rampup+rampdown>ytotalstep) {
+        // if crossing and have rampup
+        r = ((rampdown + rampup) - ytotalstep) /2;
+        rampup -= r;
+        rampdown -= r;
+        if (rampup<0)rampup=0;
+        if (rampdown<0)rampdown=0;
+        if (rampdown>ytotalstep)rampdown=ytotalstep;
+        if (rampup>ytotalstep)rampup=ytotalstep;
+        //m.fn=speedat(m.fs,m.ac,rampup,stepmm);
+    }
+    m.totalstep=ytotalstep;
+    m.rampup=rampup;
+    m.rampdown=rampdown;
+    console.log(m);
+    m.status |= 4;
+}
+
+
+function backforward()
+{
+// now back planner
+    h=head;//
+    //h=prevbuff(head);
+    if (h==tailok) {
+        return 0;
+    }
+
+    curr = moves[h];
+    var next={};
+    curr.fs=min(curr.maxs,(curr.ac*curr.dis));
+    h=prevbuff(h);
+
+    while (h!=tailok) {
+        next=curr;
+        curr=moves[h];
+        if (curr.fs!=curr.maxs) {
+            fs=next.fs+(curr.ac*curr.dis);
+            if (fs<curr.maxs) {
+                curr.fs=fs;
+            } else {
+                curr.fs=curr.maxs;
+            }
+        }
+        h=prevbuff(h);
+
+    }
+
+// forward
+    h=nextbuff(tailok);
+    if (h==head) {
+        return 0;
+    }
+    next=moves[h];
+    h=nextbuff(h);
+    while (h!=head) {
+        curr=next;
+        next=moves[h];
+        if (curr.fs<next.fs) {
+            fs=curr.fs+(curr.ac*curr.dis);
+            if (fs<next.fs) {
+                next.fs=fs;
+                tailok=prevbuff(h);
+            }
+            curr.fn=min(fs,curr.fn);
+        }
+        if (next.fs==next.maxs) tailok=prevbuff(h);
+        h=nextbuff(h);
+    }
+
+}
+
+
+function planner(h){
+  curr=moves[h];
+  scale=1;
+  xtotalstep=abs(curr.dx[curr.faxis]);
+  copy(prevf,currf);
+  currf[4] = curr.fn;
+  for (var i=0;i<4;i++){
+    currf[i]=0;
+    if (curr.dx[i]!=0){
+      cdx = (curr.fn) * curr.dx[i];
+      scale2 = (maxf) * xtotalstep / abs(cdx);
+      if (scale2 < scale) scale = scale2;
+
+      currf[i] = cdx / xtotalstep;
+    }
+  }
+  scale *= curr.fn;
+  curr.fn = (scale * scale);
+
+  max_f = MINCORNERSPEED * MINCORNERSPEED;
+  if (bufflen()>1) {
+
+    max_f = max(currf[4], prevf[4]);
+    fdx = currf[0] - prevf[0];
+    fdy = currf[1] - prevf[1];
+    fdz = currf[2] - prevf[2];
+
+    jerk = sqrt(fdx * fdx + fdy * fdy + fdz * fdz);
+    factor = 1;
+    if (jerk > xyjerk) {
+        factor = (xyjerk) / jerk; // always < 1.0!
+        if (factor * max_f * 2.0 < xyjerk) {
+            factor = xyjerk / (2.0 * max_f);
+        }
+    }
+
+
+    max_f = max(max_f * factor, MINCORNERSPEED);
+    max_f *= max_f;
+
+  }
+  curr.maxs=min(curr.fn,lastf);
+  curr.maxs=min(curr.maxs,max_f);
+  lastf=curr.fn;
+  backforward();
+
+
+}
+
+
+function addmove(f,x2,y2,z2,e2,rel) {
+  var curr=moves[nextbuff(head)];
+  if (rel) {
+    x2+=x1;
+    y2+=y1;
+    z2+=z1;
+    e2+=e1;
+  }
+  f=max(f,maxf);
+  var dx=[];
+  dx[0]=int(x2*stepmm)-int(x1*stepmm);
+  dx[1]=int(y2*stepmm)-int(y1*stepmm);
+  dx[2]=int(z2*stepmm)-int(z1*stepmm);
+  dx[3]=int(e2*stepmm)-int(e1*stepmm);
+
+  curr.dis = sqrt(sqr2(x2 - x1) + sqr2(y2 - y1) + sqr2(z2 - z1));
+  curr.dx=dx;
+  curr.fn=f;
+  curr.fs=0;
+  curr.ac=accell*2;
+  curr.status=0;
+  dd=0;
+  faxis=0;
+  for (var i=0;i<4;i++){
+    if (dx[i]>dd){
+      dd=dx[i];
+      faxis=i;
+    }
+  }
+
+  head=nextbuff(head);
+  curr.faxis=faxis;
+  curr.status|=1;
+  planner(head);
+  x1=x2;
+  y1=y2;
+  z1=z2;
+  e1=e2;
+
+
+
+}
+
+function startmove()
+{
+
+    if ((head == tail)) {
+        return 0;
+    }
+    t = nextbuff(tail);
+    prepareramp(t);
+    tail=t;
+    return 1;
+}
+
+// main code
+
+for (var i=1;i<5;i++){
+  addmove(40,i*10,0,0,0);
+}
+while (startmove()){
+
+}
+x1=0;
+y1=0;
+ctx.moveTo(x1, y1);
+ctx.lineTo(200, 100);
+ctx.stroke();
+
+</script>
+</body>
+</html>
