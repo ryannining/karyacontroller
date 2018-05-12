@@ -75,6 +75,16 @@ motion [motion.exe].PRJ - for quincy IDE, we can show graphics of the motion sim
 Original code is in freebasic, you can check the old folder
 
 ## log
+12-5-2018
+Backplanner using grbl code, minimum corner using repetier code.
+
+recode backlash algorithm
+laser cutting co2 work (m3 S100 to turn on laser on G1)
+fix timer problem on very slow speed (below 1)
+
+i share my stm32 board too
+![image](https://user-images.githubusercontent.com/11457832/39960100-9d05b922-5646-11e8-8dbd-913c726d806a.png)
+
 5-2-2018
 
 I change the feedrate acceleration algorithm, previously using mainloop that calculate f by adding it with a*dl , which dl is from 1/f, this cause problem cannot reach the target velocity.
