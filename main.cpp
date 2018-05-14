@@ -60,9 +60,9 @@ int main(void)
   getch();
 }
 void demofile() {
-  //#define fn "d:/git/hipopotamo.gcode"
+  #define fn "d:/git/hipopotamo.gcode"
   //#define fn "d:/3d/5050.gcode"
-  #define fn "d:/3d/font.gcode"
+  //#define fn "d:/3d/font.gcode"
   //#define fn "d:/git/bowdenlock.gcode"
   //#define fn "d:/3d/fish_fossilz.gcode"
   //#define fn "d:/3d/cube20.gcode"
@@ -77,7 +77,7 @@ void demofile() {
   int c;
   graphscale = 2;
   tickscale = 50;
-  fscale=50;
+  fscale=10;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l = 0;

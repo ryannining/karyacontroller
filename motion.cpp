@@ -830,7 +830,7 @@ void dographics()
     //line(lx, ly, gx, gy);
     //zprintf(PSTR("X:%f Y:%f\n"), ff(gx), ff(gy));
     setcolor(0);
-    //line(gx + 1, 480 - 1, gx + 1, 480 - 100);
+    line(gx + 1, 480 - 1, gx + 1, 480 - 100);
     gy = 480 -  fscale * 100 * 0.1;
     setcolor(1);
     line(0, gy, 200, gy);
@@ -1775,3 +1775,4 @@ attachInterrupt(powerpin, faildetected, CHANGE);
 #endif
 
 }
+

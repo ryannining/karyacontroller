@@ -169,10 +169,10 @@
 #define YMAX 1800
 #define ZMAX 20
 
-#define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
-#define MOTOR_Y_BACKLASH 0
-#define MOTOR_Z_BACKLASH 0
-#define MOTOR_E_BACKLASH 0
+#define MOTOR_X_BACKLASH 20  // MOTOR 0 = X, 1= Y 2=Z 3=E
+#define MOTOR_Y_BACKLASH 20
+#define MOTOR_Z_BACKLASH 20
+#define MOTOR_E_BACKLASH 20
 
 //#define AUTO_MOTOR_Z_OFF
 
@@ -180,7 +180,7 @@
 
 //#define INVERTENDSTOP // uncomment for normally open
 
-#define ENDSTOP_MOVE 3   //2mm move back after endstop hit, warning, must 
+#define ENDSTOP_MOVE 3   //2mm move back after endstop hit, warning, must
 #define HOMING_MOVE 2000
 
 // KontrolBox a series resistor with switch to a analog PIN
