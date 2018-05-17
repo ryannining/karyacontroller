@@ -119,9 +119,9 @@ int feedthedog()
     // AVR specific code here
 #elif defined(ESP8266)
     // ESP8266 specific code here
-    #ifndef ESP32
+#ifndef ESP32
     ESP.wdtFeed();
-    #endif
+#endif
 #else
 #endif
     //xprintf(PSTR("Feed the dog\n"));
@@ -218,10 +218,35 @@ void timer_init()
 
 #endif // arm
 // ---------------------------------------------------------------------------------------------------------
+#ifdef ESP8266
+#define USETIMEROK
+//HardwareTimer timer1(2);
+
+void ICACHE_RAM_ATTR tm()
+{
+  if (ndelay < 30000) {
+    ndelay = 30;
+    coreloopm();
+    ndelay = fmax(30, ndelay);
+  } else {
+    ndelay = fmax(30, ndelay - 30000);
+  }
+  timer1_write(ndelay >= 30000 ? 30000 : ndelay);
+}
+
+void timer_init()
+{
+  //Initialize Ticker every 0.5s
+  timer1_attachInterrupt(tm);
+  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
+  timer1_write(1000); //120000 us
+}
+
+#endif // esp8266
 
 void timer_set(uint32_t delay)
 {
-  ndelay = fmin(45000,delay);
+  ndelay = fmin(45000, delay);
 }
 
 #endif
@@ -229,6 +254,7 @@ void timer_set(uint32_t delay)
 
 //#elif defined(__ARM__)//avr
 #ifndef USETIMEROK
+#undef USETIMER1
 void timer_init() {};
 void timer_set(int32_t delay) {};
 #endif

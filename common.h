@@ -9,7 +9,7 @@ const int32_t PROGMEM powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 1000
 #define POWERS(e) (int32_t)pgm_read_dword(&(powers[e]))
 #define DECFLOAT_EXP_MAX 7
 #ifndef ISPC
-//#define output_enable
+#define output_enable
 // AVR specific code here
 //#include <avr/pgmspace.h>
 #include <arduino.h>

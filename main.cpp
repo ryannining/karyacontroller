@@ -60,7 +60,7 @@ int main(void)
   getch();
 }
 void demofile() {
-  #define fn "d:/git/hipopotamo.gcode"
+  //#define fn "d:/git/hipopotamo.gcode"
   //#define fn "d:/3d/5050.gcode"
   //#define fn "d:/3d/font.gcode"
   //#define fn "d:/git/bowdenlock.gcode"
@@ -69,13 +69,15 @@ void demofile() {
   //#define fn "d:/3d/bowdenlock.gcode"
   //#define fn "d:/3d/gecko.gcode"
   //#define fn "d:/3d/foam.gcode"
+  //#define fn "gcode/gecko.gcode"
+  #define fn "gcode/fish_fossilz.gcode"
 
   //#define fn "d:/3d/box1cm.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 2;
+  graphscale = 5;
   tickscale = 50;
   fscale=10;
   if (file == NULL) return; //could not open file

@@ -2,8 +2,8 @@
 #include "motion.h"
 #include "gcode.h"
 #include "common.h"
-#include "timer.h"
 #include "config_pins.h"
+#include "timer.h"
 #include "temp.h"
 #include <stdint.h>
 
@@ -48,24 +48,26 @@
 
 
 #ifdef USETIMER1
-#define CLOCKCONSTANT 8000000.f        // microseconds
 #ifdef __AVR__
-#define DSCALE 2   // use 2Mhz timer need to shift right 2bit
+#define CLOCKCONSTANT 2000000.f        // tick/seconds
+#define DSCALE 0   // use 2Mhz timer need to shift right 2bit
 #define DIRDELAY 20
 #endif
 
 #ifdef __ARM__
+#define CLOCKCONSTANT 8000000.f        // tick/seconds
 #define DSCALE 0   // use 8Mhz timer shift 0bit
 #define DIRDELAY 20 // usec
 #endif
 
 #ifdef ESP8266
-#define DSCALE 0   // use 8Mhz timer shift 0bit
+#define CLOCKCONSTANT 5000000.f        // tick/seconds
+#define DSCALE 0   // use 10Mhz timer shift 0bit
 #define DIRDELAY 20 // usec
 #endif
 
 #else // usetimer1
-#define CLOCKCONSTANT 1000000.f        // microseconds
+#define CLOCKCONSTANT 1000000.f        // tick/seconds
 
 #define DSCALE 0  // 1mhz use micros shift 3bit
 #define DIRDELAY 2
@@ -98,6 +100,7 @@ int8_t ishoming;
 float axisofs[4] = {0, 0, 0, 0};
 float F_SCALE = 1;
 int8_t RUNNING = 1;
+int8_t PAUSE = 0;
 float stepmmx[4];
 float cx1, cy1, cz1, ce01;
 tmove move[NUMBUFFER];
@@ -822,7 +825,7 @@ void dographics()
     // color by segment
     c = (tail & 3) + 10;
     // color by speed
-    //c = (f - 20) * 4;
+    c = (f - 20) * 4;
 
     //float cf = float(timescale) / dl;
 
@@ -940,11 +943,20 @@ static void decodecmd()
 #ifdef USETIMER1
     timer_set(cmdly);
 #endif
+
 }
 
 uint32_t mc, dmc, cmctr;
 void coreloopm()  // m = micros - nextmicros  value
 {
+    
+    if (PAUSE){
+      #ifdef USETIMER1
+    
+      timer_set(1000);
+      #endif
+      return;
+    }
     //dmc=(micros()-mc); mc=micros();
     if (!nextok) {
         decodecmd();
@@ -1097,7 +1109,7 @@ float _ac = 0;
 float pta=0;
 int coreloop1()
 {
-#ifdef ISPC
+#ifdef output_enable
     if(mctr==10)zprintf(PSTR("DLY:%d \n"), fi(cmdly));
 #else
     //if(mctr==10)zprintf(PSTR("DLY:%d \n"), fi(cmdly));
@@ -1191,12 +1203,12 @@ UPDATEDELAY:
                   // mctr 
                   float p=mctr;
                   p/=totalstep;
-                  p=1-p;
+                  //p=1-p;
                   cx1=m->dtx[0]-p*m->dx[0]/Cstepmmx(0);
                   cy1=m->dtx[1]-p*m->dx[1]/Cstepmmx(1);
                   cz1=m->dtx[2]-p*m->dx[2]/Cstepmmx(2);
                   ce01=m->dtx[3]-p*m->dx[3]/Cstepmmx(3);
-                  
+                  zprintf(PSTR("Stopped %f %f %f %f\n"),ff(cx1),ff(cy1),ff(cz1),ff(ce01));
                 }
                 endstopstatus = 0;
                 m->status = 0;

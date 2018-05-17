@@ -86,6 +86,8 @@ extern float ax_home[NUMAXIS];
 extern int8_t  sx[NUMAXIS];
 extern uint32_t cmctr;
 extern int8_t RUNNING;
+extern int8_t PAUSE;
+
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 

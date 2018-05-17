@@ -1,8 +1,8 @@
 #include "gcode.h"
-#include "timer.h"
 #include "common.h"
 #include "motion.h"
 #include "config_pins.h"
+#include "timer.h"
 #include "temp.h"
 #include "motors.h"
 #include "eprom.h"
@@ -102,7 +102,10 @@ static float decfloat_to_float(void) {
   MLOOP
   return read_digit.sign ? -r : r;
 }
-
+void pausemachine(){
+  PAUSE = !PAUSE;
+  if (PAUSE)zprintf(PSTR("Pause\n")); else zprintf(PSTR("Resume\n"));
+}
 void changefilament(float l) {
 #ifdef CHANGEFILAMENT
   waitbufferempty();
@@ -527,9 +530,11 @@ void process_gcode_command() {
         reset_eeprom();
         reload_eeprom();
       case 6:
-        amove(2, 10, 5, 0, 0);
-        amove(2, 15, 15, 5, 0);
-        amove(2, 20, 25, 10, 0);
+        cx1=0;
+        cy1=0;
+        cz1=0;
+        ce01=0;
+        amove(1, 100, 100, 100, 0);
         /*
           amove(100, 10, 0, 0, 0);
           amove(100, 10, 10, 0, 0);
@@ -684,10 +689,12 @@ void process_gcode_command() {
       case 2:
         // stop and clear all buffer
         RUNNING = 0;
-        mctr = 0;
-        m = 0;
-        head = tail;
         break;
+      case 25:
+        // stop and clear all buffer
+        pausemachine();
+        break;
+        
       case 84: // For compatibility with slic3rs default end G-code.
         //? --- M2: program end ---
         //?
