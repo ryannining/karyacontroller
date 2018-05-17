@@ -149,10 +149,10 @@ extern float EEMEM EE_estepmm;
 #ifdef NONLINEAR
 extern float EEMEM EE_hor_radius;
 extern float EEMEM EE_rod_length;
+#endif
 extern float EEMEM EE_towera_ofs;
 extern float EEMEM EE_towerb_ofs;
 extern float EEMEM EE_towerc_ofs;
-#endif
 
 #ifdef USE_BACKLASH
 extern int32_t EEMEM EE_xbacklash;  

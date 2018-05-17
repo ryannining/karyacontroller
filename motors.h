@@ -34,7 +34,7 @@ static int8_t lsx[4] = {0, 0, 0, 0};
 
 #ifdef USE_SHIFTREG
 
-byte srdata = 0;
+static byte srdata = 0;
 
 #define xdigitalWrite(pin,v) if(v)srdata|=1 << pin;else srdata &=~(1 << pin);
 
@@ -67,6 +67,7 @@ static void pinCommit() {
 
 #define DUMMYMOTOR(AX,PENABLE,PDIR,PSTEP)\
   inline void motor_##AX##_INIT(){}\
+  inline void motor_##AX##_INIT2(){}\
   inline void motor_##AX##_ON(){}\
   inline void motor_##AX##_OFF() {}\
   inline void motor_##AX##_DIR(int d){}\
@@ -78,55 +79,89 @@ static void pinCommit() {
 
 static uint8_t bsteps = 0;
 
-#define STEPDELAY somedelay(10);
+#define STEPDELAY
+//somedelay(10);
 #define STEPDIRDELAY
 //somedelay(10);
 
-#define MOTOR(AX,PENABLE,PDIR,PSTEP)\
-  inline void motor_##AX##_INIT(){xpinMode(PENABLE, OUTPUT);xpinMode(PDIR, OUTPUT);xpinMode(PSTEP, OUTPUT);xdigitalWrite(PENABLE,1);}\
-  inline void motor_##AX##_ON(){ xdigitalWrite(PENABLE,0);}\
-  inline void motor_##AX##_OFF() { xdigitalWrite(PENABLE,1);}\
+#define MOTOR(AX,PDIR,PSTEP)\
+  inline void motor_##AX##_INIT(){xpinMode(PDIR, OUTPUT);xpinMode(PSTEP, OUTPUT);}\
   inline void motor_##AX##_STEP(){  xdigitalWrite(PSTEP,1);}\
   inline void motor_##AX##_UNSTEP(){  xdigitalWrite(PSTEP,0);}\
-  inline void motor_##AX##_DIR(int d){ if(!d)return;xdigitalWrite(PENABLE,0);xdigitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);STEPDIRDELAY;}\
+  inline void motor_##AX##_DIR(int d){ if(!d)return;motor_##AX##_ON();xdigitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);STEPDIRDELAY;}\
 
-#else
-#define STEPDELAY
-#define STEPDIRDELAY
+#define MOTOREN(AX,PENABLE)\
+  inline void motor_##AX##_ON() { xdigitalWrite(PENABLE,0);}\
+  inline void motor_##AX##_OFF() { xdigitalWrite(PENABLE,1);}\
+  inline void motor_##AX##_INIT2() {xpinMode(PENABLE, OUTPUT);xdigitalWrite(PENABLE,1);}\
+
+#define MOTOREN0(AX)\
+  inline void motor_##AX##_ON(){}\
+  inline void motor_##AX##_OFF() {}\
+  inline void motor_##AX##_INIT2() {}\
+
+  /*
+  #else
+  #define STEPDELAY
+  #define STEPDIRDELAY
 
 // PC just use dummy
-#define MOTOR(AX,PENABLE,PDIR,PSTEP)\
+#define MOTOR(AX,PDIR,PSTEP)\
   inline void motor_##AX##_INIT(){zprintf(PSTR("Motor ##AX## Init\n"));}\
-  inline void motor_##AX##_ON(){ zprintf(PSTR("Motor ##AX## Enable\n"));}\
-  inline void motor_##AX##_OFF() { zprintf(PSTR("Motor ##AX## Disable\n"));}\
   inline void motor_##AX##_STEP(){  zprintf(PSTR("Motor ##AX## step\n"));}\
   inline void motor_##AX##_UNSTEP(){  zprintf(PSTR("Motor ##AX## unstep"\n));}\
   inline void motor_##AX##_DIR(int d){ zprintf(PSTR("Motor ##AX## Dir %d\n"),d);}\
 
+#define MOTOREN(AX,PENABLE)\
+  inline void motor_##AX##_ON(){ zprintf(PSTR("Motor ##AX## Enable\n"));}\
+  inline void motor_##AX##_OFF() { zprintf(PSTR("Motor ##AX## Disable\n"));}\
 
+  */
 #endif
 
 
+#ifdef xstep
 #ifdef xenable
-MOTOR(0, xenable, xdirection, xstep)
+MOTOREN(0, xenable)
+#else
+MOTOREN0(0)
+#endif
+MOTOR(0,  xdirection, xstep)
 #else
 DUMMYMOTOR(0, 0, 0, 0)
 #endif
 
+#ifdef ystep
 #ifdef yenable
-MOTOR(1, yenable, ydirection, ystep)
+MOTOREN(1, yenable)
+#else
+MOTOREN0(1)
+#endif
+MOTOR(1,  ydirection, ystep)
 #else
 DUMMYMOTOR(1, 0, 0, 0)
 #endif
 
+
+
+#ifdef zstep
 #ifdef zenable
-MOTOR(2, zenable, zdirection, zstep)
+MOTOREN(2, zenable)
+#else
+MOTOREN0(2)
+#endif
+MOTOR(2, zdirection, zstep)
 #else
 DUMMYMOTOR(2, 0, 0, 0)
 #endif
 
+#ifdef e0step
 #ifdef e0enable
-MOTOR(3, e0enable, e0direction, e0step)
+MOTOREN(3, e0enable)
+#else
+MOTOREN0(3)
+#endif
+MOTOR(3, e0direction, e0step)
 #else
 DUMMYMOTOR(3, 0, 0, 0)
 #endif

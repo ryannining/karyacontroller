@@ -9,8 +9,11 @@
 #if defined(__STM32F1__) || defined(STM32_SERIES_F1)
 #define __ARM__
 #endif
+#ifdef ESP32
+#define ESP8266  
+#endif
 
-#if defined(__AVR__) || defined(ESP8266)  || defined (__ARM__)
+#if defined(__AVR__) || defined(ESP8266)|| defined(ESP32)  || defined (__ARM__)
 #else
 //#warning This is PC
 #define ISPC
@@ -47,10 +50,10 @@ typedef struct {
   float ac; // needed for backplanner
   float fs, fn,maxs; // all are in square ! needed to calc real accell
 #endif
-#ifdef NONLINEAR
+//#ifdef NONLINEAR
   //float otx[3]; // keep the original coordinate before transform
   float dtx[NUMAXIS]; // keep the original coordinate before transform
-#endif
+//#endif
   int32_t dx[NUMAXIS]; //original delta before transform
 #ifdef ISPC
   // for graphics

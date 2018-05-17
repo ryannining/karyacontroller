@@ -59,6 +59,11 @@
 #define DIRDELAY 20 // usec
 #endif
 
+#ifdef ESP8266
+#define DSCALE 0   // use 8Mhz timer shift 0bit
+#define DIRDELAY 20 // usec
+#endif
+
 #else // usetimer1
 #define CLOCKCONSTANT 1000000.f        // microseconds
 
@@ -611,14 +616,19 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
         if (delta<0)dir=-1;
         else if (delta>0)dir=1;
         else dir=0;
+
+        // if there is movement and have save last dir, and last dir <> current dir then add backlash
         if ((ldir[i]!=0) && (dir!=0) && (ldir[i]!=dir)){
           // add backlash steps to this axis
-          delta+=xback[i]*dir;
+          //zprintf(PSTR("backlash %d %d\n"),fi(i),fi(xback[i]));
+          // i think we should not doing backlash like this,
+          // we should directly add to cmd buffer with step delay is
+          delta+=xback[i]* Cstepmmx(i)/1000*dir;
         }
+        // if no movement, then dont save direction
+        if (dir!=0)ldir[i]=dir;
+#endif
 
-        ldir[i]=dir;
-#endif        
-        
         curr->dx[i] = delta;
         delta = abs(delta);
         if (delta > dd) {
@@ -646,22 +656,24 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
         curr->status |= 1; // 0: finish 1:ready
         // planner are based on cartesian coord movement on the motor
         planner(head);
-#ifdef NONLINEAR
+//#ifdef NONLINEAR
+// we keep the original target coordinate, to get correct stop position when a HARD STOP performed
         cx1 = curr->dtx[0] = cx2; // save the target, not the original
         cy1 = curr->dtx[1] = cy2;
         cz1 = curr->dtx[2] = cz2;
         ce01 = curr->dtx[3] = ce02;
-#else
+/*#else
         cx1 = cx2;
         cy1 = cy2;
         cz1 = cz2;
         ce01 = ce02;
 #endif
+*/
     }
 
 }
 
-#define N_ARC_CORRECTION  
+#define N_ARC_CORRECTION
 #ifdef ARC_SUPPORT
 
 /*
@@ -943,13 +955,6 @@ void coreloopm()  // m = micros - nextmicros  value
 #elif defined(ISPC)
     {
 #else
-    if (!RUNNING) {
-
-        // halt and clear buffer
-        checkendstop = 1;
-        endstopstatus = -1;
-        return;
-    }
     cm = micros();
 
     if (cm - nextmicros >= cmdly) {
@@ -1143,8 +1148,8 @@ UPDATEDELAY:
         }  else dlp = dln; //
 
         CALCDELAY
-        
-        
+
+
         cmd0 |= (dl) << 6;
         pushcmd();
         mctr--;
@@ -1176,16 +1181,29 @@ UPDATEDELAY:
         //if (mctr2++ % 20 == 0) Serial.println("");
 #endif
         //    if (mctr % 10 == 0)zprintf(PSTR("endstp %d\n"),fi(checkendstop));
-        if (checkendstop) {
+        if (checkendstop || (!RUNNING)) {
             //      docheckendstop();
             //zprintf(PSTR("%d \n"),fi(mctr));
-            if (endstopstatus < 0) {
+            if ((endstopstatus < 0) || (!RUNNING)) {
                 //zprintf(PSTR("Endstop hit"));
+                if (!RUNNING){
+                  // need to calculate at least correct next start position based on
+                  // mctr 
+                  float p=mctr;
+                  p/=totalstep;
+                  p=1-p;
+                  cx1=m->dtx[0]-p*m->dx[0]/Cstepmmx(0);
+                  cy1=m->dtx[1]-p*m->dx[1]/Cstepmmx(1);
+                  cz1=m->dtx[2]-p*m->dx[2]/Cstepmmx(2);
+                  ce01=m->dtx[3]-p*m->dx[3]/Cstepmmx(3);
+                  
+                }
                 endstopstatus = 0;
                 m->status = 0;
                 mctr = 0;
                 m = 0;
                 head = tail;
+                //cmhead=cmtail;
                 RUNNING = 1;
                 return 0;
             }
@@ -1757,6 +1775,10 @@ void initmotion()
     motor_1_INIT();
     motor_2_INIT();
     motor_3_INIT();
+    motor_0_INIT2();
+    motor_1_INIT2();
+    motor_2_INIT2();
+    motor_3_INIT2();
 
 #ifndef ISPC
 #ifdef POWERFAILURE
@@ -1775,4 +1797,3 @@ attachInterrupt(powerpin, faildetected, CHANGE);
 #endif
 
 }
-

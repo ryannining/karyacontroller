@@ -119,7 +119,9 @@ int feedthedog()
     // AVR specific code here
 #elif defined(ESP8266)
     // ESP8266 specific code here
+    #ifndef ESP32
     ESP.wdtFeed();
+    #endif
 #else
 #endif
     //xprintf(PSTR("Feed the dog\n"));

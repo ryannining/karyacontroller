@@ -40,7 +40,7 @@
 
 #define ISRTEMP    // avr reading using interrupt
 #define USETIMER1  // using timer1 or other timer (implemented timer1 on avr)
-#define CORESERIAL // reduce code on AVR 
+#define CORESERIAL // reduce code on AVR
 #define OLEDDISPLAY // still WIP
 #define SDCARD_CS // pin for SDCARD
 #define KBOX_PIN // 4 key Kontrolbox using analog pin and serial resistors
@@ -50,7 +50,7 @@
 #define MOTOR_2_DIR 1 // 1: normal -1:inverted
 #define MOTOR_3_DIR 1 // 1: normal -1:inverted
 
-#define USE_EEPROM 
+#define USE_EEPROM
 */
 
 
@@ -869,7 +869,57 @@
 #define fan_pin D4
 
 #define INVERTENDSTOP
-#define SDCARD_CS D8
+//#define SDCARD_CS D8
+#define NUMBUFFER 20
+/*
+  ============================================================================================
+     _WEMOS3D
+  ============================================================================================
+*/
+#elif defined(BOARD_WEMOS3D)
+
+#define xdirection D5
+#define xstep D4
+#define ydirection D7
+#define ystep D3
+
+// z and e have same direction pin, we think that normally slicer never move z and e together.. we hope we right :D
+#define zdirection D6
+#define zstep D0
+#define e0direction D6
+#define e0step D2
+
+#define limit_pin D8
+
+#define temp_pin A0
+#define heater_pin D1
+
+#define INVERTENDSTOP
+#define NUMBUFFER 20
+/*
+  ============================================================================================
+     _ESP32VN3D
+  ============================================================================================
+*/
+#elif defined(BOARD_ESP32VN3D)
+
+#define xdirection 5
+#define xstep 4
+#define ydirection 7
+#define ystep 3
+
+// z and e have same direction pin, we think that normally slicer never move z and e together.. we hope we right :D
+#define zdirection 6
+#define zstep 0
+#define e0direction 6
+#define e0step 2
+
+#define limit_pin 8
+
+#define temp_pin 0
+#define heater_pin 1
+
+#define INVERTENDSTOP
 #define NUMBUFFER 20
 /*
   ============================================================================================
@@ -880,6 +930,11 @@
 
 // shift register for all motor step and direction (8 pin)
 #define USE_SHIFTREG
+#define RX 3
+#define TX 1
+#define D0 16
+#define D1 5
+
 #define pinclock TX
 #define pinlatch D0
 #define pindata D1
@@ -894,16 +949,15 @@
 #define e0direction 0
 #define e0step 1
 
-
-#define xenable D3
-#define yenable D3
-#define zenable D3
-#define e0enable D3
+#define xenable RX
+#define yenable RX
+#define zenable RX
+#define e0enable RX
 
 //#define limit_pin D1
 
 //#define temp_pin A0
-#define heater_pin RX
+//#define heater_pin RX
 //#define fan_pin D4
 
 #define ENABLEWIFI 10

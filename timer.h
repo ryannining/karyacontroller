@@ -11,8 +11,8 @@ extern int feedthedog();
 #else
 #define timescale 1000000L
 extern uint32_t micros();
-
 #endif
+
 #define SUBMOTION 1
 #define timescaleLARGE timescale*TMSCALE
 

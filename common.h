@@ -29,11 +29,12 @@ extern uint8_t serial_available();
 
 #else
 
-#ifdef __ARM__
+//#ifdef __ARM__
 static void serialwr(uint8_t s){Serial.write(s);}
-#else
-#define serialwr Serial.write
-#endif
+
+//#else
+//#define serialwr Serial.write
+//#endif
 #define serialrd(s) s=Serial.read()
 #define serialav() Serial.available()
 #define serialinit(baud) Serial.begin(baud)

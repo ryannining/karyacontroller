@@ -56,7 +56,7 @@ void demoSD() {
 
         // todo : parse the last X Y Z E
         //        need faster reading
-        
+
         if (c == '\n')linecount++;
       }
       // close the file:
@@ -684,6 +684,9 @@ void process_gcode_command() {
       case 2:
         // stop and clear all buffer
         RUNNING = 0;
+        mctr = 0;
+        m = 0;
+        head = tail;
         break;
       case 84: // For compatibility with slic3rs default end G-code.
         //? --- M2: program end ---
@@ -794,7 +797,9 @@ void process_gcode_command() {
         //? restart is to press the reset button on the master microcontroller.
         //? See also M0.
         //?
-
+        // stop and clear all buffer
+        RUNNING = 0;
+    
         break;
 
       case 114:
@@ -877,10 +882,10 @@ void process_gcode_command() {
         zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
 #endif
 #ifdef USE_BACKLASH
-        zprintf(PSTR("EPR:2 80 %d Xbcklsh\n"), fi(xback[0]));
-        zprintf(PSTR("EPR:2 84 %d Y\n"), fi(xback[1]));
-        zprintf(PSTR("EPR:2 88 %d Z\n"), fi(xback[2]));
-        zprintf(PSTR("EPR:2 92 %d E\n"), fi(xback[3]));
+        zprintf(PSTR("EPR:3 80 %f Xbcklsh\n"), fi(xback[0]));
+        zprintf(PSTR("EPR:3 84 %f Y\n"), fi(xback[1]));
+        zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
+        zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
 #endif
 
         break;
@@ -927,10 +932,10 @@ void process_gcode_command() {
               eprom_wr(173, EE_towerc_ofs, S_F);
 
 #ifdef USE_BACKLASH
-              eprom_wr(80, EE_xbacklash, S_I);
-              eprom_wr(84, EE_ybacklash, S_I);
-              eprom_wr(88, EE_zbacklash, S_I);
-              eprom_wr(92, EE_ebacklash, S_I);
+              eprom_wr(80, EE_xbacklash, S_F);
+              eprom_wr(84, EE_ybacklash, S_F);
+              eprom_wr(88, EE_zbacklash, S_F);
+              eprom_wr(92, EE_ebacklash, S_F);
 #endif
           }
         reload_eeprom();
@@ -972,6 +977,3 @@ void init_gcode() {
 #endif
 
 }
-
-
-
