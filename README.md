@@ -16,54 +16,55 @@ feature i need to have in this software is: (* implemented)
 - per axis acceleration *
 - per axis max feedrate *
 - per axis jerk  *
-- path planner (forward) *
+- path planner (backward and forward) *
 - step per mm for each axis *
-- implement motor stepper hardware layer *
-- implement GCODE parser and processing *
-- implement flow control between motion gcode and non motion gcode *
+- motor stepper hardware layer using GPIO and ShiftRegister *
+- GCODE parser and processing *
 - 4 axis X Y Z E *
-- implement endstop reading (xmin xmax , etc)*
 - eeprom configuration (step/mm, accel, travel accel, jerk, max axis) *
+- implement endstop reading (xmin xmax , etc)*
+- Endstop configuration using EEPROM *
 - heater with PID E0 *
 - Async temp reading *
-- config files to set pins and parameter *
+- config files contain board definition to set pins and parameter *
 - G0 and G1 can have different acceleration (travel vs feed/extrude) *
-- backlash for all motor *
+- backlash compensation *
 - Config for inverted motor and endstop *
-- backward planner (executed only when ramp down are larger than total step, not always success ) *?
-
-
-- interrupt timing
+- interrupt timing * (for AVR, ESP8266, STM32F103)
 
 ## MCU
 - Nano V3 328p * tested
 - Mega 2560 *
 - Wemos D1 *
-- STM32 bluepill (WIP)
+- STM32 bluepill * tested
 
 ## EEPROM
-Yes, its support EEPROM and modification in repetier host
+Yes, its support EEPROM and modification in repetier host. 
 
 ## WIFI
-Yes, work in progress, especially for ESP8266
+Still work in progress, especially for ESP8266
 
 ## Drive system
 
 * implemented
+LINEAR
 - Cartesian* 
 - Corexy*
 - Corexz*
+- XYYZ* (dual motor for Y that can do individual movement when homing)
 
--Delta (WIP)
+NONLINEAR
+-Delta*
+-Deltasian*
 -Scara
 
-For delta and scara, i still confuse how to implement segment slicing of the path. If i do the segmentation before the path planner, then a
-simple straight line will quickly fill the move buffer and prevent for good planning and eat a lot resource (especially on low CPU).
+## Other
 
-I wish i can implement the segmentation after the planner. So its already know where and when to ramp up/down, then just slice it as delta movement.
+Subpixel bresenham algorithm, will increase the resolution of the bresenham especially on low speed movement. just like AMASS on GRBL.
 
-for now it still not use timer interrupt, just use micros() to control the timing..
+Non linear slicing happen in the core of movement. By implementing a virtual step/mm and calculate real step in the motion loop. So 1 Gcode will save in 1 path buffer, then segmented when this buffer is active.
 
+for now it already use timer interrupt, but still can use polling mode using micros() to control the timing (especially for new mcu that we dont know how to use timer, or for simulation in pc)..
 
 ## Files
 
