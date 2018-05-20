@@ -952,7 +952,7 @@ void process_gcode_command() {
         //? --- M220: Set speed factor override percentage ---
         if ( ! next_target.seen_S)
           break;
-        // Scale 100% = 256
+        // Scale 100% = 100
         f_multiplier = next_target.S * 0.01;
         MLOOP
 
