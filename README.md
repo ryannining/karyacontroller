@@ -76,6 +76,10 @@ motion [motion.exe].PRJ - for quincy IDE, we can show graphics of the motion sim
 Original code is in freebasic, you can check the old folder
 
 ## log
+20-5-2018
+![image](https://user-images.githubusercontent.com/11457832/40274504-1bbb86a0-5c02-11e8-9bbd-ba33fde2f281.png)
+New PCB using Wemos D1 mini, the smallest CNC/3D board ! not tested yet.
+
 12-5-2018
 Backplanner using grbl code, minimum corner using repetier code.
 
