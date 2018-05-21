@@ -52,8 +52,8 @@
 
 #elif defined(ESP8266)
 //#define BOARD_NANONANO_WEMOS
-//#define BOARD_WEMOS3D
-#define BOARD_WEMOSCNC
+#define BOARD_WEMOS3D
+//#define BOARD_WEMOSCNC
 //#define BOARD_MINICNC_ESP01
 #define ANALOGSHIFT 0 // 10bit adc ??
 //#define BOARD_ESP01CNC_V1

@@ -231,15 +231,16 @@ void ICACHE_RAM_ATTR tm()
   } else {
     ndelay = fmax(30, ndelay - 30000);
   }
-  timer1_write(ndelay >= 30000 ? 30000 : ndelay);
+  timer0_write(ESP.getCycleCount()+10*(ndelay >= 30000 ? 30000 : ndelay));
 }
 
 void timer_init()
 {
   //Initialize Ticker every 0.5s
-  timer1_attachInterrupt(tm);
-  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
-  timer1_write(1000); //120000 us
+  timer0_isr_init();
+  timer0_attachInterrupt(tm);
+//  timer0_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
+  timer0_write(ESP.getCycleCount()+16*1000); //120000 us
 }
 
 #endif // esp8266

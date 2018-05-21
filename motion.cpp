@@ -61,7 +61,7 @@
 #endif
 
 #ifdef ESP8266
-#define CLOCKCONSTANT 5000000.f        // tick/seconds
+#define CLOCKCONSTANT 8000000.f        // tick/seconds
 #define DSCALE 0   // use 10Mhz timer shift 0bit
 #define DIRDELAY 20 // usec
 #endif

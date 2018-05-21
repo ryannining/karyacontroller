@@ -164,7 +164,7 @@ void gcode_loop() {
 
 #ifndef ISPC
 
-  ///*
+  /*
   if (micros() - dbtm > 1000000) {
     dbtm = micros();
     extern int32_t dlp;
@@ -176,7 +176,7 @@ void gcode_loop() {
     //zprintf(PSTR("Subp:%d STEP:%d %f %d\n"),fi(subp),cmctr,ff(f),fi(dlp/8));
     dbcm = cmctr;
   }
-  //*/
+  */
 
   /*
       =========================================================================================================================================================
