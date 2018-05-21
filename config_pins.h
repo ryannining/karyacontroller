@@ -52,7 +52,8 @@
 
 #elif defined(ESP8266)
 //#define BOARD_NANONANO_WEMOS
-#define BOARD_WEMOS3D
+//#define BOARD_WEMOS3D
+#define BOARD_WEMOSCNC
 //#define BOARD_MINICNC_ESP01
 #define ANALOGSHIFT 0 // 10bit adc ??
 //#define BOARD_ESP01CNC_V1
@@ -91,9 +92,9 @@
 #ifdef laser_pin
 #define LASERMODE
 #endif
-#define UPDATE_F_EVERY 3000 //us = 250 tick/sec acceleration change
+#define UPDATE_F_EVERY 2000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
-#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 #else
 //#define SUBPIXELMAX 4
 #endif
@@ -157,18 +158,18 @@
 #define EOFFSET 0
 
 #define XYJERK 22
-#define XACCELL 140
-#define XMOVEACCELL 140
+#define XACCELL 40
+#define XMOVEACCELL 40
 
 #define XMAXFEEDRATE 240
 #define YMAXFEEDRATE 240
 #define ZMAXFEEDRATE 240
 #define E0MAXFEEDRATE 220
 
-#define XSTEPPERMM 100//131//178
-#define YSTEPPERMM 100//175//125
-#define ZSTEPPERMM 100//1020//1020 //420
-#define E0STEPPERMM 100//340//380
+#define XSTEPPERMM 200//131//178
+#define YSTEPPERMM 200//175//125
+#define ZSTEPPERMM 200//1020//1020 //420
+#define E0STEPPERMM 200//340//380
 
 #ifndef NUMBUFFER
 #define NUMBUFFER 20
@@ -178,10 +179,10 @@
 #define YMAX 1800
 #define ZMAX 20
 
-#define MOTOR_X_BACKLASH 20  // MOTOR 0 = X, 1= Y 2=Z 3=E
-#define MOTOR_Y_BACKLASH 20
-#define MOTOR_Z_BACKLASH 20
-#define MOTOR_E_BACKLASH 20
+#define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
+#define MOTOR_Y_BACKLASH 0
+#define MOTOR_Z_BACKLASH 0
+#define MOTOR_E_BACKLASH 0
 
 //#define AUTO_MOTOR_Z_OFF
 

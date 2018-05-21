@@ -79,7 +79,7 @@ void demofile() {
   int c;
   graphscale = 5;
   tickscale = 50;
-  fscale=10;
+  fscale=20;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l = 0;
@@ -107,8 +107,8 @@ void demofile() {
 
 void demo() {
   graphscale = 5;
-  tickscale = 10;
-  fscale = 100;
+  tickscale = 30;
+  fscale = 30;
   int f = 100;
   /*
   for(int x=1;x<36;x++){
@@ -118,9 +118,9 @@ void demo() {
     amove(20, -50+sin(x/5.7)*10, cos(x/5.7)*10, 0, 0);
   }
    */
-  amove(1, 20, 0, 0, 0);
-  amove(0.5, 40, 0, 0, 0);
-  amove(0.3, 60, 0, 0, 0);
+  amove(10, 20, 0, 0, 0);
+  amove(10, 40, 0, 0, 0);
+  amove(10, 60, 0, 0, 0);
 //  amove(80, 30, 0, 0, 0);
 //  amove(80, 30, 30, 0, 0);
 //  amove(80, 30, 50, 0, 0);
