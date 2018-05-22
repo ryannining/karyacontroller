@@ -11,7 +11,154 @@
 #include "timer.h"
 #include "eprom.h"
 #include "motion.h"
+
 #include<stdint.h>
+
+
+#ifdef WIFISERVER
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+#include <FS.h>   // Include the SPIFFS library
+#include <WebSocketsServer.h>
+
+uint8_t wfhead = 0;
+uint8_t wftail = 0;
+uint8_t wfbuf[BUFSIZE];
+char wfb[100];
+int wfl=0;
+int bpwf=0;
+ESP8266WebServer server ( 80 );
+WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
+
+File fsUploadFile;
+
+String getContentType(String filename) { // convert the file extension to the MIME type
+  if (filename.endsWith(".html")) return "text/html";
+  else if (filename.endsWith(".css")) return "text/css";
+  else if (filename.endsWith(".js")) return "application/javascript";
+  else if (filename.endsWith(".ico")) return "image/x-icon";
+  else if (filename.endsWith(".gz")) return "application/x-gzip";
+  return "text/plain";
+}
+bool handleFileRead(String path) { // send the right file to the client (if it exists)
+  xprintf(PSTR("handleFileRead: %s\n"), path.c_str());
+  if (path.endsWith("/")) path += "index.html";          // If a folder is requested, send the index file
+  String contentType = getContentType(path);             // Get the MIME type
+  String pathWithGz = path + ".gz";
+  if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)) { // If the file exists, either as a compressed archive, or normal
+    if (SPIFFS.exists(pathWithGz))                         // If there's a compressed version available
+      path += ".gz";                                         // Use the compressed verion
+    File file = SPIFFS.open(path, "r");                    // Open the file
+    size_t sent = server.streamFile(file, contentType);    // Send it to the client
+    file.close();                                          // Close the file again
+    xprintf(PSTR("\tSent file: %s\n") , path.c_str());
+    return true;
+  }
+  xprintf(PSTR("\tFile Not Found: %s\n") , path.c_str());   // If the file doesn't exist, return false
+  return false;
+}
+
+void handleFileUpload() { // upload a new file to the SPIFFS
+  HTTPUpload& upload = server.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    String filename = upload.filename;
+    if (!filename.startsWith("/")) filename = "/" + filename;
+    xprintf(PSTR("handleFileUpload Name: %s\n"), filename.c_str());
+    fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
+    filename = String();
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (fsUploadFile)
+      fsUploadFile.write(upload.buf, upload.currentSize); // Write the received bytes to the file
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (fsUploadFile) {                                   // If the file was successfully created
+      fsUploadFile.close();                               // Close the file again
+      xprintf(PSTR("handleFileUpload Size: %d\n"), upload.totalSize);
+      server.sendHeader("Location", "/upload");     // Redirect the client to the success page
+      server.send(303);
+    } else {
+      server.send(500, "text/plain", "500: couldn't create file");
+    }
+  }
+}
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
+  switch (type) {
+    case WStype_DISCONNECTED:             // if the websocket is disconnected
+      xprintf(PSTR("[%d] Disconnected!\n"), fi(num));
+      break;
+    case WStype_CONNECTED: {              // if a new websocket connection is established
+        IPAddress ip = webSocket.remoteIP(num);
+        xprintf(PSTR("[%d] Connected from %d.%d.%d.%d url: %s\n"), fi(num), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]), payload);
+      }
+      break;
+    case WStype_TEXT:                     // if new text data is received
+      xprintf(PSTR("[%d] get Text: %s\n"), fi(num), payload);
+      //webSocket.sendTXT(num, payload);
+      for (int i = 0; i < lenght; i++) {
+        buf_push(wf, payload[i]);
+      }
+      //webSocket.broadcastTXT(payload);
+      break;
+  }
+}
+
+void wifiwr(uint8_t s){
+  wfb[wfl]=s;
+  wfl++;
+  if (s=='\n'){
+    wfb[wfl]=0;
+    wfl=0;
+    webSocket.broadcastTXT(wfb);    
+  }
+}
+
+void setupwifi() {
+  SPIFFS.begin();
+  xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
+  WiFi.begin ( wifi_ap, wifi_pwd);
+  int cntr = 40;
+  while ( WiFi.status() != WL_CONNECTED ) {
+    delay ( 500 );
+    cntr--;
+    if (!cntr)break;
+    xprintf(PSTR("."));
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    IPAddress ip = WiFi.localIP();
+    xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
+
+    if ( MDNS.begin ( wifi_dns ) ) {
+      xprintf(PSTR("MDNS responder started %s\n"), wifi_dns);
+    }
+
+    server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
+      if (!handleFileRead("/upload.html"))                // send it if it exists
+        server.send ( 200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>" );
+    });
+
+    server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
+    []() {
+      server.send(200);
+    },                          // Send status 200 (OK) to tell the client we are ready to receive
+    handleFileUpload                                    // Receive and save the file
+             );
+
+
+    server.onNotFound([]() {                              // If the client requests any URI
+      if (!handleFileRead(server.uri()))                  // send it if it exists
+        server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
+    });
+    server.begin();
+
+    webSocket.begin();                          // start the websocket server
+    webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+    xprintf(PSTR("HTTP server started\n"));
+  }
+
+}
+#endif
 
 int line_done, ack_waiting = 0;
 int ct = 0;
@@ -165,7 +312,7 @@ void gcode_loop() {
 #ifndef ISPC
 
   /*
-  if (micros() - dbtm > 1000000) {
+    if (micros() - dbtm > 1000000) {
     dbtm = micros();
     extern int32_t dlp;
     extern int subp;
@@ -175,7 +322,7 @@ void gcode_loop() {
     //if (f>0)
     //zprintf(PSTR("Subp:%d STEP:%d %f %d\n"),fi(subp),cmctr,ff(f),fi(dlp/8));
     dbcm = cmctr;
-  }
+    }
   */
 
   /*
@@ -263,13 +410,21 @@ void gcode_loop() {
 
 
   char c = 0;
-  if (serialav())
+  // wifi are first class
+#ifdef WIFISERVER
+  if (buf_canread(wf)) {
+    buf_pop(wf, c);
+  } else
+#endif
   {
-    if (n) {
-      gt = micros();
-      n = 0;
+    if (serialav())
+    {
+      if (n) {
+        gt = micros();
+        n = 0;
+      }
+      serialrd(c);
     }
-    serialrd(c);
   }
 #ifdef USE_SDCARD
   if (sdcardok == 2) {
@@ -279,9 +434,9 @@ void gcode_loop() {
       //myFile.write(c);
     } else {
       // close the file:
-      #ifdef POWERFAILURE
-          eepromwrite(EE_lastline, fi(0));
-      #endif
+#ifdef POWERFAILURE
+      eepromwrite(EE_lastline, fi(0));
+#endif
       myFile.close();
       sdcardok = 0;
       zprintf(PSTR("Done\n"));
@@ -291,7 +446,10 @@ void gcode_loop() {
 #endif
 
   if (c) {
-    if (c == '\n')lineprocess++;
+    if (c == '\n') {
+      lineprocess++;
+    }
+
 #ifdef echoserial
     serialwr(c);
 #endif
@@ -332,8 +490,11 @@ void setupother() {
 #endif
 #endif
 
-  //timer_set(5000);
-  //zprintf(PSTR("Motion demo\nok\n"));
+#ifdef WIFISERVER
+  setupwifi();
+#endif
+
+
   setupdisplay();
   setupok = 1;
 
@@ -352,11 +513,15 @@ void setup() {
 void loop() {
   //demo();
 #ifdef DELAYSETUP
-  if (!setupok && (t1-millis()>DELAYSETUP*1000))setupother();
+  if (!setupok && (t1 - millis() > DELAYSETUP * 1000))setupother();
 #endif
   if (setupok) {
     gcode_loop();
     control_loop();
     display_loop();
+#ifdef WIFISERVER
+    webSocket.loop();
+    server.handleClient();
+#endif
   }
 }

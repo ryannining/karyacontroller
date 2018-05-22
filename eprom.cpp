@@ -2,10 +2,15 @@
 #include "config_pins.h"
 #include "common.h"
 
+char wifi_ap[40]="myap";
+char wifi_pwd[20]="pwd";
+char wifi_dns[20]="karyacnc";
 
 
 #ifdef USE_EEPROM
 #include "eprom.h"
+
+
 
 #ifdef __AVR__
 float EEMEM EE_xhome;
@@ -93,6 +98,13 @@ void reload_eeprom() {
   xback[3] = eepromread(EE_ebacklash);
 
 #endif
+
+#ifdef WIFISERVER
+  eepromreadstring(400,wifi_ap);
+  eepromreadstring(450,wifi_pwd);
+  eepromreadstring(470,wifi_dns);
+#endif  
+  
   preparecalc();
 }
 

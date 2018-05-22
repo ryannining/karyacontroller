@@ -24,6 +24,25 @@ static int32_t eepromread(int p){
   EEPROM.get(p, val);
   return val;
 }
+static void  eepromwritestring(int p,char* str){
+  byte l=strlen(str);
+  EEPROM.put(p,l);
+  for (int i=0;i<strlen(str);i++){
+    p++;
+    EEPROM.put(p,str[i]);
+  }
+}
+static int  eepromreadstring(int p,char* str){
+  int i;
+  byte l;
+  EEPROM.get(p,l);
+  for (i=0;i<l;i++){
+    p++;
+    EEPROM.get(p,str[i]);
+  }
+  str[i+1]=0;
+}
+
 #define eepromcommit EEPROM.commit()
 #define eeprominit EEPROM.begin(512);
 
@@ -123,6 +142,10 @@ static void eepromwrite(int p,int32_t val)
 #define EE_lastline 200
 #endif
 
+#define EE_wifi_ap 400
+#define EE_wifi_pwd 450
+#define EE_wifi_dns 470
+
 
 #else
 extern float EEMEM EE_xhome;  
@@ -171,5 +194,8 @@ extern int32_t EEMEM EE_lastline;
 
 extern void reload_eeprom();
 extern void reset_eeprom();
+extern char wifi_ap[40];
+extern char wifi_pwd[20];
+extern char wifi_dns[20];
 
 #endif // EEPROM_H

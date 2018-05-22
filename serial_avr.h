@@ -10,26 +10,6 @@
 #include <avr/interrupt.h>
 #include "arduino.h"
 #include "stdint.h"
-#define BUFSIZE     64
-#define MASK(PIN) (1 << PIN)
-#define buf_canread(buffer)     ((buffer ## head - buffer ## tail ) & \
-                                 (BUFSIZE - 1))
-
-#define buf_pop(buffer, data)   do { \
-                                  data = buffer ## buf[buffer ## tail]; \
-                                  buffer ## tail = (buffer ## tail + 1) & \
-                                    (BUFSIZE - 1); \
-                                } while (0)
-
-#define buf_canwrite(buffer)    ((buffer ## tail - buffer ## head - 1) & \
-                                 (BUFSIZE - 1))
-
-#define buf_push(buffer, data)  do { \
-                                  buffer ## buf[buffer ## head] = data; \
-                                  buffer ## head = (buffer ## head + 1) & \
-                                    (BUFSIZE - 1); \
-                                } while (0)
-
                                     
 #define ASCII_XOFF  19
 #define ASCII_XON   17

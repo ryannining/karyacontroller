@@ -124,7 +124,7 @@ int feedthedog()
 #endif
 #else
 #endif
-    //xprintf(PSTR("Feed the dog\n"));
+    //zprintf(PSTR("Feed the dog\n"));
     return 1;
   }
   return 0;

@@ -538,9 +538,9 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     //zprintf(PSTR("Empty !\n"));
   }
 #ifdef output_enable
-  xprintf(PSTR("\n\nADDMOVE\nTail:%d Head:%d \n"), fi(tail), fi(head));
-  xprintf(PSTR("F:%f From X:%f Y:%f Z:%f\n"), ff(cf), ff(cx1), ff(cy1), ff(cz1));
-  xprintf(PSTR("To X:%f Y:%f Z:%f\n"),  ff(cx2), ff(cy2), ff(cz2));
+  zprintf(PSTR("\n\nADDMOVE\nTail:%d Head:%d \n"), fi(tail), fi(head));
+  zprintf(PSTR("F:%f From X:%f Y:%f Z:%f\n"), ff(cf), ff(cx1), ff(cy1), ff(cz1));
+  zprintf(PSTR("To X:%f Y:%f Z:%f\n"),  ff(cx2), ff(cy2), ff(cz2));
 #endif
   tmove *curr;
   curr = &move[nextbuff(head)];
@@ -643,7 +643,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   // if zero length then cancel
   if (dd > MINSTEP) {
 #ifdef output_enable
-    xprintf(PSTR("Totalstep AX%d %d\n"), (int32_t)faxis, (int32_t)curr->dx[faxis]);
+    zprintf(PSTR("Totalstep AX%d %d\n"), (int32_t)faxis, (int32_t)curr->dx[faxis]);
 #endif
     curr->status |= faxis << 4;
     curr->ac = 2 * (g0 ? mvaccel : accel);
@@ -1554,9 +1554,9 @@ int32_t startmove()
     zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(acup), fi(acdn));
     zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
   */
-  //xprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
-  //xprintf(PSTR("sx %d %d %d \n"), fi(sx[0]), fi(sx[1]), fi(sx[2]));
-  //xprintf(PSTR("Status:%d \n"), fi(m->status));
+  //zprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
+  //zprintf(PSTR("sx %d %d %d \n"), fi(sx[0]), fi(sx[1]), fi(sx[2]));
+  //zprintf(PSTR("Status:%d \n"), fi(m->status));
 
 #endif
   calculate_delta_steps();
@@ -1713,7 +1713,7 @@ void homing()
 
 #endif // NONLINEAR
 
-  //xprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
+  //zprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
   ishoming = 0;
   init_pos();
 
@@ -1758,7 +1758,7 @@ void needbuffer()
 {
   if (nextbuff(head) == tail) {
 #ifdef output_enable
-    xprintf(PSTR("Wait %d / %d \n"), fi(tail), fi(head));
+    zprintf(PSTR("Wait %d / %d \n"), fi(tail), fi(head));
 #endif
     //wait current move finish
     int t = tail;
@@ -1770,11 +1770,11 @@ void needbuffer()
       MEMORY_BARRIER()
       //zprintf(PSTR("%d\n"), fi(mctr));
     }
-    //xprintf(PSTR("Done\n"));
+    //zprintf(PSTR("Done\n"));
     LOOP_OUT(1)
 
 #ifdef output_enable
-    xprintf(PSTR("Done %d / %d \n"), fi(tail), fi(head));
+    zprintf(PSTR("Done %d / %d \n"), fi(tail), fi(head));
 #endif
   }
 

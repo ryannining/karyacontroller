@@ -29,14 +29,14 @@ int main(void)
   /* read result of initialization */
   errorcode = graphresult();
   if (errorcode != grOk) {  /* an error occurred */
-    xprintf(PSTR("Graphics error: %s\n"), grapherrormsg(errorcode));
-    xprintf(PSTR("Press any key to halt:"));
+    zprintf(PSTR("Graphics error: %s\n"), grapherrormsg(errorcode));
+    zprintf(PSTR("Press any key to halt:"));
 
     getch();
     exit(1);               /* terminate with an error code */
   }
-  xprintf(PSTR("Simple Motion Control with Acceleration, and lookahead planner\n"));
-  xprintf(PSTR("By ryannining@gmail.com\n"));
+  zprintf(PSTR("Simple Motion Control with Acceleration, and lookahead planner\n"));
+  zprintf(PSTR("By ryannining@gmail.com\n"));
   initmotion();
   struct palettetype pal;
   //getpalette(&pal);
@@ -51,12 +51,12 @@ int main(void)
 
   //int8_t z=100;
   float v = 10.1234;
-  xprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
+  zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
   demofile();
   //demo();
-  xprintf (PSTR("WAIT\n"));
+  zprintf (PSTR("WAIT\n"));
   waitbufferempty();
-  xprintf (PSTR("Time:%f\n"), ff(tick / timescale));
+  zprintf (PSTR("Time:%f\n"), ff(tick / timescale));
   getch();
 }
 void demofile() {

@@ -7,6 +7,8 @@
 #include<arduino.h>
 #include <stdarg.h>
 
+
+
 #ifdef CORESERIAL
 #include "serial_avr.h"
 #endif
@@ -53,6 +55,14 @@ void write_int32(void (*writechar)(uint8_t),int32_t v) {
   }
 
   write_uint32(writechar,v);
+}
+/** write decimal digits from a long signed int
+  \param v number to send
+*/
+void write_char(void (*writechar)(uint8_t),char* v) {
+  for (int i=0;i<strlen(v);i++){
+    writechar(v[i]);
+  }
 }
 
 /** write decimal digits from a long unsigned int
@@ -118,6 +128,10 @@ void sendf_P(void (*writechar)(uint8_t),PGM_P format_P, ...) {
         case 'f':
         case 'q':
           write_int32_vf(writechar,(int32_t)GET_ARG(uint32_t), 3);
+          j = 0;
+          break;
+        case 's':
+          write_char(writechar,(char*)GET_ARG(char*));
           j = 0;
           break;
         default:

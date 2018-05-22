@@ -47,11 +47,11 @@ void demoSD() {
     linecount = 1000;
     lineprocess = 1;
 #ifdef POWERFAILURE
-  // continue from last line if needed
+    // continue from last line if needed
     int32_t ll = eepromread(EE_lastline);
     if (ll > 0) {
       linecount = 1;
-      while (linecount<ll) {
+      while (linecount < ll) {
         c = myFile.read();
 
         // todo : parse the last X Y Z E
@@ -86,6 +86,10 @@ void demoSD() {
 #define crc(a, b)		(a ^ b)
 decfloat read_digit;
 int sdcardok = 0;
+int waitforline = 0;
+char g_str[40];
+int g_str_c=0;
+
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
@@ -102,7 +106,7 @@ static float decfloat_to_float(void) {
   MLOOP
   return read_digit.sign ? -r : r;
 }
-void pausemachine(){
+void pausemachine() {
   PAUSE = !PAUSE;
   if (PAUSE)zprintf(PSTR("Pause\n")); else zprintf(PSTR("Resume\n"));
 }
@@ -141,7 +145,7 @@ uint8_t gcode_parse_char(uint8_t c) {
   uint8_t checksum_char = c;
   //Serial.write(c);
   // uppercase
-  if (c >= 'a' && c <= 'z')
+  if (c >= 'a' && c <= 'z' && !next_target.read_string)
     c &= ~32;
 
   // An asterisk is a quasi-EOL and always ends all fields.
@@ -288,10 +292,10 @@ uint8_t gcode_parse_char(uint8_t c) {
           //next_target.seen_checksum = 0;//1;
           break;
         // comments
-        case '(':
+        case '[':
           next_target.read_string = 1;  // Reset by ')' or EOL.
+          g_str_c=0;
           break;
-
 
         case ';':
           next_target.read_string = 1;   // Reset by EOL.
@@ -325,7 +329,15 @@ uint8_t gcode_parse_char(uint8_t c) {
       }
     }
   } //else if ( next_target.seen_parens_comment == 1 && c == ')')
-  //next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
+  else {
+    // store string in g_str  from gcode example M206 P450 [ryan widi]
+    if (c == ']') next_target.read_string = 0; else {
+      g_str[g_str_c] = c;
+      g_str[g_str_c + 1] = 0;
+      g_str_c++;
+    }
+    //next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
+  }
 
 
   // end of line
@@ -417,17 +429,17 @@ void temp_wait(void) {
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
 inline void enqueue(GCODE_COMMAND *t, int g0 = 1) {
-  amove(t->target.F , t->seen_X?t->target.axis[X]:cx1
-        , t->seen_Y?t->target.axis[Y]:cy1
-        , t->seen_Z?t->target.axis[Z]:cz1
-        , t->seen_E?t->target.axis[E]:ce01
+  amove(t->target.F , t->seen_X ? t->target.axis[X] : cx1
+        , t->seen_Y ? t->target.axis[Y] : cy1
+        , t->seen_Z ? t->target.axis[Z] : cz1
+        , t->seen_E ? t->target.axis[E] : ce01
         , g0);
 }
 inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw) {
-  draw_arc(t->target.F , t->seen_X?t->target.axis[X]:cx1
-        , t->seen_Y?t->target.axis[Y]:cy1
-        , t->seen_Z?t->target.axis[Z]:cz1
-        , t->seen_E?t->target.axis[E]:ce01
+  draw_arc(t->target.F , t->seen_X ? t->target.axis[X] : cx1
+           , t->seen_Y ? t->target.axis[Y] : cy1
+           , t->seen_Z ? t->target.axis[Z] : cz1
+           , t->seen_E ? t->target.axis[E] : ce01
            , I, J, cw);
 }
 
@@ -530,10 +542,10 @@ void process_gcode_command() {
         reset_eeprom();
         reload_eeprom();
       case 6:
-        cx1=0;
-        cy1=0;
-        cz1=0;
-        ce01=0;
+        cx1 = 0;
+        cy1 = 0;
+        cz1 = 0;
+        ce01 = 0;
         amove(1, 100, 100, 100, 0);
         /*
           amove(100, 10, 0, 0, 0);
@@ -694,7 +706,7 @@ void process_gcode_command() {
         // stop and clear all buffer
         pausemachine();
         break;
-        
+
       case 84: // For compatibility with slic3rs default end G-code.
         //? --- M2: program end ---
         //?
@@ -806,7 +818,7 @@ void process_gcode_command() {
         //?
         // stop and clear all buffer
         RUNNING = 0;
-    
+
         break;
 
       case 114:
@@ -896,6 +908,12 @@ void process_gcode_command() {
 #endif
 
         break;
+#ifdef WIFISERVER        
+        // show wifi
+      case 504:
+        zprintf(PSTR("Wifi AP:%s PWD:%s mDNS:%s\n"),wifi_ap,wifi_pwd,wifi_dns);
+        break;  
+#endif      
 #ifdef USE_EEPROM
       case 206:
         if (next_target.seen_X)next_target.S = next_target.target.axis[X];
@@ -944,6 +962,16 @@ void process_gcode_command() {
               eprom_wr(88, EE_zbacklash, S_F);
               eprom_wr(92, EE_ebacklash, S_F);
 #endif
+
+            case 400:
+              eepromwritestring(400,g_str);
+              break;
+            case 450:
+              eepromwritestring(450,g_str);
+              break;
+            case 470:
+              eepromwritestring(470,g_str);
+              break;
           }
         reload_eeprom();
         break;

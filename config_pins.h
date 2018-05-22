@@ -76,12 +76,13 @@
 //#define ARC_SUPPORT // 3kb
 #define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 #define USE_BACKLASH  // 400bytes code
-#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
+//#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
 //#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
 //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
 #define CORESERIAL // smaller footprint 500byte, only AVR
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
+#define WIFISERVER
 // ==========================================================
 
 //#define INTERPOLATEDELAY  // slower 4-8us
@@ -105,6 +106,10 @@
 #define USE_SDCARD
 #endif
 
+
+#ifndef ESP8266
+#undef WIFISERVER
+#endif
 
 #ifndef __AVR__
 

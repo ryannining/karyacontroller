@@ -82,6 +82,9 @@ typedef struct {
 } GCODE_COMMAND;
 
 extern int32_t linecount,lineprocess;
+extern int waitforline;
+extern char g_str[40];
+extern int g_str_c;
 #ifdef USE_SDCARD
 extern File myFile;
 extern void demoSD();
