@@ -962,7 +962,7 @@ void process_gcode_command() {
               eprom_wr(88, EE_zbacklash, S_F);
               eprom_wr(92, EE_ebacklash, S_F);
 #endif
-
+#ifdef WIFISERVER
             case 400:
               eepromwritestring(400,g_str);
               break;
@@ -972,6 +972,7 @@ void process_gcode_command() {
             case 470:
               eepromwritestring(470,g_str);
               break;
+#endif              
           }
         reload_eeprom();
         break;
