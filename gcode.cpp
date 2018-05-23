@@ -88,7 +88,7 @@ decfloat read_digit;
 int sdcardok = 0;
 int waitforline = 0;
 char g_str[40];
-int g_str_c=0;
+int g_str_c = 0;
 
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
@@ -294,7 +294,7 @@ uint8_t gcode_parse_char(uint8_t c) {
         // comments
         case '[':
           next_target.read_string = 1;  // Reset by ')' or EOL.
-          g_str_c=0;
+          g_str_c = 0;
           break;
 
         case ';':
@@ -331,9 +331,12 @@ uint8_t gcode_parse_char(uint8_t c) {
   } //else if ( next_target.seen_parens_comment == 1 && c == ')')
   else {
     // store string in g_str  from gcode example M206 P450 [ryan widi]
-    if (c == ']') next_target.read_string = 0; else {
+    if (c == ']') {
+      g_str[g_str_c] = 0;
+      next_target.read_string = 0;
+    }
+    else {
       g_str[g_str_c] = c;
-      g_str[g_str_c + 1] = 0;
       g_str_c++;
     }
     //next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
@@ -908,12 +911,12 @@ void process_gcode_command() {
 #endif
 
         break;
-#ifdef WIFISERVER        
-        // show wifi
+#ifdef WIFISERVER
+      // show wifi
       case 504:
-        zprintf(PSTR("Wifi AP:%s PWD:%s mDNS:%s\n"),wifi_ap,wifi_pwd,wifi_dns);
-        break;  
-#endif      
+        zprintf(PSTR("Wifi AP:%s PWD:%s mDNS:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
+        break;
+#endif
 #ifdef USE_EEPROM
       case 206:
         if (next_target.seen_X)next_target.S = next_target.target.axis[X];
@@ -964,15 +967,15 @@ void process_gcode_command() {
 #endif
 #ifdef WIFISERVER
             case 400:
-              eepromwritestring(400,g_str);
+              eepromwritestring(400, g_str);
               break;
             case 450:
-              eepromwritestring(450,g_str);
+              eepromwritestring(450, g_str);
               break;
             case 470:
-              eepromwritestring(470,g_str);
+              eepromwritestring(470, g_str);
               break;
-#endif              
+#endif
           }
         reload_eeprom();
         break;

@@ -12,9 +12,13 @@ int wait_for_temp = 0;
 int fan_val = 0;
 void setfan_val(int val) {
 #ifdef fan_pin
-    pinMode(fan_pin, OUTPUT);
+  pinMode(fan_pin, OUTPUT);
+#ifdef WIFISERVER
+  digitalWrite(fan_pin, val);
+#else
   analogWrite(fan_pin, val);
-//  digitalWrite(fan_pin, val);
+#endif
+  //  digitalWrite(fan_pin, val);
   fan_val = val;
 #endif
 }
@@ -48,17 +52,22 @@ ISR (ADC_vect)
 
   vanalog[adcpin] = (high << 8) | low;
   /*Serial.print(adcpin);
-  Serial.print(":");
-  Serial.print(vanalog[adcpin]);
-  Serial.write('\n');
-*/
+    Serial.print(":");
+    Serial.print(vanalog[adcpin]);
+    Serial.write('\n');
+  */
 }  // end of ADC_vect
 #endif
 
 void set_temp(float set) {
   Setpoint = set;
   pinMode(heater_pin, OUTPUT);
+#ifdef WIFISERVER
+  digitalWrite(heater_pin, 0);
+
+#else
   analogWrite(heater_pin, 0);
+#endif
 
 }
 void init_temp()
@@ -73,7 +82,7 @@ void init_temp()
   set_temp(0);
 
 #if defined( __AVR__) && defined(ISRTEMP)
-  
+
   ADCREAD(temp_pin)
 #elif defined(ESP8266)
 #endif
@@ -115,17 +124,18 @@ float read_temp(int32_t temp) {
   return 0;
 }
 
-
+int WindowSize = 5000;
+unsigned long windowStartTime;
 void temp_loop(uint32_t cm)
 {
   if ((next_temp < cm) && (cm - next_temp < 1000000)) {
     next_temp = cm + 1000000; // each half second
-  if (Setpoint==0)return;
-int v=0;
+    if (Setpoint == 0)return;
+    int v = 0;
 #if defined( __AVR__) && defined(ISRTEMP)
     // automatic in ESR
     ADCREAD(temp_pin)
-    v=vanalog[temp_pin];
+    v = vanalog[temp_pin];
 #else
     v = analogRead(temp_pin) >> ANALOGSHIFT;
 #endif
@@ -140,24 +150,39 @@ int v=0;
       //pinMode(heater_pin, OUTPUT);
 
       myPID.Compute();
-      #ifdef ESP8266
-      analogWrite(heater_pin, Output*4);
-      #elif defined __ARM__
-      analogWrite(heater_pin, Output*2);
-      #else
-      analogWrite(heater_pin, Output*17/20);
-      #endif
-      if (wait_for_temp ) 
-      zprintf(PSTR("Temp:%f @%f\n"), ff(Input),ff(Output));
+#ifdef ESP8266
+
+#ifdef WIFISERVER
+      /************************************************
+           turn the output pin on/off based on pid output
+         ************************************************/
+      unsigned long now = millis();
+      if (now - windowStartTime > WindowSize)
+      { //time to shift the Relay Window
+        windowStartTime += WindowSize;
+      }
+      if (Output > now - windowStartTime) digitalWrite(heater_pin, HIGH);
+      else digitalWrite(heater_pin, LOW);
+#else
+      analogWrite(heater_pin, Output * 4);
+#endif
+
+#elif defined __ARM__
+      analogWrite(heater_pin, Output * 2);
+#else
+      analogWrite(heater_pin, Output * 17 / 20);
+#endif
+      if (wait_for_temp )
+        zprintf(PSTR("Temp:%f @%f\n"), ff(Input), ff(Output));
 
 #endif
     }
   }
 }
 int temp_achieved() {
-  return Input >= Setpoint- 10;
+  return Input >= Setpoint - 10;
 
-//  return fabs(Input - Setpoint) < 10;
+  //  return fabs(Input - Setpoint) < 10;
 }
 
 #else

@@ -222,8 +222,13 @@ void timer_init()
 #define USETIMEROK
 //HardwareTimer timer1(2);
 
+#ifdef WIFISERVER
+#define usetmr1
+#endif
+
 void ICACHE_RAM_ATTR tm()
 {
+  noInterrupts();
   if (ndelay < 30000) {
     ndelay = 30;
     coreloopm();
@@ -231,16 +236,30 @@ void ICACHE_RAM_ATTR tm()
   } else {
     ndelay = fmax(30, ndelay - 30000);
   }
-  timer0_write(ESP.getCycleCount()+10*(ndelay >= 30000 ? 30000 : ndelay));
+  #ifdef usetmr1
+  timer1_write((ndelay >= 30000 ? 30000 : ndelay));
+  #else
+  timer0_write(ESP.getCycleCount()+16*(ndelay >= 30000 ? 30000 : ndelay));
+  #endif  
+  interrupts();
 }
 
 void timer_init()
 {
   //Initialize Ticker every 0.5s
+  noInterrupts();
+  #ifdef usetmr1
+  timer1_isr_init();
+  timer1_attachInterrupt(tm);
+  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
+  timer1_write(1000); //120000 us
+  #else
   timer0_isr_init();
   timer0_attachInterrupt(tm);
 //  timer0_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
   timer0_write(ESP.getCycleCount()+16*1000); //120000 us
+  #endif
+  interrupts();
 }
 
 #endif // esp8266

@@ -22,13 +22,16 @@
 #include <ESP8266mDNS.h>
 #include <FS.h>   // Include the SPIFFS library
 #include <WebSocketsServer.h>
+#include <TelegramBot.h>
+//#include "CTBot.h"
+//CTBot myBot;
 
 uint8_t wfhead = 0;
 uint8_t wftail = 0;
 uint8_t wfbuf[BUFSIZE];
-char wfb[100];
-int wfl=0;
-int bpwf=0;
+char wfb[300];
+int wfl = 0;
+int bpwf = 0;
 ESP8266WebServer server ( 80 );
 WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
 
@@ -103,19 +106,29 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
   }
 }
 
-void wifiwr(uint8_t s){
-  wfb[wfl]=s;
+void wifiwr(uint8_t s) {
+  wfb[wfl] = s;
   wfl++;
-  if (s=='\n'){
-    wfb[wfl]=0;
-    wfl=0;
-    webSocket.broadcastTXT(wfb);    
+  if (s == '\n') {
+    wfb[wfl] = 0;
+    wfl = 0;
+    webSocket.broadcastTXT(wfb);
   }
 }
 
+String token = "540208354:AAEEbjIZGymE5Hfifcn9lVfVfCEkUQ2BCeg"   ; // REPLACE myToken WITH YOUR TELEGRAM BOT TOKEN
+const char BotToken[] = "540208354:AAEEbjIZGymE5Hfifcn9lVfVfCEkUQ2BCeg";
+
+#include <WiFiClientSecure.h>
+
+
+WiFiClientSecure net_ssl;
+TelegramBot bot (BotToken, net_ssl);
+
 void setupwifi() {
-  SPIFFS.begin();
+
   xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
+  WiFi.mode(WIFI_STA);
   WiFi.begin ( wifi_ap, wifi_pwd);
   int cntr = 40;
   while ( WiFi.status() != WL_CONNECTED ) {
@@ -129,7 +142,7 @@ void setupwifi() {
     IPAddress ip = WiFi.localIP();
     xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
 
-    if ( MDNS.begin ( wifi_dns ) ) {
+    if ( MDNS.begin ( wifi_dns) ) {
       xprintf(PSTR("MDNS responder started %s\n"), wifi_dns);
     }
 
@@ -154,10 +167,35 @@ void setupwifi() {
 
     webSocket.begin();                          // start the websocket server
     webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+    MDNS.addService("http", "tcp", 80);
+
+
+    bot.begin();
+    char buf[46];
+    sprintf(buf, "http://%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3] );
+    bot.sendMessage("447996950", buf);
     xprintf(PSTR("HTTP server started\n"));
+
   }
 
+  SPIFFS.begin();
 }
+
+void wifi_loop() {
+
+  webSocket.loop();
+  server.handleClient();
+  // if there is an incoming message...
+  // its blocking/long time so no use
+ /* message m = bot.getUpdates(); // Read new messages
+  if ( m.chat_id != 0 ) { // Checks if there are some updates
+    Serial.println(m.text);
+    bot.sendMessage(m.chat_id, m.text);  // Reply to the same chat with the same text
+  }
+  */
+}
+#else
+#define wifi_loop()
 #endif
 
 int line_done, ack_waiting = 0;
@@ -475,8 +513,6 @@ void setupother() {
   init_gcode();
   init_temp();
   reload_eeprom();
-  timer_init();
-  servo_init();
   SEI
   zprintf(PSTR("start\nok\n"));
 #ifdef KBOX_PIN
@@ -496,6 +532,10 @@ void setupother() {
 
 
   setupdisplay();
+
+  timer_init();
+  servo_init();
+  
   setupok = 1;
 
 }
@@ -519,9 +559,6 @@ void loop() {
     gcode_loop();
     control_loop();
     display_loop();
-#ifdef WIFISERVER
-    webSocket.loop();
-    server.handleClient();
-#endif
+    wifi_loop();
   }
 }

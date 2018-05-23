@@ -27,7 +27,7 @@ static int32_t eepromread(int p){
 static void  eepromwritestring(int p,char* str){
   byte l=strlen(str);
   EEPROM.put(p,l);
-  for (int i=0;i<strlen(str);i++){
+  for (int i=0;i<l;i++){
     p++;
     EEPROM.put(p,str[i]);
   }
@@ -40,7 +40,7 @@ static int  eepromreadstring(int p,char* str){
     p++;
     EEPROM.get(p,str[i]);
   }
-  str[i+1]=0;
+  str[l]=0;
 }
 
 #define eepromcommit EEPROM.commit()
