@@ -42,8 +42,8 @@
 #elif defined(__ARM__)
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
-#define BOARD_ST33DV1_STM32_3DPLEX
-//#define BOARD_ST33DV1_XYYZ_STM32
+//#define BOARD_ST33DV1_STM32_3DPLEX
+#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 // ==========================================================
@@ -51,11 +51,14 @@
 #define BOARD_ESP32VN3D
 
 #elif defined(ESP8266)
+#define ANALOGSHIFT 0 // 10bit adc ??
+
+
 //#define BOARD_NANONANO_WEMOS
-#define BOARD_WEMOS3D
+//#define BOARD_WEMOS3D
 //#define BOARD_WEMOSCNC
 //#define BOARD_MINICNC_ESP01
-#define ANALOGSHIFT 0 // 10bit adc ??
+#define BOARD_WEMOS_XYY_LASER
 //#define BOARD_ESP01CNC_V1
 #endif
 
@@ -82,7 +85,8 @@
 #define CORESERIAL // smaller footprint 500byte, only AVR
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-#define WIFISERVER
+//#define WIFISERVER
+//#define TELEGRAM
 // ==========================================================
 
 //#define INTERPOLATEDELAY  // slower 4-8us
@@ -90,12 +94,22 @@
 #ifdef powerpin
 #define POWERFAILURE
 #endif
+
+// lets assume if not laser_pin not defined use the heater_pin 
+
 #ifdef laser_pin
 #define LASERMODE
+#elif defined(heater_pin)
+
+// to make sure all board can be user for laser engraving
+#define laser_pin heater_pin
+#define LASERMODE
 #endif
+
+
 #define UPDATE_F_EVERY 2000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
-//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 #else
 //#define SUBPIXELMAX 4
 #endif
@@ -107,8 +121,15 @@
 #endif
 
 
+// ESP8266
+#if defined(ESP8266) && !defined(USE_SHIFTREG)
+#define SHARE_EZ
+#endif
+
+
 #ifndef ESP8266
 #undef WIFISERVER
+
 #endif
 
 #ifndef __AVR__
@@ -169,12 +190,12 @@
 #define XMAXFEEDRATE 240
 #define YMAXFEEDRATE 240
 #define ZMAXFEEDRATE 240
-#define E0MAXFEEDRATE 220
+#define E0MAXFEEDRATE 10
 
-#define XSTEPPERMM 200//131//178
-#define YSTEPPERMM 200//175//125
-#define ZSTEPPERMM 200//1020//1020 //420
-#define E0STEPPERMM 200//340//380
+#define XSTEPPERMM 10//131//178
+#define YSTEPPERMM 10//175//125
+#define ZSTEPPERMM 10//1020//1020 //420
+#define E0STEPPERMM 10//340//380
 
 #ifndef NUMBUFFER
 #define NUMBUFFER 20

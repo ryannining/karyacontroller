@@ -2,6 +2,7 @@
 #include "config_pins.h"
 #include "common.h"
 
+char wifi_telebot[20]="";
 char wifi_ap[40]="myap";
 char wifi_pwd[20]="pwd";
 char wifi_dns[20]="karyacnc";
@@ -100,6 +101,7 @@ void reload_eeprom() {
 #endif
 
 #ifdef WIFISERVER
+  eepromreadstring(380,wifi_telebot);
   eepromreadstring(400,wifi_ap);
   eepromreadstring(450,wifi_pwd);
   eepromreadstring(470,wifi_dns);

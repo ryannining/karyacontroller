@@ -25,7 +25,8 @@ int32_t linecount, lineprocess;
 const uint8_t SD_CS_PIN = SDCARD_CS;
 
 File myFile;
-void demoSD() {
+void demoSD()
+{
 #ifdef ESP8266
   if (!SD.begin(SD_CS_PIN)) {
 #else
@@ -94,7 +95,8 @@ GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
 
-static float decfloat_to_float(void) {
+static float decfloat_to_float(void)
+{
   float r = read_digit.mantissa;
   uint8_t	e = read_digit.exponent;
   /*  uint32_t powers=1;
@@ -106,11 +108,14 @@ static float decfloat_to_float(void) {
   MLOOP
   return read_digit.sign ? -r : r;
 }
-void pausemachine() {
+void pausemachine()
+{
   PAUSE = !PAUSE;
-  if (PAUSE)zprintf(PSTR("Pause\n")); else zprintf(PSTR("Resume\n"));
+  if (PAUSE)zprintf(PSTR("Pause\n"));
+  else zprintf(PSTR("Resume\n"));
 }
-void changefilament(float l) {
+void changefilament(float l)
+{
 #ifdef CHANGEFILAMENT
   waitbufferempty();
   float backupE = ce01;
@@ -141,7 +146,8 @@ void changefilament(float l) {
 #endif
 }
 
-uint8_t gcode_parse_char(uint8_t c) {
+uint8_t gcode_parse_char(uint8_t c)
+{
   uint8_t checksum_char = c;
   //Serial.write(c);
   // uppercase
@@ -233,8 +239,7 @@ uint8_t gcode_parse_char(uint8_t c) {
         if (read_digit.exponent)
           read_digit.exponent++;
       }
-    }
-    else {
+    } else {
       switch (c) {
         // Each currently known command is either G or M, so preserve
         // previous G/M unless a new one has appeared.
@@ -334,8 +339,7 @@ uint8_t gcode_parse_char(uint8_t c) {
     if (c == ']') {
       g_str[g_str_c] = 0;
       next_target.read_string = 0;
-    }
-    else {
+    } else {
       g_str[g_str_c] = c;
       g_str_c++;
     }
@@ -389,7 +393,8 @@ uint8_t gcode_parse_char(uint8_t c) {
 
 float lastE;
 
-void printposition() {
+void printposition()
+{
   zprintf(PSTR("X:%f Y:%f Z:%f E:%f\n"),
           ff(cx1), ff(cy1),
           ff(cz1), ff(ce01));
@@ -398,7 +403,8 @@ void printposition() {
 
 #define queue_wait() needbuffer()
 
-void delay_ms(uint32_t d) {
+void delay_ms(uint32_t d)
+{
 #ifndef ISPC
   while (d) {
     d--;
@@ -410,7 +416,8 @@ void delay_ms(uint32_t d) {
 #endif
 
 }
-void temp_wait(void) {
+void temp_wait(void)
+{
 
 #ifdef heater_pin
   wait_for_temp = 1;
@@ -431,22 +438,25 @@ void temp_wait(void) {
 //int32_t mvc = 0;
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
-inline void enqueue(GCODE_COMMAND *t, int g0 = 1) {
-  amove(t->target.F , t->seen_X ? t->target.axis[X] : cx1
+inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
+{
+  amove(t->target.F, t->seen_X ? t->target.axis[X] : cx1
         , t->seen_Y ? t->target.axis[Y] : cy1
         , t->seen_Z ? t->target.axis[Z] : cz1
         , t->seen_E ? t->target.axis[E] : ce01
         , g0);
 }
-inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw) {
-  draw_arc(t->target.F , t->seen_X ? t->target.axis[X] : cx1
+inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
+{
+  draw_arc(t->target.F, t->seen_X ? t->target.axis[X] : cx1
            , t->seen_Y ? t->target.axis[Y] : cy1
            , t->seen_Z ? t->target.axis[Z] : cz1
            , t->seen_E ? t->target.axis[E] : ce01
            , I, J, cw);
 }
 
-void process_gcode_command() {
+void process_gcode_command()
+{
   uint32_t	backup_f;
 
   // convert relative to absolute
@@ -506,6 +516,12 @@ void process_gcode_command() {
         //?
         //next_target.target.axis[E]=0;
         // auto retraction change
+
+        // thread S parameter as value of the laser, in 3D printer, donot use S in G1 !!
+        if (next_target.seen_S) {
+          laserOn = next_target.S > 1;
+          constantlaserVal = next_target.S;
+        }
         enqueue(&next_target, 0);
         break;
 
@@ -675,8 +691,7 @@ void process_gcode_command() {
         zprintf(PSTR("E:G%d\nok\n"), next_target.G);
         return;
     }
-  }
-  else if (next_target.seen_M) {
+  } else if (next_target.seen_M) {
     //uint8_t i;
 
     switch (next_target.M) {
@@ -732,19 +747,31 @@ void process_gcode_command() {
               break;
       */
       // M3/M101- extruder on M3 S -> PWM output to heated pin
+      // M4 are special, usually to make spindle counter clockwise and we dont have implementation, but we use it for laser
+      // mode : constant laser burn per step
+      // M4 Sxxx   0: disable 1:enable
+      // if defined, M3 Sxxx, xxx will define how manu microseconds laser will on on each step.
+      // xxx will limit the G1 maximum feedrate
+      //
+
+      case 4:
+        // already implemented using value = 255 = cutting
+        //constantlaser = next_target.S == 1;
+        break;
       case 3:
 #ifdef LASERMODE
-        int lo;
-        lo = next_target.S > 50;
-        laserOn = lo;
-        if (!m || next_target.seen_P) {
-          if (next_target.seen_P)waitbufferempty();
+        // if no S defined then full power
+        if (!next_target.seen_S)next_target.S = 255;
+        laserOn = next_target.S > 0;
+        constantlaserVal = next_target.S;
+        if (laserOn) zprintf(PSTR("LASERON\n"));
+        if (!m && next_target.seen_P) {
+          waitbufferempty();
           pinMode(laser_pin, OUTPUT);
-          digitalWrite(laser_pin, laser_invert lo);
-          if (next_target.seen_P) {
-            delay(next_target.P);
-            digitalWrite(laser_pin, laser_invert LOW);
-          }
+          zprintf(PSTR("PULSE LASER"));
+          digitalWrite(laser_pin, HIGH);
+          delay(next_target.P);
+          digitalWrite(laser_pin, LOW);
         }
         //if (!laserOn)waitbufferempty();
 
@@ -914,7 +941,7 @@ void process_gcode_command() {
 #ifdef WIFISERVER
       // show wifi
       case 504:
-        zprintf(PSTR("Wifi AP:%s PWD:%s mDNS:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
+        zprintf(PSTR("Wifi AP:%s PWD:%s mDNS:%s telID:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
         break;
 #endif
 #ifdef USE_EEPROM
@@ -966,6 +993,9 @@ void process_gcode_command() {
               eprom_wr(92, EE_ebacklash, S_F);
 #endif
 #ifdef WIFISERVER
+            case 380:
+              eepromwritestring(380, g_str);
+              break;
             case 400:
               eepromwritestring(400, g_str);
               break;
@@ -1008,7 +1038,8 @@ void process_gcode_command() {
   } // else if (next_target.seen_M)
 } // process_gcode_command()
 
-void init_gcode() {
+void init_gcode()
+{
   next_target.target.F = 50;
   next_target.option_all_relative = 0;
 #ifdef USE_EEPROM

@@ -527,7 +527,6 @@
 */
 #define heater_pin PA0
 #define laser_pin PA0
-#define laser_invert //!// TTL
 
 //#define fan_pin PA0 // laser PIN
 
@@ -574,7 +573,6 @@
 */
 #define heater_pin PA0
 #define laser_pin PA0
-#define laser_invert //!// TTL
 
 //#define fan_pin PA0 // laser PIN
 
@@ -920,6 +918,33 @@
 //#define heater_pin D1
 
 //#define INVERTENDSTOP
+#define NUMBUFFER 20
+/*
+  ============================================================================================
+     _WEMOSLASER
+  ============================================================================================
+*/
+#elif defined(BOARD_WEMOS_XYY_LASER)
+
+#define xdirection D5
+#define xstep D4
+#define ydirection D7
+#define ystep D3
+
+// z and e have same direction pin, we think that normally slicer never move z and e together.. we hope we right :D
+#define zdirection D6
+#define zstep D0
+#define e0direction D6
+#define e0step D2
+
+#define limit_pin D8
+
+//#define temp_pin A0
+//#define heater_pin D1
+#define laser_pin D1
+
+//#define INVERTENDSTOP
+#define DRIVE_XYYZ
 #define NUMBUFFER 20
 /*
   ============================================================================================

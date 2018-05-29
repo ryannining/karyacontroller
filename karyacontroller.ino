@@ -22,9 +22,8 @@
 #include <ESP8266mDNS.h>
 #include <FS.h>   // Include the SPIFFS library
 #include <WebSocketsServer.h>
+
 #include <TelegramBot.h>
-//#include "CTBot.h"
-//CTBot myBot;
 
 uint8_t wfhead = 0;
 uint8_t wftail = 0;
@@ -169,11 +168,13 @@ void setupwifi() {
     webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
     MDNS.addService("http", "tcp", 80);
 
-
+#ifdef TELEGRAM
     bot.begin();
     char buf[46];
-    sprintf(buf, "http://%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3] );
-    bot.sendMessage("447996950", buf);
+    sprintf(buf, "CNC:%s http://%d.%d.%d.%d", wifi_dns, ip[0], ip[1], ip[2], ip[3] );
+
+    if (strlen(wifi_telebot))bot.sendMessage(wifi_telebot, buf);
+#endif
     xprintf(PSTR("HTTP server started\n"));
 
   }
@@ -187,11 +188,11 @@ void wifi_loop() {
   server.handleClient();
   // if there is an incoming message...
   // its blocking/long time so no use
- /* message m = bot.getUpdates(); // Read new messages
-  if ( m.chat_id != 0 ) { // Checks if there are some updates
-    Serial.println(m.text);
-    bot.sendMessage(m.chat_id, m.text);  // Reply to the same chat with the same text
-  }
+  /* message m = bot.getUpdates(); // Read new messages
+    if ( m.chat_id != 0 ) { // Checks if there are some updates
+     Serial.println(m.text);
+     bot.sendMessage(m.chat_id, m.text);  // Reply to the same chat with the same text
+    }
   */
 }
 #else
@@ -509,12 +510,32 @@ void setupother() {
 #ifdef USE_SDCARD
   demoSD();
 #endif
+#ifdef output_enable
+  zprintf(PSTR("Init motion\n"));
+  initmotion();
+  zprintf(PSTR("Init Gcode\n"));
+  init_gcode();
+  zprintf(PSTR("Init Temp\n"));
+  init_temp();
+  zprintf(PSTR("Init eeprom\n"));
+  reload_eeprom();
+  //zprintf(PSTR("Init timer\n"));
+  //timer_init();
+#else
   initmotion();
   init_gcode();
   init_temp();
   reload_eeprom();
-  SEI
-  zprintf(PSTR("start\nok\n"));
+  timer_init();
+#endif
+#ifdef WIFISERVER
+  setupwifi();
+#endif
+
+
+  setupdisplay();
+
+  servo_init();
 #ifdef KBOX_PIN
 #ifdef __ARM__
   pinMode(KBOX_PIN, INPUT_ANALOG);
@@ -526,17 +547,9 @@ void setupother() {
 #endif
 #endif
 
-#ifdef WIFISERVER
-  setupwifi();
-#endif
 
-
-  setupdisplay();
-
-  timer_init();
-  servo_init();
-  
-  setupok = 1;
+  setupok = 0;
+  zprintf(PSTR("start\nok\n"));
 
 }
 uint32_t t1;

@@ -78,6 +78,7 @@
 #define Z 2
 #define E 3
 
+int8_t constantlaserVal = 100;
 int laserOn = 0, isG0;
 uint8_t homingspeed;
 int xback[4];
@@ -402,6 +403,7 @@ void backforward()
   CORELOOP
 
 }
+float mmdis[4];
 void planner(int32_t h)
 {
   // mengubah semua cross feedrate biar optimal secepat mungkin
@@ -414,22 +416,23 @@ void planner(int32_t h)
   int32_t xtotalstep = abs(curr->dx[FASTAXIS(curr)]);
   memcpy(prevf, currf, sizeof prevf);
   currf[4] = curr->fn;
+
   for (int i = 0; i < NUMAXIS; i++) {
     //prevf[i] = currf[i];
     currf[i] = 0;
     if (curr->dx[i] != 0) {
 
-      float cdx = curr->fn * curr->dx[i];
-      float scale2 = float(maxf[i]) * xtotalstep / fabs(cdx);
+      float cdx = curr->fn * mmdis[i];
+      float scale2 = float(maxf[i]) * curr->dis / fabs(cdx);
       if (scale2 < scale) scale = scale2;
 
-      currf[i] = float(cdx) / xtotalstep;
+      currf[i] = float(cdx) / curr->dis;
       CORELOOP
     }
   }
   // update all speed and square it up, after this all m->f are squared !
 #ifdef output_enable
-  zprintf (PSTR("Fratio :%f\n"), ff(scale / 16.0));
+  zprintf (PSTR("Fratio :%f\n"), ff(scale));
 #endif
   scale *= curr->fn;
   curr->fn = (scale * scale);
@@ -532,6 +535,10 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
 
 
   needbuffer();
+#ifdef SHARE_EZ
+  if (cz2 != cz1) ce02 = ce01; // zeroing the E movement if Z is moving and ZE share direction pin
+#endif
+
   int32_t x2[NUMAXIS];
   XYSCALING
   if (head == tail) {
@@ -557,7 +564,12 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   curr->col = 2 + (head % 4) * 4;
 #endif
   // this x2 is local
-  curr->dis = sqrt(sqr2(cx2 - cx1) + sqr2(cy2 - cy1) + sqr2(cz2 - cz1));
+  mmdis[0] = cx2 - cx1;
+  mmdis[1] = cy2 - cy1;
+  mmdis[2] = cz2 - cz1;
+  mmdis[3] = ce02 - ce01;
+
+  curr->dis = sqrt(sqr2(mmdis[0]) + sqr2(mmdis[1]) + sqr2(mmdis[2]) + sqr2(mmdis[3]));
 #ifndef NONLINEAR
   x2[0] = (int32_t)(cx2 * Cstepmmx(0)) - (int32_t)(cx1 * Cstepmmx(0))  ;
   x2[1] = (int32_t)(cy2 * Cstepmmx(1)) - (int32_t)(cy1 * Cstepmmx(1)) ;
@@ -655,6 +667,9 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
       otx[3] = ce01;
       curr->status |= 128;
     }
+
+    // Laser
+    curr->laserval = laserOn ? constantlaserVal : 0;
     head = nextbuff(head);
     curr->status |= 1; // 0: finish 1:ready
     // planner are based on cartesian coord movement on the motor
@@ -819,6 +834,11 @@ int pcsx[4];
 #define graphstep(ix) xs[ix] +=pcsx[ix]
 void dographics()
 {
+  if (cmdly < DIRDELAY) {
+    zprintf(PSTR("Odd delay:%d\n"), cmdly);
+    return;
+  }
+  // this might be wrong because the last cmd maybe is from previous segment which have different step/mm
   f = stepdiv / cmdly;
   //f = sqrt(ta);
   //f =  sqrt(ta)/stepdiv2;
@@ -919,7 +939,7 @@ int32_t timing = 0;
 #define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
-static volatile uint8_t cmhead = 0, cmtail = 0, cmcmd, cmcmd1, cmbit;
+static volatile uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit, cmdlaserval;
 
 static int8_t mo = 0;
 #define cmdfull (nextbuffm(cmhead)==cmtail)
@@ -936,27 +956,36 @@ static void decodecmd()
   uint32_t cmd = cmddelay[cmtail];
 
   cmcmd = cmd & 1;
-  cmcmd1 = cmd & 2;
   if (cmcmd) {
-    cmbit = (cmd >> 2) & 15;
+    cmbit = (cmd >> 1) & 15;
 
     // inform if non move is in the buffer
     //if (cmcmd && (cmbit==0))zprintf(PSTR("X"));
-    cmdly = (cmd >> 6) >> DSCALE;
+    cmdly = (cmd >> 5) >> DSCALE;
+    cmdlaserval = 0;
   } else {
-    cmbit = (cmd >> 2) & 255;
-    cmdly=DIRDELAY >> DSCALE;
+    cmbit = (cmd >> 1) & 255;
+    cmdly = DIRDELAY >> DSCALE;
+    cmdlaserval = (cmd >> 9) >> DSCALE;
+
   }
   nextok = 1;
   cmtail = nextbuffm(cmtail);
 #ifdef USETIMER1
   timer_set(cmdly);
 #endif
+#ifdef LASERMODE
+  if (cmdlaserval) {
+    digitalWrite(laser_pin, HIGH);
+    // if laserval is 255 then we know its the full power / cutting
+    if ((cmdlaserval < 255))timer_set2((CLOCKCONSTANT / 1000000)*constantlaserVal);
+  }
+#endif
 
 }
 
 uint32_t mc, dmc, cmctr;
-void coreloopm()  // m = micros - nextmicros  value
+void coreloopm()   // m = micros - nextmicros  value
 {
 
   if (PAUSE) {
@@ -1037,9 +1066,7 @@ void coreloopm()  // m = micros - nextmicros  value
 
       pinCommit();
 
-#ifdef LASERMODE
-      digitalWrite(laser_pin, laser_invert cmcmd1);
-#endif
+
 #ifdef ISPC
       pcsx[0] = (cmbit & 1) ? 1 : -1;
       pcsx[1] = (cmbit & 4) ? 1 : -1;
@@ -1071,29 +1098,29 @@ static void pushcmd()
   }
 
   // if move cmd, and no motor move, save the delay
-  if ( (cmd0 & 1) && !(cmd0 & (15 << 2))) {
-    ldelay += cmd0 >> 6;
+  if ( (cmd0 & 1) && !(cmd0 & (15 << 1))) {
+    ldelay += cmd0 >> 5;
   } else {
     cmhead = nextbuffm(cmhead);
-    cmddelay[cmhead] = cmd0 + (ldelay << 6);
+    cmddelay[cmhead] = cmd0 + (ldelay << 5);
     ldelay = 0;
   }
 }
 
-void newdircommand(int laser)
+void newdircommand(int laserval)
 {
   // change dir command
   cmd0 = 0;//DIRDELAY << 6;
-  if (laser)cmd0 |= 2;
-  if (sx[0] > 0)cmd0 |= 4;
-  if (sx[1] > 0)cmd0 |= 16;
-  if (sx[2] > 0)cmd0 |= 64;
-  if (sx[3] > 0)cmd0 |= 256;
+  cmd0 |= laserval << 9;
+  if (sx[0] > 0)cmd0 |= 2;
+  if (sx[1] > 0)cmd0 |= 8;
+  if (sx[2] > 0)cmd0 |= 32;
+  if (sx[3] > 0)cmd0 |= 128;
   // TO know whether axis is moving
-  if (bsdx[0] > 0)cmd0 |= 8;
-  if (bsdx[1] > 0)cmd0 |= 32;
-  if (bsdx[2] > 0)cmd0 |= 128;
-  if (bsdx[3] > 0)cmd0 |= 512;
+  if (bsdx[0] > 0)cmd0 |= 4;
+  if (bsdx[1] > 0)cmd0 |= 16;
+  if (bsdx[2] > 0)cmd0 |= 64;
+  if (bsdx[3] > 0)cmd0 |= 256;
 
   pushcmd();
 
@@ -1106,9 +1133,10 @@ void newdircommand(int laser)
 */
 
 
+
 #define bresenham(ix)\
   if ((mcx[ix] -= bsdx[ix]) < 0) {\
-    cmd0 |=4<<ix;\
+    cmd0 |=2<<ix;\
     mcx[ix] += totalstep;\
   }
 
@@ -1181,7 +1209,7 @@ UPDATEDELAY:
 
     if (_ac) {
       ta += _ac;
-      if (ta < 0.01)ta = 0.01;
+      if (ta < 0.05)ta = 0.05;
       //zprintf(PSTR("%d\n"),fi(ta));
       // if G0 update delay not every step to make the motor move faster
       //if (m->status & 8) {
@@ -1199,14 +1227,14 @@ UPDATEDELAY:
     CALCDELAY
 
 
-    cmd0 |= (dl) << 6;
+    cmd0 |= (dl) << 5;
     pushcmd();
     mctr--;
     CORELOOP
     //if (mctr  == 0)zprintf(PSTR("\n"));
 #ifdef output_enable
     //zprintf(PSTR("Rampv:%f \n"), ff(rampv));
-    //zprintf(PSTR("%d "), dl);
+    zprintf(PSTR("%d "), dl);
     //zprintf(PSTR("MCTR:%d \n"), mctr);
     // write real speed too
     dlmin = fmin(dl, dlmin);
@@ -1309,12 +1337,13 @@ void otherloop(int r)
         //zprintf(PSTR("Finish:%d %f\n"), fi(mctr2), ff(fctr));
         m->status = 0;
         //if (m->fe == 0)f = 0;
-        m = 0;
 #ifdef LASERMODE
         if (head == tail) {
-          digitalWrite(laser_pin, laser_invert LOW);
+          //if (m->laserval)
+          digitalWrite(laser_pin, LOW);
         }
 #endif
+        m = 0;
         r = startmove();
       }
     }
@@ -1330,7 +1359,7 @@ void otherloop(int r)
   }
 #endif // motortimeout
 
-#if defined(ESP8266)
+#ifdef ESP8266
   feedthedog();
 #endif
 
@@ -1441,6 +1470,7 @@ void calculate_delta_steps()
     stepdiv2 /= u;
     stepdiv /= u;
     dln /= u;
+    if (m->laserval < 255)m->laserval = m->laserval / u + 1;
 #ifdef NONLINEAR
     rampv /= u;
 #endif
@@ -1451,7 +1481,7 @@ void calculate_delta_steps()
   //
 
   mctr = totalstep ;
-  newdircommand(!isG0);
+  newdircommand(laserOn && !isG0 ? m->laserval : 0);
 
 #ifdef ISPC
   fctr = 0;
@@ -1533,7 +1563,7 @@ int32_t startmove()
 #endif
 
   // STEP
-  ta = (ta + m->fs) / 2 ;
+  ta = m->fs ;
   stepdiv = CLOCKCONSTANT / (Cstepmmx(fastaxis));
   stepdiv2 = wstepdiv2 = stepdiv;
   m->status &= ~3;
@@ -1565,7 +1595,7 @@ int32_t startmove()
   rampdown *= subp;
 #endif
 #ifdef output_enable
-  zprintf(PSTR("SUB:%d RAMP:%d %d ACC:%d %d\n"), fi(subp), fi(rampup), fi(rampdown), fi(acup), fi(acdn));
+  zprintf(PSTR("SUB:%d TA:%f RAMP:%d %d ACC:%d %d\n"), fi(subp), ff(ta), fi(rampup), fi(rampdown), fi(acup), fi(acdn));
 #endif
   dlp = xInvSqrt(ta);
   return 1;
@@ -1841,7 +1871,7 @@ void initmotion()
 
 #ifdef LASERMODE
   pinMode(laser_pin, OUTPUT);
-  digitalWrite(laser_pin, laser_invert LOW);
+  digitalWrite(laser_pin, LOW);
 #endif
 #ifdef limit_pin
   pinMode(limit_pin, ENDPIN);

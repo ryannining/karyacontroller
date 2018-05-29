@@ -11,6 +11,12 @@ extern int feedthedog();
 #else
 #define timescale 1000000L
 extern uint32_t micros();
+#ifdef ESP8266
+//#ifdef WIFISERVER
+#define usetmr1
+//#endif
+#endif
+
 #endif
 
 #define SUBMOTION 1
@@ -21,6 +27,7 @@ extern uint32_t micros();
 extern uint32_t	next_step_time;
 extern void timer_init();
 extern  void timer_set(uint32_t delay);
+extern  void timer_set2(uint32_t delay);
 extern void servo_loop();
 extern void servo_init();
 extern void servo_set(int us);

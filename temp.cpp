@@ -1,6 +1,7 @@
 #include "config_pins.h"
 #include "common.h"
 #include "temp.h"
+#include "timer.h"
 #include "motion.h"
 
 
@@ -13,7 +14,7 @@ int fan_val = 0;
 void setfan_val(int val) {
 #ifdef fan_pin
   pinMode(fan_pin, OUTPUT);
-#ifdef WIFISERVER
+#ifdef usetmr1
   digitalWrite(fan_pin, val);
 #else
   analogWrite(fan_pin, val);
@@ -62,7 +63,7 @@ ISR (ADC_vect)
 void set_temp(float set) {
   Setpoint = set;
   pinMode(heater_pin, OUTPUT);
-#ifdef WIFISERVER
+#ifdef usetmr1
   digitalWrite(heater_pin, 0);
 
 #else
@@ -152,7 +153,7 @@ void temp_loop(uint32_t cm)
       myPID.Compute();
 #ifdef ESP8266
 
-#ifdef WIFISERVER
+#ifdef usetmr1
       /************************************************
            turn the output pin on/off based on pid output
          ************************************************/
