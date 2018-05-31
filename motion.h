@@ -41,7 +41,8 @@ typedef struct {
 
 
 typedef struct {
-  int8_t  status,laserval  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+  int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+  int laserval;
   float dis; // max start speed, maxcorner
 #ifdef __AVR__
   int16_t ac; // needed for backplanner
@@ -87,7 +88,7 @@ extern int8_t  sx[NUMAXIS];
 extern uint32_t cmctr;
 extern int8_t RUNNING;
 extern int8_t PAUSE;
-extern int8_t constantlaserVal;
+extern int constantlaserVal;
 
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)

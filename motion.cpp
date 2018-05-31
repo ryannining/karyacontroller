@@ -78,8 +78,8 @@
 #define Z 2
 #define E 3
 
-int8_t constantlaserVal = 100;
-int laserOn = 0, isG0;
+int constantlaserVal=0;
+int laserOn = 0, isG0=1;
 uint8_t homingspeed;
 int xback[4];
 uint8_t head, tail, tailok;
@@ -135,7 +135,7 @@ float InvSqrt(float x)
 #endif
 
 //#define xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
-#define xInvSqrt(n) n>0.2?stepdiv2*InvSqrt(n):25
+#define xInvSqrt(n) n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2
 
 #define sqrt32(n) sqrt(n)
 
@@ -939,19 +939,30 @@ int32_t timing = 0;
 #define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
-static volatile uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit, cmdlaserval;
+static volatile uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit = 0;
+static volatile int cmdlaserval=0;
 
 static int8_t mo = 0;
 #define cmdfull (nextbuffm(cmhead)==cmtail)
 #define cmdnotfull (nextbuffm(cmhead)!=cmtail)
 #define cmdempty (cmhead==cmtail)
-static int nextok = 0;
+static volatile int nextok = 0,laserwason=0;
 
+int sendwait=0;
 
-static void decodecmd()
+static THEISR void decodecmd()
 {
   if (cmdempty) {
+
+#ifdef LASERMODE
+    if (sendwait) {
+      digitalWrite(laser_pin, LOW);
+      laserwason=0;
+      //cmdlaserval = 0; 
+    }
+#endif
     return;
+
   }
   uint32_t cmd = cmddelay[cmtail];
 
@@ -962,35 +973,51 @@ static void decodecmd()
     // inform if non move is in the buffer
     //if (cmcmd && (cmbit==0))zprintf(PSTR("X"));
     cmdly = (cmd >> 5) >> DSCALE;
-    cmdlaserval = 0;
   } else {
     cmbit = (cmd >> 1) & 255;
     cmdly = DIRDELAY >> DSCALE;
     cmdlaserval = (cmd >> 9) >> DSCALE;
-
+    //zprintf(PSTR("int %d\n"), fi(cmdlaserval));
   }
+    /*Serial.print("X ");
+    Serial.print(cmd);
+    Serial.print(":");
+    Serial.print(cmdly);
+    Serial.print(":");
+    Serial.println(cmdlaserval);
+    */
   nextok = 1;
   cmtail = nextbuffm(cmtail);
 #ifdef USETIMER1
   timer_set(cmdly);
-#endif
 #ifdef LASERMODE
-  if (cmdlaserval) {
-    digitalWrite(laser_pin, HIGH);
-    // if laserval is 255 then we know its the full power / cutting
-    if ((cmdlaserval < 255))timer_set2((CLOCKCONSTANT / 1000000)*constantlaserVal);
+  if (cmcmd) {
+    //zprintf(PSTR("%d\n"), fi(cmdlaserval));
+    laserwason=cmdlaserval > 0;
+    if (laserwason) {
+      // if laserval is 255 then we know its the full power / cutting
+      if ((cmdlaserval < 255)){
+        
+        int las=cmdlaserval*(CLOCKCONSTANT / 1000000);
+        //zprintf(PSTR("int %d\n"), fi(las));
+        //delayMicroseconds(las);
+        //digitalWrite(laser_pin,LOW);
+        //timer_set(cmdly-las*(CLOCKCONSTANT / 1000000));
+        timer_set2(cmdly,las);
+      } else digitalWrite(laser_pin, laserwason);
+
+    } else digitalWrite(laser_pin, LOW);
   }
 #endif
-
+#endif
 }
 
 uint32_t mc, dmc, cmctr;
-void coreloopm()   // m = micros - nextmicros  value
+void THEISR coreloopm()
 {
 
   if (PAUSE) {
 #ifdef USETIMER1
-
     timer_set(1000);
 #endif
     return;
@@ -998,6 +1025,7 @@ void coreloopm()   // m = micros - nextmicros  value
   //dmc=(micros()-mc); mc=micros();
   if (!nextok) {
     decodecmd();
+    //return;
     if (!nextok) return;
   }
 #ifdef USETIMER1
@@ -1111,7 +1139,7 @@ void newdircommand(int laserval)
 {
   // change dir command
   cmd0 = 0;//DIRDELAY << 6;
-  cmd0 |= laserval << 9;
+  cmd0 |= (laserval << 9);
   if (sx[0] > 0)cmd0 |= 2;
   if (sx[1] > 0)cmd0 |= 8;
   if (sx[2] > 0)cmd0 |= 32;
@@ -1121,7 +1149,7 @@ void newdircommand(int laserval)
   if (bsdx[1] > 0)cmd0 |= 16;
   if (bsdx[2] > 0)cmd0 |= 64;
   if (bsdx[3] > 0)cmd0 |= 256;
-
+  ldelay = 0;
   pushcmd();
 
 }
@@ -1184,9 +1212,6 @@ int coreloop1()
     } else if ((rampdown -= rampv) < 0) {
       newac = acdn;
       // _ac = acdn;
-    } else {
-      //_ac=0;
-      newac = 0;
     }
     if (lastac != newac) {
       // calculate jerk value
@@ -1228,13 +1253,20 @@ UPDATEDELAY:
 
 
     cmd0 |= (dl) << 5;
+    if (mctr<20){
+      ///*
+    //zprintf(PSTR("V:%f DL:%d\n"),ff(ta),fi(dl));
+    //Serial.print(":");
+    //Serial.println(dl);
+    //*/
+    }
     pushcmd();
     mctr--;
     CORELOOP
     //if (mctr  == 0)zprintf(PSTR("\n"));
 #ifdef output_enable
     //zprintf(PSTR("Rampv:%f \n"), ff(rampv));
-    zprintf(PSTR("%d "), dl);
+    //zprintf(PSTR("%d "), dl);
     //zprintf(PSTR("MCTR:%d \n"), mctr);
     // write real speed too
     dlmin = fmin(dl, dlmin);
@@ -1266,6 +1298,7 @@ UPDATEDELAY:
         if (!RUNNING) {
           // need to calculate at least correct next start position based on
           // mctr
+          #ifdef HARDSTOP
           float p = mctr;
           p /= totalstep;
           //p=1-p;
@@ -1273,7 +1306,8 @@ UPDATEDELAY:
           cy1 = m->dtx[1] - p * m->dx[1] / Cstepmmx(1);
           cz1 = m->dtx[2] - p * m->dx[2] / Cstepmmx(2);
           ce01 = m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
-          zprintf(PSTR("Stopped %f %f %f %f\n"), ff(cx1), ff(cy1), ff(cz1), ff(ce01));
+          zprintf(PSTR("Stopped!\n"));
+          #endif
         }
         endstopstatus = 0;
         m->status = 0;
@@ -1292,9 +1326,13 @@ UPDATEDELAY:
 
 int busy = 0;
 // ===============================================
+int cctr=0;
 int motionloop()
 {
-
+  if(cctr++>100000){
+    cctr=0;
+    //Serial.println(ndelay);
+  }
   if (busy ) {
     zprintf(PSTR("Busy\n"));
     return 0;
@@ -1334,15 +1372,9 @@ void otherloop(int r)
       {
 
         // coreloop ended, check if there is still move ahead in the buffer
-        //zprintf(PSTR("Finish:%d %f\n"), fi(mctr2), ff(fctr));
+        //zprintf(PSTR("Finish:\n"));
         m->status = 0;
         //if (m->fe == 0)f = 0;
-#ifdef LASERMODE
-        if (head == tail) {
-          //if (m->laserval)
-          digitalWrite(laser_pin, LOW);
-        }
-#endif
         m = 0;
         r = startmove();
       }
@@ -1470,7 +1502,7 @@ void calculate_delta_steps()
     stepdiv2 /= u;
     stepdiv /= u;
     dln /= u;
-    if (m->laserval < 255)m->laserval = m->laserval / u + 1;
+    //if (m->laserval < 255)m->laserval = m->laserval / u + 1;
 #ifdef NONLINEAR
     rampv /= u;
 #endif
@@ -1481,14 +1513,13 @@ void calculate_delta_steps()
   //
 
   mctr = totalstep ;
-  newdircommand(laserOn && !isG0 ? m->laserval : 0);
+  newdircommand(!isG0 ? m->laserval : 0);
 
 #ifdef ISPC
   fctr = 0;
   m->col++;
 #endif
 }
-
 
 
 
@@ -1499,12 +1530,19 @@ int32_t startmove()
   if ((head == tail)) {
     //Serial.println("?");
     //m = 0; wm = 0; mctr = 0; // thi cause bug on homing delta
+    if (!sendwait && (cmdempty)){
+        
+        // send one time, is buffer is emspy after running
+        zprintf(PSTR("wait\n"));
+        sendwait=1;
+    }
     return 0;
   }
+  sendwait=0;
   // last calculation
   if (m ) return 0; // if empty then exit
 #ifdef output_enable
-  //zprintf(PSTR("\nSTARTMOVE\n"));
+  zprintf(PSTR("\nSTARTMOVE\n"));
 #endif
   // STEP 1
   int t = nextbuff(tail);
@@ -1523,8 +1561,8 @@ int32_t startmove()
   // Now need to convert mm rampup to step rampup
 
 
-  if (rampup)acup = ((m->fn  - m->fs )) / rampup; //(fmax(1,m->rampup-acramp));
-  if (rampdown)acdn = -((m->fn  - fe )) / rampdown; //(fmax(1,m->rampdown-acramp));
+  if (rampup)acup = float((m->fn  - m->fs )) / rampup; //(fmax(1,m->rampup-acramp));
+  if (rampdown)acdn = -float((m->fn  - fe )) / rampdown; //(fmax(1,m->rampdown-acramp));
 
   oacup = acup;
   oacdn = acdn;
@@ -1572,15 +1610,19 @@ int32_t startmove()
 
   if (f == 0) nextmicros = micros();// if from stop
 
+#ifdef output_enable
+  zprintf(PSTR("SUB:%d FS:%f TA:%f FE:%f RAMP:%d %d ACC:%f %f\n"), fi(subp), ff(m->fs),ff(m->fn),ff(fe), fi(rampup), fi(rampdown), ff(acup), ff(acdn));
+#endif
   //  rampup = m->rampup  ;
   rampdown = totalstep - rampup - rampdown ;
   mctr2 = mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0; //mctr >> 1;
   tail = t;
 
 #ifdef output_enable
-  /*zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
+  /*
+   zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
     zprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), fi(rampup), fi(rampdown), fi(totalstep));
-    zprintf(PSTR("FS:%f FN:%f FE:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->fe), ff(m->ac));
+    zprintf(PSTR("FS:%f FN:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->ac));
     zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(acup), fi(acdn));
     zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
   */
@@ -1593,9 +1635,6 @@ int32_t startmove()
 #ifdef SUBPIXELMAX
   rampup *= subp;
   rampdown *= subp;
-#endif
-#ifdef output_enable
-  zprintf(PSTR("SUB:%d TA:%f RAMP:%d %d ACC:%d %d\n"), fi(subp), ff(ta), fi(rampup), fi(rampdown), fi(acup), fi(acdn));
 #endif
   dlp = xInvSqrt(ta);
   return 1;

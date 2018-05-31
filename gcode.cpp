@@ -519,8 +519,8 @@ void process_gcode_command()
 
         // thread S parameter as value of the laser, in 3D printer, donot use S in G1 !!
         if (next_target.seen_S) {
-          laserOn = next_target.S > 1;
-          constantlaserVal = next_target.S;
+          //laserOn = next_target.S > 0;
+          //constantlaserVal = next_target.S;
         }
         enqueue(&next_target, 0);
         break;
@@ -718,7 +718,11 @@ void process_gcode_command()
 
       case 2:
         // stop and clear all buffer
-        RUNNING = 0;
+        if (m) {
+          RUNNING = 0;
+          waitbufferempty();
+          printposition();
+        }
         break;
       case 25:
         // stop and clear all buffer
@@ -765,15 +769,14 @@ void process_gcode_command()
         laserOn = next_target.S > 0;
         constantlaserVal = next_target.S;
         if (laserOn) zprintf(PSTR("LASERON\n"));
-        if (!m && next_target.seen_P) {
-          waitbufferempty();
-          pinMode(laser_pin, OUTPUT);
-          zprintf(PSTR("PULSE LASER"));
+        if (next_target.seen_P) {
+          if (m)waitbufferempty();
+          //pinMode(laser_pin, OUTPUT);
+          zprintf(PSTR("PULSE LASER\n"));
           digitalWrite(laser_pin, HIGH);
           delay(next_target.P);
-          digitalWrite(laser_pin, LOW);
         }
-        //if (!laserOn)waitbufferempty();
+        digitalWrite(laser_pin, LOW);
 
 #endif
         break;

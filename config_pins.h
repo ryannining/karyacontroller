@@ -19,9 +19,9 @@
 #define MOTOR_1_DIR -1 // 1: normal -1:inverted
 #define MOTOR_2_DIR -1 // 1: normal -1:inverted
 #define MOTOR_3_DIR 1 // 1: normal -1:inverted
+#define THEISR
 
-
-// ==========================================================
+// ========== AVR ================================================
 #if defined(__AVR__)
 //#define BOARD_CHCSHIELDV3
 //#define BOARD_TARANTHOLE
@@ -35,22 +35,30 @@
 //#define BOARD_RAMP13_DELTA
 //#define BOARD_RAMP13_3DPLEX
 //#define BOARD_NANO_3DPLEX
-#define BOARD_DIY_4XI
+//#define BOARD_DIY_4XI
+#define BOARD_DIY_CNC1
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
-// ==========================================================
+#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
+// ======= STM32F103 ===================================================
 #elif defined(__ARM__)
+//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
 //#define BOARD_ST33DV1_STM32_3DPLEX
 #define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
-// ==========================================================
+#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+// ====== ESP32 ====================================================
 #elif defined(ESP32)
 #define BOARD_ESP32VN3D
-
+#define THEISR ICACHE_RAM_ATTR 
+//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+// ====== ESP8266 ====================================================
 #elif defined(ESP8266)
+#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+#define THEISR ICACHE_RAM_ATTR 
 #define ANALOGSHIFT 0 // 10bit adc ??
 
 
@@ -77,6 +85,7 @@
 */
 
 //#define ARC_SUPPORT // 3kb
+
 #define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 #define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
@@ -85,8 +94,8 @@
 #define CORESERIAL // smaller footprint 500byte, only AVR
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-//#define WIFISERVER
-//#define TELEGRAM
+#define WIFISERVER
+#define TELEGRAM
 // ==========================================================
 
 //#define INTERPOLATEDELAY  // slower 4-8us
@@ -109,7 +118,7 @@
 
 #define UPDATE_F_EVERY 2000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
-#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 #else
 //#define SUBPIXELMAX 4
 #endif

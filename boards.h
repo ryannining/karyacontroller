@@ -377,6 +377,49 @@
 
 #define NUMBUFFER 15
 
+/*
+  ============================================================================================
+     BOARD_DIY_4XI
+  ============================================================================================
+*/
+#elif defined(BOARD_DIY_CNC1)
+#define DRIVE_COREXY
+
+#define xenable 6
+#define xdirection 5
+#define xstep 4
+
+#define yenable 6
+#define ydirection 3
+#define ystep 2
+/*
+#define zenable 2
+#define zdirection A1 //A5
+#define zstep 5 //A4
+
+#define e0enable 2
+#define e0direction A2
+#define e0step A3
+
+*/
+
+#define limit_pin 7
+#define laser_pin 8
+
+//#define temp_pin 6 //analog 6 because we use ISR
+//#define heater_pin 3
+//#define servo_pin 11
+
+//#define ISRTEMP
+#define INVERTENDSTOP // uncomment for normally open
+
+//#define SDCARD_CS 10
+//#define KBOX_PIN 7
+//#define OLED_CONTROL_PIN 7
+#define USETIMER1
+
+#define NUMBUFFER 12
+
 
 /*
   ============================================================================================
@@ -525,7 +568,7 @@
 #define fan_pin PA3
 #define heater2_pin PA1
 */
-#define heater_pin PA0
+//#define heater_pin PA0
 #define laser_pin PA0
 
 //#define fan_pin PA0 // laser PIN

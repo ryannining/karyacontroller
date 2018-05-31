@@ -12,9 +12,9 @@ extern int feedthedog();
 #define timescale 1000000L
 extern uint32_t micros();
 #ifdef ESP8266
-//#ifdef WIFISERVER
+#ifdef WIFISERVER
 #define usetmr1
-//#endif
+#endif
 #endif
 
 #endif
@@ -23,18 +23,19 @@ extern uint32_t micros();
 #define timescaleLARGE timescale*TMSCALE
 
 
+extern volatile uint32_t ndelay,ndelay2;
 
 extern uint32_t	next_step_time;
 extern void timer_init();
-extern  void timer_set(uint32_t delay);
-extern  void timer_set2(uint32_t delay);
+extern  void timer_set(int32_t delay);
+extern  void timer_set2(int32_t delay,int32_t delayL);
 extern void servo_loop();
 extern void servo_init();
 extern void servo_set(int us);
 
 #ifndef MASK
-  /// MASKING- returns \f$2^PIN\f$
-  #define MASK(PIN) (1 << PIN)
+/// MASKING- returns \f$2^PIN\f$
+#define MASK(PIN) (1 << PIN)
 #endif
 
 
@@ -45,13 +46,13 @@ extern void servo_set(int us);
 #define SEI sei();
 
 #define ATOMIC_START { \
-                       uint8_t save_reg = SREG; \
-                       cli(); \
-                       MEMORY_BARRIER();
+    uint8_t save_reg = SREG; \
+    cli(); \
+    MEMORY_BARRIER();
 
 #define ATOMIC_END   MEMORY_BARRIER(); \
-                     SREG = save_reg; \
-                   }
+  SREG = save_reg; \
+  }
 #endif
 #endif
 

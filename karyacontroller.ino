@@ -519,8 +519,8 @@ void setupother() {
   init_temp();
   zprintf(PSTR("Init eeprom\n"));
   reload_eeprom();
-  //zprintf(PSTR("Init timer\n"));
-  //timer_init();
+  zprintf(PSTR("Init timer\n"));
+  timer_init();
 #else
   initmotion();
   init_gcode();
@@ -548,7 +548,7 @@ void setupother() {
 #endif
 
 
-  setupok = 0;
+  setupok = 1;
   zprintf(PSTR("start\nok\n"));
 
 }
