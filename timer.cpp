@@ -215,9 +215,6 @@ void tm()
 #endif
   }
   Timer1.setOverflow(ndelay >= 30000 ? 30000 : ndelay);
-#ifdef laser_pin
-    if (ndelay2)digitalWrite(laser_pin,  HIGH);
-#endif
 
 }
 
@@ -241,7 +238,7 @@ void timer_init()
 #ifdef ESP8266
 #define USETIMEROK
 #define MINDELAY 45000
-//#define usetmr1
+#define usetmr1
 void ICACHE_RAM_ATTR tm()
 {
   noInterrupts();

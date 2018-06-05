@@ -1,23 +1,21 @@
 #include "motion.h"
+#include "config_pins.h"
 
 #include <stdint.h>
 #define TMSCALE 1024L
 extern int somedelay(int32_t n);
 //#define somedelay(n) delayMicroseconds(n);
 extern int feedthedog();
-#ifndef ISPC
+#define TEMPTICK 500000
 #define timescale 1000000L
-
-#else
-#define timescale 1000000L
+#ifdef ISPC
 extern uint32_t micros();
-#ifdef ESP8266
-#ifdef WIFISERVER
+#else
+#ifdef ESP8266 && WIFISERVER
 #define usetmr1
+#define TEMPTICK 100000
 #endif
-#endif
-
-#endif
+#endif // ISPC
 
 #define SUBMOTION 1
 #define timescaleLARGE timescale*TMSCALE

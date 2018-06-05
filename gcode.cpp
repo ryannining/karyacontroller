@@ -367,7 +367,7 @@ uint8_t gcode_parse_char(uint8_t c)
                          next_target.seen_E = next_target.seen_F = next_target.seen_S = \
                              next_target.seen_P = next_target.seen_T = \
                                  next_target.seen_G = next_target.seen_M = \
-                                     next_target.read_string  = 0;
+                                     next_target.read_string = g_str_c  = 0;
     MLOOP
 #ifdef ARC_SUPPORT
     next_target.seen_R = next_target.seen_I = next_target.seen_J = 0;
@@ -762,6 +762,11 @@ void process_gcode_command()
         // already implemented using value = 255 = cutting
         //constantlaser = next_target.S == 1;
         break;
+      case 5:
+        // already implemented using value = 255 = cutting
+        //constantlaser = next_target.S == 1;
+        next_target.seen_S=1;
+        next_target.S=0;
       case 3:
 #ifdef LASERMODE
         // if no S defined then full power
@@ -771,6 +776,7 @@ void process_gcode_command()
         if (laserOn) zprintf(PSTR("LASERON\n"));
         if (next_target.seen_P) {
           if (m)waitbufferempty();
+          delay(100);
           //pinMode(laser_pin, OUTPUT);
           zprintf(PSTR("PULSE LASER\n"));
           digitalWrite(laser_pin, HIGH);
@@ -944,7 +950,7 @@ void process_gcode_command()
 #ifdef WIFISERVER
       // show wifi
       case 504:
-        zprintf(PSTR("Wifi AP:%s PWD:%s mDNS:%s telID:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
+        zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
         break;
 #endif
 #ifdef USE_EEPROM

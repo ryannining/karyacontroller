@@ -1,4 +1,5 @@
 
+extern double Setpoint, Input, Output;
 extern void setfan_val(int val);
 
 /**

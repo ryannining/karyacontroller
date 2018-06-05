@@ -35,6 +35,10 @@ ESP8266WebServer server ( 80 );
 WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
 
 File fsUploadFile;
+//#define NOINTS noInterrupts();
+//#define INTS interrupts();
+#define NOINTS
+#define INTS
 
 String getContentType(String filename) { // convert the file extension to the MIME type
   if (filename.endsWith(".html")) return "text/html";
@@ -45,8 +49,9 @@ String getContentType(String filename) { // convert the file extension to the MI
   return "text/plain";
 }
 bool handleFileRead(String path) { // send the right file to the client (if it exists)
-  xprintf(PSTR("handleFileRead: %s\n"), path.c_str());
+  NOINTS
   if (path.endsWith("/")) path += "index.html";          // If a folder is requested, send the index file
+  xprintf(PSTR("handleFileRead: %s\n"), path.c_str());
   String contentType = getContentType(path);             // Get the MIME type
   String pathWithGz = path + ".gz";
   if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)) { // If the file exists, either as a compressed archive, or normal
@@ -59,10 +64,12 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
     return true;
   }
   xprintf(PSTR("\tFile Not Found: %s\n") , path.c_str());   // If the file doesn't exist, return false
+  INTS
   return false;
 }
 
 void handleFileUpload() { // upload a new file to the SPIFFS
+  NOINTS
   HTTPUpload& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
     String filename = upload.filename;
@@ -83,6 +90,7 @@ void handleFileUpload() { // upload a new file to the SPIFFS
       server.send(500, "text/plain", "500: couldn't create file");
     }
   }
+  INTS
 }
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
   switch (type) {
@@ -95,7 +103,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
       }
       break;
     case WStype_TEXT:                     // if new text data is received
-      xprintf(PSTR("[%d] get Text: %s\n"), fi(num), payload);
+      //xprintf(PSTR("%s"),payload);
       //webSocket.sendTXT(num, payload);
       for (int i = 0; i < lenght; i++) {
         buf_push(wf, payload[i]);
@@ -125,48 +133,21 @@ WiFiClientSecure net_ssl;
 TelegramBot bot (BotToken, net_ssl);
 
 void setupwifi() {
-
+  NOINTS
   xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
   WiFi.mode(WIFI_STA);
   WiFi.begin ( wifi_ap, wifi_pwd);
-  int cntr = 40;
+  int cntr = 20;
   while ( WiFi.status() != WL_CONNECTED ) {
     delay ( 500 );
     cntr--;
     if (!cntr)break;
     xprintf(PSTR("."));
   }
-
+  IPAddress ip ;
   if (WiFi.status() == WL_CONNECTED) {
-    IPAddress ip = WiFi.localIP();
+    ip = WiFi.localIP();
     xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
-
-    if ( MDNS.begin ( wifi_dns) ) {
-      xprintf(PSTR("MDNS responder started %s\n"), wifi_dns);
-    }
-
-    server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
-      if (!handleFileRead("/upload.html"))                // send it if it exists
-        server.send ( 200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>" );
-    });
-
-    server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
-    []() {
-      server.send(200);
-    },                          // Send status 200 (OK) to tell the client we are ready to receive
-    handleFileUpload                                    // Receive and save the file
-             );
-
-
-    server.onNotFound([]() {                              // If the client requests any URI
-      if (!handleFileRead(server.uri()))                  // send it if it exists
-        server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
-    });
-    server.begin();
-
-    webSocket.begin();                          // start the websocket server
-    webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
-    MDNS.addService("http", "tcp", 80);
 
 #ifdef TELEGRAM
     bot.begin();
@@ -177,9 +158,45 @@ void setupwifi() {
 #endif
     xprintf(PSTR("HTTP server started\n"));
 
+  } else {
+    WiFi.mode(WIFI_AP);
+    const char *password = "123456789";
+    WiFi.softAP(wifi_dns, password);
+    ip = WiFi.softAPIP();
+    xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), wifi_dns, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
   }
 
+  if ( MDNS.begin ( wifi_dns) ) {
+    xprintf(PSTR("MDNS responder started %s\n"), wifi_dns);
+  }
+
+  server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
+    if (!handleFileRead("/upload.html"))                // send it if it exists
+      server.send ( 200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>" );
+  });
+
+  server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
+  []() {
+    server.send(200);
+  },                          // Send status 200 (OK) to tell the client we are ready to receive
+  handleFileUpload                                    // Receive and save the file
+           );
+
+
+  server.onNotFound([]() {                              // If the client requests any URI
+    if (!handleFileRead(server.uri()))                  // send it if it exists
+      server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
+  });
+  server.begin();
+
+  webSocket.begin();                          // start the websocket server
+  webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+  MDNS.addService("http", "tcp", 80);
+
+
+
   SPIFFS.begin();
+  INTS
 }
 
 void wifi_loop() {

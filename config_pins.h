@@ -45,8 +45,8 @@
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
-//#define BOARD_ST33DV1_STM32_3DPLEX
-#define BOARD_ST33DV1_XYYZ_STM32
+#define BOARD_ST33DV1_STM32_3DPLEX
+//#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 #define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
@@ -63,10 +63,10 @@
 
 
 //#define BOARD_NANONANO_WEMOS
-//#define BOARD_WEMOS3D
+#define BOARD_WEMOS3D
 //#define BOARD_WEMOSCNC
 //#define BOARD_MINICNC_ESP01
-#define BOARD_WEMOS_XYY_LASER
+//#define BOARD_WEMOS_XYY_LASER
 //#define BOARD_ESP01CNC_V1
 #endif
 
@@ -95,7 +95,7 @@
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
-#define TELEGRAM
+//#define TELEGRAM
 // ==========================================================
 
 //#define INTERPOLATEDELAY  // slower 4-8us

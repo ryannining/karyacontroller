@@ -78,8 +78,8 @@
 #define Z 2
 #define E 3
 
-int constantlaserVal=0;
-int laserOn = 0, isG0=1;
+int constantlaserVal = 0;
+int laserOn = 0, isG0 = 1;
 uint8_t homingspeed;
 int xback[4];
 uint8_t head, tail, tailok;
@@ -940,27 +940,20 @@ int32_t timing = 0;
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
 static volatile uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit = 0;
-static volatile int cmdlaserval=0;
+static volatile int cmdlaserval = 0;
 
 static int8_t mo = 0;
 #define cmdfull (nextbuffm(cmhead)==cmtail)
 #define cmdnotfull (nextbuffm(cmhead)!=cmtail)
 #define cmdempty (cmhead==cmtail)
-static volatile int nextok = 0,laserwason=0;
+static volatile int nextok = 0, laserwason = 0;
 
-int sendwait=0;
+int sendwait = 0;
 
 static THEISR void decodecmd()
 {
   if (cmdempty) {
 
-#ifdef LASERMODE
-    if (sendwait) {
-      digitalWrite(laser_pin, LOW);
-      laserwason=0;
-      //cmdlaserval = 0; 
-    }
-#endif
     return;
 
   }
@@ -979,34 +972,37 @@ static THEISR void decodecmd()
     cmdlaserval = (cmd >> 9) >> DSCALE;
     //zprintf(PSTR("int %d\n"), fi(cmdlaserval));
   }
-    /*Serial.print("X ");
+  /*Serial.print("X ");
     Serial.print(cmd);
     Serial.print(":");
     Serial.print(cmdly);
     Serial.print(":");
     Serial.println(cmdlaserval);
-    */
+  */
   nextok = 1;
   cmtail = nextbuffm(cmtail);
 #ifdef USETIMER1
   timer_set(cmdly);
 #ifdef LASERMODE
-  if (cmcmd) {
-    //zprintf(PSTR("%d\n"), fi(cmdlaserval));
-    laserwason=cmdlaserval > 0;
-    if (laserwason) {
-      // if laserval is 255 then we know its the full power / cutting
-      if ((cmdlaserval < 255)){
-        
-        int las=cmdlaserval*(CLOCKCONSTANT / 1000000);
-        //zprintf(PSTR("int %d\n"), fi(las));
-        //delayMicroseconds(las);
-        //digitalWrite(laser_pin,LOW);
-        //timer_set(cmdly-las*(CLOCKCONSTANT / 1000000));
-        timer_set2(cmdly,las);
-      } else digitalWrite(laser_pin, laserwason);
+  if (Setpoint == 0) {
+    if (cmcmd) {
+      //zprintf(PSTR("%d\n"), fi(cmdlaserval));
+      laserwason = cmdlaserval > 0;
+      if (laserwason) {
+        // if laserval is 255 then we know its the full power / cutting
+        if ((cmdlaserval < 255)) {
 
-    } else digitalWrite(laser_pin, LOW);
+          int las = cmdlaserval * (CLOCKCONSTANT / 1000000);
+          //zprintf(PSTR("int %d\n"), fi(las));
+          //delayMicroseconds(las);
+          //digitalWrite(laser_pin,LOW);
+          //timer_set(cmdly-las*(CLOCKCONSTANT / 1000000));
+          timer_set2(cmdly, las);
+        }// else
+        digitalWrite(laser_pin, laserwason);
+
+      } else digitalWrite(laser_pin, LOW);
+    }
   }
 #endif
 #endif
@@ -1253,12 +1249,12 @@ UPDATEDELAY:
 
 
     cmd0 |= (dl) << 5;
-    if (mctr<20){
+    if (mctr < 20) {
       ///*
-    //zprintf(PSTR("V:%f DL:%d\n"),ff(ta),fi(dl));
-    //Serial.print(":");
-    //Serial.println(dl);
-    //*/
+      //zprintf(PSTR("V:%f DL:%d\n"),ff(ta),fi(dl));
+      //Serial.print(":");
+      //Serial.println(dl);
+      //*/
     }
     pushcmd();
     mctr--;
@@ -1298,7 +1294,7 @@ UPDATEDELAY:
         if (!RUNNING) {
           // need to calculate at least correct next start position based on
           // mctr
-          #ifdef HARDSTOP
+#ifdef HARDSTOP
           float p = mctr;
           p /= totalstep;
           //p=1-p;
@@ -1307,7 +1303,7 @@ UPDATEDELAY:
           cz1 = m->dtx[2] - p * m->dx[2] / Cstepmmx(2);
           ce01 = m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
           zprintf(PSTR("Stopped!\n"));
-          #endif
+#endif
         }
         endstopstatus = 0;
         m->status = 0;
@@ -1326,11 +1322,11 @@ UPDATEDELAY:
 
 int busy = 0;
 // ===============================================
-int cctr=0;
+int cctr = 0;
 int motionloop()
 {
-  if(cctr++>100000){
-    cctr=0;
+  if (cctr++ > 100000) {
+    cctr = 0;
     //Serial.println(ndelay);
   }
   if (busy ) {
@@ -1530,15 +1526,21 @@ int32_t startmove()
   if ((head == tail)) {
     //Serial.println("?");
     //m = 0; wm = 0; mctr = 0; // thi cause bug on homing delta
-    if (!sendwait && (cmdempty)){
-        
-        // send one time, is buffer is emspy after running
-        zprintf(PSTR("wait\n"));
-        sendwait=1;
+    if (!sendwait && (cmdempty)) {
+
+      // send one time, is buffer is emspy after running
+#ifdef LASERMODE
+      if (Setpoint == 0) {
+        digitalWrite(laser_pin, LOW);
+        laserwason = 0;
+      }
+#endif
+      zprintf(PSTR("wait\n"));
+      sendwait = 1;
     }
     return 0;
   }
-  sendwait=0;
+  sendwait = 0;
   // last calculation
   if (m ) return 0; // if empty then exit
 #ifdef output_enable
@@ -1611,7 +1613,7 @@ int32_t startmove()
   if (f == 0) nextmicros = micros();// if from stop
 
 #ifdef output_enable
-  zprintf(PSTR("SUB:%d FS:%f TA:%f FE:%f RAMP:%d %d ACC:%f %f\n"), fi(subp), ff(m->fs),ff(m->fn),ff(fe), fi(rampup), fi(rampdown), ff(acup), ff(acdn));
+  zprintf(PSTR("SUB:%d FS:%f TA:%f FE:%f RAMP:%d %d ACC:%f %f\n"), fi(subp), ff(m->fs), ff(m->fn), ff(fe), fi(rampup), fi(rampdown), ff(acup), ff(acdn));
 #endif
   //  rampup = m->rampup  ;
   rampdown = totalstep - rampup - rampdown ;
@@ -1620,7 +1622,7 @@ int32_t startmove()
 
 #ifdef output_enable
   /*
-   zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
+    zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
     zprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), fi(rampup), fi(rampdown), fi(totalstep));
     zprintf(PSTR("FS:%f FN:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->ac));
     zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(acup), fi(acdn));

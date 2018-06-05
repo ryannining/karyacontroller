@@ -81,13 +81,14 @@ void init_temp()
 
   next_temp = micros();
   set_temp(0);
-
+#ifdef temp_pin
+  pinMode(temp_pin, INPUT);
 #if defined( __AVR__) && defined(ISRTEMP)
 
   ADCREAD(temp_pin)
 #elif defined(ESP8266)
 #endif
-
+#endif
 
 }
 
@@ -125,13 +126,12 @@ float read_temp(int32_t temp) {
   return 0;
 }
 
-int WindowSize = 5000;
+int WindowSize = 1500;
 unsigned long windowStartTime;
 void temp_loop(uint32_t cm)
 {
-  if ((next_temp < cm) && (cm - next_temp < 1000000)) {
-    next_temp = cm + 1000000; // each half second
-    if (Setpoint == 0)return;
+  if (cm-next_temp>TEMPTICK) {
+    next_temp = cm; // each 0.5 second
     int v = 0;
 #if defined( __AVR__) && defined(ISRTEMP)
     // automatic in ESR
@@ -139,9 +139,16 @@ void temp_loop(uint32_t cm)
     v = vanalog[temp_pin];
 #else
     v = analogRead(temp_pin) >> ANALOGSHIFT;
+    //zprintf(PSTR("%d\n"),fi(v));
+#endif
+#ifdef ESP8266
+    
+    //v = v * 3.3 + 100; //200K resistor
+    v = v * 0.33 + 115; //22K resistor
+    
 #endif
 
-    ctemp = (ctemp + v * 7) / 8;
+    ctemp = (ctemp*2 + v * 6) / 8; // averaging 
     Input =  read_temp(ctemp);
 #ifdef fan_pin
     if ((Input > 80) && (fan_val < 50)) setfan_val(255);
@@ -162,10 +169,13 @@ void temp_loop(uint32_t cm)
       { //time to shift the Relay Window
         windowStartTime += WindowSize;
       }
-      if (Output > now - windowStartTime) digitalWrite(heater_pin, HIGH);
+      if (Output*4 > now - windowStartTime) digitalWrite(heater_pin, HIGH);
       else digitalWrite(heater_pin, LOW);
+      //zprintf(PSTR("OUT:%d %W:%d\n"),fi(Output),fi(now-windowStartTime)); 
+      #warning USING BANG BANG HEATER
 #else
       analogWrite(heater_pin, Output * 4);
+      #warning USING PWM HEATER
 #endif
 
 #elif defined __ARM__
@@ -173,9 +183,9 @@ void temp_loop(uint32_t cm)
 #else
       analogWrite(heater_pin, Output * 17 / 20);
 #endif
-      if (wait_for_temp )
-        zprintf(PSTR("Temp:%f @%f\n"), ff(Input), ff(Output));
-
+      if (wait_for_temp ) {
+        //zprintf(PSTR("Temp:%f @%f\n"), ff(Input), ff(Output));
+      }
 #endif
     }
   }
