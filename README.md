@@ -24,18 +24,26 @@ feature i need to have in this software is: (* implemented)
 - eeprom configuration (step/mm, accel, travel accel, jerk, max axis) *
 - implement endstop reading (xmin xmax , etc)*
 - Endstop configuration using EEPROM *
-- heater with PID E0 *
+- heater with PID E0 PWM or Bang Bang*
 - Async temp reading *
 - config files contain board definition to set pins and parameter *
 - G0 and G1 can have different acceleration (travel vs feed/extrude) *
 - backlash compensation *
 - Config for inverted motor and endstop *
-- interrupt timing * (for AVR, ESP8266, STM32F103)
+- interrupt timing * (for AVR, ESP8266, STM32F103) 
+- NEW: Laser constant burn per step, by only turn on the laser on specific time then turn off on each motor step *
+- NEW: G7 Raster data for Laser Engraving for optimum speed laser engraving *
+- NEW: M290 Baby stepping for 3d printing *
+- NEW: M206 Pxxx [sss] xxx=380 400 450 470 configure wifi and telegram client, M504 to show setting
+- NEW: Retract conversion, just set the retract speed to 1 on slicer it will be converted to retract setting on eeprom. *
+- NEW: M2 will stop the code immediately, without waiting buffer emptied, but still know the correct position *
+- IDEA: Implement clever gcode sender that pre-compile the gcode by doing path planner and send the plan to the firmware
+
 
 ## MCU
 - Nano V3 328p * tested
-- Mega 2560 *
-- Wemos D1 *
+- Mega 2560 * Tested
+- Wemos D1 mini * Tested
 - STM32 bluepill * tested
 
 ## EEPROM
@@ -43,6 +51,13 @@ Yes, its support EEPROM and modification in repetier host.
 
 ## WIFI
 Still work in progress, especially for ESP8266
+Progress:
+
+- Websocket server at port 81, receive Ping Pong communication
+- Html gcode sender tools, integrated with CNC gcode generator. (open the http://ipaddress)
+- Have print and run gcode for CNC
+- Still have lag, i dont know where is the problem, maybe my Access point ?
+
 
 ## Drive system
 
