@@ -10,7 +10,7 @@
 #define __ARM__
 #endif
 #ifdef ESP32
-#define ESP8266  
+#define ESP8266
 #endif
 
 #if defined(__AVR__) || defined(ESP8266)|| defined(ESP32)  || defined (__ARM__)
@@ -46,15 +46,15 @@ typedef struct {
   float dis; // max start speed, maxcorner
 #ifdef __AVR__
   int16_t ac; // needed for backplanner
-  uint16_t fs, fn,maxs; // all are in square ! needed to calc real accell
+  uint16_t fs, fn, maxs; // all are in square ! needed to calc real accell
 #else
   float ac; // needed for backplanner
-  float fs, fn,maxs; // all are in square ! needed to calc real accell
+  float fs, fn, maxs; // all are in square ! needed to calc real accell
 #endif
-//#ifdef NONLINEAR
+  //#ifdef NONLINEAR
   //float otx[3]; // keep the original coordinate before transform
   float dtx[NUMAXIS]; // keep the original coordinate before transform
-//#endif
+  //#endif
   int32_t dx[NUMAXIS]; //original delta before transform
 #ifdef ISPC
   // for graphics
@@ -68,6 +68,8 @@ extern float tick, tickscale, fscale, graphscale;
 #endif
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
+extern int babystep[4];
+extern int e_ctr;
 //extern int32_t px[4];
 extern int xback[4];
 extern uint8_t homingspeed;
@@ -77,6 +79,8 @@ extern int mvaccel;
 extern int  maxf[4];
 extern int32_t dlp, dl;
 extern float stepmmx[4], xyscale;
+extern float retract_in,retract_out;
+extern float retract_in_f,retract_out_f;
 extern tmove move[NUMBUFFER];
 extern float cx1, cy1, cz1, ce01;
 extern uint8_t head, tail;

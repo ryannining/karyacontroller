@@ -81,9 +81,17 @@ typedef struct {
   //uint8_t						checksum_calculated;	///< checksum we calculated
 } GCODE_COMMAND;
 
+#ifdef __AVR__ 
+#define g_str_len 128
+#else
+#define g_str_len 1024
+#endif
+
 extern int32_t linecount,lineprocess;
 extern int waitforline;
-extern char g_str[40];
+extern char g_str[g_str_len];
+extern int rasterlen;
+
 extern int g_str_c;
 #ifdef USE_SDCARD
 extern File myFile;

@@ -165,7 +165,7 @@ ISR(TIMER1_COMPA_vect)
     ndelay = ndelay2;
     ndelay2 = 0;
 #ifdef laser_pin
-    digitalWrite(laser_pin, LOW);
+    digitalWrite(laser_pin, !LASERON);
 #endif
   }
   OCR1A = ndelay > 30000 ? 30000 : ndelay;
@@ -187,7 +187,7 @@ void timer_init()
 #endif // avr timer
 
 /*
-    ARM TIMER
+    =======================================  ARM TIMER   =======================================  
 */
 #ifdef __ARM__
 #define USETIMEROK
@@ -202,20 +202,23 @@ void tm()
     if (ndelay < 30000) {
       ndelay = 30;
       coreloopm();
-      ndelay = fmax(15, ndelay);
+      ndelay = fmax(4, ndelay);
     } else {
-      ndelay = fmax(15, ndelay - 30000);
+      ndelay = fmax(4, ndelay - 30000);
     }
   } else {
     // turn off laser , laser constant burn mode
     ndelay = ndelay2;
     ndelay2 = 0;
 #ifdef laser_pin
-    digitalWrite(laser_pin,  LOW);
+    digitalWrite(laser_pin,  LASERON);
 #endif
   }
-  Timer1.setOverflow(ndelay >= 30000 ? 30000 : ndelay);
-
+  int d=ndelay >= 30000 ? 30000 : ndelay;
+  if (d<6)d=6;
+  Timer1.setOverflow(d);
+  Timer1.setCompare1(d);
+  Timer1.resume();
 }
 
 void timer_init()
@@ -229,12 +232,12 @@ void timer_init()
   Timer1.setMode(TIMER_CH1, TIMER_OUTPUTCOMPARE);
   Timer1.setPrescaleFactor(9);
   Timer1.setOverflow(1000); // in microseconds
-  //Timer1.setCompare(TIMER_CH1, 1);      // overflow might be small
+  Timer1.setCompare(TIMER_CH1, 3000);      // overflow might be small
   Timer1.attachInterrupt(TIMER_CH1, tm);
 }
 
 #endif // arm
-// ---------------------------------------------------------------------------------------------------------
+// -------------------------------------   ESP8266  ----------------------------------------------------------
 #ifdef ESP8266
 #define USETIMEROK
 #define MINDELAY 45000
@@ -246,22 +249,24 @@ void ICACHE_RAM_ATTR tm()
     if (ndelay < 30000) {
       ndelay = 30;
       coreloopm();
-      ndelay = fmax(30, ndelay);
+      ndelay = fmax(4, ndelay);
     } else {
-      ndelay = fmax(30, ndelay - 30000);
+      ndelay = fmax(4, ndelay - 30000);
     }
   } else {
     // turn off laser , laser constant burn mode
     ndelay = ndelay2;
     ndelay2 = 0;
 #ifdef laser_pin
-    digitalWrite(laser_pin,  LOW);
+    digitalWrite(laser_pin,  LASERON);
 #endif
   }
+  int d=ndelay >= 30000 ? 30000 : ndelay;
+  if (d<6)d=6;
 #ifdef usetmr1
-  timer1_write((ndelay >= 30000 ? 30000 : ndelay));
+  timer1_write(d);
 #else
-  timer0_write(ESP.getCycleCount() + 16 * (ndelay >= 30000 ? 30000 : ndelay));
+  timer0_write(ESP.getCycleCount() + 16 * d);
 #endif
   interrupts();
 }
@@ -290,11 +295,14 @@ void THEISR timer_set(int32_t delay)
   ndelay = fmin(MINDELAY, delay);
   ndelay2 = 0;
 }
+
+// Laser constant burn timer
 void THEISR timer_set2(int32_t delay, int32_t delayL)
 {
+  digitalWrite(laser_pin,  !LASERON);
   delay = fmin(MINDELAY, delay);
-  ndelay = fmax(15, delayL); // laser on delay
-  ndelay2 = fmax(15, delay - delayL); // the rest delay after laser off
+  ndelay = fmax(1, delay - delayL); // laser on delay
+  ndelay2 = fmax(1, delayL); // the rest delay after laser off
 }
 
 #endif

@@ -20,6 +20,7 @@
 #define MOTOR_2_DIR -1 // 1: normal -1:inverted
 #define MOTOR_3_DIR 1 // 1: normal -1:inverted
 #define THEISR
+#define LASERON HIGH
 
 // ========== AVR ================================================
 #if defined(__AVR__)
@@ -40,6 +41,8 @@
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
 #define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
+
+
 // ======= STM32F103 ===================================================
 #elif defined(__ARM__)
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
@@ -49,15 +52,19 @@
 //#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
-#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+
+
 // ====== ESP32 ====================================================
 #elif defined(ESP32)
 #define BOARD_ESP32VN3D
 #define THEISR ICACHE_RAM_ATTR 
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+
+
 // ====== ESP8266 ====================================================
 #elif defined(ESP8266)
-#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 #define THEISR ICACHE_RAM_ATTR 
 #define ANALOGSHIFT 0 // 10bit adc ??
 
@@ -95,10 +102,10 @@
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
-//#define TELEGRAM
+#define TELEGRAM
 // ==========================================================
 
-//#define INTERPOLATEDELAY  // slower 4-8us
+#define INTERPOLATEDELAY  // slower 4-8us
 
 #ifdef powerpin
 #define POWERFAILURE

@@ -2,10 +2,10 @@
 #include "config_pins.h"
 #include "common.h"
 
-char wifi_telebot[20]="";
-char wifi_ap[40]="myap";
-char wifi_pwd[20]="pwd";
-char wifi_dns[20]="karyacnc";
+char wifi_telebot[20] = "";
+char wifi_ap[50] = "myap";
+char wifi_pwd[20] = "pwd";
+char wifi_dns[30] = "karyacnc";
 
 
 #ifdef USE_EEPROM
@@ -56,6 +56,13 @@ float EEMEM EE_towerc_ofs;
 int32_t EEMEM EE_lastline;
 #endif
 
+float EEMEM EE_retract_in;
+float EEMEM EE_retract_out;
+float EEMEM EE_retract_in_f;
+float EEMEM EE_retract_out_f;
+
+
+
 #endif
 
 
@@ -63,7 +70,7 @@ int32_t EEMEM EE_lastline;
 
 void reload_eeprom() {
   eepromcommit;
-  
+
   ax_home[0] = ((float)eepromread(EE_xhome)) * 0.001;
   ax_home[1] = ((float)eepromread(EE_yhome)) * 0.001;
   ax_home[2] = ((float)eepromread(EE_zhome)) * 0.001;
@@ -81,16 +88,16 @@ void reload_eeprom() {
   stepmmx[2] = (float)eepromread(EE_zstepmm)   * 0.001;
   stepmmx[3] = (float)eepromread(EE_estepmm)   * 0.001;
 
-  xyjerk=eepromread(EE_jerk);
-  homingspeed=eepromread(EE_homing);
+  xyjerk = eepromread(EE_jerk);
+  homingspeed = eepromread(EE_homing);
   xyscale = (float)eepromread(EE_xyscale) * 0.001;
 #ifdef NONLINEAR
-  delta_radius= (float)eepromread(EE_hor_radius)   * 0.001;
-  delta_diagonal_rod= (float)eepromread(EE_rod_length)   * 0.001;
+  delta_radius = (float)eepromread(EE_hor_radius)   * 0.001;
+  delta_diagonal_rod = (float)eepromread(EE_rod_length)   * 0.001;
 #endif
-  axisofs[0]=(float)eepromread(EE_towera_ofs)   * 0.001;
-  axisofs[1]=(float)eepromread(EE_towerb_ofs)   * 0.001;
-  axisofs[2]=(float)eepromread(EE_towerc_ofs)   * 0.001;
+  axisofs[0] = (float)eepromread(EE_towera_ofs)   * 0.001;
+  axisofs[1] = (float)eepromread(EE_towerb_ofs)   * 0.001;
+  axisofs[2] = (float)eepromread(EE_towerc_ofs)   * 0.001;
 
 #ifdef USE_BACKLASH
   xback[0] = eepromread(EE_xbacklash);
@@ -100,25 +107,34 @@ void reload_eeprom() {
 
 #endif
 
+retract_in=(float)eepromread(EE_retract_in)   * 0.001;
+retract_out=(float)eepromread(EE_retract_out)   * 0.001;
+retract_in_f=(float)eepromread(EE_retract_in_f)   * 0.001;
+retract_out_f=(float)eepromread(EE_retract_out_f)   * 0.001;
+
 #ifdef WIFISERVER
-  eepromreadstring(380,wifi_telebot);
-  eepromreadstring(400,wifi_ap);
-  eepromreadstring(450,wifi_pwd);
-  eepromreadstring(470,wifi_dns);
-#endif  
-  
+  eepromreadstring(380, wifi_telebot,20);
+  eepromreadstring(400, wifi_ap,50);
+  eepromreadstring(450, wifi_pwd,20);
+  eepromreadstring(470, wifi_dns,30);
+#endif
+
   preparecalc();
 }
 
 void reset_eeprom() {
 #ifndef SAVE_RESETMOTION
   reset_motion();
+  retract_in=1;
+  retract_out=1;
+  retract_in_f=6;
+  retract_out_f=4;
   eepromwrite(EE_xhome, ff(ax_home[0]));
   eepromwrite(EE_yhome, ff(ax_home[1]));
   eepromwrite(EE_zhome, ff(ax_home[2]));
 
   eepromwrite(EE_accelx, fi(accel));
-  
+
   eepromwrite(EE_mvaccelx, fi(mvaccel));
 
   eepromwrite(EE_max_x_feedrate, fi(maxf[0]));
@@ -131,16 +147,16 @@ void reset_eeprom() {
   eepromwrite(EE_zstepmm, ff(stepmmx[2]));
   eepromwrite(EE_estepmm, ff(stepmmx[3]));
 
-  eepromwrite(EE_homing,homingspeed);
-  eepromwrite(EE_jerk,xyjerk);
-  eepromwrite(EE_xyscale,ff(xyscale));
+  eepromwrite(EE_homing, homingspeed);
+  eepromwrite(EE_jerk, xyjerk);
+  eepromwrite(EE_xyscale, ff(xyscale));
 #ifdef NONLINEAR
-  eepromwrite(EE_hor_radius,ff(delta_radius));
-  eepromwrite(EE_rod_length,ff(delta_diagonal_rod));
+  eepromwrite(EE_hor_radius, ff(delta_radius));
+  eepromwrite(EE_rod_length, ff(delta_diagonal_rod));
 #endif
-  eepromwrite(EE_towera_ofs,ff(axisofs[0]));
-  eepromwrite(EE_towerb_ofs,ff(axisofs[1]));
-  eepromwrite(EE_towerc_ofs,ff(axisofs[2]));
+  eepromwrite(EE_towera_ofs, ff(axisofs[0]));
+  eepromwrite(EE_towerb_ofs, ff(axisofs[1]));
+  eepromwrite(EE_towerc_ofs, ff(axisofs[2]));
 
 #ifdef USE_BACKLASH
   eepromwrite(EE_xbacklash, fi(xback[0]));
@@ -149,7 +165,7 @@ void reset_eeprom() {
   eepromwrite(EE_ebacklash, fi(xback[3]));
 #endif
   eepromcommit;
-#endif  
+#endif
 }
 #else
 void reload_eeprom() {}

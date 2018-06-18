@@ -130,7 +130,7 @@ int WindowSize = 1500;
 unsigned long windowStartTime;
 void temp_loop(uint32_t cm)
 {
-  if (cm-next_temp>TEMPTICK) {
+  if (cm - next_temp > TEMPTICK) {
     next_temp = cm; // each 0.5 second
     int v = 0;
 #if defined( __AVR__) && defined(ISRTEMP)
@@ -142,13 +142,13 @@ void temp_loop(uint32_t cm)
     //zprintf(PSTR("%d\n"),fi(v));
 #endif
 #ifdef ESP8266
-    
+
     //v = v * 3.3 + 100; //200K resistor
-    v = v * 0.33 + 115; //22K resistor
-    
+    v = v * 1 + 120; //22K resistor
+
 #endif
 
-    ctemp = (ctemp*2 + v * 6) / 8; // averaging 
+    ctemp = (ctemp * 2 + v * 6) / 8; // averaging
     Input =  read_temp(ctemp);
 #ifdef fan_pin
     if ((Input > 80) && (fan_val < 50)) setfan_val(255);
@@ -169,13 +169,13 @@ void temp_loop(uint32_t cm)
       { //time to shift the Relay Window
         windowStartTime += WindowSize;
       }
-      if (Output*4 > now - windowStartTime) digitalWrite(heater_pin, HIGH);
+      if (Output * 4 > now - windowStartTime) digitalWrite(heater_pin, HIGH);
       else digitalWrite(heater_pin, LOW);
-      //zprintf(PSTR("OUT:%d %W:%d\n"),fi(Output),fi(now-windowStartTime)); 
-      #warning USING BANG BANG HEATER
+      //zprintf(PSTR("OUT:%d %W:%d\n"),fi(Output),fi(now-windowStartTime));
+#warning USING BANG BANG HEATER
 #else
       analogWrite(heater_pin, Output * 4);
-      #warning USING PWM HEATER
+#warning USING PWM HEATER
 #endif
 
 #elif defined __ARM__

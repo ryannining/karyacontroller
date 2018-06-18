@@ -88,9 +88,12 @@ void demoSD()
 decfloat read_digit;
 int sdcardok = 0;
 int waitforline = 0;
-char g_str[40];
-int g_str_c = 0;
+// g_str can hold upto 1024 char on ARM and 128 on avr
+// to receive laser raster bitmap
+char g_str[g_str_len];
 
+int g_str_c = 0;
+int rasterlen=0;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
@@ -340,8 +343,10 @@ uint8_t gcode_parse_char(uint8_t c)
       g_str[g_str_c] = 0;
       next_target.read_string = 0;
     } else {
-      g_str[g_str_c] = c;
-      g_str_c++;
+      if (g_str_c<g_str_len-1){
+        g_str[g_str_c] = c;
+        g_str_c++;
+      }
     }
     //next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
   }
@@ -421,12 +426,13 @@ void temp_wait(void)
 
 #ifdef heater_pin
   wait_for_temp = 1;
-  int c = 0;
+  uint32_t c = millis();
   while (wait_for_temp && !temp_achieved()) {
     domotionloop
     servo_loop();
-    if (c++ > 20000) {
-      c = 0;
+    //report each second
+    if (millis()-c>1000) {
+      c = millis();
       zprintf(PSTR("T:%f\n"), ff(Input));
       //zprintf(PSTR("Heating\n"));
     }
@@ -504,6 +510,7 @@ void process_gcode_command()
         //?
         //? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
         //?
+        laserOn = 0;
         enqueue(&next_target, 1);
         break;
 
@@ -519,8 +526,8 @@ void process_gcode_command()
 
         // thread S parameter as value of the laser, in 3D printer, donot use S in G1 !!
         if (next_target.seen_S) {
-          //laserOn = next_target.S > 0;
-          //constantlaserVal = next_target.S;
+          laserOn = next_target.S > 0;
+          constantlaserVal = next_target.S;
         }
         enqueue(&next_target, 0);
         break;
@@ -547,7 +554,7 @@ void process_gcode_command()
         //?
         //? In this case sit still doing nothing for 200 milliseconds.  During delays the state of the machine (for example the temperatures of its extruders) will still be preserved and controlled.
         //?
-        queue_wait();
+        waitbufferempty();
         // delay
         if (next_target.seen_P) {
           for (; next_target.P > 0; next_target.P--) {
@@ -589,26 +596,30 @@ void process_gcode_command()
         */
         break;
 #endif
-      case 7: // baby step in S in milimeter
-        int nstep;
-        /*if (next_target.seen_X) move_motor(0, sx[0], next_target.target.axis[X] * stepmmx[0]);
-          if (next_target.seen_Y) move_motor(1, sx[1], next_target.target.axis[Y] * stepmmx[1]);
-          if (next_target.seen_Z) move_motor(2, sx[2], next_target.target.axis[Z] * stepmmx[2]);
-          if (next_target.seen_S) {
-          move_motor(0, sx[0], next_target.S * stepmmx[0]);
-          move_motor(1, sx[1], next_target.S * stepmmx[1]);
-          move_motor(2, sx[2], next_target.S * stepmmx[2]);
-          }
+      case 7: // raster gcode G7 Sdatalength [data]  data itself is a-z
+        // if rasterlen != 0 then it automatically enable the G1 using raster data.
+        // use the E coordinate as the raster coordinate 
+        // so its need to make sure the E begin from 0 if necessary by using G92 E0
+        // then call G1 X100 E1000 will raster the Laser Intensity using raster data on E coordinate
+        // before change the raster data, need to cal the G4 to wait empty the move buffer
 
-          float bx,by,bz;
-          bx=cx1;
-          by=cy1;
-          bz=cz1;
-          if (next_target.seen_Z) addmove(50,bx,by,next_target.Z+bz,ce01);
-          cx1=bx;
-          cy1=by;
-          cz1=bz;*/
-
+        // example code :
+        // G92 E0
+        // G7 S13 [aaazzzaaazzaz]
+        // G0 Y0
+        // G1 X100 E13
+        // G0 Y0.2
+        // G1 X0 E0
+        // G4 
+        // G7 S13 [zzaaazzaazzaa]
+        // G0 Y0.4
+        // G1 X100 E13
+        // G0 Y0.6
+        // G1 X0 E0
+        // G4 
+        rasterlen=next_target.S; 
+        
+        
         break;
       case 28:
         homing();
@@ -779,10 +790,10 @@ void process_gcode_command()
           delay(100);
           //pinMode(laser_pin, OUTPUT);
           zprintf(PSTR("PULSE LASER\n"));
-          digitalWrite(laser_pin, HIGH);
+          digitalWrite(laser_pin, LASERON);
           delay(next_target.P);
         }
-        digitalWrite(laser_pin, LOW);
+        digitalWrite(laser_pin, !LASERON);
 
 #endif
         break;
@@ -939,6 +950,12 @@ void process_gcode_command()
         zprintf(PSTR("EPR:3 169 %f Yofs\n"), ff(axisofs[1]));
         zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
 #endif
+
+        zprintf(PSTR("EPR:3 300 %f Retract In\n"), ff(retract_in));
+        zprintf(PSTR("EPR:3 304 %f In F\n"), ff(retract_in_f));
+        zprintf(PSTR("EPR:3 308 %f Out\n"), ff(retract_out));
+        zprintf(PSTR("EPR:3 312 %f Out F\n"), ff(retract_out_f));
+
 #ifdef USE_BACKLASH
         zprintf(PSTR("EPR:3 80 %f Xbcklsh\n"), fi(xback[0]));
         zprintf(PSTR("EPR:3 84 %f Y\n"), fi(xback[1]));
@@ -951,6 +968,10 @@ void process_gcode_command()
       // show wifi
       case 504:
         zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
+      case 505:
+        extern void setupwifi(int num);
+        setupwifi(1);
+        //zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
         break;
 #endif
 #ifdef USE_EEPROM
@@ -994,6 +1015,11 @@ void process_gcode_command()
               eprom_wr(165, EE_towera_ofs, S_F);
               eprom_wr(169, EE_towerb_ofs, S_F);
               eprom_wr(173, EE_towerc_ofs, S_F);
+              
+              eprom_wr(300, EE_retract_in, S_F);
+              eprom_wr(304, EE_retract_in_f, S_F);
+              eprom_wr(308, EE_retract_out, S_F);
+              eprom_wr(312, EE_retract_out_f, S_F);
 
 #ifdef USE_BACKLASH
               eprom_wr(80, EE_xbacklash, S_F);
@@ -1028,7 +1054,13 @@ void process_gcode_command()
         MLOOP
 
         break;
-
+      case 290: // m290 baby step in X Y Z E in milimeter
+        if (next_target.seen_X) babystep[0]=next_target.target.axis[X] * 1000;
+        if (next_target.seen_Y) babystep[1]=next_target.target.axis[Y] * 1000;
+        if (next_target.seen_Z) babystep[2]=next_target.target.axis[Z] * 1000;
+        if (next_target.seen_E) babystep[3]=next_target.target.axis[E] * 1000;
+        break;
+      
       case 221:
         //? --- M220: Set speed factor override percentage ---
         if ( ! next_target.seen_S)

@@ -132,19 +132,33 @@ const char BotToken[] = "540208354:AAEEbjIZGymE5Hfifcn9lVfVfCEkUQ2BCeg";
 WiFiClientSecure net_ssl;
 TelegramBot bot (BotToken, net_ssl);
 
-void setupwifi() {
+IPAddress ip ;
+void setupwifi(int num) {
   NOINTS
-  xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin ( wifi_ap, wifi_pwd);
-  int cntr = 20;
-  while ( WiFi.status() != WL_CONNECTED ) {
-    delay ( 500 );
-    cntr--;
-    if (!cntr)break;
-    xprintf(PSTR("."));
+  if (num) {
+    xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
+    return;
+    WiFi.disconnect();
+    server.close();
+    //    webSocket.end();
+#ifdef TELEGRAM
+    //    bot.end();
+#endif
   }
-  IPAddress ip ;
+  char c = wifi_ap[0];
+  if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+
+    xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin ( wifi_ap, wifi_pwd);
+    int cntr = 20;
+    while ( WiFi.status() != WL_CONNECTED ) {
+      delay ( 500 );
+      cntr--;
+      if (!cntr)break;
+      xprintf(PSTR("."));
+    }
+  }
   if (WiFi.status() == WL_CONNECTED) {
     ip = WiFi.localIP();
     xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
@@ -154,13 +168,15 @@ void setupwifi() {
     char buf[46];
     sprintf(buf, "CNC:%s http://%d.%d.%d.%d", wifi_dns, ip[0], ip[1], ip[2], ip[3] );
 
-    if (strlen(wifi_telebot))bot.sendMessage(wifi_telebot, buf);
+    //if (strlen(wifi_telebot))
+    bot.sendMessage(wifi_telebot, buf);
 #endif
     xprintf(PSTR("HTTP server started\n"));
 
   } else {
     WiFi.mode(WIFI_AP);
     const char *password = "123456789";
+    //wifi_dns="CNCESP";
     WiFi.softAP(wifi_dns, password);
     ip = WiFi.softAPIP();
     xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), wifi_dns, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
@@ -195,7 +211,7 @@ void setupwifi() {
 
 
 
-  SPIFFS.begin();
+  if (!num)SPIFFS.begin();
   INTS
 }
 
@@ -214,6 +230,7 @@ void wifi_loop() {
 }
 #else
 #define wifi_loop()
+void setupwifi(int num) {}
 #endif
 
 int line_done, ack_waiting = 0;
@@ -546,7 +563,7 @@ void setupother() {
   timer_init();
 #endif
 #ifdef WIFISERVER
-  setupwifi();
+  setupwifi(0);
 #endif
 
 
