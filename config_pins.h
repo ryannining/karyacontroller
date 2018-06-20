@@ -5,6 +5,8 @@
 */
 
 #include "motion.h"
+#define THEISR
+
 #ifndef ISPC
 #include<arduino.h>
 
@@ -19,7 +21,6 @@
 #define MOTOR_1_DIR -1 // 1: normal -1:inverted
 #define MOTOR_2_DIR -1 // 1: normal -1:inverted
 #define MOTOR_3_DIR 1 // 1: normal -1:inverted
-#define THEISR
 #define LASERON HIGH
 
 // ========== AVR ================================================
@@ -105,7 +106,7 @@
 #define TELEGRAM
 // ==========================================================
 
-#define INTERPOLATEDELAY  // slower 4-8us
+//#define INTERPOLATEDELAY  // slower 4-8us
 
 #ifdef powerpin
 #define POWERFAILURE
@@ -200,18 +201,18 @@
 #define EOFFSET 0
 
 #define XYJERK 22
-#define XACCELL 40
-#define XMOVEACCELL 40
+#define XACCELL 80
+#define XMOVEACCELL 300
 
 #define XMAXFEEDRATE 240
 #define YMAXFEEDRATE 240
 #define ZMAXFEEDRATE 240
 #define E0MAXFEEDRATE 10
 
-#define XSTEPPERMM 10//131//178
-#define YSTEPPERMM 10//175//125
-#define ZSTEPPERMM 10//1020//1020 //420
-#define E0STEPPERMM 10//340//380
+#define XSTEPPERMM 50//131//178
+#define YSTEPPERMM 50//175//125
+#define ZSTEPPERMM 50//1020//1020 //420
+#define E0STEPPERMM 50//340//380
 
 #ifndef NUMBUFFER
 #define NUMBUFFER 20

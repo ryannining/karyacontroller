@@ -104,8 +104,8 @@ float F_SCALE = 1;
 int8_t RUNNING = 1;
 int8_t PAUSE = 0;
 float stepmmx[4];
-float retract_in,retract_out;
-float retract_in_f,retract_out_f;
+float retract_in, retract_out;
+float retract_in_f, retract_out_f;
 float cx1, cy1, cz1, ce01;
 tmove move[NUMBUFFER];
 
@@ -302,6 +302,7 @@ void prepareramp(int32_t bpos)
 #define stepmm  Cstepmmx(faxis)
 
   float stepa = stepmm / (m->ac);
+  float stepb = stepmm / (accel); // deceleration always use the feed accell
   CORELOOP
   if (bpos != (head)) {
     next = &move[nextbuff(bpos)];
@@ -309,7 +310,7 @@ void prepareramp(int32_t bpos)
   } else fe = 0;
   rampup = rampdown = 0;
   ramplenq(rampup, m->fs, m->fn, stepa);
-  ramplenq(rampdown, fe, m->fn, stepa);
+  ramplenq(rampdown, fe, m->fn, stepb);
 
 #ifdef preprampdebug
   zprintf(PSTR("\n========1========\nRU:%d Rd:%d Ts:%d\n"), rampup, rampdown, ytotalstep);
@@ -361,14 +362,15 @@ void backforward()
 
   tmove *next, *curr;
   curr = &move[h];
-  curr->fs = fmin(curr->maxs, (curr->ac * curr->dis));
+  curr->fs = fmin(curr->maxs, (accel * curr->dis));
   h = prevbuff(h);
 
   while (h != tailok) {
     next = curr;
     curr = &move[h];
     if (curr->fs != curr->maxs) {
-      float fs = next->fs + (curr->ac * curr->dis);
+      //float fs = next->fs + (curr->ac * curr->dis);
+      float fs = next->fs + (accel * curr->dis);
       //zprintf(PSTR("back. %d\n"),fs);
       if (fs < curr->maxs) {
         curr->fs = fs;
@@ -554,10 +556,10 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   curr = &move[nextbuff(head)];
   curr->status = g0 ? 8 : 0; // reset status:0 planstatus:0 g0:g0
 
-  cx1-=babystep[0]*0.001;
-  cy1-=babystep[1]*0.001;
-  cz1-=babystep[2]*0.001;
-  ce01-=babystep[3]*0.001;
+  cx1 -= babystep[0] * 0.001;
+  cy1 -= babystep[1] * 0.001;
+  cz1 -= babystep[2] * 0.001;
+  ce01 -= babystep[3] * 0.001;
 #ifdef SHARE_EZ
   if (cz2 != cz1) ce02 = ce01; // zeroing the E movement if Z is moving and ZE share direction pin
 #endif
@@ -572,7 +574,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   curr->col = 2 + (head % 4) * 4;
 #endif
   // this x2 is local
-  
+
   mmdis[0] = cx2 - cx1;
   mmdis[1] = cy2 - cy1;
   mmdis[2] = cz2 - cz1;
@@ -594,7 +596,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     x2[3] = (ce02 - ce01) * 32;
   else
     x2[3] = (ce02 - ce01) * Cstepmmx(3)  * e_multiplier + babystep[3];
-  
+
 #if defined( DRIVE_COREXY)
   // 2 = z axis + xy H-gantry (x_motor = x+y, y_motor = y-x)
   // borrow cx1,cy1 for calculation
@@ -622,19 +624,19 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   // nothing to do
 #endif
   // retract conversion
-  if (cf<=1){
+  if (cf <= 1) {
     // retract in
-    if (x2[3]<0){
-      x2[3]=-retract_in*Cstepmmx(3);    
-      cf=retract_in_f;    
+    if (x2[3] < 0) {
+      x2[3] = -retract_in * Cstepmmx(3);
+      cf = retract_in_f;
     }
     // retract in
-    if (x2[3]>0){
-      x2[3]=retract_out*Cstepmmx(3);
-      cf=retract_out_f;    
+    if (x2[3] > 0) {
+      x2[3] = retract_out * Cstepmmx(3);
+      cf = retract_out_f;
     }
   }
-  
+
   // if no axis movement then dont multiply by multiplier
   if (g0 || ishoming || ((x2[0] == 0) && (x2[1] == 0) && (x2[2] == 0)) ) {} else cf *= f_multiplier;
 #ifdef __AVR__
@@ -867,7 +869,7 @@ void dographics()
     return;
   }
   // this might be wrong because the last cmd maybe is from previous segment which have different step/mm
-  f = stepdiv / cmdly;
+  float f = stepdiv / cmdly;
   //f = sqrt(ta);
   //f =  sqrt(ta)/stepdiv2;
   tick = tick + cmdly; //1.0/timescale;
@@ -999,8 +1001,8 @@ static THEISR void decodecmd()
     cmdly = DIRDELAY >> DSCALE;
 
     // if rasterlen then laser value get from raster data
-    if (rasterlen){
-      cmdlaserval=10*(g_str[e_ctr>>5]-'a');
+    if (rasterlen) {
+      cmdlaserval = 10 * (g_str[e_ctr >> 5] - 'a');
     } else cmdlaserval = (cmd >> 9) & 255;
     //zprintf(PSTR("int %d\n"), fi(cmdlaserval));
   }
@@ -1040,7 +1042,7 @@ static THEISR void decodecmd()
 }
 
 uint32_t mc, dmc, cmctr;
-int e_dir=0,e_ctr=0;
+int e_dir = 0, e_ctr = 0;
 
 void THEISR coreloopm()
 {
@@ -1071,11 +1073,11 @@ void THEISR coreloopm()
     if (cmcmd) { // 1: move
       if (cmbit & 8) {
         ectstep++;
-        if (rasterlen){
-          e_ctr+=e_dir;
-          cmdlaserval=9*(g_str[e_ctr>>5]-'a');
+        if (rasterlen) {
+          e_ctr += e_dir;
+          cmdlaserval = 9 * (g_str[e_ctr >> 5] - 'a');
         }
-        
+
         motor_3_STEP();
       }
       if (cmbit & 1) {
@@ -1121,12 +1123,15 @@ void THEISR coreloopm()
       }
 
     } else { // 0: set dir
-      
-      e_dir=0;
+
+      e_dir = 0;
       if (cmbit & 2) motor_0_DIR((cmbit & 1) ? -1 : 1);
       if (cmbit & 8) motor_1_DIR((cmbit & 4) ? -1 : 1);
       if (cmbit & 32) motor_2_DIR((cmbit & 16) ? -1 : 1);
-      if (cmbit & 128) {e_dir=(cmbit & 64) ? -1 : 1;motor_3_DIR(e_dir);}
+      if (cmbit & 128) {
+        e_dir = (cmbit & 64) ? -1 : 1;
+        motor_3_DIR(e_dir);
+      }
 
       pinCommit();
 
@@ -1152,6 +1157,8 @@ void THEISR coreloopm()
 int ldelay = 0;
 static void pushcmd()
 {
+  // no more data if endstop hit
+  if (checkendstop && (endstopstatus < 0))return;
   // wait until a buffer freed
 
   while (cmdfull) {
@@ -1346,11 +1353,12 @@ UPDATEDELAY:
 #endif
         }
         endstopstatus = 0;
+        checkendstop = 0;
         m->status = 0;
         mctr = 0;
         m = 0;
         head = tail;
-        //cmhead=cmtail;
+        cmhead = cmtail;
         RUNNING = 1;
         return 0;
       }
@@ -1711,7 +1719,7 @@ void docheckendstop()
   for (int d = 0; d < 3; d++) {
     if (ENDCHECK dread(limit_pin))nc++;
   }
-  if (nc > 1)endstopstatus = -1;
+  if (nc > 2)endstopstatus = -1;
 #endif
 
 #else
@@ -1789,12 +1797,11 @@ void homing()
 #define xcheckendstop(e,F) {\
     xx[0] = xx[1] = xx[2] = 0; \
     xx[e] = tx[e]; \
-    addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
     checkendstop = 1; \
+    addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
     waitbufferempty(); \
     xx[e] =  - stx[e] + axisofs[e]; \
     addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
-    checkendstop = 0; \
     waitbufferempty(); \
   }
   for (int e = 0; e < NUMAXIS; e++) {
@@ -1803,8 +1810,8 @@ void homing()
   for (int e = 0; e < NUMAXIS; e++) {
     if (vx[e]) {
       // check endstop again fast
-      xcheckendstop(e, 25);
-      xcheckendstop(e, 15);
+      xcheckendstop(e, 5);
+      xcheckendstop(e, 1);
     }
   }
   checkendstop = ce01 = 0;
@@ -1847,7 +1854,7 @@ void waitbufferempty()
   MEMORY_BARRIER()
   LOOP_IN(2)
   domotionloop
-  while ((head != tail) || m || (cmhead != cmtail)) { //(tail == otail) //
+  while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus<0)) { //(tail == otail) //
 
     domotionloop
     servo_loop();
@@ -1920,8 +1927,8 @@ void faildetected()
 */
 void init_pos()
 {
-  babystep[0]=babystep[1]=babystep[2]=babystep[3]=0;
-  e_ctr=ce01*32;   
+  babystep[0] = babystep[1] = babystep[2] = babystep[3] = 0;
+  e_ctr = ce01 * 32;
 
 }
 void initmotion()
