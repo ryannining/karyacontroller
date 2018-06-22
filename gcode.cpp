@@ -617,8 +617,8 @@ void process_gcode_command()
         // G0 Y0.6
         // G1 X0 E0
         // G4 
-        rasterlen=next_target.S; 
-        
+        rasterlen=g_str_c;//next_target.S; 
+        laste=-1;
         
         break;
       case 28:

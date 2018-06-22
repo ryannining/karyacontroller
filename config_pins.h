@@ -49,8 +49,8 @@
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
-#define BOARD_ST33DV1_STM32_3DPLEX
-//#define BOARD_ST33DV1_XYYZ_STM32
+//#define BOARD_ST33DV1_STM32_3DPLEX
+#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
@@ -201,16 +201,16 @@
 #define EOFFSET 0
 
 #define XYJERK 22
-#define XACCELL 80
-#define XMOVEACCELL 300
+#define XACCELL 1600
+#define XMOVEACCELL 1600
 
-#define XMAXFEEDRATE 240
-#define YMAXFEEDRATE 240
-#define ZMAXFEEDRATE 240
-#define E0MAXFEEDRATE 10
+#define XMAXFEEDRATE 220
+#define YMAXFEEDRATE 220
+#define ZMAXFEEDRATE 100
+#define E0MAXFEEDRATE 100
 
-#define XSTEPPERMM 50//131//178
-#define YSTEPPERMM 50//175//125
+#define XSTEPPERMM 105.090//50//131//178
+#define YSTEPPERMM 105.090//50//175//125
 #define ZSTEPPERMM 50//1020//1020 //420
 #define E0STEPPERMM 50//340//380
 
@@ -218,9 +218,9 @@
 #define NUMBUFFER 20
 #endif
 
-#define XMAX 1200
-#define YMAX 1800
-#define ZMAX 20
+#define XMAX 1
+#define YMAX 1
+#define ZMAX 1
 
 #define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
 #define MOTOR_Y_BACKLASH 0

@@ -310,7 +310,7 @@ void prepareramp(int32_t bpos)
   } else fe = 0;
   rampup = rampdown = 0;
   ramplenq(rampup, m->fs, m->fn, stepa);
-  ramplenq(rampdown, fe, m->fn, stepb);
+  ramplenq(rampdown, fe, m->fn, stepa);
 
 #ifdef preprampdebug
   zprintf(PSTR("\n========1========\nRU:%d Rd:%d Ts:%d\n"), rampup, rampdown, ytotalstep);
@@ -362,15 +362,15 @@ void backforward()
 
   tmove *next, *curr;
   curr = &move[h];
-  curr->fs = fmin(curr->maxs, (accel * curr->dis));
+  curr->fs = fmin(curr->maxs, (curr->ac * curr->dis));
   h = prevbuff(h);
 
   while (h != tailok) {
     next = curr;
     curr = &move[h];
     if (curr->fs != curr->maxs) {
-      //float fs = next->fs + (curr->ac * curr->dis);
-      float fs = next->fs + (accel * curr->dis);
+      float fs = next->fs + (curr->ac * curr->dis);
+      //float fs = next->fs + (accel * curr->dis);
       //zprintf(PSTR("back. %d\n"),fs);
       if (fs < curr->maxs) {
         curr->fs = fs;
@@ -436,6 +436,7 @@ void planner(int32_t h)
     }
   }
   // update all speed and square it up, after this all m->f are squared !
+  //zprintf (PSTR("Fratio :%f\n"), ff(scale));
 #ifdef output_enable
   zprintf (PSTR("Fratio :%f\n"), ff(scale));
 #endif
@@ -591,10 +592,11 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   x2[2] = (cz2 - cz1) * Cstepmmx(2);
 #endif
   CORELOOP
-  // if rasterlen then step/mm is set to 32 to easily get the original position bu shift register
-  if (rasterlen)
-    x2[3] = (ce02 - ce01) * 32;
-  else
+  // if rasterlen then step/mm is set to 32 to easily get the original position by shift register
+  if (rasterlen) {
+    x2[3] = (int32_t)(ce02*8) - (int32_t)(ce01 * 8);
+    x2[3]+=x2[3]>0?-4:4;
+  } else
     x2[3] = (ce02 - ce01) * Cstepmmx(3)  * e_multiplier + babystep[3];
 
 #if defined( DRIVE_COREXY)
@@ -617,7 +619,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     // when homing the z will threat as normal cartesian Z that can be homing normally.
   } else {
     //
-    x2[3] = x2[2];
+    //x2[3] = x2[2];
     x2[2] = x2[1];
   }
 #elif defined(NONLINEAR)
@@ -979,7 +981,20 @@ static int8_t mo = 0;
 static volatile int nextok = 0, laserwason = 0;
 
 int sendwait = 0;
+int32_t laste = -1;
+static THEISR void readpixel()
+{
+  if (laste != (e_ctr >> 3)) {
+    laste = e_ctr >> 3;
+    switch (g_str[laste]){
+      case 'a':cmdlaserval=0;break;
+      case 'z':cmdlaserval=255;break;      
+      default:cmdlaserval = (327 * (g_str[laste] - 'a')) >> 3;
+    }
+  }
+}
 
+int maincmdlaserval=0; 
 static THEISR void decodecmd()
 {
   if (cmdempty) {
@@ -1001,11 +1016,20 @@ static THEISR void decodecmd()
     cmdly = DIRDELAY >> DSCALE;
 
     // if rasterlen then laser value get from raster data
-    if (rasterlen) {
-      cmdlaserval = 10 * (g_str[e_ctr >> 5] - 'a');
-    } else cmdlaserval = (cmd >> 9) & 255;
+    cmdlaserval=maincmdlaserval = (cmd >> 9) & 255;
+
+    
+    
+    //else zprintf(PSTR("\nR"));
+    //zprintf(PSTR("%d\n"), fi(cmdlaserval));
     //zprintf(PSTR("int %d\n"), fi(cmdlaserval));
   }
+  if (maincmdlaserval && rasterlen) {
+    readpixel();
+    //zprintf(PSTR("%d\n"), fi(e_ctr));
+  };
+  //zprintf(PSTR("%d"), fi(cmdlaserval));
+
   /*Serial.print("X ");
     Serial.print(cmd);
     Serial.print(":");
@@ -1019,22 +1043,19 @@ static THEISR void decodecmd()
   timer_set(cmdly);
 #ifdef LASERMODE
   if (Setpoint == 0) {
-    if (cmcmd) {
-      //zprintf(PSTR("%d\n"), fi(cmdlaserval));
-      laserwason = cmdlaserval > 0;
-      if (laserwason) {
-        // if laserval is 255 then we know its the full power / cutting
-        if ((cmdlaserval < 255)) {
+    laserwason = cmdlaserval > 0;
+    if (cmcmd && laserwason) {
+      // if laserval is 255 then we know its the full power / cutting
+      if ((cmdlaserval < 255)) {
 
-          int las = cmdlaserval * (CLOCKCONSTANT / 1000000);
-          //zprintf(PSTR("int %d\n"), fi(las));
-          //delayMicroseconds(las);
-          //digitalWrite(laser_pin,!LASERON);
-          //timer_set(cmdly-las*(CLOCKCONSTANT / 1000000));
-          timer_set2(cmdly, las);
-        } else digitalWrite(laser_pin, LASERON);
+        int las = cmdlaserval * (CLOCKCONSTANT / 1000000);
+        //zprintf(PSTR("int %d\n"), fi(las));
+        //delayMicroseconds(las);
+        //digitalWrite(laser_pin,!LASERON);
+        //timer_set(cmdly-las*(CLOCKCONSTANT / 1000000));
+        timer_set2(cmdly, las);
+      } else digitalWrite(laser_pin, LASERON);
 
-      };
     } else digitalWrite(laser_pin, !LASERON);
   }
 #endif
@@ -1042,7 +1063,8 @@ static THEISR void decodecmd()
 }
 
 uint32_t mc, dmc, cmctr;
-int e_dir = 0, e_ctr = 0;
+int e_dir = 0;
+int32_t e_ctr = 0;
 
 void THEISR coreloopm()
 {
@@ -1073,10 +1095,10 @@ void THEISR coreloopm()
     if (cmcmd) { // 1: move
       if (cmbit & 8) {
         ectstep++;
-        if (rasterlen) {
-          e_ctr += e_dir;
-          cmdlaserval = 9 * (g_str[e_ctr >> 5] - 'a');
-        }
+        //if (rasterlen) {
+          e_ctr -= e_dir;
+          //zprintf(PSTR("%d "), fi(e_ctr));
+        //}
 
         motor_3_STEP();
       }
@@ -1131,6 +1153,7 @@ void THEISR coreloopm()
       if (cmbit & 128) {
         e_dir = (cmbit & 64) ? -1 : 1;
         motor_3_DIR(e_dir);
+        //zprintf(PSTR("E:%d\n"), fi(e_dir));
       }
 
       pinCommit();
@@ -1810,8 +1833,8 @@ void homing()
   for (int e = 0; e < NUMAXIS; e++) {
     if (vx[e]) {
       // check endstop again fast
-      xcheckendstop(e, 5);
-      xcheckendstop(e, 1);
+      xcheckendstop(e, 6);
+      xcheckendstop(e, 3);
     }
   }
   checkendstop = ce01 = 0;
@@ -1854,7 +1877,7 @@ void waitbufferempty()
   MEMORY_BARRIER()
   LOOP_IN(2)
   domotionloop
-  while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus<0)) { //(tail == otail) //
+  while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0)) { //(tail == otail) //
 
     domotionloop
     servo_loop();
@@ -1928,7 +1951,8 @@ void faildetected()
 void init_pos()
 {
   babystep[0] = babystep[1] = babystep[2] = babystep[3] = 0;
-  e_ctr = ce01 * 32;
+  e_ctr = ce01 * 8;
+  laste = -1;
 
 }
 void initmotion()

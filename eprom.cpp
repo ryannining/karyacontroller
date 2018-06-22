@@ -158,6 +158,16 @@ void reset_eeprom() {
   eepromwrite(EE_towerb_ofs, ff(axisofs[1]));
   eepromwrite(EE_towerc_ofs, ff(axisofs[2]));
 
+  eepromwrite(EE_towera_ofs,0);
+  eepromwrite(EE_towerb_ofs,0);
+  eepromwrite(EE_towerc_ofs,0);
+
+  eepromwrite(EE_retract_in,0);
+  eepromwrite(EE_retract_out,0);
+  eepromwrite(EE_retract_in_f,10000);
+  eepromwrite(EE_retract_out_f,10000);
+
+
 #ifdef USE_BACKLASH
   eepromwrite(EE_xbacklash, fi(xback[0]));
   eepromwrite(EE_ybacklash, fi(xback[1]));
