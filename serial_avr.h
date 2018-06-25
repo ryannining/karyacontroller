@@ -8,7 +8,7 @@
 #if defined CORESERIAL
 
 #include <avr/interrupt.h>
-#include "arduino.h"
+#include "Arduino.h"
 #include "stdint.h"
                                     
 #define ASCII_XOFF  19

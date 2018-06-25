@@ -3,12 +3,14 @@
     AVR
   ============================================================================================
 */
+#ifndef CONFIG_PINS
+#define CONFIG_PINS
 
-#include "motion.h"
+#include "platform.h"
 #define THEISR
 
 #ifndef ISPC
-#include<arduino.h>
+#include<Arduino.h>
 
 //Known board in boards.h
 #define xenable -1
@@ -78,7 +80,7 @@
 //#define BOARD_ESP01CNC_V1
 #endif
 
-#include "boards.h"
+#include "myboards.h"
 #define USE_EEPROM
 
 #else
@@ -103,7 +105,7 @@
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
-#define TELEGRAM
+//#define TELEGRAM
 // ==========================================================
 
 //#define INTERPOLATEDELAY  // slower 4-8us
@@ -246,6 +248,7 @@
 
 */
 
+#ifndef KBOX_KEY1_R
 
 #define KBOX_KEY_CHECK(k)   case KBOX_KEY##k##_R : lkey = k;kdl=500;break;
 //#define KBOX_SHOW_VALUE
@@ -268,5 +271,7 @@
 #else // no controller
 //#define KBOX_DO_ACT
 #endif
+#endif // 
 
 #endif
+#endif // config_pins

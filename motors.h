@@ -5,7 +5,7 @@
 #define MOTOR_H
 #include "config_pins.h"
 #ifndef ISPC
-#include<arduino.h>
+#include<Arduino.h>
 #else
 #include <stdlib.h>
 #endif
@@ -19,7 +19,7 @@ static int8_t lsx[4] = {0, 0, 0, 0};
 
 
 #if defined(USEDIO) && defined(__AVR__)
-#include <DIO2.h>
+#include "DIO2.h"
 #define dwrite(pin,v) digitalWrite2(pin,v)
 #define dread(pin) digitalRead2(pin)
 #define pinmode(pin,m) pinMode2(pin,m)

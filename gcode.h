@@ -1,6 +1,6 @@
 #ifndef GCODE_H
 #define GCODE_H
-#include<stdint.h>
+#include <stdint.h>
 #include "motion.h"
 #include "config_pins.h"
 #define X 0

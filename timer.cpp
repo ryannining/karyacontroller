@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "config_pins.h"
 #include "common.h"
-#include "motion.h"
+#include "platform.h"
 
 
 #ifdef servo_pin
@@ -96,7 +96,7 @@ int somedelay(int32_t n)
 int dogfeed = 0;
 
 #ifndef ISPC
-#include<arduino.h>
+#include<Arduino.h>
 #define dogfeedevery 200 // loop
 // ESP8266 specific code here
 #else

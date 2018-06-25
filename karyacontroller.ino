@@ -3,7 +3,7 @@
 //#define timingG
 //#define echoserial
 
-
+#include "platform.h"
 #include "config_pins.h"
 #include "common.h"
 #include "gcode.h"
@@ -23,7 +23,9 @@
 #include <FS.h>   // Include the SPIFFS library
 #include <WebSocketsServer.h>
 
+#ifdef TELEGRAM
 #include <TelegramBot.h>
+#endif
 
 uint8_t wfhead = 0;
 uint8_t wftail = 0;
@@ -123,6 +125,7 @@ void wifiwr(uint8_t s) {
   }
 }
 
+#ifdef TELEGRAM
 String token = "540208354:AAEEbjIZGymE5Hfifcn9lVfVfCEkUQ2BCeg"   ; // REPLACE myToken WITH YOUR TELEGRAM BOT TOKEN
 const char BotToken[] = "540208354:AAEEbjIZGymE5Hfifcn9lVfVfCEkUQ2BCeg";
 
@@ -131,6 +134,7 @@ const char BotToken[] = "540208354:AAEEbjIZGymE5Hfifcn9lVfVfCEkUQ2BCeg";
 
 WiFiClientSecure net_ssl;
 TelegramBot bot (BotToken, net_ssl);
+#endif
 
 IPAddress ip ;
 void setupwifi(int num) {

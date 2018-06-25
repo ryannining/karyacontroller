@@ -9,7 +9,7 @@
 
 
 #ifndef ISPC
-#include<arduino.h>
+#include<Arduino.h>
 #include "eprom.h"
 #else
 #include <graphics.h>

@@ -1,4 +1,4 @@
-#include "motion.h"
+#include "platform.h"
 #include "config_pins.h"
 #include "common.h"
 

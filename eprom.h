@@ -1,7 +1,7 @@
 #ifndef EEPROM_H
 #define EEPROM_H
 
-#include "motion.h"
+#include "platform.h"
 #include "common.h"
 
 
@@ -197,6 +197,13 @@ extern int32_t EEMEM EE_ebacklash;
 #ifdef POWERFAILURE
 extern int32_t EEMEM EE_lastline;
 #endif
+
+extern float EEMEM EE_retract_in;
+extern float EEMEM EE_retract_out;
+extern float EEMEM EE_retract_in_f;
+extern float EEMEM EE_retract_out_f;
+
+
 
 #endif
 

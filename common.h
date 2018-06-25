@@ -1,8 +1,9 @@
 #ifndef COMMON_H
 #define COMMON_H
+#include "platform.h"
 #include "motion.h"
 #include "config_pins.h"
-
+//#include "Arduino.h"
 
 #define BUFSIZE     64
 #define buf_canread(buffer)     ((buffer ## head - buffer ## tail ) & \
@@ -37,7 +38,7 @@ const int32_t PROGMEM powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 1000
 //#define output_enable
 // AVR specific code here
 //#include <avr/pgmspace.h>
-#include <arduino.h>
+#include <Arduino.h>
 
 
 #ifdef CORESERIAL

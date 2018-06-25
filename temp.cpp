@@ -3,7 +3,7 @@
 #include "temp.h"
 #include "timer.h"
 #include "motion.h"
-
+#include "pid.h"
 
 uint32_t next_temp;
 uint16_t ctemp = 0;
@@ -26,7 +26,7 @@ void setfan_val(int val) {
 
 
 #if defined(temp_pin) && !defined(ISPC)
-#include <PID_v1.h>
+#include "pid.h"
 
 
 

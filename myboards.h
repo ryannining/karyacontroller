@@ -1,3 +1,5 @@
+#include "platform.h"
+#include "config_pins.h"
 
 /*
 
@@ -1059,5 +1061,5 @@
 //#define SDCARD_CS D8
 #define NUMBUFFER 20
 #else
-#error No BOARD Defined !
+#warning No BOARD Defined !
 #endif

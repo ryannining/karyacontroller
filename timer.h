@@ -11,7 +11,7 @@ extern int feedthedog();
 #ifdef ISPC
 extern uint32_t micros();
 #else
-#ifdef ESP8266 && WIFISERVER
+#if defined(ESP8266) && defined(WIFISERVER)
 #define usetmr1
 #define TEMPTICK 100000
 #endif
@@ -21,12 +21,12 @@ extern uint32_t micros();
 #define timescaleLARGE timescale*TMSCALE
 
 
-extern volatile uint32_t ndelay,ndelay2;
+extern volatile uint32_t ndelay, ndelay2;
 
 extern uint32_t	next_step_time;
 extern void timer_init();
 extern  void timer_set(int32_t delay);
-extern  void timer_set2(int32_t delay,int32_t delayL);
+extern  void timer_set2(int32_t delay, int32_t delayL);
 extern void servo_loop();
 extern void servo_init();
 extern void servo_set(int us);

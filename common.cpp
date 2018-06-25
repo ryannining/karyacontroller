@@ -4,7 +4,7 @@
 
 #ifndef ISPC
 // functions for sending decimal
-#include<arduino.h>
+#include<Arduino.h>
 #include <stdarg.h>
 
 

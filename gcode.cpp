@@ -80,7 +80,7 @@ void demoSD()
 
 #include<stdint.h>
 #ifndef ISPC
-#include<arduino.h>
+#include<Arduino.h>
 #endif
 #include "eprom.h"
 /// crude crc macro
