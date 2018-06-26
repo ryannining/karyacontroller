@@ -786,15 +786,18 @@ void process_gcode_command()
         constantlaserVal = next_target.S;
         if (laserOn) zprintf(PSTR("LASERON\n"));
         if (next_target.seen_P) {
-          if (m)waitbufferempty();
+          waitbufferempty();
           delay(100);
-          //pinMode(laser_pin, OUTPUT);
+          pinMode(laser_pin, OUTPUT);
           zprintf(PSTR("PULSE LASER\n"));
           digitalWrite(laser_pin, LASERON);
           delay(next_target.P);
+          digitalWrite(laser_pin, !LASERON);
         }
-        digitalWrite(laser_pin, !LASERON);
-
+        if (!laserOn) {
+          waitbufferempty();
+          //digitalWrite(laser_pin, !LASERON);
+        }
 #endif
         break;
         /*      case 101:

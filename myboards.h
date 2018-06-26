@@ -487,16 +487,17 @@
 #define INVERTENDSTOP
 
 #define temp_pin PB1
-#define temp2_pin PB0
+//#define temp2_pin PB0
 #define heater_pin PA0
-#define heater2_pin PA1
-#define fan_pin PA2
+#define laser_pin PA0
+//#define heater2_pin PA1
+//#define fan_pin PA2
 
 #define SDCARD_CS SS
 #define KBOX_PIN PA3
 #define NUMBUFFER 20
 
-#define powerpin PC15
+//#define powerpin PC15
 /*
   ============================================================================================
      BOARD_ST3DV1

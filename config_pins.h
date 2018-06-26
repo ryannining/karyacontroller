@@ -51,8 +51,8 @@
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
-//#define BOARD_ST33DV1_STM32_3DPLEX
-#define BOARD_ST33DV1_XYYZ_STM32
+#define BOARD_ST33DV1_STM32_3DPLEX
+//#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel

@@ -1044,7 +1044,7 @@ static THEISR void decodecmd()
 #ifdef LASERMODE
   if (Setpoint == 0) {
     laserwason = cmdlaserval > 0;
-    if (cmcmd && laserwason) {
+    if (laserwason) {
       // if laserval is 255 then we know its the full power / cutting
       if ((cmdlaserval < 255)) {
 
@@ -1056,7 +1056,9 @@ static THEISR void decodecmd()
         timer_set2(cmdly, las);
       } else digitalWrite(laser_pin, LASERON);
 
-    } else digitalWrite(laser_pin, !LASERON);
+    } else {
+      digitalWrite(laser_pin, !LASERON);
+    }
   }
 #endif
 #endif
@@ -1602,7 +1604,7 @@ int32_t startmove()
       // send one time, is buffer is emspy after running
 #ifdef LASERMODE
       if (Setpoint == 0) {
-        digitalWrite(laser_pin, !LASERON);
+        //digitalWrite(laser_pin, !LASERON);
         laserwason = 0;
       }
 #endif
@@ -1884,6 +1886,7 @@ void waitbufferempty()
     MEMORY_BARRIER()
     //zprintf(PSTR("->%d\n"), fi(mctr));
   }
+  digitalWrite(laser_pin, !LASERON);
   LOOP_OUT(2)
 #ifdef output_enable
   zprintf(PSTR("Empty"));
