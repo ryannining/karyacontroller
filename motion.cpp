@@ -78,6 +78,7 @@
 #define Z 2
 #define E 3
 
+int vSUBPIXELMAX = 1;
 int constantlaserVal = 0;
 int laserOn = 0, isG0 = 1;
 int babystep[4] = {0, 0, 0, 0};
@@ -86,7 +87,7 @@ int xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
 float xyscale, f_multiplier, e_multiplier;
-int xyjerk, accel;
+int xyjerk, zjerk, accel;
 int i;
 int mvaccel;
 float ax_home[NUMAXIS];
@@ -154,8 +155,12 @@ void reset_motion()
 {
 
   // 650bytes code
+#ifdef SUBPIXELMAX
+  vSUBPIXELMAX = SUBPIXELMAX;
+#endif
   homingspeed = HOMINGSPEED;
   xyjerk = XYJERK;
+  zjerk = 1;
   xyscale = 1;
   ishoming = 0;
   cmctr = 0;
@@ -421,7 +426,6 @@ void planner(int32_t h)
   int32_t xtotalstep = abs(curr->dx[FASTAXIS(curr)]);
   memcpy(prevf, currf, sizeof prevf);
   currf[4] = curr->fn;
-
   for (int i = 0; i < NUMAXIS; i++) {
     //prevf[i] = currf[i];
     currf[i] = 0;
@@ -435,6 +439,8 @@ void planner(int32_t h)
       CORELOOP
     }
   }
+  float ujerk = xyjerk * scale;
+
   // update all speed and square it up, after this all m->f are squared !
   //zprintf (PSTR("Fratio :%f\n"), ff(scale));
 #ifdef output_enable
@@ -445,7 +451,7 @@ void planner(int32_t h)
 #ifdef output_enable
   zprintf (PSTR("FN :%d\n"), fi(curr->fn));
 #endif
-  //#define JERK1
+  //#define   1
 
 
   //if (bufflen() < 1) return;
@@ -467,9 +473,9 @@ void planner(int32_t h)
 #else
     int32_t fdx = currf[0] - prevf[0];
     int32_t fdy = currf[1] - prevf[1];
-    int32_t fdz = currf[2] - prevf[2];
+    int32_t fdz = abs(currf[2] - prevf[2]);
 
-    float jerk = sqrt(fdx * fdx + fdy * fdy + fdz * fdz);
+    float jerk = sqrt(fdx * fdx + fdy * fdy);
 #endif
     CORELOOP
     float factor = 1;
@@ -481,6 +487,11 @@ void planner(int32_t h)
         CORELOOP
       }
     }
+
+    if (fdz > 3) {
+      factor = fmin(factor, 3.0 / fdz);
+    }
+
 
     //if (jerk > XYJERK) max_f = XYJERK * max_f / jerk;
     //jerk = abs(fdz) ;
@@ -594,8 +605,8 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   CORELOOP
   // if rasterlen then step/mm is set to 32 to easily get the original position by shift register
   if (rasterlen) {
-    x2[3] = (int32_t)(ce02*8) - (int32_t)(ce01 * 8);
-    x2[3]+=x2[3]>0?-4:4;
+    x2[3] = (int32_t)(ce02 * 8) - (int32_t)(ce01 * 8);
+    x2[3] += x2[3] > 0 ? -4 : 4;
   } else
     x2[3] = (ce02 - ce01) * Cstepmmx(3)  * e_multiplier + babystep[3];
 
@@ -986,15 +997,15 @@ static THEISR void readpixel()
 {
   if (laste != (e_ctr >> 3)) {
     laste = e_ctr >> 3;
-    switch (g_str[laste]){
-      case 'a':cmdlaserval=0;break;
-      case 'z':cmdlaserval=255;break;      
-      default:cmdlaserval = (327 * (g_str[laste] - 'a')) >> 3;
+    switch (g_str[laste]) {
+      case 'a': cmdlaserval = 0; break;
+      case 'z': cmdlaserval = 255; break;
+      default: cmdlaserval = (327 * (g_str[laste] - 'a')) >> 3;
     }
   }
 }
 
-int maincmdlaserval=0; 
+int maincmdlaserval = 0;
 static THEISR void decodecmd()
 {
   if (cmdempty) {
@@ -1016,10 +1027,10 @@ static THEISR void decodecmd()
     cmdly = DIRDELAY >> DSCALE;
 
     // if rasterlen then laser value get from raster data
-    cmdlaserval=maincmdlaserval = (cmd >> 9) & 255;
+    cmdlaserval = maincmdlaserval = (cmd >> 9) & 255;
 
-    
-    
+
+
     //else zprintf(PSTR("\nR"));
     //zprintf(PSTR("%d\n"), fi(cmdlaserval));
     //zprintf(PSTR("int %d\n"), fi(cmdlaserval));
@@ -1098,8 +1109,8 @@ void THEISR coreloopm()
       if (cmbit & 8) {
         ectstep++;
         //if (rasterlen) {
-          e_ctr -= e_dir;
-          //zprintf(PSTR("%d "), fi(e_ctr));
+        e_ctr -= e_dir;
+        //zprintf(PSTR("%d "), fi(e_ctr));
         //}
 
         motor_3_STEP();
@@ -1556,12 +1567,14 @@ void calculate_delta_steps()
   dln = xInvSqrt((m->fn ));
 #ifdef SUBPIXELMAX
   int u;
-  for (u = 2; u <= (SUBPIXELMAX); u++) {
-    if (LOWESTDELAY * u > dln) {
-      break;
+  if (vSUBPIXELMAX > 1) {
+    for (u = 2; u <= (vSUBPIXELMAX); u++) {
+      if (LOWESTDELAY * u > dln) {
+        break;
+      }
     }
-  }
-  u--;
+    u--;
+  } else u = 1;
   subp = u;
   //zprintf(PSTR("Subpixel %d %d ->"),fi(u),fi(dln));
   if (u > 1) {

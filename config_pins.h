@@ -30,7 +30,7 @@
 //#define BOARD_CHCSHIELDV3
 //#define BOARD_TARANTHOLE
 //#define BOARD_SEMEDIYNANO
-//#define BOARD_NANONANO
+#define BOARD_NANONANO
 //#define BOARD_NANONANO_DELTA
 //#define BOARD_NANONANO_DELTA_NOSD
 //#define BOARD_NANONANO_SDCARD
@@ -40,7 +40,7 @@
 //#define BOARD_RAMP13_3DPLEX
 //#define BOARD_NANO_3DPLEX
 //#define BOARD_DIY_4XI
-#define BOARD_DIY_CNC1
+//#define BOARD_DIY_CNC1
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
 #define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
@@ -55,7 +55,7 @@
 //#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
-//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel // set 1 to disable but can be adjust using M291 Sxx
 
 
 // ====== ESP32 ====================================================

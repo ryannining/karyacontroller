@@ -49,6 +49,7 @@ extern float e_multiplier, f_multiplier;
 #ifdef ISPC
 extern float tick, tickscale, fscale, graphscale;
 #endif
+extern int vSUBPIXELMAX;
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 extern int babystep[4];

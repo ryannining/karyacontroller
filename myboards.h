@@ -117,12 +117,14 @@
 //#define ymin_pin A0
 //#define zmax_pin 13
 #define limit_pin A1
+#define INVERTENDSTOP // uncomment for normally open
 
 
 #define temp_pin 6 //analog 6 because we use ISR
 #define heater_pin 3
 
 #define ISRTEMP
+#define NUMBUFFER 8
 
 /*
   ============================================================================================
@@ -146,6 +148,7 @@
 #define e0enable 5
 #define e0direction A2
 #define e0step A3
+
 
 
 // this not work anymore, must link all limit to 1 pin
@@ -280,12 +283,12 @@
 #define ISRTEMP
 //#define INVERTENDSTOP // uncomment for normally open
 
-#define SDCARD_CS 10
-#define KBOX_PIN 7
+//#define SDCARD_CS 10
+//#define KBOX_PIN 7
 //#define OLED_CONTROL_PIN 7
 #define USETIMER1
 
-#define NUMBUFFER 7
+#define NUMBUFFER 9
 
 /*
   ============================================================================================

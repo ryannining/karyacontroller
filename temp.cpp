@@ -82,11 +82,12 @@ void init_temp()
   next_temp = micros();
   set_temp(0);
 #ifdef temp_pin
-  pinMode(temp_pin, INPUT);
+
 #if defined( __AVR__) && defined(ISRTEMP)
 
   ADCREAD(temp_pin)
-#elif defined(ESP8266)
+#else
+  pinMode(temp_pin, INPUT);
 #endif
 #endif
 

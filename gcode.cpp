@@ -1063,7 +1063,12 @@ void process_gcode_command()
         if (next_target.seen_Z) babystep[2]=next_target.target.axis[Z] * 1000;
         if (next_target.seen_E) babystep[3]=next_target.target.axis[E] * 1000;
         break;
-      
+      case 291:
+      #ifdef SUBPIXELMAX
+        vSUBPIXELMAX=next_target.seen_S?next_target.S:SUBPIXELMAX;
+        zprintf(PSTR("Subpixel max:%d\n"),fi(vSUBPIXELMAX));
+      #endif
+        break;
       case 221:
         //? --- M220: Set speed factor override percentage ---
         if ( ! next_target.seen_S)

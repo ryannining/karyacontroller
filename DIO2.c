@@ -1,30 +1,7 @@
+#ifdef __AVR__
 #include "platform.h"
 #include "config_pins.h"
 #ifdef USEDIO
-/*
- * DIO2.cpp
- *
- *  Created on: 13. 2. 2014
- *      Author: Jan Dolinay
- *  Adapted by: Thierry Paris
- *
- *  Alternate version of digital input/output for Arduino.
- *  Implementation of helper functions for digital I/O.
- *  These functions are called by inline functions such as
- *  digitalWrite2, defined in Arduino2.h
- *
- *
-  This is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 3 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
- *
- */
 
 #include "Arduino.h"
 
@@ -123,3 +100,6 @@ int GPIO_to_Arduino_pin(GPIO_pin_t inPin)
 #endif
 
 #endif // usedio
+
+#endif
+
