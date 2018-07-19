@@ -52,11 +52,12 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-    demofile();
-  //demo();
+  //  demofile();
+  demo();
   zprintf (PSTR("WAIT\n"));
   waitbufferempty();
   zprintf (PSTR("Time:%f\n"), ff(tick / timescale));
+  zprintf(PSTR("Total step:%d\n"),fi(mm_ctr));
   getch();
 }
 void demofile() {
@@ -118,7 +119,7 @@ void demo() {
     amove(20, -50+sin(x/5.7)*10, cos(x/5.7)*10, 0, 0);
   }
    */
-  amove(50, 10, 0, 0, 1,1);
+  amove(10, 10, 0, 0, 1,1);
   amove(50, 20, 0, 0, 1,1);
   amove(50, 30, 0, 0, 1,1);
 //  amove(80, 30, 0, 0, 0);

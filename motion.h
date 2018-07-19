@@ -54,6 +54,7 @@ extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 extern int babystep[4];
 extern int32_t e_ctr;
+extern int32_t mm_ctr;
 //extern int32_t px[4];
 extern int xback[4];
 extern uint8_t homingspeed;

@@ -1014,11 +1014,10 @@ static THEISR void decodecmd()
 
   }
   uint32_t cmd = cmddelay[cmtail];
-
   cmcmd = cmd & 1;
   if (cmcmd) {
     cmbit = (cmd >> 1) & 15;
-
+    // if nothing to move then turn off laser , its end of the move
     // inform if non move is in the buffer
     //if (cmcmd && (cmbit==0))zprintf(PSTR("X"));
     cmdly = (cmd >> 5) >> DSCALE;
@@ -1079,6 +1078,8 @@ uint32_t mc, dmc, cmctr;
 int e_dir = 0;
 int32_t e_ctr = 0;
 
+int32_t mm_ctr = 0;
+
 void THEISR coreloopm()
 {
 
@@ -1092,7 +1093,9 @@ void THEISR coreloopm()
   if (!nextok) {
     decodecmd();
     return;
-    //if (!nextok) return;
+#ifndef USETIMER1
+    if (!nextok) return;
+#endif
   }
 #ifdef USETIMER1
   {
@@ -1105,7 +1108,9 @@ void THEISR coreloopm()
     nextmicros = cm;
 #endif
 
+    mm_ctr++;
     if (cmcmd) { // 1: move
+      
       if (cmbit & 8) {
         ectstep++;
         //if (rasterlen) {
@@ -1129,7 +1134,11 @@ void THEISR coreloopm()
         motor_2_STEP();
       }
       pinCommit();
+      #ifdef __ARM__
+      delayMicroseconds(10);
+      #else
       //somedelay(1) ;
+      #endif
       motor_0_UNSTEP();
       motor_1_UNSTEP();
       motor_2_UNSTEP();
@@ -1201,7 +1210,6 @@ static void pushcmd()
 #ifdef USETIMER1
     MEMORY_BARRIER();
 #endif
-    CORELOOP
   }
 
   // if move cmd, and no motor move, save the delay
@@ -1213,6 +1221,7 @@ static void pushcmd()
     cmddelay[cmhead] = cmd0;
     ldelay = 0;
   }
+
 }
 
 void newdircommand(int laserval)
@@ -1341,6 +1350,11 @@ UPDATEDELAY:
     }
     pushcmd();
     mctr--;
+/*    if (mctr==0){
+      cmd0 = 1;
+      pushcmd();
+    }
+*/
     CORELOOP
     //if (mctr  == 0)zprintf(PSTR("\n"));
 #ifdef output_enable
@@ -1690,7 +1704,9 @@ int32_t startmove()
 
   // STEP
   ta = m->fs ;
-  stepdiv = CLOCKCONSTANT / (Cstepmmx(fastaxis));
+  //stepdiv = (CLOCKCONSTANT / (Cstepmmx(fastaxis)) );
+  //stepdiv = (CLOCKCONSTANT / (Cstepmmx(fastaxis)) ) * Cstepmmx(fastaxis)*dis/(totalstep);
+  stepdiv = CLOCKCONSTANT * m->dis / totalstep;
   stepdiv2 = wstepdiv2 = stepdiv;
   m->status &= ~3;
   m->status |= 2;
@@ -1699,7 +1715,7 @@ int32_t startmove()
   if (f == 0) nextmicros = micros();// if from stop
 
 #ifdef output_enable
-  zprintf(PSTR("SUB:%d FS:%f TA:%f FE:%f RAMP:%d %d ACC:%f %f\n"), fi(subp), ff(m->fs), ff(m->fn), ff(fe), fi(rampup), fi(rampdown), ff(acup), ff(acdn));
+  //zprintf(PSTR("SUB:%d FS:%f TA:%f FE:%f RAMP:%d %d ACC:%f %f\n"), fi(subp), ff(m->fs), ff(m->fn), ff(fe), fi(rampup), fi(rampdown), ff(acup), ff(acdn));
 #endif
   //  rampup = m->rampup  ;
   rampdown = totalstep - rampup - rampdown ;
@@ -1707,13 +1723,13 @@ int32_t startmove()
   tail = t;
 
 #ifdef output_enable
-  /*
+  
     zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
     zprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), fi(rampup), fi(rampdown), fi(totalstep));
     zprintf(PSTR("FS:%f FN:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->ac));
     zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(acup), fi(acdn));
     zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
-  */
+  
   //zprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
   //zprintf(PSTR("sx %d %d %d \n"), fi(sx[0]), fi(sx[1]), fi(sx[2]));
   //zprintf(PSTR("Status:%d \n"), fi(m->status));
@@ -1802,6 +1818,7 @@ void homing()
 
   // move away before endstop
 #ifdef DRIVE_XYYZ
+  ishoming = 0;
   checkendstop = 0;
   addmove(homingspeed, -stx[0], -stx[1], -stx[2], -stx[3], 1, 1);
   waitbufferempty();
@@ -1813,6 +1830,7 @@ void homing()
   addmove(homingspeed, 0, -stx[1], -stx[2], 0, 1, 1);
   waitbufferempty();
   checkendstop = 31;
+  ishoming = 1;
   addmove(homingspeed, tx[0], 0, 0, tx[3], 1, 1);
 #else
   checkendstop = 31;
@@ -1899,7 +1917,9 @@ void waitbufferempty()
     MEMORY_BARRIER()
     //zprintf(PSTR("->%d\n"), fi(mctr));
   }
-  digitalWrite(laser_pin, !LASERON);
+#ifdef laser_pin
+  if (Setpoint==0)digitalWrite(laser_pin, !LASERON);
+#endif
   LOOP_OUT(2)
 #ifdef output_enable
   zprintf(PSTR("Empty"));
