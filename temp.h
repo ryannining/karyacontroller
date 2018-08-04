@@ -1,3 +1,4 @@
+#include "pid.h"
 
 extern double Setpoint, Input, Output;
 extern void setfan_val(int val);
@@ -54,6 +55,8 @@ extern double Input;
 extern int wait_for_temp;
 extern int vanalog[8];
 extern int adcpin;
+extern PID myPID;
+extern float tbang;
 #ifdef __AVR__
 #ifdef MUX5
 #define ADCREAD(pin) adcpin=pin;\

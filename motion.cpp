@@ -1635,7 +1635,7 @@ int32_t startmove()
         laserwason = 0;
       }
 #endif
-      zprintf(PSTR("wait\n"));
+      //zprintf(PSTR("wait\n"));
       sendwait = 1;
     }
     return 0;

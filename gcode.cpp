@@ -444,9 +444,14 @@ void temp_wait(void)
 //int32_t mvc = 0;
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
+float F0=5000;
+float F1=20;
 inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
 {
-  amove(t->target.F, t->seen_X ? t->target.axis[X] : cx1
+  if (t->seen_F){
+    if (g0)F0=t->target.F; else F1=t->target.F;
+  } 
+  amove(g0?F0:F1, t->seen_X ? t->target.axis[X] : cx1
         , t->seen_Y ? t->target.axis[Y] : cy1
         , t->seen_Z ? t->target.axis[Z] : cz1
         , t->seen_E ? t->target.axis[E] : ce01
@@ -454,7 +459,11 @@ inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
 }
 inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
 {
-  draw_arc(t->target.F, t->seen_X ? t->target.axis[X] : cx1
+  
+  if (t->seen_F){
+    F1=t->target.F;
+  }
+  draw_arc(F1, t->seen_X ? t->target.axis[X] : cx1
            , t->seen_Y ? t->target.axis[Y] : cy1
            , t->seen_Z ? t->target.axis[Z] : cz1
            , t->seen_E ? t->target.axis[E] : ce01
@@ -965,7 +974,12 @@ void process_gcode_command()
         zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
         zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
 #endif
-
+#if defined(temp_pin)
+        zprintf(PSTR("EPR:3 316 %f P\n"), ff(myPID.GetKp()));
+        zprintf(PSTR("EPR:3 320 %f I\n"), ff(myPID.GetKi()));
+        zprintf(PSTR("EPR:3 324 %f D\n"), ff(myPID.GetKd()));
+        zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
+#endif
         break;
 #ifdef WIFISERVER
       // show wifi
@@ -1023,6 +1037,11 @@ void process_gcode_command()
               eprom_wr(304, EE_retract_in_f, S_F);
               eprom_wr(308, EE_retract_out, S_F);
               eprom_wr(312, EE_retract_out_f, S_F);
+
+              eprom_wr(316, EE_pid_p, S_F);
+              eprom_wr(320, EE_pid_i, S_F);
+              eprom_wr(324, EE_pid_d, S_F);
+              eprom_wr(328, EE_pid_bang, S_F);
 
 #ifdef USE_BACKLASH
               eprom_wr(80, EE_xbacklash, S_F);

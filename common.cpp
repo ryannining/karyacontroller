@@ -29,7 +29,7 @@
 */
 
 
-void write_uint32(void (*writechar)(uint8_t),uint32_t v) {
+void write_uint32(void (*writechar)(uint8_t), uint32_t v) {
   uint8_t e, t;
 
   for (e = DECFLOAT_EXP_MAX; e > 0; e--) {
@@ -48,19 +48,19 @@ void write_uint32(void (*writechar)(uint8_t),uint32_t v) {
 /** write decimal digits from a long signed int
 	\param v number to send
 */
-void write_int32(void (*writechar)(uint8_t),int32_t v) {
+void write_int32(void (*writechar)(uint8_t), int32_t v) {
   if (v < 0) {
     writechar('-');
     v = -v;
   }
 
-  write_uint32(writechar,v);
+  write_uint32(writechar, v);
 }
 /** write decimal digits from a long signed int
   \param v number to send
 */
-void write_char(void (*writechar)(uint8_t),char* v) {
-  for (int i=0;i<strlen(v);i++){
+void write_char(void (*writechar)(uint8_t), char* v) {
+  for (int i = 0; i < strlen(v); i++) {
     writechar(v[i]);
   }
 }
@@ -69,7 +69,7 @@ void write_char(void (*writechar)(uint8_t),char* v) {
   \param v number to send
   \param fp number of decimal places to the right of the decimal point
 */
-void write_uint32_vf(void (*writechar)(uint8_t),uint32_t v, uint8_t fp) {
+void write_uint32_vf(void (*writechar)(uint8_t), uint32_t v, uint8_t fp) {
   uint8_t e, t;
 
   for (e = DECFLOAT_EXP_MAX; e > 0; e--) {
@@ -94,13 +94,13 @@ void write_uint32_vf(void (*writechar)(uint8_t),uint32_t v, uint8_t fp) {
   \param v number to send
   \param fp number of decimal places to the right of the decimal point
 */
-void write_int32_vf(void (*writechar)(uint8_t),int32_t v, uint8_t fp) {
+void write_int32_vf(void (*writechar)(uint8_t), int32_t v, uint8_t fp) {
   if (v < 0) {
     writechar('-');
     v = -v;
   }
 
-  write_uint32_vf(writechar,v, fp);
+  write_uint32_vf(writechar, v, fp);
 }
 
 
@@ -112,7 +112,8 @@ void write_int32_vf(void (*writechar)(uint8_t),int32_t v, uint8_t fp) {
 #define GET_ARG(T) (va_arg(args, T))
 #endif
 
-void sendf_P(void (*writechar)(uint8_t),PGM_P format_P, ...) {
+void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...) {
+  //noInterrupts();
   va_list args;
   va_start(args, format_P);
 
@@ -122,16 +123,16 @@ void sendf_P(void (*writechar)(uint8_t),PGM_P format_P, ...) {
     if (j) {
       switch (c) {
         case 'd':
-          write_int32(writechar,GET_ARG(int32_t));
+          write_int32(writechar, GET_ARG(int32_t));
           j = 0;
           break;
         case 'f':
         case 'q':
-          write_int32_vf(writechar,(int32_t)GET_ARG(uint32_t), 3);
+          write_int32_vf(writechar, (int32_t)GET_ARG(uint32_t), 3);
           j = 0;
           break;
         case 's':
-          write_char(writechar,(char*)GET_ARG(char*));
+          write_char(writechar, (char*)GET_ARG(char*));
           j = 0;
           break;
         default:
@@ -150,6 +151,7 @@ void sendf_P(void (*writechar)(uint8_t),PGM_P format_P, ...) {
     }
   }
   va_end(args);
+  //interrupts();
 }
 #endif
 

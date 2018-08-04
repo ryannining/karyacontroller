@@ -51,8 +51,8 @@
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
-#define BOARD_ST33DV1_STM32_3DPLEX
-//#define BOARD_ST33DV1_XYYZ_STM32
+//#define BOARD_ST33DV1_STM32_3DPLEX
+#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 #define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel // set 1 to disable but can be adjust using M291 Sxx
@@ -67,7 +67,7 @@
 
 // ====== ESP8266 ====================================================
 #elif defined(ESP8266)
-//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
 #define THEISR ICACHE_RAM_ATTR 
 #define ANALOGSHIFT 0 // 10bit adc ??
 
@@ -105,7 +105,7 @@
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
-//#define TELEGRAM
+#define TELEGRAM
 // ==========================================================
 
 //#define INTERPOLATEDELAY  // slower 4-8us

@@ -582,7 +582,7 @@
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
 
-#define NUMBUFFER 60
+#define NUMBUFFER 20
 #define DRIVE_XYYZ
 /*
   ============================================================================================

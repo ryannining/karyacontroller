@@ -6,14 +6,14 @@
 extern int somedelay(int32_t n);
 //#define somedelay(n) delayMicroseconds(n);
 extern int feedthedog();
-#define TEMPTICK 500000
+#define TEMPTICK 500000 /500ms
 #define timescale 1000000L
 #ifdef ISPC
 extern uint32_t micros();
 #else
 #if defined(ESP8266) && defined(WIFISERVER)
 #define usetmr1
-#define TEMPTICK 100000
+#define TEMPTICK 100000 //100ms
 #endif
 #endif // ISPC
 

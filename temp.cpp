@@ -8,6 +8,7 @@
 uint32_t next_temp;
 uint16_t ctemp = 0;
 double Setpoint, Input, Output;
+float tbang = 4.1;
 int wait_for_temp = 0;
 
 int fan_val = 0;
@@ -33,6 +34,7 @@ void setfan_val(int val) {
 //Specify the links and initial tuning parameters
 
 PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
+//PID myPID(&Input, &Output, &Setpoint, 1, 2, 13, DIRECT); //2, 5, 1, DIRECT);
 
 
 
@@ -144,7 +146,7 @@ void temp_loop(uint32_t cm)
 #endif
 #ifdef ESP8266
 
-    //v = v * 3.3 + 100; //200K resistor
+    //v = v * 3.3 + 120; //200K resistor
     v = v * 1 + 120; //22K resistor
 
 #endif
@@ -162,18 +164,9 @@ void temp_loop(uint32_t cm)
 #ifdef ESP8266
 
 #ifdef usetmr1
-      /************************************************
-           turn the output pin on/off based on pid output
-         ************************************************/
-      unsigned long now = millis();
-      if (now - windowStartTime > WindowSize)
-      { //time to shift the Relay Window
-        windowStartTime += WindowSize;
-      }
-      if (Output * 4 > now - windowStartTime) digitalWrite(heater_pin, HIGH);
-      else digitalWrite(heater_pin, LOW);
-      //zprintf(PSTR("OUT:%d %W:%d\n"),fi(Output),fi(now-windowStartTime));
+      myPID.SetOutputLimits(0, WindowSize);
 #warning USING BANG BANG HEATER
+      goto bang;
 #else
       analogWrite(heater_pin, Output * 4);
 #warning USING PWM HEATER
@@ -190,6 +183,25 @@ void temp_loop(uint32_t cm)
 #endif
     }
   }
+#ifdef ESP8266
+
+#ifdef usetmr1
+bang:
+  /************************************************
+       turn the output pin on/off based on pid output
+     ************************************************/
+  unsigned long now = millis();
+  if (now - windowStartTime > WindowSize)
+  { //time to shift the Relay Window
+    windowStartTime += WindowSize;
+  }
+
+  if (Output > now - windowStartTime) digitalWrite(heater_pin, HIGH);
+  else digitalWrite(heater_pin, LOW);
+  //zprintf(PSTR("OUT:%d %W:%d\n"),fi(Output),fi(now-windowStartTime));
+#endif
+#endif
+
 }
 int temp_achieved() {
   return Input >= Setpoint - 10;

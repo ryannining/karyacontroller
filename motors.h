@@ -88,7 +88,7 @@ static uint8_t bsteps = 0;
   inline void motor_##AX##_INIT(){xpinMode(PDIR, OUTPUT);xpinMode(PSTEP, OUTPUT);}\
   inline void motor_##AX##_STEP(){  xdigitalWrite(PSTEP,1);}\
   inline void motor_##AX##_UNSTEP(){  xdigitalWrite(PSTEP,0);}\
-  inline void motor_##AX##_DIR(int d){ if(!d)return;motor_##AX##_ON();xdigitalWrite(PDIR,(d*MOTOR_##AX##_DIR)>0?1:0);STEPDIRDELAY;}\
+  inline void motor_##AX##_DIR(int d){ if(!d)return;motor_##AX##_ON();xdigitalWrite(PDIR,d>0);STEPDIRDELAY;}\
 
 #define MOTOREN(AX,PENABLE)\
   inline void motor_##AX##_ON() { xdigitalWrite(PENABLE,0);}\

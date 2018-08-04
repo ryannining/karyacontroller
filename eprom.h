@@ -156,6 +156,12 @@ static void eepromwrite(int p, int32_t val)
 #define EE_retract_in_f 310
 #define EE_retract_out_f 315
 
+#define EE_pid_p 320
+#define EE_pid_i 325
+#define EE_pid_d 340
+#define EE_pid_bang 335
+
+
 #else
 extern float EEMEM EE_xhome;
 extern float EEMEM EE_yhome;
@@ -203,6 +209,11 @@ extern float EEMEM EE_retract_out;
 extern float EEMEM EE_retract_in_f;
 extern float EEMEM EE_retract_out_f;
 
+
+extern float EEMEM EE_pid_p;
+extern float EEMEM EE_pid_i;
+extern float EEMEM EE_pid_d;
+extern float EEMEM EE_pid_bang;
 
 
 #endif

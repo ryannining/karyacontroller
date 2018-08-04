@@ -1,6 +1,7 @@
 #include "platform.h"
 #include "config_pins.h"
 #include "common.h"
+#include "temp.h"
 
 char wifi_telebot[20] = "";
 char wifi_ap[50] = "myap";
@@ -61,6 +62,10 @@ float EEMEM EE_retract_out;
 float EEMEM EE_retract_in_f;
 float EEMEM EE_retract_out_f;
 
+float EEMEM EE_pid_p;
+float EEMEM EE_pid_i;
+float EEMEM EE_pid_d;
+float EEMEM EE_pid_bang;
 
 
 #endif
@@ -118,7 +123,10 @@ retract_out_f=(float)eepromread(EE_retract_out_f)   * 0.001;
   eepromreadstring(450, wifi_pwd,20);
   eepromreadstring(470, wifi_dns,30);
 #endif
-
+#if defined(temp_pin)
+  myPID.SetTunings(eepromread(EE_pid_p)*0.001,eepromread(EE_pid_i)*0.001,eepromread(EE_pid_d)*0.001);
+  tbang=eepromread(EE_pid_bang)*0.001;
+#endif  
   preparecalc();
 }
 
@@ -174,7 +182,14 @@ void reset_eeprom() {
   eepromwrite(EE_zbacklash, fi(xback[2]));
   eepromwrite(EE_ebacklash, fi(xback[3]));
 #endif
-  eepromcommit;
+
+#if defined(temp_pin)
+ eepromwrite(EE_pid_p,ff(8.0));
+ eepromwrite(EE_pid_i,ff(2.0));
+ eepromwrite(EE_pid_d,ff(12.0));
+ eepromwrite(EE_pid_bang,ff(4.1));
+#endif
+ eepromcommit;
 #endif
 }
 #else
