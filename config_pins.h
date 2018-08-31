@@ -19,10 +19,6 @@
 #define e0enable -1
 
 #define ISRTEMP // 120bytes check board.h
-#define MOTOR_0_DIR -1 // 1: normal -1:inverted
-#define MOTOR_1_DIR -1 // 1: normal -1:inverted
-#define MOTOR_2_DIR -1 // 1: normal -1:inverted
-#define MOTOR_3_DIR 1 // 1: normal -1:inverted
 #define LASERON HIGH
 
 // ========== AVR ================================================
@@ -51,8 +47,8 @@
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
-//#define BOARD_ST33DV1_STM32_3DPLEX
-#define BOARD_ST33DV1_XYYZ_STM32
+#define BOARD_ST33DV1_STM32_3DPLEX
+//#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
 #define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel // set 1 to disable but can be adjust using M291 Sxx
@@ -62,7 +58,7 @@
 #elif defined(ESP32)
 #define BOARD_ESP32VN3D
 #define THEISR ICACHE_RAM_ATTR 
-//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
 
 
 // ====== ESP8266 ====================================================
@@ -74,6 +70,10 @@
 
 //#define BOARD_NANONANO_WEMOS
 #define BOARD_WEMOS3D
+#define DRIVE_COREXY
+
+
+//#define BOARD_WEMOS3DCOREXY
 //#define BOARD_WEMOSCNC
 //#define BOARD_MINICNC_ESP01
 //#define BOARD_WEMOS_XYY_LASER

@@ -34,6 +34,7 @@ char wfb[300];
 int wfl = 0;
 int bpwf = 0;
 ESP8266WebServer server ( 80 );
+WiFiServer servertcp(82);
 WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
 
 File fsUploadFile;
@@ -115,13 +116,18 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
   }
 }
 
+WiFiClient client;
 void wifiwr(uint8_t s) {
   wfb[wfl] = s;
   wfl++;
   if (s == '\n') {
     wfb[wfl] = 0;
-    wfl = 0;
+    if (client && client.connected()) {
+      client.write(wfb, wfl);
+      client.flush();
+    }
     webSocket.broadcastTXT(wfb);
+    wfl = 0;
   }
 }
 
@@ -208,6 +214,7 @@ void setupwifi(int num) {
       server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
   });
   server.begin();
+  servertcp.begin();
 
   webSocket.begin();                          // start the websocket server
   webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
@@ -219,10 +226,31 @@ void setupwifi(int num) {
   INTS
 }
 
+boolean alreadyConnected = false;
 void wifi_loop() {
 
   webSocket.loop();
   server.handleClient();
+
+  // wait for a new client:
+  if (servertcp.hasClient()) {
+    client = servertcp.available();
+    // when the client sends the first byte, say hello:
+  }
+  if (client) {
+    if (client.connected()) {
+      while (client.available()) {
+        // read the bytes incoming from the client:
+        char thisChar = client.read();
+        //serialwr(thisChar);
+        //xprintf(PSTR("%s"),payload);
+        buf_push(wf, thisChar);
+        // echo the bytes back to the client:
+
+      }
+    } else client.stop();
+  }
+
   // if there is an incoming message...
   // its blocking/long time so no use
   /* message m = bot.getUpdates(); // Read new messages

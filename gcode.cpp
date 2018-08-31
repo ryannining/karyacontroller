@@ -92,6 +92,7 @@ int waitforline = 0;
 // to receive laser raster bitmap
 char g_str[g_str_len];
 
+
 int g_str_c = 0;
 int rasterlen=0;
 GCODE_COMMAND next_target;
@@ -302,7 +303,7 @@ uint8_t gcode_parse_char(uint8_t c)
         // comments
         case '[':
           next_target.read_string = 1;  // Reset by ')' or EOL.
-          g_str_c = 0;
+          if (next_target.seen_P && next_target.seen_G) g_str_c = next_target.P;else g_str_c = 0;
           break;
 
         case ';':
@@ -405,6 +406,11 @@ void printposition()
           ff(cz1), ff(ce01));
 
 }
+void printbufflen()
+{
+  zprintf(PSTR("Buf:%d\n"),fi(bufflen()));
+
+}
 
 #define queue_wait() needbuffer()
 
@@ -446,11 +452,13 @@ static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
 float F0=5000;
 float F1=20;
+int S1=255;
 inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
 {
   if (t->seen_F){
     if (g0)F0=t->target.F; else F1=t->target.F;
   } 
+   
   amove(g0?F0:F1, t->seen_X ? t->target.axis[X] : cx1
         , t->seen_Y ? t->target.axis[Y] : cy1
         , t->seen_Z ? t->target.axis[Z] : cz1
@@ -520,6 +528,7 @@ void process_gcode_command()
         //? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
         //?
         laserOn = 0;
+        constantlaserVal = 0;
         enqueue(&next_target, 1);
         break;
 
@@ -535,10 +544,14 @@ void process_gcode_command()
 
         // thread S parameter as value of the laser, in 3D printer, donot use S in G1 !!
         if (next_target.seen_S) {
-          laserOn = next_target.S > 0;
-          constantlaserVal = next_target.S;
+          S1=next_target.S;
         }
+        laserOn = S1 > 0;
+        constantlaserVal = S1;
         enqueue(&next_target, 0);
+        if (laserOn){
+          pinMode(laser_pin, OUTPUT);
+        }
         break;
 
       //	G2 - Arc Clockwise
@@ -564,6 +577,7 @@ void process_gcode_command()
         //? In this case sit still doing nothing for 200 milliseconds.  During delays the state of the machine (for example the temperatures of its extruders) will still be preserved and controlled.
         //?
         waitbufferempty();
+        rasterlen=0;
         // delay
         if (next_target.seen_P) {
           for (; next_target.P > 0; next_target.P--) {
@@ -626,9 +640,8 @@ void process_gcode_command()
         // G0 Y0.6
         // G1 X0 E0
         // G4 
+
         rasterlen=g_str_c;//next_target.S; 
-        laste=-1;
-        
         break;
       case 28:
         homing();
@@ -742,6 +755,8 @@ void process_gcode_command()
           RUNNING = 0;
           waitbufferempty();
           printposition();
+          printbufflen();
+          rasterlen=0;
         }
         break;
       case 25:
@@ -791,7 +806,8 @@ void process_gcode_command()
 #ifdef LASERMODE
         // if no S defined then full power
         if (!next_target.seen_S)next_target.S = 255;
-        laserOn = next_target.S > 0;
+        S1=next_target.S;
+        laserOn = S1 > 0;
         constantlaserVal = next_target.S;
         if (laserOn) zprintf(PSTR("LASERON\n"));
         if (next_target.seen_P) {

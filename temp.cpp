@@ -67,11 +67,9 @@ void set_temp(float set) {
   pinMode(heater_pin, OUTPUT);
 #ifdef usetmr1
   digitalWrite(heater_pin, 0);
-
 #else
   analogWrite(heater_pin, 0);
 #endif
-
 }
 void init_temp()
 {
@@ -151,7 +149,7 @@ void temp_loop(uint32_t cm)
 
 #endif
 
-    ctemp = (ctemp * 2 + v * 6) / 8; // averaging
+    ctemp = v;//(ctemp * 2 + v * 6) / 8; // averaging
     Input =  read_temp(ctemp);
 #ifdef fan_pin
     if ((Input > 80) && (fan_val < 50)) setfan_val(255);
@@ -183,6 +181,7 @@ void temp_loop(uint32_t cm)
 #endif
     }
   }
+return;  
 #ifdef ESP8266
 
 #ifdef usetmr1

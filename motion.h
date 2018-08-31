@@ -71,7 +71,6 @@ extern float cx1, cy1, cz1, ce01;
 extern uint8_t head, tail;
 extern int8_t checkendstop;
 extern int16_t endstopstatus;
-extern int32_t laste;
 extern float ax_home[NUMAXIS];
 //extern int8_t lsx[4];
 extern int8_t  sx[NUMAXIS];

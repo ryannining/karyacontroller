@@ -47,10 +47,6 @@
 #define SDCARD_CS // pin for SDCARD
 #define KBOX_PIN // 4 key Kontrolbox using analog pin and serial resistors
 
-#define MOTOR_0_DIR 1 // 1: normal -1:inverted
-#define MOTOR_1_DIR 1 // 1: normal -1:inverted
-#define MOTOR_2_DIR 1 // 1: normal -1:inverted
-#define MOTOR_3_DIR 1 // 1: normal -1:inverted
 
 #define USE_EEPROM
 */
@@ -730,10 +726,6 @@
 #undef ISRTEMP // 120bytes check board.h
 //#define INVERTENDSTOP // uncomment for normally open
 #define NUMBUFFER 10
-#define MOTOR_0_DIR 1 // 1: normal -1:inverted
-#define MOTOR_1_DIR 1 // 1: normal -1:inverted
-#define MOTOR_2_DIR 1 // 1: normal -1:inverted
-#define MOTOR_3_DIR -1 // 1: normal -1:inverted
 #define USETIMER1
 
 /*
