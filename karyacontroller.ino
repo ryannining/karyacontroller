@@ -124,7 +124,7 @@ void wifiwr(uint8_t s) {
     wfb[wfl] = 0;
     if (client && client.connected()) {
       client.write(wfb, wfl);
-      client.flush();
+      //client.flush();
     }
     webSocket.broadcastTXT(wfb);
     wfl = 0;
@@ -234,6 +234,7 @@ void wifi_loop() {
 
   // wait for a new client:
   if (servertcp.hasClient()) {
+    if (client)client.stop();
     client = servertcp.available();
     // when the client sends the first byte, say hello:
   }
