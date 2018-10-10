@@ -63,14 +63,14 @@
 
 // ====== ESP8266 ====================================================
 #elif defined(ESP8266)
-#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
 #define THEISR ICACHE_RAM_ATTR 
 #define ANALOGSHIFT 0 // 10bit adc ??
 
 
 //#define BOARD_NANONANO_WEMOS
 #define BOARD_WEMOS3D
-#define DRIVE_COREXY
+//#define DRIVE_COREXY
 
 
 //#define BOARD_WEMOS3DCOREXY
@@ -94,7 +94,7 @@
   ============================================================================================
 */
 
-//#define ARC_SUPPORT // 3kb
+#define ARC_SUPPORT // 3kb
 
 #define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 #define USE_BACKLASH  // 400bytes code
@@ -105,7 +105,7 @@
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
-#define TELEGRAM
+//#define TELEGRAM
 // ==========================================================
 
 //#define INTERPOLATEDELAY  // slower 4-8us
@@ -167,17 +167,19 @@
 #undef USETIMER1
 #undef LASERMODE
 #undef SAVE_RESETMOTION
+
+//#define DRIVE_XYYZ  // dual Y individual homing
+#define DRIVE_COREXY
+//#define DRIVE_COREXZ
+
+//#define DRIVE_DELTA
+//#define DRIVE_DELTASIAN
+
 #endif
 
 
 //#define motortimeout 10000000 // 10 seconds
 
-//#define DRIVE_XYYZ  // dual Y individual homing
-//#define DRIVE_COREXY
-//#define DRIVE_COREXZ
-
-//#define DRIVE_DELTA
-//#define DRIVE_DELTASIAN
 
 
 #ifdef DRIVE_DELTA
@@ -202,18 +204,18 @@
 #define ZOFFSET 0
 #define EOFFSET 0
 
-#define XYJERK 22
-#define XACCELL 1600
-#define XMOVEACCELL 1600
+#define XYJERK 15
+#define XACCELL 50
+#define XMOVEACCELL 50
 
-#define XMAXFEEDRATE 220
-#define YMAXFEEDRATE 220
-#define ZMAXFEEDRATE 100
+#define XMAXFEEDRATE 120
+#define YMAXFEEDRATE 120
+#define ZMAXFEEDRATE 6
 #define E0MAXFEEDRATE 100
 
-#define XSTEPPERMM 100//105.090//50//131//178
-#define YSTEPPERMM 100//105.090//50//175//125
-#define ZSTEPPERMM 50//1020//1020 //420
+#define XSTEPPERMM 50//105.090//50//131//178
+#define YSTEPPERMM 50//105.090//50//175//125
+#define ZSTEPPERMM 1500//1020//1020 //420
 #define E0STEPPERMM 50//340//380
 
 #ifndef NUMBUFFER
@@ -224,8 +226,8 @@
 #define YMAX 1
 #define ZMAX 1
 
-#define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
-#define MOTOR_Y_BACKLASH 0
+#define MOTOR_X_BACKLASH 20  // MOTOR 0 = X, 1= Y 2=Z 3=E
+#define MOTOR_Y_BACKLASH 20
 #define MOTOR_Z_BACKLASH 0
 #define MOTOR_E_BACKLASH 0
 

@@ -185,8 +185,8 @@ void reset_eeprom() {
 
 #if defined(temp_pin)
  eepromwrite(EE_pid_p,ff(8.0));
- eepromwrite(EE_pid_i,ff(2.0));
- eepromwrite(EE_pid_d,ff(12.0));
+ eepromwrite(EE_pid_i,ff(600.0));
+ eepromwrite(EE_pid_d,ff(400.0));
  eepromwrite(EE_pid_bang,ff(4.1));
 #endif
  eepromcommit;

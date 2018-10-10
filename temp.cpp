@@ -62,8 +62,12 @@ ISR (ADC_vect)
 }  // end of ADC_vect
 #endif
 
+int WindowSize = 1500;
+unsigned long windowStartTime;
+
 void set_temp(float set) {
   Setpoint = set;
+  windowStartTime=millis();
   pinMode(heater_pin, OUTPUT);
 #ifdef usetmr1
   digitalWrite(heater_pin, 0);
@@ -127,8 +131,6 @@ float read_temp(int32_t temp) {
   return 0;
 }
 
-int WindowSize = 1500;
-unsigned long windowStartTime;
 void temp_loop(uint32_t cm)
 {
   if (cm - next_temp > TEMPTICK) {
@@ -149,7 +151,8 @@ void temp_loop(uint32_t cm)
 
 #endif
 
-    ctemp = v;//(ctemp * 2 + v * 6) / 8; // averaging
+//    ctemp = v;//(ctemp * 2 + v * 6) / 8; // averaging
+    ctemp = (ctemp + v) / 2; // averaging
     Input =  read_temp(ctemp);
 #ifdef fan_pin
     if ((Input > 80) && (fan_val < 50)) setfan_val(255);

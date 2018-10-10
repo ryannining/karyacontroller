@@ -52,8 +52,8 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  //  demofile();
-  demo();
+    demofile();
+  //demo();
   zprintf (PSTR("WAIT\n"));
   waitbufferempty();
   zprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -71,14 +71,17 @@ void demofile() {
   //#define fn "d:/3d/gecko.gcode"
   //#define fn "d:/3d/foam.gcode"
   //#define fn "gcode/gecko.gcode"
-  #define fn "gcode/fish_fossilz.gcode"
-
+  //#define fn "gcode/fish_fossilz.gcode"
+  //#define fn "gcode/kotak.gcode"
   //#define fn "d:/3d/box1cm.gcode"
+  //#define fn "gcode/bulet.gcode"
+  //#define fn "gcode/naga.ngc"
+  #define fn "d:/3d/testarc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 5;
+  graphscale = 1;
   tickscale = 50;
   fscale=20;
   if (file == NULL) return; //could not open file
@@ -119,9 +122,9 @@ void demo() {
     amove(20, -50+sin(x/5.7)*10, cos(x/5.7)*10, 0, 0);
   }
    */
-  amove(10, 10, 0, 0, 1,1);
-  amove(50, 20, 0, 0, 1,1);
-  amove(50, 30, 0, 0, 1,1);
+  amove(50, 50, 0, 0, 1,1);
+  amove(50, 100, 0, 1, 1,1);
+  amove(50, 30, 0, 1, 1,1);
 //  amove(80, 30, 0, 0, 0);
 //  amove(80, 30, 30, 0, 0);
 //  amove(80, 30, 50, 0, 0);

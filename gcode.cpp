@@ -369,6 +369,7 @@ uint8_t gcode_parse_char(uint8_t c)
 
     // reset variables
     uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T;
+    
     next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
                          next_target.seen_E = next_target.seen_F = next_target.seen_S = \
                              next_target.seen_P = next_target.seen_T = \
@@ -388,7 +389,7 @@ uint8_t gcode_parse_char(uint8_t c)
       next_target.target.axis[E] = 0;
     }
     if (ok) return 2;
-    return 1;
+    return 2;//1;
   }
 
   return 0;
@@ -477,7 +478,7 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
            , t->seen_E ? t->target.axis[E] : ce01
            , I, J, cw);
 }
-
+int lastG=0;
 void process_gcode_command()
 {
   uint32_t	backup_f;
@@ -516,7 +517,9 @@ void process_gcode_command()
       spd=(float)NUMBUFFER/(bl*4+2);
     }
   */
-  if (next_target.seen_G) {
+  if (!next_target.seen_M) {
+    if (!next_target.seen_G) next_target.G=lastG;
+    lastG=next_target.G;
     uint8_t axisSelected = 0;
     //zprintf(PSTR("Gcode %su \n"),next_target.G);
     switch (next_target.G) {
@@ -550,7 +553,9 @@ void process_gcode_command()
         constantlaserVal = S1;
         enqueue(&next_target, 0);
         if (laserOn){
+          #ifndef ISPC
           pinMode(laser_pin, OUTPUT);
+          #endif
         }
         break;
 
@@ -815,13 +820,13 @@ void process_gcode_command()
           delay(100);
           pinMode(laser_pin, OUTPUT);
           zprintf(PSTR("PULSE LASER\n"));
-          digitalWrite(laser_pin, LASERON);
+          LASER(LASERON)
           delay(next_target.P);
-          digitalWrite(laser_pin, !LASERON);
+          LASER( !LASERON);
         }
         if (!laserOn) {
           waitbufferempty();
-          //digitalWrite(laser_pin, !LASERON);
+          //LASER( !LASERON);
         }
 #endif
         break;
@@ -946,25 +951,25 @@ void process_gcode_command()
         reload_eeprom();
 #endif
       case 503:
-        zprintf(PSTR("EPR:3 145 %f Xhome\n"), ff(ax_home[0]));
-        zprintf(PSTR("EPR:3 149 %f Y\n"), ff(ax_home[1]));
-        zprintf(PSTR("EPR:3 153 %f Z\n"), ff(ax_home[2]));
+        zprintf(PSTR("EPR:3 145 %f X Home Pos\n"), ff(ax_home[0]));
+        zprintf(PSTR("EPR:3 149 %f Y Home Pos\n"), ff(ax_home[1]));
+        zprintf(PSTR("EPR:3 153 %f Z Home Pos\n"), ff(ax_home[2]));
 
-        zprintf(PSTR("EPR:3 3 %f StepX\n"), ff(stepmmx[0]));
-        zprintf(PSTR("EPR:3 7 %f Y\n"), ff(stepmmx[1]));
-        zprintf(PSTR("EPR:3 11 %f Z\n"), ff(stepmmx[2]));
-        zprintf(PSTR("EPR:3 0 %f E\n"), ff(stepmmx[3]));
+        zprintf(PSTR("EPR:3 3 %f X Step/mm\n"), ff(stepmmx[0]));
+        zprintf(PSTR("EPR:3 7 %f Y Step/mm\n"), ff(stepmmx[1]));
+        zprintf(PSTR("EPR:3 11 %f Z Step/mm\n"), ff(stepmmx[2]));
+        zprintf(PSTR("EPR:3 0 %f E Step/mm\n"), ff(stepmmx[3]));
 
-        zprintf(PSTR("EPR:2 15 %d FeedX\n"), fi(maxf[0]));
-        zprintf(PSTR("EPR:2 19 %d Y\n"), fi(maxf[1]));
-        zprintf(PSTR("EPR:2 23 %d Z\n"), fi(maxf[2]));
-        zprintf(PSTR("EPR:2 27 %d E\n"), fi(maxf[3]));
+        zprintf(PSTR("EPR:2 15 %d X Max Feedrate\n"), fi(maxf[0]));
+        zprintf(PSTR("EPR:2 19 %d Y Max Feedrate\n"), fi(maxf[1]));
+        zprintf(PSTR("EPR:2 23 %d Z Max Feedrate\n"), fi(maxf[2]));
+        zprintf(PSTR("EPR:2 27 %d E Max Feedrate\n"), fi(maxf[3]));
 
 
         zprintf(PSTR("EPR:3 181 %d Jerk\n"), fi(xyjerk));
-        zprintf(PSTR("EPR:3 51 %d Accel\n"), fi(accel));
-        zprintf(PSTR("EPR:3 67 %d MVAccel\n"), fi(mvaccel));
-        zprintf(PSTR("EPR:3 177 %d FHome\n"), fi(homingspeed));
+        zprintf(PSTR("EPR:3 51 %d Accelleration\n"), fi(accel));
+        zprintf(PSTR("EPR:3 67 %d Travel Accel\n"), fi(mvaccel));
+        zprintf(PSTR("EPR:3 177 %d Homing Feedrate\n"), fi(homingspeed));
         zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
 #ifdef NONLINEAR
         zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
@@ -979,22 +984,22 @@ void process_gcode_command()
         zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
 #endif
 
-        zprintf(PSTR("EPR:3 300 %f Retract In\n"), ff(retract_in));
-        zprintf(PSTR("EPR:3 304 %f In F\n"), ff(retract_in_f));
-        zprintf(PSTR("EPR:3 308 %f Out\n"), ff(retract_out));
-        zprintf(PSTR("EPR:3 312 %f Out F\n"), ff(retract_out_f));
+        zprintf(PSTR("EPR:3 300 %f AutoRetract In\n"), ff(retract_in));
+        zprintf(PSTR("EPR:3 304 %f AutoRetract In F\n"), ff(retract_in_f));
+        zprintf(PSTR("EPR:3 308 %f AutoRetract Out\n"), ff(retract_out));
+        zprintf(PSTR("EPR:3 312 %f AutoRetract Out F\n"), ff(retract_out_f));
 
 #ifdef USE_BACKLASH
-        zprintf(PSTR("EPR:3 80 %f Xbcklsh\n"), fi(xback[0]));
-        zprintf(PSTR("EPR:3 84 %f Y\n"), fi(xback[1]));
-        zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
-        zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
+        zprintf(PSTR("EPR:3 80 %f X Backlash mm\n"), fi(xback[0]));
+        zprintf(PSTR("EPR:3 84 %f Y Backlash mm\n"), fi(xback[1]));
+        zprintf(PSTR("EPR:3 88 %f Z Backlash mm\n"), fi(xback[2]));
+        zprintf(PSTR("EPR:3 92 %f E Backlash mm\n"), fi(xback[3]));
 #endif
 #if defined(temp_pin)
-        zprintf(PSTR("EPR:3 316 %f P\n"), ff(myPID.GetKp()));
-        zprintf(PSTR("EPR:3 320 %f I\n"), ff(myPID.GetKi()));
-        zprintf(PSTR("EPR:3 324 %f D\n"), ff(myPID.GetKd()));
-        zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
+        zprintf(PSTR("EPR:3 316 %f P.I.D P\n"), ff(myPID.GetKp()));
+        zprintf(PSTR("EPR:3 320 %f P.I.D I\n"), ff(myPID.GetKi()));
+        zprintf(PSTR("EPR:3 324 %f P.I.D D\n"), ff(myPID.GetKd()));
+        //zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
 #endif
         break;
 #ifdef WIFISERVER

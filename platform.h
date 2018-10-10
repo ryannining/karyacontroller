@@ -17,8 +17,12 @@
 #endif
 
 #if defined(__AVR__) || defined(ESP8266)|| defined(ESP32)  || defined (__ARM__)
+
+#define LASER(x) digitalWrite(laser_pin,x); 
+
 #else
 //#warning This is PC
+#define LASER(x) {}
 #define ISPC
 #define PROGMEM
 #endif
