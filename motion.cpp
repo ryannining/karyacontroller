@@ -44,7 +44,6 @@
 // repetier 1
 #define JERK2 //repetier style jerk
 //#define JERK2A //repetier style jerk
-//#define JERKSTEP 30
 
 
 #ifdef USETIMER1
@@ -87,7 +86,7 @@ int xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
 float xyscale, f_multiplier, e_multiplier;
-int xyjerk, zjerk, accel;
+int xyjerk, zjerk, accel, zaccel;
 int i;
 int mvaccel;
 float ax_home[NUMAXIS];
@@ -141,6 +140,7 @@ float InvSqrt(float x)
 
 //#define xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
 
+//#define xInvSqrt(n) stepdiv2*InvSqrt(n)
 #define xInvSqrt(n) n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2
 
 #define sqrt32(n) sqrt(n)
@@ -162,7 +162,8 @@ void reset_motion()
 #endif
   homingspeed = HOMINGSPEED;
   xyjerk = XYJERK;
-  zjerk = 5;
+  zjerk = 3;
+  zaccel = 100;
   xyscale = 1;
   ishoming = 0;
   cmctr = 0;
@@ -291,7 +292,8 @@ int32_t rampseg, rampup, rampdown;
 #endif
 #define sqr(x) x*x
 #define ramplenq(oo,v0,v1,stepa) if (v1>v0)oo=(v1-v0)*stepa;
-#define speedat(v0,a,s,stp) (a * s / stp + v0)
+//#define speedat(v0,a,s,stp) (a * s / stp + v0)
+#define speedat(v0,a,s) (a * s  + v0)
 
 /*#define ramplen(oo,v0,v1,a,stepmm) oo=((int32_t)v1-(int32_t)v0)*stepmm/(a);
   #define accelat(v0,v1,s) ((int32_t)v1  - (int32_t)v0 ) / (2 * s)
@@ -304,7 +306,7 @@ int32_t rampseg, rampup, rampdown;
 void prepareramp(int32_t bpos)
 {
 
-  //#define preprampdebug
+//#define preprampdebug
   tmove *m, *next;
   m = &move[bpos];
   //if (m->status & 4)return; // already calculated
@@ -313,31 +315,34 @@ void prepareramp(int32_t bpos)
   int32_t ytotalstep = labs(m->dx[faxis]);
 #define stepmm  Cstepmmx(faxis)
 
-  float stepa = stepmm / (m->ac);
-  float stepb = stepmm / (m->ac);//(accel); // deceleration always use the feed accell
+  float stepa = 1.0 / (m->ac);
   CORELOOP
   if (bpos != (head)) {
     next = &move[nextbuff(bpos)];
     fe = next->fs;
   } else fe = 0;
-  rampup = rampdown = 0;
-  ramplenq(rampup, m->fs, m->fn, stepa);
-  ramplenq(rampdown, fe, m->fn, stepa);
+  float ru,rd;
+  ru=rd=0;
+  ramplenq(ru, m->fs, m->fn, stepa);
+  ramplenq(rd, fe, m->fn, stepa);
 
 #ifdef preprampdebug
   zprintf(PSTR("\n========1========\nRU:%d Rd:%d Ts:%d\n"), rampup, rampdown, ytotalstep);
   zprintf(PSTR("FS:%f AC:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->ac), ff(m->fn),  ff(fe));
 #endif
-  if (rampup + rampdown > ytotalstep) {
+
+  if (ru + rd > m->dis) {
     // if crossing and have rampup
-    int32_t r = ((rampdown + rampup) - ytotalstep) >> 1;
-    rampup -= r;
-    rampdown -= r;
-    if (rampup < 0)rampup = 0;
-    if (rampdown < 0)rampdown = 0;
-    if (rampdown > ytotalstep)rampdown = ytotalstep;
-    if (rampup > ytotalstep)rampup = ytotalstep;
-    m->fn = speedat(m->fs, m->ac, rampup, stepmm);
+    float r = ((ru + rd) - m->dis) / 2;
+    ru -= r;
+    rd -= r;
+    if (ru < 0)ru= 0;
+    if (rd < 0)rd= 0;
+    if (rd > m->dis)rd= m->dis;
+    if (ru > m->dis)ru= m->dis;
+    m->fn = speedat(m->fs, m->ac, ru);
+
+    if (rd== 0)next->fs = m->fn;
   }
 
   CORELOOP
@@ -347,6 +352,9 @@ void prepareramp(int32_t bpos)
   zprintf(PSTR("FS:%f AC:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->ac), ff(m->fn),  ff(fe));
 #endif
   m->status |= 4;
+  // convert to current
+  rampup=ru*ytotalstep/m->dis;
+  rampdown=rd*ytotalstep/m->dis;
   CORELOOP
 }
 
@@ -364,15 +372,15 @@ float lastf = 0;
 
 void backforward()
 {
+  zprintf(PSTR("bfplan. %d %d\n"), fi(tailok), fi(head));
+
   int h;
+  tmove *next, *curr;
   // now back planner
   h = head; //
-  //h=prevbuff(head);
-  if (h == tailok) {
-    return;
-  }
+  if (h == tailok) return;
 
-  tmove *next, *curr;
+  // last data
   curr = &move[h];
   curr->fs = fmin(curr->maxs, (curr->ac * curr->dis));
   h = prevbuff(h);
@@ -383,7 +391,7 @@ void backforward()
     if (curr->fs != curr->maxs) {
       float fs = next->fs + (curr->ac * curr->dis);
       //float fs = next->fs + (accel * curr->dis);
-      //zprintf(PSTR("back. %d\n"),fs);
+      //zprintf(PSTR("back. %f\n"), ff(fs));
       if (fs < curr->maxs) {
         curr->fs = fs;
       } else {
@@ -400,14 +408,16 @@ void backforward()
   //    return;
   //}
   h = tailok;
+
+
   next = &move[h];
-  h = nextbuff(tailok);
+  h = nextbuff(h);
   while (h != head) {
     curr = next;
     next = &move[h];
     if (curr->fs < next->fs) {
       float fs = curr->fs + (curr->ac * curr->dis);
-      //zprintf(PSTR("Forw. %d\n"),fs);
+      //zprintf(PSTR("Forw. %f\n"), ff(fs));
       if (fs < next->fs) {
         next->fs = fs;
         tailok = h;
@@ -443,10 +453,14 @@ void planner(int32_t h)
       if (scale2 < scale) scale = scale2;
       // if Z then need to scale the acceleration too
       if (i == 2) {
-        float scalea = float(50) * curr->dis / fabs(curr->ac * mmdis[i]);
-        if (scalea<1)curr->ac*=scalea;
+        float scalea = zaccel * curr->dis / fabs(curr->ac * mmdis[i]);
+        if (scalea < 1)curr->ac *= scalea;
+#ifdef output_enable
+        zprintf (PSTR("NEW AC :%f\n"), ff(curr->ac));
+#endif
       }
       currf[i] = float(cdx) / curr->dis;
+      
       CORELOOP
     }
   }
@@ -521,7 +535,7 @@ void planner(int32_t h)
   curr->maxs = fmin(curr->fn, lastf);
   curr->maxs = fmin(curr->maxs, max_f);
 #ifdef output_enable
-  zprintf(PSTR("maxs. %d\n"), ff(curr->maxs));
+  zprintf(PSTR("maxs. %f\n"), ff(curr->maxs));
 #endif
   lastf = curr->fn;
   //zprintf(PSTR(">> currfs,max %d %d\n"),fi(curr->fs),fi(curr->maxs));
@@ -599,6 +613,10 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   mmdis[1] = (cy2 - cy1) * odir[1];
   mmdis[2] = (cz2 - cz1) * odir[2];
   mmdis[3] = (ce02 - ce01) * odir[3];
+#ifdef output_enable
+
+  zprintf(PSTR("Dis X:%f Y:%f Z:%f\n"),  ff(mmdis[0]), ff(mmdis[1]), ff(mmdis[2]));
+#endif
 
   for (int i = 0; i < NUMAXIS; i++) {
     x2[i] = 0;
@@ -629,9 +647,9 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
 
 
 #if defined( DRIVE_COREXY)
-  curr->dis = sqrt(sqr2(mmdis[0]+mmdis[1]) + sqr2(mmdis[1]-mmdis[0]) + sqr2(mmdis[2]) + (rasterlen ? 0 : sqr2(mmdis[3])));
+  curr->dis = sqrt(sqr2(mmdis[0] + mmdis[1]) + sqr2(mmdis[1] - mmdis[0]) + sqr2(mmdis[2]) + (rasterlen ? 0 : sqr2(mmdis[3])));
 #elif defined( DRIVE_COREXZ)
-  curr->dis = sqrt(sqr2(mmdis[0]+mmdis[2]) + sqr2(mmdis[2]-mmdis[0]) + sqr2(mmdis[1]) + (rasterlen ? 0 : sqr2(mmdis[3])));
+  curr->dis = sqrt(sqr2(mmdis[0] + mmdis[2]) + sqr2(mmdis[2] - mmdis[0]) + sqr2(mmdis[1]) + (rasterlen ? 0 : sqr2(mmdis[3])));
 #else
   curr->dis = sqrt(sqr2(mmdis[0]) + sqr2(mmdis[1]) + sqr2(mmdis[2]) + (rasterlen ? 0 : sqr2(mmdis[3])));
 #endif
@@ -855,14 +873,14 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
     angular_travel -= 2.0f * M_PI;
   }
 
-  uint32_t millimeters_of_travel = abs(angular_travel* radius); //hypot(angular_travel*radius, fabs(linear_travel));
+  uint32_t millimeters_of_travel = abs(angular_travel * radius); //hypot(angular_travel*radius, fabs(linear_travel));
 #ifdef debug1
-  sersendf_P(PSTR("go ang mm:%f %d\n"), angular_travel,millimeters_of_travel);
+  sersendf_P(PSTR("go ang mm:%f %d\n"), angular_travel, millimeters_of_travel);
 #endif
   if (millimeters_of_travel < 1) {
     return;// treat as succes because there is nothing to do;
   }
-  int32_t segments = fmax(1, millimeters_of_travel *10);
+  int32_t segments = fmax(1, millimeters_of_travel * 10);
 
   float theta_per_segment = angular_travel / segments;
   float extruder_per_segment = (extruder_travel) / segments;
@@ -909,10 +927,10 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
     ne += extruder_per_segment;
     nz += z_per_segment;
     //move.axis[E] = extscaled>>4;
-    addmove(cf, nx, ny, nz, ne,0,0);
+    addmove(cf, nx, ny, nz, ne, 0, 0);
   }
   // Ensure last segment arrives at target location.
-  addmove(cf, cx2, cy2, cz2, ce02,0,0);
+  addmove(cf, cx2, cy2, cz2, ce02, 0, 0);
 }
 #endif
 
@@ -933,6 +951,7 @@ float xs[4] = {0, 0, 0, 0};
 float gx, gy, lx, ly;
 int pcsx[4];
 #define graphstep(ix) xs[ix] +=pcsx[ix]
+float lstepdiv = 1;
 void dographics()
 {
   if (cmdly < DIRDELAY) {
@@ -940,8 +959,9 @@ void dographics()
     return;
   }
   // this might be wrong because the last cmd maybe is from previous segment which have different step/mm
-  float f = stepdiv / cmdly;
-  //f = sqrt(ta);
+  float f = lstepdiv / cmdly;
+  lstepdiv = stepdiv;
+  f = sqrt(ta);
   //f =  sqrt(ta)/stepdiv2;
   tick = tick + cmdly; //1.0/timescale;
   int32_t c;
@@ -966,6 +986,11 @@ void dographics()
   gy = 480 -  fscale * f * 0.1;
   setcolor(c);
   putpixel (gx, gy, c);
+  setcolor(1);
+  f = sqrt(ta);
+  gy = 480 -  fscale * f * 0.1;
+  //putpixel (gx, gy, c);
+
   //line(lx, ly, gx, gy);
   //zprintf(PSTR("X:%f Y:%f\n"), ff(gx), ff(gy));
   setcolor(0);
@@ -1078,6 +1103,7 @@ static THEISR void decodecmd()
     //if (cmcmd && (cmbit==0))zprintf(PSTR("X"));
     cmdly = (cmd >> 5) >> DSCALE;
   } else {
+    // header command,
     cmbit = (cmd >> 1) & 255;
     cmdly = DIRDELAY >> DSCALE;
 
@@ -1318,15 +1344,12 @@ void newdircommand(int laserval)
 
 
 #ifdef INTERPOLATEDELAY
-#define CALCDELAY dl = ((dl<<4)+(dlp-dl))>>4; // hack, linear interpolation of the delay
+#define CALCDELAY dl = ((dl<<2)+(dlp-dl))>>2; // hack, linear interpolation of the delay
 //#define CALCDELAY dl = (dlp+dl)>>1; // hack, linear interpolation of the delay
 #else
 #define CALCDELAY dl = dlp;
 #endif
 // ===============================
-float _ac = 0;
-float lastac = 0;
-float jerkv = 0;
 float pta = 0;
 int coreloop1()
 {
@@ -1353,36 +1376,13 @@ int coreloop1()
     bresenham(3);
     // if rasterlen and e is change then read the new laser value
     // next speed
-    float newac = 0;
     if ((rampup -= rampv) > 0) {
-      newac = acup;
-      // _ac = acup;
+      ta += acup;
+      goto UPDATEDELAY;
     } else if ((rampdown -= rampv) < 0) {
-      newac = acdn;
-      // _ac = acdn;
-    }
-    if (lastac != newac) {
-      // calculate jerk value
-#ifdef JERKSTEP
-      if (mctr > JERKSTEP) {
-        jerkv = (newac - lastac) / JERKSTEP;
-        jerkctr = JERKSTEP;
-      } else
-#endif
-        _ac = newac;
-      lastac = newac;
-      //zprintf(PSTR("jerkv %f\n"),ff(jerkv));
-    }
-    //    // calculate new delay only if we accelerating
+      ta += acdn;
 UPDATEDELAY:
-    if (jerkctr-- > 0) {
-      _ac += jerkv;
-      //zprintf(PSTR("ac %f\n"),ff(_ac));
-    }
-
-    if (_ac) {
-      ta += _ac;
-      if (ta < 0.05)ta = 0.05;
+      if (ta < 1.05)ta = 1.05;
       //zprintf(PSTR("%d\n"),fi(ta));
       // if G0 update delay not every step to make the motor move faster
       //if (m->status & 8) {
@@ -1395,8 +1395,7 @@ UPDATEDELAY:
 #else
       dlp = xInvSqrt(ta); //*F_SCALE;
 #endif
-    }  else dlp = dln; //
-
+    }
     CALCDELAY
 
 
@@ -1728,9 +1727,10 @@ int32_t startmove()
   // 24-4-2018
   // Now need to convert mm rampup to step rampup
 
-
-  if (rampup)acup = float((m->fn  - m->fs )) / rampup; //(fmax(1,m->rampup-acramp));
-  if (rampdown)acdn = -float((m->fn  - fe )) / rampdown; //(fmax(1,m->rampdown-acramp));
+  //m->fs = ta;
+  ta=m->fs;
+  if (rampup)acup = float((m->fn  - m->fs )) / float(rampup); //(fmax(1,m->rampup-acramp));
+  if (rampdown)acdn = -float((m->fn  - fe )) / float(rampdown); //(fmax(1,m->rampdown-acramp));
 
   oacup = acup;
   oacdn = acdn;
@@ -1769,16 +1769,19 @@ int32_t startmove()
 #endif
 
   // STEP
-  ta = m->fs ;
+  //ta = m->fs ;
+  // this calculation cause
   //stepdiv = (CLOCKCONSTANT / (Cstepmmx(fastaxis)) );
   //stepdiv = (CLOCKCONSTANT / (Cstepmmx(fastaxis)) ) * Cstepmmx(fastaxis)*dis/(totalstep);
+
   stepdiv = CLOCKCONSTANT * m->dis / totalstep;
   stepdiv2 = wstepdiv2 = stepdiv;
   m->status &= ~3;
   m->status |= 2;
 
 
-  if (f == 0) nextmicros = micros();// if from stop
+  if (f == 0)
+    nextmicros = micros();// if from stop
 
 #ifdef output_enable
   //zprintf(PSTR("SUB:%d FS:%f TA:%f FE:%f RAMP:%d %d ACC:%f %f\n"), fi(subp), ff(m->fs), ff(m->fn), ff(fe), fi(rampup), fi(rampdown), ff(acup), ff(acdn));
@@ -1791,7 +1794,7 @@ int32_t startmove()
 #ifdef output_enable
 
   zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
-  zprintf(PSTR("RU:%d Rd:%d Ts:%d\n"), fi(rampup), fi(rampdown), fi(totalstep));
+  zprintf(PSTR("RU:%d Rd:%d Ts:%d Dis:%f\n"), fi(rampup), fi(rampdown), fi(totalstep), ff(m->dis));
   zprintf(PSTR("FS:%f FN:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->ac));
   zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(acup), fi(acdn));
   zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
@@ -1807,6 +1810,10 @@ int32_t startmove()
   rampdown *= subp;
 #endif
   dlp = xInvSqrt(ta);
+  dl = dlp;
+#ifdef UPDATE_F_EVERY
+  nextdly = UPDATE_F_EVERY + 100;
+#endif
   return 1;
 }
 
@@ -2063,7 +2070,7 @@ void initmotion()
 #endif
   reset_motion();
   preparecalc();
-  dl = 5000;
+  dl  = 1000;
 
 #ifdef ISPC
   tickscale = 60;

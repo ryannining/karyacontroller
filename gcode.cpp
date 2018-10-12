@@ -92,7 +92,7 @@ int waitforline = 0;
 // to receive laser raster bitmap
 char g_str[g_str_len];
 
-
+uint8_t okxyz;
 int g_str_c = 0;
 int rasterlen=0;
 GCODE_COMMAND next_target;
@@ -368,7 +368,8 @@ uint8_t gcode_parse_char(uint8_t c)
     process_gcode_command();
 
     // reset variables
-    uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T;
+    okxyz=next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F; 
+    uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
     
     next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
                          next_target.seen_E = next_target.seen_F = next_target.seen_S = \
@@ -389,7 +390,7 @@ uint8_t gcode_parse_char(uint8_t c)
       next_target.target.axis[E] = 0;
     }
     if (ok) return 2;
-    return 2;//1;
+    return 1;
   }
 
   return 0;
@@ -452,7 +453,7 @@ void temp_wait(void)
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
 float F0=5000;
-float F1=20;
+float F1=2000;
 int S1=255;
 inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
 {
@@ -518,7 +519,12 @@ void process_gcode_command()
     }
   */
   if (!next_target.seen_M) {
-    if (!next_target.seen_G) next_target.G=lastG;
+    if (!next_target.seen_G) {
+      if (lastG>1)return;
+      if (!okxyz)return;
+      next_target.G=lastG;
+    }
+
     lastG=next_target.G;
     uint8_t axisSelected = 0;
     //zprintf(PSTR("Gcode %su \n"),next_target.G);

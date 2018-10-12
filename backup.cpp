@@ -152,4 +152,60 @@ uint32_t approx_distance(uint32_t dx, uint32_t dy) {
 
 
 
+
+void prepareramp(int32_t bpos)
+{
+
+#define preprampdebug
+  tmove *m, *next;
+  m = &move[bpos];
+  //if (m->status & 4)return; // already calculated
+
+  int faxis = FASTAXIS(m);
+  int32_t ytotalstep = labs(m->dx[faxis]);
+#define stepmm  Cstepmmx(faxis)
+
+  float stepa = stepmm / (m->ac);
+  //float stepa = (ytotalstep*m->dis/m->ac); //*stepmm / (m->ac);
+  //float stepa = m->axs*stepmm / (m->ac);
+  float stepb = stepa;//stepmm / (m->ac);//(accel); // deceleration always use the feed accell
+  CORELOOP
+  if (bpos != (head)) {
+    next = &move[nextbuff(bpos)];
+    fe = next->fs;
+  } else fe = 0;
+  rampup = rampdown = 0;
+  ramplenq(rampup, m->fs, m->fn, stepa);
+  ramplenq(rampdown, fe, m->fn, stepa);
+
+#ifdef preprampdebug
+  zprintf(PSTR("\n========1========\nRU:%d Rd:%d Ts:%d\n"), rampup, rampdown, ytotalstep);
+  zprintf(PSTR("FS:%f AC:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->ac), ff(m->fn),  ff(fe));
+#endif
+
+  if (rampup + rampdown > ytotalstep) {
+    // if crossing and have rampup
+    int32_t r = ((rampdown + rampup) - ytotalstep) / 2;
+    rampup -= r;
+    rampdown -= r;
+    if (rampup < 0)rampup = 0;
+    if (rampdown < 0)rampdown = 0;
+    if (rampdown > ytotalstep)rampdown = ytotalstep;
+    if (rampup > ytotalstep)rampup = ytotalstep;
+    m->fn = speedat(m->fs, m->ac, rampup, stepmm);
+
+    if (rampdown == 0)next->fs = m->fn;
+  }
+
+  CORELOOP
+
+#ifdef preprampdebug
+  zprintf(PSTR("========FINAL========\nRU:%d Rd:%d\n"), rampup, rampdown);
+  zprintf(PSTR("FS:%f AC:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->ac), ff(m->fn),  ff(fe));
+#endif
+  m->status |= 4;
+  CORELOOP
+}
+
+
  */

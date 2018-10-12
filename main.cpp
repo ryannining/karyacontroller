@@ -52,8 +52,8 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-    demofile();
-  //demo();
+  //demofile();
+  demo();
   zprintf (PSTR("WAIT\n"));
   waitbufferempty();
   zprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -75,14 +75,14 @@ void demofile() {
   //#define fn "gcode/kotak.gcode"
   //#define fn "d:/3d/box1cm.gcode"
   //#define fn "gcode/bulet.gcode"
-  //#define fn "gcode/naga.ngc"
-  #define fn "d:/3d/testarc.gcode"
+  #define fn "gcode/naga.ngc"
+  //#define fn "d:/3d/testarc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
   graphscale = 1;
-  tickscale = 50;
+  tickscale = 150;
   fscale=20;
   if (file == NULL) return; //could not open file
   int comment = 0;
@@ -111,20 +111,21 @@ void demofile() {
 
 void demo() {
   graphscale = 5;
-  tickscale = 60;
-  fscale = 30;
+  tickscale = 360;
+  fscale = 60;
   int f = 100;
-  /*
+  ///*
   for(int x=1;x<36;x++){
-    amove(20, sin(x/5.7)*10, cos(x/5.7)*10, 0, 0);
+ //   amove(20, sin(x/5.7)*5, cos(x/5.7)*10, 0, 0);
   }
-  for(int x=1;x<36;x++){
-    amove(20, -50+sin(x/5.7)*10, cos(x/5.7)*10, 0, 0);
+  for(int x=1;x<360;x++){
+    amove(30, +sin(x/5.70)*(2+x/40.0), cos(x/5.70)*(2+x/60.0), sin(x/5.70)*1, 0*x/10.0);
   }
-   */
-  amove(50, 50, 0, 0, 1,1);
+   //*/
+  /*amove(50, 50, 0, 0, 1,1);
   amove(50, 100, 0, 1, 1,1);
   amove(50, 30, 0, 1, 1,1);
+*/
 //  amove(80, 30, 0, 0, 0);
 //  amove(80, 30, 30, 0, 0);
 //  amove(80, 30, 50, 0, 0);

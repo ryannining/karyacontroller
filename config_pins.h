@@ -70,7 +70,7 @@
 
 //#define BOARD_NANONANO_WEMOS
 #define BOARD_WEMOS3D
-//#define DRIVE_COREXY
+#define DRIVE_COREXY
 
 
 //#define BOARD_WEMOS3DCOREXY
@@ -108,7 +108,7 @@
 //#define TELEGRAM
 // ==========================================================
 
-//#define INTERPOLATEDELAY  // slower 4-8us
+#define INTERPOLATEDELAY  // slower 4-8us
 
 #ifdef powerpin
 #define POWERFAILURE
@@ -126,7 +126,7 @@
 #endif
 
 
-#define UPDATE_F_EVERY 2000 //us = 250 tick/sec acceleration change
+#define UPDATE_F_EVERY 1000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 #else
@@ -169,7 +169,7 @@
 #undef SAVE_RESETMOTION
 
 //#define DRIVE_XYYZ  // dual Y individual homing
-#define DRIVE_COREXY
+//#define DRIVE_COREXY
 //#define DRIVE_COREXZ
 
 //#define DRIVE_DELTA
@@ -210,7 +210,7 @@
 
 #define XMAXFEEDRATE 120
 #define YMAXFEEDRATE 120
-#define ZMAXFEEDRATE 6
+#define ZMAXFEEDRATE 5
 #define E0MAXFEEDRATE 100
 
 #define XSTEPPERMM 50//105.090//50//131//178

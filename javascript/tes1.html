@@ -258,8 +258,12 @@ function startmove()
 // main code
 
 for (var i=1;i<5;i++){
-  addmove(40,i*10,0,0,0);
+//  addmove(40,i*10,0,0,0);
 }
+  for(var x=1;x<5;x++){
+    addmove(10, +Math.sin(x/5.70)*2, Math.cos(x/5.70)*2, Math.sin(x/5.70)*2, 0);
+  }
+
 while (startmove()){
 
 }
