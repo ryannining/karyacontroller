@@ -162,8 +162,8 @@ void reset_motion()
 #endif
   homingspeed = HOMINGSPEED;
   xyjerk = XYJERK;
-  zjerk = 3;
-  zaccel = 100;
+  zjerk = 5;
+  zaccel = 50;
   xyscale = 1;
   ishoming = 0;
   cmctr = 0;
@@ -331,6 +331,7 @@ void prepareramp(int32_t bpos)
   zprintf(PSTR("FS:%f AC:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->ac), ff(m->fn),  ff(fe));
 #endif
 
+
   if (ru + rd > m->dis) {
     // if crossing and have rampup
     float r = ((ru + rd) - m->dis) / 2;
@@ -342,7 +343,7 @@ void prepareramp(int32_t bpos)
     if (ru > m->dis)ru= m->dis;
     m->fn = speedat(m->fs, m->ac, ru);
 
-    if (rd== 0)next->fs = m->fn;
+//    if (rd== 0)next->fs = m->fn;
   }
 
   CORELOOP
@@ -372,7 +373,7 @@ float lastf = 0;
 
 void backforward()
 {
-  zprintf(PSTR("bfplan. %d %d\n"), fi(tailok), fi(head));
+  //zprintf(PSTR("bfplan. %d %d\n"), fi(tailok), fi(head));
 
   int h;
   tmove *next, *curr;
@@ -493,14 +494,15 @@ void planner(int32_t h)
 
 
     max_f = fmax(currf[4], prevf[4]);
+    int32_t fdz = abs(currf[2] - prevf[2]);
 #ifdef JERK2A
     float jerk = max_f * 0.7 * (1 - (currf[0] * prevf[0] + currf[1] * prevf[1] + currf[2] * prevf[2]) / ((currf[4] * prevf[4])));
 #else
     int32_t fdx = currf[0] - prevf[0];
     int32_t fdy = currf[1] - prevf[1];
-    int32_t fdz = abs(currf[2] - prevf[2]);
 
     float jerk = sqrt(fdx * fdx + fdy * fdy);
+
 #endif
     CORELOOP
     float factor = 1;

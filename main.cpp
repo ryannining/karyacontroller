@@ -52,7 +52,7 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  //demofile();
+  demofile();
   demo();
   zprintf (PSTR("WAIT\n"));
   waitbufferempty();

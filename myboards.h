@@ -934,7 +934,7 @@
 #define heater_pin D1
 
 //#define INVERTENDSTOP
-#define NUMBUFFER 20
+#define NUMBUFFER 100
 /*
   ============================================================================================
      _WEMOS3D

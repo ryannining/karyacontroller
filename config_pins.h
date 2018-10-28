@@ -108,7 +108,7 @@
 //#define TELEGRAM
 // ==========================================================
 
-#define INTERPOLATEDELAY  // slower 4-8us
+//#define INTERPOLATEDELAY  // slower 4-8us
 
 #ifdef powerpin
 #define POWERFAILURE
