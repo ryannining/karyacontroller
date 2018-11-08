@@ -110,7 +110,7 @@ var Potrace = (function() {
         isReady: false,
         turnpolicy: "minority", 
         turdsize: 2,
-        optcurve: true,
+        optcurve: false,
         alphamax: 0.7,
         opttolerance: 0.2
       };

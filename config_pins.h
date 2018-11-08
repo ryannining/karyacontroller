@@ -20,6 +20,7 @@
 
 #define ISRTEMP // 120bytes check board.h
 #define LASERON HIGH
+#define MAXTEMP 210
 
 // ========== AVR ================================================
 #if defined(__AVR__)
@@ -63,6 +64,7 @@
 
 // ====== ESP8266 ====================================================
 #elif defined(ESP8266)
+#define MAXTEMP 190
 #define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
 #define THEISR ICACHE_RAM_ATTR 
 #define ANALOGSHIFT 0 // 10bit adc ??

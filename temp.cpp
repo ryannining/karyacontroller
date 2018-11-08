@@ -66,6 +66,7 @@ int WindowSize = 1500;
 unsigned long windowStartTime;
 
 void set_temp(float set) {
+  if (set>MAXTEMP)set=MAXTEMP;
   Setpoint = set;
   windowStartTime=millis();
   pinMode(heater_pin, OUTPUT);

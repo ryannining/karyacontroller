@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<body>
+Copy image from other source and paste here.<br>
+<table width=100%><tr valign=top><td>
+<b>Option</b>
+<br>Width <input id=width value=200 size=4 class=saveit>pixel
+<br>Dither method <select id=metode class=saveit>
+<option value=0>Grayscale</option>
+<option value=1 selected>Floyd steinberg</option>
+<option value=2>Sierra 2 row</option>
+<option value=3>Black White</option>
+<option value=4>Halftone</option>
+</select><br>
+<div id=halftoneoption hidden>
+<b>Halftone setting</b>
+<br>Angle <input id=htangle value=45 size=4 class=saveit>
+<br>Spacing <input id=htspacing value=8 size=4 class=saveit>
+<br>Wave Amp<input id=htamp value=0 size=4 class=saveit>
+<br>Wave Freq<input id=htfreq value=10 size=4 class=saveit>
+</div>
+<b>Color setting</b>
+<br>Gamma correct <input id=gamma value=1 size=4 class=saveit>
+<br>Random threshold <input id=rnd value=0 size=4 class=saveit>
+<br>Invert color <input id=invert type=checkbox size=3 class=saveit>
+<hr>
+<b>Gcode option</b>
+<br>Machine <select id=mtype class=saveit>
+<option value=0 selected>CNC</option>
+<option value=1>Laser</option>
+</select>
+<br>DPI <input id=mdpi value=72 size=3 class=saveit>milimeter
+<br>Render width <input id=mwidth value=100 size=3 class=saveit>milimeter
+<br><b>LASER</b>
+<br>Speed<input id=speed1 size=10 value="100" class=saveit>mm/s 
+<br>Pixel shift<input id=shf size=10 value="1" class=saveit> 
+<br>Tools on<input id=tool2 size=10 value="M3 S255" class=saveit> off <input id=tool1 size=10 value="M3 S0" class=saveit>
+<br><b>CNC</b>
+<br>Speed<input id=speed2 size=10 value="100" class=saveit>mm/s 
+<br>Tools on<input id=tool4 size=10 value="G1 Z=cncz F1000" class=saveit> off <input id=tool3 size=10 value="G0 Z2" class=saveit>
+<br>CNC Z-down <input id=zdown1 value=3 size=3 class=saveit>milimeter
+<br><br><button id=redither>Re process </button>
+
+
+<hr>
+<img id="thepic" src="rose.jpg" alt="The Pic" >
+<td>
+<canvas id="myCanvas" width="220" height="277" style="border:1px solid #d3d3d3;">
+Your browser does not support the HTML5 canvas tag.</canvas>
+<td><div id=waktu>Waktu Kerja:</div><B>GCODE</b><button id=btcopy2a>Copy</button><button id=btcopy2b>Send to KaryaCNC</button><hr>
+<textarea id=gcode style="font-size: 10;width:250px;height:500px" >
+</textarea>
+</table>
+
+<script>
+var overshot=2;
+function $(id) {
+  return document.getElementById(id);
+}
+
+function log(text) {
+  console.log(text);
+}
+function mround(x) {
+    return Math.round(x * 1000.0) / 1000.0;
+}
+
+function getvalue(el){
+	return document.getElementById(el).value;
+}
+function setvalue(el,val){
+	document.getElementById(el).value=val;
+}
+function setevent(ev,bt,act){
+	document.getElementById(bt).addEventListener(ev, act,false);
+}
+
+function setclick(bt,act){
+	setevent("click",bt,act);
+}
+
+// Add the paste event listener
+window.addEventListener("paste", pasteHandler);
+
+/* Handle paste events */
+function pasteHandler(e) {
+    // We need to check if event.clipboardData is supported (Chrome)
+    if (e.clipboardData) {
+        // Get the items from the clipboard
+        var items = e.clipboardData.items;
+        if (items) {
+            // Loop through all items, looking for any kind of image
+
+            for (var i = 0; i < items.length; i++) {
+
+                if (items[i].type.indexOf("image") !== -1) {
+                    // We need to represent the image as a file,
+                    var blob = items[i].getAsFile();
+                    // and use a URL or webkitURL (whichever is available to the browser)
+                    // to create a temporary URL to the object
+                    var URLObj = window.URL || window.webkitURL;
+                    var source = URLObj.createObjectURL(blob);
+
+                    // The URL can then be used as the source of an image
+                    createImage(source, blob);
+					var img = document.getElementById("thepic");
+					img.src=source;
+                }
+            }
+        }
+        // If we can't handle clipboard data directly (Firefox),
+        // we need to read what was pasted from the contenteditable element
+    } else {
+        // This is a cheap trick to make sure we read the data
+        // AFTER it has been inserted.
+        setTimeout(checkInput, 1);
+    }
+}
+function createImage(source, blob) {
+    var pastedImage = new Image();
+    //clear gcode
+    pastedImage.onload = function() {
+		ditherit();	
+        };
+    
+    pastedImage.src = source;
+}
+
+var sierra2=[6,2 ,1,4,7,4,1 ,1,5,1];
+
+sierra2=[5, 3, 2, 4, 5, 4, 2, 2, 3, 2];
+
+var floyd1=[7, 4,4,1];
+
+ditherit = function() {
+    var c = document.getElementById("myCanvas");
+    var img = document.getElementById("thepic");
+    var scale = 25.4 / getvalue('mdpi');
+	rwidth=scale*img.naturalWidth;
+	img.width=getvalue("width")*1;
+    c.width=img.width;
+    c.height=img.height;
+    var ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0,img.width,img.height);
+    var bm = ctx.getImageData(0, 0, img.width, img.height);
+    // invert colors
+    var i,j;
+    var row=c.width*4;
+	var mtype=getvalue("mtype");
+	var zdown=getvalue("zdown1");
+	if (mtype==1){
+		var tool1=getvalue("tool1");
+		var tool2=getvalue("tool2");
+		var speed=getvalue("speed1")*60;
+	} else {
+		var tool1=getvalue("tool3");
+		var tool2=getvalue("tool4");
+		var speed=getvalue("speed2")*60;
+	}
+	var metode=getvalue("metode")*1;
+	var dx,dy;
+	var c4x4=[191.25, 95.625, 159.375, 63.75, 15.9375, 255, 223.125, 111.5625, 127.5, 207.1875, 239.0625, 31.875, 47.8125, 143.4375, 79.6875, 175.3125];
+	dx=1;
+	dy=1;
+	if (metode==2){
+		dx=2;
+		dy=2;
+	}
+	if (metode==3){
+		dx=0;
+		dy=0;
+	}
+	// make it grayscale first
+	var waktu=0;
+	var w0=0;
+	var w1=0;
+	var inv=document.getElementById("invert").checked;
+	var gamma=getvalue("gamma")*1.0;
+	var mw=rwidth*1.0;
+	setvalue("mwidth",mround(mw));
+	var mh=mw*c.height/c.width;
+	var dotscale=mw/img.width;
+	var ystep=mh/c.height; // y machine step, each step will be lasered by ystep/0.2 zigzag,  
+	var gcode="G7 S0\nG92 E0\n"+tool1+"\n";
+	for (j = 0; j < c.height; j += 1) {
+    for (i = 0; i < c.width; i += 1) {
+    	var a=j*row+i*4;
+        oldr=(0.3*bm.data[a] + 0.5*bm.data[a+1] +0.2*bm.data[a+2]);
+		if (inv)oldr=255-oldr;
+		oldr = Math.pow((oldr / 255.0) , (1.0 / gamma)) * 255;
+		
+		bm.data[a]=oldr;
+		bm.data[a+1]=oldr;
+		bm.data[a+2]=oldr;
+	}}
+	// dither it
+	if (metode<4){
+		var num=3;
+		var dv=num/256.0;
+		var mul=(255.0/(num-1));
+		var rndt=getvalue("rnd");
+		var shf=1.0*getvalue("shf");;
+		var rndt2=rndt/2.0;
+		for (j = 0; j < c.height-dy; j += 1) {
+			gc="";
+			var skip=1;
+			var bp=(j&3)*(img.width+5);
+			var pxstart=c.width;
+			var pxstop=0;
+			for (i = dx; i < c.width-dx; i += 1) {
+				var a=j*row+i*4;
+				gr=rndt*Math.random()-(rndt2);
+				oldr=bm.data[a];
+				if (metode==0){
+					rmax=255;
+					newr=oldr+gr;
+					if (newr<4)newr=4;
+					if (newr>250)newr=250;
+					
+				} else if (metode<3){
+					rmax=255;
+					gr+=128;
+					newr=oldr>gr?255:0;
+					//newr=Math.floor(oldr*dv)*mul;
+					//if (newr>255)newr=255;
+				} else if (metode==3) {
+					rmax=255;
+					//newr=oldr+gr>=c4x4[(j%4*4+i%4)]?255:0;
+					newr=oldr+gr>128?255:0;
+				}
+				err=oldr-newr;
+				
+				cc=String.fromCharCode((rmax-newr)/10+97);
+				if (cc=='a') w0++; else {
+					skip=0;w1++;
+					pxstart=Math.min(pxstart,i);
+					pxstop=Math.max(pxstop,i);
+				}
+				gc+=cc;
+				bm.data[a+0]=newr;
+				bm.data[a+1]=newr;
+				bm.data[a+2]=newr;
+				if (metode==0){
+					// 7 3 5 1 floyd
+					err=err/16;
+					a1=a+4; bm.data[a1]+=err*7;
+					a+=row;
+					a1=a-4; bm.data[a1]+=err*4;
+					a1=a;   bm.data[a1]+=err*4;
+					a1=a+4; bm.data[a1]+=err*1;
+				}
+				else if (metode==1){
+					// 7 3 5 1 floyd
+					em=floyd1;
+					err=err/16;
+					a1=a+4; bm.data[a1]+=err*em[0];
+					a+=row;
+					a1=a-4; bm.data[a1]+=err*em[1];
+					a1=a;   bm.data[a1]+=err*em[2];
+					a1=a+4; bm.data[a1]+=err*em[3];
+				}
+				else if (metode==2){
+					// sierra 2 row
+					err=err/32;
+//					em=[5,2 ,2,4,5,4,2 ,2,3,2];
+					
+					em=sierra2;
+					a1=a+4; bm.data[a1]+=err*em[0];
+					a1=a+8; bm.data[a1]+=err*em[1];
+					a+=row;
+					a1=a-8; bm.data[a1]+=err*em[2];
+					a1=a-4; bm.data[a1]+=err*em[3];
+					a1=a;   bm.data[a1]+=err*em[4];
+					a1=a+4; bm.data[a1]+=err*em[5];
+					a1=a+8; bm.data[a1]+=err*em[6];
+					a+=row;
+					a1=a-4; bm.data[a1]+=err*em[7];
+					a1=a;   bm.data[a1]+=err*em[8];
+					a1=a+4; bm.data[a1]+=err*em[9];
+					
+				}
+			}
+			gc+="";
+			// save the laser raster
+			if (!skip){
+				// move to start position
+				//pxstart=Math.max(0,pxstart-2);
+				//pxstop=Math.min(c.width-dx,pxstop+2);
+				//pxstart=0;
+				//pxstop=c.width-dx;
+				px1=mround(dotscale*pxstart);
+				px2=mround(dotscale*pxstop);
+				if (mtype==1){
+					w=pxstop;
+					pxstart+=bp;
+					pxstop+=bp;
+					if (bp==0)gcode+="G4\n";
+					//gcode+="G4\nG92 E0\n";
+					//gcode+="G0 +"\n";
+					gcode+="G7 P"+bp+" ["+gc+"aaa]\n";
+					ccc=overshot; // move back to allow acceleration
+					gcode+="G0 F"+speed+" E"+pxstart+" X"+mround(px1-ccc)+" Y"+mround((j)*ystep)+"\n";
+					gcode+="G0 X"+mround(px1)+"\n";
+					gcode+="G1 S255 F"+speed+" X"+px2+" E"+pxstop+"\nG0 X"+mround(px2+ccc)+"\n";
+					// next y
+					gcode+="G0 X"+px2+" Y"+mround((j+0.5)*ystep)+" E"+(pxstop+shf)+"\n";
+					gcode+="G1 S255 X"+(px1)+" E"+(pxstart+shf)+"\n";
+					//gcode+="G0 X"+mround(px1-ccc)+"\n";
+					waktu+=2.0*mw/speed;
+				} 
+				// cnc mill, down
+				if (mtype==0){
+					if (j &1){
+						dir=-1;
+						idx=gc.length-1;
+					}else {
+						dir=1;
+						idx=0;
+					}
+					xstep=mw/gc.length;
+					zstep=zdown/25;
+					lv=" ";
+					x=xstep*idx;
+					gcode+=tool1+"\nG0 F"+speed+" X"+mround(x)+" Y"+mround((j)*ystep)+"\n";
+					for (var i=0;i<gc.length;i++){
+						v=gc[idx];
+						x=xstep*idx;
+						if (v!='z'){
+							gcode+="G0 F"+speed+" X"+mround(x)+"\n";
+							z=25-(gc.charCodeAt(idx)-97);
+							z=-z*zstep;
+							gcode+=tool2.replace("=cncz",mround(z))+"\n"+tool1+" F"+speed+"\n";
+							lv=v;
+						}
+						
+						idx+=dir;
+					}
+				}
+			} 
+		}
+	} else {
+	// halftoner
+	}
+	pc=100*w1/(w1+w0);
+	total=15*pc*waktu;
+	document.getElementById("waktu").innerHTML="<b>TOTAL BIAYA:Rp "+mround(total)+"</b><br>Waktu:"+mround(waktu)+"menit, laser "+mround(pc)+"%";
+	gcode+=tool1+"\nG4\nG7\nG0 X0 Y0\n";
+	document.getElementById("gcode").innerHTML=gcode;
+    ctx.putImageData(bm, 0, 0);
+	img.width=220;
+	savesetting();
+};
+function copy_to_clipboard(id) {
+    document.getElementById(id).select();
+    document.execCommand('copy');
+}
+function copy_to_server(id) {
+//	var address = window.location.href.replace('http', 'ws');
+//	var ws= new WebSocket(address);
+//	ws.addEventListener('open', function() {
+		var lines=document.getElementById(id).value.split("\n");
+		for (x in lines){ws.send(lines[x]);ws.send("\n");}
+		ws.send(">FINISH");
+//	});
+}
+
+
+setclick("btcopy2a",function(){copy_to_clipboard('gcode');});
+setclick("btcopy2b",function(){copy_to_server('gcode');});
+setclick("redither",ditherit);
+setevent("change","metode",function(){
+	document.getElementById("halftoneoption").hidden=getvalue("metode")!=4;
+	ditherit();
+	});
+
+var stotype=0;
+try {
+storage=chrome.storage.local;
+
+} catch(e){
+stotype=1;
+storage=localStorage;
+}
+
+function savesetting(){
+   a=document.getElementsByClassName("saveit");
+   sett={};
+   for (var i=0;i<a.length;i++){
+         sett[a[i].id]=a[i].value;
+   }
+   text1=document.getElementById("gcode").innerHTML;
+   if (stotype==1){
+     storage.setItem("settings",JSON.stringify(sett));
+     storage.setItem("text1",text1);
+   } else {
+     storage.set({"settings":sett,"text1":text1});
+   }
+}
+//setclick("btsaveset",savesetting);
+
+
+if (stotype==0){
+	try {
+	   storage.get("text1",function(r){document.getElementById("gcode").innerHTML=r.text1;})
+	   storage.get("settings",function(r){
+		  sett=r.settings;
+		  for (var k in sett){
+				setvalue(k,sett[k]);
+		  }
+	   });
+	} catch (e) {
+	}
+} else {
+   text1=storage.text1;
+   if (text1==undefined)text1="";
+   if (storage.settings!=undefined){
+	   sett=JSON.parse(storage.settings);
+	   for (var k in sett){
+			setvalue(k,sett[k]);
+	   }
+   }
+   document.getElementById("gcode").innerHTML=text1;
+}	
+
+// websocket
+var ws =0;
+document.addEventListener('DOMContentLoaded', function() {
+// FIXME: Wait for 1s so that HTTP Server socket is listening...
+  var address = window.location.href.replace('http', 'ws');
+  ws= new WebSocket(address);
+  ws.addEventListener('open', function() {
+    log('Connected');
+  });
+  ws.addEventListener('close', function() {
+    log('Connection lost');
+  });
+  ws.addEventListener('message', function(e) {
+    log(e.data);
+  });
+});
+</script>
+
+
+</body>
+</html>

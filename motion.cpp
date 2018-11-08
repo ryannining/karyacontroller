@@ -450,8 +450,10 @@ void planner(int32_t h)
     if (curr->dx[i] != 0) {
 
       float cdx = curr->fn * mmdis[i];
-      float scale2 = float(maxf[i]) * curr->dis / fabs(cdx);
-      if (scale2 < scale) scale = scale2;
+      if ((i!=3)) { 
+        float scale2 = float(maxf[i]) * curr->dis / fabs(cdx);
+        if (scale2 < scale) scale = scale2;
+      }
       // if Z then need to scale the acceleration too
       if (i == 2) {
         float scalea = zaccel * curr->dis / fabs(curr->ac * mmdis[i]);
@@ -1081,10 +1083,11 @@ int sendwait = 0;
 static THEISR void readpixel()
 {
   char vv = g_str[e_ctr];
-  switch (vv) {
-    case 'a': cmdlaserval = 0; break;
-    case 'z': cmdlaserval = 255; break;
-    default: cmdlaserval = (327 * (vv - 'a')) >> 5;
+  vv&=~32;
+  switch (vv ) {
+    case 'A': cmdlaserval = 0; break;
+    case 'Z': cmdlaserval = 255; break;
+    default: cmdlaserval = (327 * (vv - 'A')) >> 5;
   }
 }
 
