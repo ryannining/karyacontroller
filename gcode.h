@@ -82,7 +82,7 @@ typedef struct {
 } GCODE_COMMAND;
 
 #ifdef __AVR__ 
-#define g_str_len 128
+#define g_str_len 64
 #else
 #define g_str_len 3000
 #endif
@@ -101,6 +101,7 @@ static void demoSD() {}
 #endif
 extern void changefilament(float l);
 extern void process_gcode_command();
+extern int reset_command();
 extern uint8_t gcode_parse_char(uint8_t c);
 extern void init_gcode();
 extern int sdcardok;

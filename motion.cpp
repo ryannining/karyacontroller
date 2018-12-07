@@ -11,6 +11,7 @@
 #ifndef ISPC
 #include<Arduino.h>
 #include "eprom.h"
+#include "gcodesave.h"
 #else
 #include <graphics.h>
 #include <stdlib.h>
@@ -141,14 +142,58 @@ float InvSqrt(float x)
 //#define xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
 
 //#define xInvSqrt(n) stepdiv2*InvSqrt(n)
-#define xInvSqrt(n) n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2
+//#define xInvSqrt(n) n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2
+
+float pta = 0;
+//#define xInvSqrt(d,n) pta=(pta+n)*0.5;d=pta>0.25?stepdiv2*InvSqrt(pta):2*stepdiv2;
+#define xInvSqrt(d,n) d=n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2;
+
 
 #define sqrt32(n) sqrt(n)
 
+
+#ifdef USER_INPUT
+int user_cnt = 0;
+long lastms = 0;
+void user_input_loop() {
+  long m = millis();
+  if (m - lastms > 2000) {
+    lastms = m;
+    if (user_cnt) {
+      zprintf(PSTR("User input:%d\n"), fi(user_cnt));
+      switch (user_cnt) {
+        case 3: beginuncompress(); break;
+        case 2: enduncompress(); break;
+      }
+      user_cnt = 0;
+    }
+  }
+}
+void user_input() {
+  long m = millis();
+  if (m - lastms > 200) {
+    user_cnt++;
+    lastms = m;
+  }
+  // tap home 3 times to start printing
+}
+void init_user_input() {
+  attachInterrupt(digitalPinToInterrupt(limit_pin), user_input, FALLING);
+}
+void close_user_input() {
+  detachInterrupt(digitalPinToInterrupt(limit_pin));
+
+}
+#else
+#define user_input_loop()
+#define  init_user_input()
+#define close_user_input()
+#endif
+
 /*
-    =================================================================================================================================================
-    RESET_MOTION
-    =================================================================================================================================================
+  =================================================================================================================================================
+  RESET_MOTION
+  =================================================================================================================================================
   Reset all variable
 */
 // keep last direction to enable backlash if needed
@@ -156,6 +201,8 @@ float InvSqrt(float x)
 void reset_motion()
 {
 
+  close_user_input();
+  init_user_input();
   // 650bytes code
 #ifdef SUBPIXELMAX
   vSUBPIXELMAX = SUBPIXELMAX;
@@ -237,9 +284,9 @@ void preparecalc()
 
 int32_t mcx[NUMAXIS];
 /*
-    =================================================================================================================================================
-    MOTOR CLASS
-    =================================================================================================================================================
+  =================================================================================================================================================
+  MOTOR CLASS
+  =================================================================================================================================================
 */
 
 
@@ -264,9 +311,9 @@ void power_off()
 
 }
 /*
-    =================================================================================================================================================
-    PREPARERAMP
-    =================================================================================================================================================
+  =================================================================================================================================================
+  PREPARERAMP
+  =================================================================================================================================================
   Bertujuan mengkalkulasi berapa tangga aselerasi awal (rampup) dan akhir (rampdown)
   rampup belum tentu speed naik, bisa jadi speed turun.
 
@@ -278,9 +325,9 @@ void power_off()
   hanya melakukan kalkulasi ulang aselerasi supaya rampdown maksimal ya sama dengan totalstep
 
 
-    24-4-2018, i change the math of ramp calculation using mm distance
+  24-4-2018, i change the math of ramp calculation using mm distance
 
- * */
+* */
 float currdis, prevdis, fe;
 
 #ifdef NONLINEAR
@@ -306,7 +353,7 @@ int32_t rampseg, rampup, rampdown;
 void prepareramp(int32_t bpos)
 {
 
-//#define preprampdebug
+  //#define preprampdebug
   tmove *m, *next;
   m = &move[bpos];
   //if (m->status & 4)return; // already calculated
@@ -321,8 +368,8 @@ void prepareramp(int32_t bpos)
     next = &move[nextbuff(bpos)];
     fe = next->fs;
   } else fe = 0;
-  float ru,rd;
-  ru=rd=0;
+  float ru, rd;
+  ru = rd = 0;
   ramplenq(ru, m->fs, m->fn, stepa);
   ramplenq(rd, fe, m->fn, stepa);
 
@@ -337,13 +384,13 @@ void prepareramp(int32_t bpos)
     float r = ((ru + rd) - m->dis) / 2;
     ru -= r;
     rd -= r;
-    if (ru < 0)ru= 0;
-    if (rd < 0)rd= 0;
-    if (rd > m->dis)rd= m->dis;
-    if (ru > m->dis)ru= m->dis;
+    if (ru < 0)ru = 0;
+    if (rd < 0)rd = 0;
+    if (rd > m->dis)rd = m->dis;
+    if (ru > m->dis)ru = m->dis;
     m->fn = speedat(m->fs, m->ac, ru);
 
-//    if (rd== 0)next->fs = m->fn;
+    //    if (rd== 0)next->fs = m->fn;
   }
 
   CORELOOP
@@ -354,15 +401,15 @@ void prepareramp(int32_t bpos)
 #endif
   m->status |= 4;
   // convert to current
-  rampup=ru*ytotalstep/m->dis;
-  rampdown=rd*ytotalstep/m->dis;
+  rampup = ru * ytotalstep / m->dis;
+  rampdown = rd * ytotalstep / m->dis;
   CORELOOP
 }
 
 /*
-    =================================================================================================================================================
-    PLANNER
-    =================================================================================================================================================
+  =================================================================================================================================================
+  PLANNER
+  =================================================================================================================================================
   dipanggil oleh   untuk mulai menghitung dan merencakanan gerakan terbaik
   kontrol mbelok adalah cara mengontrol supaya saat menikung, kecepatan dikurangi sehingga tidak skip motornya
 
@@ -450,7 +497,7 @@ void planner(int32_t h)
     if (curr->dx[i] != 0) {
 
       float cdx = curr->fn * mmdis[i];
-      if ((i!=3)) { 
+      if ((i != 3)) {
         float scale2 = float(maxf[i]) * curr->dis / fabs(cdx);
         if (scale2 < scale) scale = scale2;
       }
@@ -463,7 +510,7 @@ void planner(int32_t h)
 #endif
       }
       currf[i] = float(cdx) / curr->dis;
-      
+
       CORELOOP
     }
   }
@@ -550,9 +597,9 @@ void planner(int32_t h)
 }
 
 /*
-    =================================================================================================================================================
-    ADDMOVE
-    =================================================================================================================================================
+  =================================================================================================================================================
+  ADDMOVE
+  =================================================================================================================================================
   Rutin menambahkan sebuah vektor ke dalam buffer gerakan
 */
 int32_t x1[NUMAXIS], x2[NUMAXIS];
@@ -796,10 +843,10 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     cz1 = curr->dtx[2] = cz2;
     ce01 = curr->dtx[3] = ce02;
     /*#else
-            cx1 = cx2;
-            cy1 = cy2;
-            cz1 = cz2;
-            ce01 = ce02;
+      cx1 = cx2;
+      cy1 = cy2;
+      cz1 = cz2;
+      ce01 = ce02;
       #endif
     */
   }
@@ -811,7 +858,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
 
 /*
 
-    ARC using Float implementation
+  ARC using Float implementation
 
 */
 
@@ -1052,9 +1099,9 @@ void dographics()
 #define graphstep(ix)
 #endif
 /*
-    =================================================================================================================================================
-    MOTIONLOOP
-    =================================================================================================================================================
+  =================================================================================================================================================
+  MOTIONLOOP
+  =================================================================================================================================================
 */
 void otherloop(int r);
 uint32_t cm, ocm,  mctr2, dlmin, dlmax;
@@ -1062,9 +1109,9 @@ int32_t timing = 0;
 
 
 /*
-    =================================================================================================================================================
-    COMMAND BUFFER
-    =================================================================================================================================================
+  =================================================================================================================================================
+  COMMAND BUFFER
+  =================================================================================================================================================
 */
 #define NUMCMDBUF 140
 #define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
@@ -1083,7 +1130,7 @@ int sendwait = 0;
 static THEISR void readpixel()
 {
   char vv = g_str[e_ctr];
-  vv&=~32;
+  vv &= ~32;
   switch (vv ) {
     case 'A': cmdlaserval = 0; break;
     case 'Z': cmdlaserval = 255; break;
@@ -1287,7 +1334,7 @@ void THEISR coreloopm()
 
 //
 /* idea:
-   merge a non move
+  merge a non move
 */
 
 int ldelay = 0;
@@ -1334,10 +1381,10 @@ void newdircommand(int laserval)
 
 }
 /* ================================================================================================================
-                                                BRESENHAM CORE
+  BRESENHAM CORE
 
-                              this need to move to interrupt for smooth movement
-   ================================================================================================================
+  this need to move to interrupt for smooth movement
+  ================================================================================================================
 */
 
 
@@ -1355,7 +1402,7 @@ void newdircommand(int laserval)
 #define CALCDELAY dl = dlp;
 #endif
 // ===============================
-float pta = 0;
+float ia = 0;
 int coreloop1()
 {
 #ifdef output_enable
@@ -1381,11 +1428,12 @@ int coreloop1()
     bresenham(3);
     // if rasterlen and e is change then read the new laser value
     // next speed
+#define accele(a) ia=(ia+a)*0.5;ta+=ia
     if ((rampup -= rampv) > 0) {
-      ta += acup;
+      accele(acup);
       goto UPDATEDELAY;
     } else if ((rampdown -= rampv) < 0) {
-      ta += acdn;
+      accele(acdn);
 UPDATEDELAY:
       if (ta < 1.05)ta = 1.05;
       //zprintf(PSTR("%d\n"),fi(ta));
@@ -1395,10 +1443,10 @@ UPDATEDELAY:
       nextdly += dl;
       if (nextdly > UPDATE_F_EVERY) {
         nextdly -= UPDATE_F_EVERY;
-        dlp = xInvSqrt(ta); //*F_SCALE;
+        xInvSqrt(dlp, ta); //*F_SCALE;
       };
 #else
-      dlp = xInvSqrt(ta); //*F_SCALE;
+      xInvSqrt(dlp, ta); //*F_SCALE;
 #endif
     }
     CALCDELAY
@@ -1415,9 +1463,9 @@ UPDATEDELAY:
     pushcmd();
     mctr--;
     /*    if (mctr==0){
-          cmd0 = 1;
-          pushcmd();
-        }
+      cmd0 = 1;
+      pushcmd();
+      }
     */
     CORELOOP
     //if (mctr  == 0)zprintf(PSTR("\n"));
@@ -1511,6 +1559,7 @@ int motionloop()
 
 void otherloop(int r)
 {
+  user_input_loop();
   cm = micros();
   // NON TIMER
   //    zprintf(PSTR("%d\n"),fi(dmc));
@@ -1556,18 +1605,20 @@ void otherloop(int r)
 
 #endif // ispc
 
-  if (sendwait > 0) {
-    sendwait--;
-    if (sendwait == 1) {
-      zprintf(PSTR("wait\n"));
+  if (!wait_for_temp && !ishoming) {
+    if (sendwait > 0) {
+      sendwait--;
+      if (sendwait == 1) {
+        zprintf(PSTR("wait\n"));
+      }
     }
   }
 }
 
 /*
-    =================================================================================================================================================
-    STARTMOVE
-    =================================================================================================================================================
+  =================================================================================================================================================
+  STARTMOVE
+  =================================================================================================================================================
   Mulai menjalankan 1 unit di buffer gerakan terakhir
 */
 int subp = 1, laxis;
@@ -1649,7 +1700,7 @@ void calculate_delta_steps()
   // lets do the subpixel thing.
 
   // calculate the microseconds betwen step,
-  dln = xInvSqrt((m->fn ));
+  xInvSqrt(dln, (m->fn ));
 #ifdef SUBPIXELMAX
   int u;
   if (vSUBPIXELMAX > 1) {
@@ -1733,7 +1784,7 @@ int32_t startmove()
   // Now need to convert mm rampup to step rampup
 
   //m->fs = ta;
-  ta=m->fs;
+  ta = m->fs;
   if (rampup)acup = float((m->fn  - m->fs )) / float(rampup); //(fmax(1,m->rampup-acramp));
   if (rampdown)acdn = -float((m->fn  - fe )) / float(rampdown); //(fmax(1,m->rampdown-acramp));
 
@@ -1814,7 +1865,7 @@ int32_t startmove()
   rampup *= subp;
   rampdown *= subp;
 #endif
-  dlp = xInvSqrt(ta);
+  xInvSqrt(dlp, ta);
   dl = dlp;
 #ifdef UPDATE_F_EVERY
   nextdly = UPDATE_F_EVERY + 100;
@@ -1823,9 +1874,9 @@ int32_t startmove()
 }
 
 /*
-    =================================================================================================================================================
-    DOCHECKENDSTOP
-    =================================================================================================================================================
+  =================================================================================================================================================
+  DOCHECKENDSTOP
+  =================================================================================================================================================
 */
 #ifdef INVERTENDSTOP
 #define ENDCHECK !
@@ -1860,12 +1911,16 @@ void docheckendstop()
 }
 
 /*
-    =================================================================================================================================================
-    HOMING
-    =================================================================================================================================================
+  =================================================================================================================================================
+  HOMING
+  =================================================================================================================================================
 */
+
+
 void homing()
 {
+  close_user_input();
+
   // clear buffer
   addmove(100, 0, 0, ax_home[2] < 1 ? 0 : cz1, ce01);
   waitbufferempty();
@@ -1968,13 +2023,14 @@ void homing()
   //zprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
   ishoming = 0;
   init_pos();
+  init_user_input();
 
 }
 
 /*
-    =================================================================================================================================================
-    WAITBUFFEREMPTY
-    =================================================================================================================================================
+  =================================================================================================================================================
+  WAITBUFFEREMPTY
+  =================================================================================================================================================
   waitbufferempty
   Proses semua gerakan di buffer, dan akhiri dengan deselerasi ke 0
 */
@@ -2004,9 +2060,9 @@ void waitbufferempty()
 #endif
 }
 /*
-    =================================================================================================================================================
-    NEEDBUFFER
-    =================================================================================================================================================
+  =================================================================================================================================================
+  NEEDBUFFER
+  =================================================================================================================================================
   loop sampai da buffer yang bebas
 */
 void needbuffer()
@@ -2057,9 +2113,9 @@ void faildetected()
 #endif
 }
 /*
-    =================================================================================================================================================
-    initmotion
-    =================================================================================================================================================
+  =================================================================================================================================================
+  initmotion
+  =================================================================================================================================================
   inisialisasi awal, wajib
 */
 void init_pos()

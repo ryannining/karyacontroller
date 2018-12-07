@@ -1,0 +1,205 @@
+<html>
+<body>
+<script>
+function mround(x) {
+    return parseFloat(x).toFixed(2);
+}
+
+function $(id) {
+    return document.getElementById(id);
+}
+function log(text) {
+    $('log').value += text + '\n';
+}
+
+function getvalue(el) {
+    return $(el).value;
+}
+
+function setvalue(el, val) {
+    $(el).value = val;
+}
+
+function setevent(ev, bt, act) {
+    $(bt).addEventListener(ev, act, false);
+}
+
+function setclick(bt, act) {
+    setevent("click", bt, act);
+}
+
+function replaceAll(str, find, replace) {
+    return str.replace(new RegExp(find, 'g'), replace);
+}
+
+var compress=[];
+function write(w,s){
+	if (s>0)compress.push(w & 255);
+	if (s>1)compress.push((w >> 8) & 255);
+	if (s>2)compress.push((w >> 16) & 255);	
+}
+var cntg28=0;
+var totalgcode=0;
+function endcompress(){}
+function addgcode(g){
+	// read gcode
+	totalgcode+=g.length;
+	gd={};
+	lv="";
+	lk="";
+	gk="";
+	g=g.toUpperCase();
+	for (var i=0;i<g.length;i++){
+		c=g[i];
+		
+		if (".0123456789-".indexOf(c)>=0){
+		   lv+=c;
+		}
+		if ((" ;MGXYZEFST".indexOf(c)>=0) || (i==g.length-1)){
+		   if (lv){gk+=lk;gd[lk]=lv*1;lv="";}
+		   if ("MGXYZEFST".indexOf(c)>=0)lk=c;
+		}
+		if (c==';')break;
+	}
+  h = 0;
+  f=0;
+  s=0;
+  x=0;
+  if (gk.indexOf('M')+1) {
+    h = 1;
+    switch (gd['M']) {
+      case 3: h |= 0; break;
+      case 109: h |= 1 << 1; break;
+      case 2: h |= 2 << 1; break; // final
+      default: return; // not implemented
+    }
+    s = gd['S'];
+    h |= 1 << 3;
+    write(h, 1);
+    write(s, 1);
+    //zprintf(PSTR("M%d S%d\n"), fi(gd['M), fi(s));
+  }
+  if (gk.indexOf('G')+1) {
+    h = 0;
+    switch (gd['G']) {
+      case 0: h |= 0; break;
+      case 1: h |= 1 << 1; break;
+      case 28:
+        h |= 2 << 1;
+        cntg28--;
+        break;
+      case 92: h |= 3 << 1; break;
+      default: return; // not implemented
+    }
+    if (gk.indexOf('F')+1)h |= 1 << 3;
+    if (gk.indexOf('X')+1)h |= 1 << 4;
+    if (gk.indexOf('Y')+1)h |= 1 << 5;
+    if (gk.indexOf('Z')+1)h |= 1 << 6;
+    if (gk.indexOf('E')+1)h |= 1 << 7;
+
+    write(h, 1);
+    //zprintf(PSTR("H%d G%d "), fi(h), fi(gd['G));
+    // write the parameter if exist
+    if (gk.indexOf('F')+1) {
+      f = Math.min(gd['F']*1, 250);
+      write(f, 1);
+      //zprintf(PSTR("F%d "), fi(f));
+    }
+    if (gk.indexOf('X')+1) {
+      x = gd['X'] * 100+16000;
+      write(x, 2);
+      //zprintf(PSTR("X%d "), fi(x));
+    }
+    if (gk.indexOf('Y')+1) {
+      x = gd['Y'] * 100+16000;
+      write(x, 2);
+      //zprintf(PSTR("Y%d "), fi(x));
+    }
+    if (gk.indexOf('Z')+1) {
+      x = gd['Z'] * 100+5000;
+      write(x, 2);
+      //zprintf(PSTR("Z%d "), fi(x));
+    }
+    if (gk.indexOf('E')+1) {
+      x = gd['E'] * 1000;
+      write(x, 3);
+      //zprintf(PSTR("E%d "), fi(x));
+    }
+  }
+  if (!cntg28) {
+    endcompress();
+    cntg28 = 2;
+  }
+  //zprintf(PSTR("\n"));
+	
+}
+function begincompress(){
+	compress=[];
+	totalgcode=0;
+	texts=getvalue("gcode").split("\n");
+	cntg28=2;
+	for (var i=0;i<texts.length;i++){
+		addgcode(texts[i]);
+	}
+	  h = 1;
+	  h |= 2 << 1;
+	  write(h, 1);
+	
+	setvalue("gcomp",compress.toString());
+	$("info").innerHTML="Original "+totalgcode+"bytes > "+compress.length+" bytes, ratio "+mround(totalgcode/compress.length);
+}
+function urlopen(s){
+  var xhr = new XMLHttpRequest();
+  xhr.open( "GET","/"+s,true);
+  xhr.send();
+}
+function startprint(){
+  urlopen("startprint");
+}
+function stopprint(){
+  urlopen("stopprint");
+}
+function realupload(blobOrFile) {
+  var xhr = new XMLHttpRequest();
+  form = new FormData();
+  form.append("name",blobOrFile,"gcode");
+  xhr.open(
+            "POST",
+            "/upload",
+            true
+        );
+  var progressBar = document.querySelector('progress');
+  xhr.onload = function(e) {progressBar.value = 0;};
+  // Listen to the upload progress.
+  xhr.upload.onprogress = function(e) {
+    if (e.lengthComputable) {
+      progressBar.value = (e.loaded / e.total) * 100;
+      progressBar.textContent = progressBar.value; // Fallback for unsupported browsers.
+    }
+  };
+
+  xhr.send(form);
+}
+function upload(){
+	realupload(new Blob([new Int8Array(compress).buffer],{type:"text/plain"}));
+}
+</script>
+Gcode<br>
+<table><tr><td>
+<textarea id=gcode cols=80 rows=30>
+; copy paste gcode here from repetier
+</textarea><br>
+<button id=btclick onclick="begincompress()">Compress</button>
+<td width=50%>
+<div id=info></div><br>
+<textarea id=gcomp cols=80 rows=30>
+</textarea><br>
+<progress min="0" max="100" value="0">0% complete</progress><br>
+<button id=btclick onclick="upload()">Upload</button>
+<br><button id=btclick onclick="startprint()">Start print</button>
+<button id=btclick onclick="stoprint()">Stop print</button>
+
+
+</table>
+</body>
+</html>

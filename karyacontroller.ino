@@ -11,6 +11,7 @@
 #include "timer.h"
 #include "eprom.h"
 #include "motion.h"
+#include "gcodesave.h"
 
 #include<stdint.h>
 
@@ -76,6 +77,7 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   HTTPUpload& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
     String filename = upload.filename;
+    if(filename=="")filename="gcode";
     if (!filename.startsWith("/")) filename = "/" + filename;
     xprintf(PSTR("handleFileUpload Name: %s\n"), filename.c_str());
     fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
@@ -161,7 +163,7 @@ void setupwifi(int num) {
     xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
     WiFi.mode(WIFI_STA);
     WiFi.begin ( wifi_ap, wifi_pwd);
-    int cntr = 20;
+    int cntr = 30;
     while ( WiFi.status() != WL_CONNECTED ) {
       delay ( 500 );
       cntr--;
@@ -196,9 +198,15 @@ void setupwifi(int num) {
     xprintf(PSTR("MDNS responder started %s\n"), wifi_dns);
   }
 
+  server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
+    beginuncompress();
+  });
+  server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
+    enduncompress();
+  });
   server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
-    if (!handleFileRead("/upload.html"))                // send it if it exists
-      server.send ( 200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>" );
+    //xprintf(PSTR("Handle UPLOAD \n"));
+    server.send ( 200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>" );
   });
 
   server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
@@ -222,7 +230,8 @@ void setupwifi(int num) {
 
 
 
-  if (!num)SPIFFS.begin();
+  //if (!num)
+  SPIFFS.begin();
   INTS
 }
 
@@ -623,7 +632,7 @@ uint32_t t1;
 void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
-  serialinit(115200);//115200);
+  serialinit(2*115200);//115200);
   t1 = millis();
   //while (!Serial.available())continue;
 #ifndef DELAYEDSETUP
@@ -640,5 +649,6 @@ void loop() {
     control_loop();
     display_loop();
     wifi_loop();
+    uncompress_loop();
   }
 }

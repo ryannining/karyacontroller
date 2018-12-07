@@ -6,6 +6,7 @@
 #include "temp.h"
 #include "motors.h"
 #include "eprom.h"
+#include "gcodesave.h"
 
 
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
@@ -94,7 +95,7 @@ char g_str[g_str_len];
 
 uint8_t okxyz;
 int g_str_c = 0;
-int rasterlen=0;
+int rasterlen = 0;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
@@ -149,6 +150,33 @@ void changefilament(float l)
   cz1 = backupZ;
 #endif
 }
+
+int reset_command() {
+  // reset variables
+  okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
+  uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
+
+  next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
+                       next_target.seen_E = next_target.seen_F = next_target.seen_S = \
+                           next_target.seen_P = next_target.seen_T = \
+                               next_target.seen_G = next_target.seen_M = \
+                                   next_target.read_string = g_str_c  = 0;
+  MLOOP
+#ifdef ARC_SUPPORT
+  next_target.seen_R = next_target.seen_I = next_target.seen_J = 0;
+#endif
+  last_field = 0;
+  read_digit.sign = read_digit.mantissa = read_digit.exponent = 0;
+
+  if (next_target.option_all_relative) {
+    next_target.target.axis[X] = next_target.target.axis[Y] = next_target.target.axis[Z] = 0;
+  }
+  if (next_target.option_all_relative || next_target.option_e_relative) {
+    next_target.target.axis[E] = 0;
+  }
+  return ok;
+}
+
 
 uint8_t gcode_parse_char(uint8_t c)
 {
@@ -303,7 +331,7 @@ uint8_t gcode_parse_char(uint8_t c)
         // comments
         case '[':
           next_target.read_string = 1;  // Reset by ')' or EOL.
-          if (next_target.seen_P && next_target.seen_G) g_str_c = next_target.P;else g_str_c = 0;
+          if (next_target.seen_P && next_target.seen_G) g_str_c = next_target.P; else g_str_c = 0;
           break;
 
         case ';':
@@ -344,7 +372,7 @@ uint8_t gcode_parse_char(uint8_t c)
       g_str[g_str_c] = 0;
       next_target.read_string = 0;
     } else {
-      if (g_str_c<g_str_len-1){
+      if (g_str_c < g_str_len - 1) {
         g_str[g_str_c] = c;
         g_str_c++;
       }
@@ -366,30 +394,7 @@ uint8_t gcode_parse_char(uint8_t c)
     */
     MLOOP
     process_gcode_command();
-
-    // reset variables
-    okxyz=next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F; 
-    uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
-    
-    next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
-                         next_target.seen_E = next_target.seen_F = next_target.seen_S = \
-                             next_target.seen_P = next_target.seen_T = \
-                                 next_target.seen_G = next_target.seen_M = \
-                                     next_target.read_string = g_str_c  = 0;
-    MLOOP
-#ifdef ARC_SUPPORT
-    next_target.seen_R = next_target.seen_I = next_target.seen_J = 0;
-#endif
-    last_field = 0;
-    read_digit.sign = read_digit.mantissa = read_digit.exponent = 0;
-
-    if (next_target.option_all_relative) {
-      next_target.target.axis[X] = next_target.target.axis[Y] = next_target.target.axis[Z] = 0;
-    }
-    if (next_target.option_all_relative || next_target.option_e_relative) {
-      next_target.target.axis[E] = 0;
-    }
-    if (ok) return 2;
+    if (reset_command()) return 2;
     return 1;
   }
 
@@ -410,7 +415,7 @@ void printposition()
 }
 void printbufflen()
 {
-  zprintf(PSTR("Buf:%d\n"),fi(bufflen()));
+  zprintf(PSTR("Buf:%d\n"), fi(bufflen()));
 
 }
 
@@ -439,7 +444,7 @@ void temp_wait(void)
     domotionloop
     servo_loop();
     //report each second
-    if (millis()-c>1000) {
+    if (millis() - c > 1000) {
       c = millis();
       zprintf(PSTR("T:%f\n"), ff(Input));
       //zprintf(PSTR("Heating\n"));
@@ -452,16 +457,16 @@ void temp_wait(void)
 //int32_t mvc = 0;
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
-float F0=5000;
-float F1=2000;
-int S1=255;
+float F0 = 5000;
+float F1 = 2000;
+int S1 = 255;
 inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
 {
-  if (t->seen_F){
-    if (g0)F0=t->target.F; else F1=t->target.F;
-  } 
-   
-  amove(g0?F0:F1, t->seen_X ? t->target.axis[X] : cx1
+  if (t->seen_F) {
+    if (g0)F0 = t->target.F; else F1 = t->target.F;
+  }
+
+  amove(g0 ? F0 : F1, t->seen_X ? t->target.axis[X] : cx1
         , t->seen_Y ? t->target.axis[Y] : cy1
         , t->seen_Z ? t->target.axis[Z] : cz1
         , t->seen_E ? t->target.axis[E] : ce01
@@ -469,9 +474,9 @@ inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
 }
 inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
 {
-  
-  if (t->seen_F){
-    F1=t->target.F;
+
+  if (t->seen_F) {
+    F1 = t->target.F;
   }
   draw_arc(F1, t->seen_X ? t->target.axis[X] : cx1
            , t->seen_Y ? t->target.axis[Y] : cy1
@@ -479,7 +484,7 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
            , t->seen_E ? t->target.axis[E] : ce01
            , I, J, cw);
 }
-int lastG=0;
+int lastG = 0;
 void process_gcode_command()
 {
   uint32_t	backup_f;
@@ -500,6 +505,13 @@ void process_gcode_command()
     next_target.target.e_relative = 0;
 
   // The GCode documentation was taken from http://reprap.org/wiki/Gcode .
+  if (compress_loop()){
+    cx1=next_target.target.axis[X];//startpoint.axis[X];
+    cy1=next_target.target.axis[Y];//startpoint.axis[Y];
+    cz1=next_target.target.axis[Z];//startpoint.axis[Z];
+    ce01=next_target.target.axis[E];//startpoint.axis[Z];
+    return;
+  }
 
   if (next_target.seen_T) {
     //? --- T: Select Tool ---
@@ -520,12 +532,12 @@ void process_gcode_command()
   */
   if (!next_target.seen_M) {
     if (!next_target.seen_G) {
-      if (lastG>1)return;
+      if (lastG > 1)return;
       if (!okxyz)return;
-      next_target.G=lastG;
+      next_target.G = lastG;
     }
 
-    lastG=next_target.G;
+    lastG = next_target.G;
     uint8_t axisSelected = 0;
     //zprintf(PSTR("Gcode %su \n"),next_target.G);
     switch (next_target.G) {
@@ -553,15 +565,15 @@ void process_gcode_command()
 
         // thread S parameter as value of the laser, in 3D printer, donot use S in G1 !!
         if (next_target.seen_S) {
-          S1=next_target.S;
+          S1 = next_target.S;
         }
         laserOn = S1 > 0;
         constantlaserVal = S1;
         enqueue(&next_target, 0);
-        if (laserOn){
-          #ifndef ISPC
+        if (laserOn) {
+#ifndef ISPC
           pinMode(laser_pin, OUTPUT);
-          #endif
+#endif
         }
         break;
 
@@ -588,7 +600,7 @@ void process_gcode_command()
         //? In this case sit still doing nothing for 200 milliseconds.  During delays the state of the machine (for example the temperatures of its extruders) will still be preserved and controlled.
         //?
         waitbufferempty();
-        rasterlen=0;
+        rasterlen = 0;
         // delay
         if (next_target.seen_P) {
           for (; next_target.P > 0; next_target.P--) {
@@ -632,7 +644,7 @@ void process_gcode_command()
 #endif
       case 7: // raster gcode G7 Sdatalength [data]  data itself is a-z
         // if rasterlen != 0 then it automatically enable the G1 using raster data.
-        // use the E coordinate as the raster coordinate 
+        // use the E coordinate as the raster coordinate
         // so its need to make sure the E begin from 0 if necessary by using G92 E0
         // then call G1 X100 E1000 will raster the Laser Intensity using raster data on E coordinate
         // before change the raster data, need to cal the G4 to wait empty the move buffer
@@ -644,15 +656,15 @@ void process_gcode_command()
         // G1 X100 E13
         // G0 Y0.2
         // G1 X0 E0
-        // G4 
+        // G4
         // G7 S13 [zzaaazzaazzaa]
         // G0 Y0.4
         // G1 X100 E13
         // G0 Y0.6
         // G1 X0 E0
-        // G4 
+        // G4
 
-        rasterlen=g_str_c;//next_target.S; 
+        rasterlen = g_str_c; //next_target.S;
         break;
       case 28:
         homing();
@@ -767,7 +779,7 @@ void process_gcode_command()
           waitbufferempty();
           printposition();
           printbufflen();
-          rasterlen=0;
+          rasterlen = 0;
         }
         break;
       case 25:
@@ -811,13 +823,13 @@ void process_gcode_command()
       case 5:
         // already implemented using value = 255 = cutting
         //constantlaser = next_target.S == 1;
-        next_target.seen_S=1;
-        next_target.S=0;
+        next_target.seen_S = 1;
+        next_target.S = 0;
       case 3:
 #ifdef LASERMODE
         // if no S defined then full power
         if (!next_target.seen_S)next_target.S = 255;
-        S1=next_target.S;
+        S1 = next_target.S;
         laserOn = S1 > 0;
         constantlaserVal = next_target.S;
         if (laserOn) zprintf(PSTR("LASERON\n"));
@@ -906,7 +918,7 @@ void process_gcode_command()
         //? See also M0.
         //?
         // stop and clear all buffer
-        RUNNING = 0;
+        //RUNNING = 0;
 
         break;
 
@@ -958,24 +970,24 @@ void process_gcode_command()
 #endif
       case 503:
         zprintf(PSTR("EPR:3 145 %f X Home Pos\n"), ff(ax_home[0]));
-        zprintf(PSTR("EPR:3 149 %f Y Home Pos\n"), ff(ax_home[1]));
-        zprintf(PSTR("EPR:3 153 %f Z Home Pos\n"), ff(ax_home[2]));
+        zprintf(PSTR("EPR:3 149 %f Y\n"), ff(ax_home[1]));
+        zprintf(PSTR("EPR:3 153 %f Z\n"), ff(ax_home[2]));
 
-        zprintf(PSTR("EPR:3 3 %f X Step/mm\n"), ff(stepmmx[0]));
-        zprintf(PSTR("EPR:3 7 %f Y Step/mm\n"), ff(stepmmx[1]));
-        zprintf(PSTR("EPR:3 11 %f Z Step/mm\n"), ff(stepmmx[2]));
-        zprintf(PSTR("EPR:3 0 %f E Step/mm\n"), ff(stepmmx[3]));
+        zprintf(PSTR("EPR:3 3 %f X step/mm\n"), ff(stepmmx[0]));
+        zprintf(PSTR("EPR:3 7 %f Y\n"), ff(stepmmx[1]));
+        zprintf(PSTR("EPR:3 11 %f Z\n"), ff(stepmmx[2]));
+        zprintf(PSTR("EPR:3 0 %f E\n"), ff(stepmmx[3]));
 
-        zprintf(PSTR("EPR:2 15 %d X Max Feedrate\n"), fi(maxf[0]));
-        zprintf(PSTR("EPR:2 19 %d Y Max Feedrate\n"), fi(maxf[1]));
-        zprintf(PSTR("EPR:2 23 %d Z Max Feedrate\n"), fi(maxf[2]));
-        zprintf(PSTR("EPR:2 27 %d E Max Feedrate\n"), fi(maxf[3]));
+        zprintf(PSTR("EPR:2 15 %d X maxF\n"), fi(maxf[0]));
+        zprintf(PSTR("EPR:2 19 %d Y\n"), fi(maxf[1]));
+        zprintf(PSTR("EPR:2 23 %d Z\n"), fi(maxf[2]));
+        zprintf(PSTR("EPR:2 27 %d E\n"), fi(maxf[3]));
 
 
-        zprintf(PSTR("EPR:3 181 %d Jerk\n"), fi(xyjerk));
-        zprintf(PSTR("EPR:3 51 %d Accelleration\n"), fi(accel));
-        zprintf(PSTR("EPR:3 67 %d Travel Accel\n"), fi(mvaccel));
-        zprintf(PSTR("EPR:3 177 %d Homing Feedrate\n"), fi(homingspeed));
+        zprintf(PSTR("EPR:3 181 %d Jrk\n"), fi(xyjerk));
+        zprintf(PSTR("EPR:3 51 %d Acl\n"), fi(accel));
+        zprintf(PSTR("EPR:3 67 %d TvAcl\n"), fi(mvaccel));
+        zprintf(PSTR("EPR:3 177 %d HomeF\n"), fi(homingspeed));
         zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
 #ifdef NONLINEAR
         zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
@@ -990,21 +1002,21 @@ void process_gcode_command()
         zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
 #endif
 
-        zprintf(PSTR("EPR:3 300 %f AutoRetract In\n"), ff(retract_in));
-        zprintf(PSTR("EPR:3 304 %f AutoRetract In F\n"), ff(retract_in_f));
-        zprintf(PSTR("EPR:3 308 %f AutoRetract Out\n"), ff(retract_out));
-        zprintf(PSTR("EPR:3 312 %f AutoRetract Out F\n"), ff(retract_out_f));
+        zprintf(PSTR("EPR:3 300 %f AtRetractIn\n"), ff(retract_in));
+        zprintf(PSTR("EPR:3 304 %f F\n"), ff(retract_in_f));
+        zprintf(PSTR("EPR:3 308 %f Out\n"), ff(retract_out));
+        zprintf(PSTR("EPR:3 312 %f F\n"), ff(retract_out_f));
 
 #ifdef USE_BACKLASH
-        zprintf(PSTR("EPR:3 80 %f X Backlash mm\n"), fi(xback[0]));
-        zprintf(PSTR("EPR:3 84 %f Y Backlash mm\n"), fi(xback[1]));
-        zprintf(PSTR("EPR:3 88 %f Z Backlash mm\n"), fi(xback[2]));
-        zprintf(PSTR("EPR:3 92 %f E Backlash mm\n"), fi(xback[3]));
+        zprintf(PSTR("EPR:3 80 %f X Backlash\n"), fi(xback[0]));
+        zprintf(PSTR("EPR:3 84 %f Y\n"), fi(xback[1]));
+        zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
+        zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
 #endif
 #if defined(temp_pin)
-        zprintf(PSTR("EPR:3 316 %f P.I.D P\n"), ff(myPID.GetKp()));
-        zprintf(PSTR("EPR:3 320 %f P.I.D I\n"), ff(myPID.GetKi()));
-        zprintf(PSTR("EPR:3 324 %f P.I.D D\n"), ff(myPID.GetKd()));
+        zprintf(PSTR("EPR:3 316 %f P\n"), ff(myPID.GetKp()));
+        zprintf(PSTR("EPR:3 320 %f I\n"), ff(myPID.GetKi()));
+        zprintf(PSTR("EPR:3 324 %f D\n"), ff(myPID.GetKd()));
         //zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
 #endif
         break;
@@ -1059,7 +1071,7 @@ void process_gcode_command()
               eprom_wr(165, EE_towera_ofs, S_F);
               eprom_wr(169, EE_towerb_ofs, S_F);
               eprom_wr(173, EE_towerc_ofs, S_F);
-              
+
               eprom_wr(300, EE_retract_in, S_F);
               eprom_wr(304, EE_retract_in_f, S_F);
               eprom_wr(308, EE_retract_out, S_F);
@@ -1104,16 +1116,16 @@ void process_gcode_command()
 
         break;
       case 290: // m290 baby step in X Y Z E in milimeter
-        if (next_target.seen_X) babystep[0]=next_target.target.axis[X] * 1000;
-        if (next_target.seen_Y) babystep[1]=next_target.target.axis[Y] * 1000;
-        if (next_target.seen_Z) babystep[2]=next_target.target.axis[Z] * 1000;
-        if (next_target.seen_E) babystep[3]=next_target.target.axis[E] * 1000;
+        if (next_target.seen_X) babystep[0] = next_target.target.axis[X] * 1000;
+        if (next_target.seen_Y) babystep[1] = next_target.target.axis[Y] * 1000;
+        if (next_target.seen_Z) babystep[2] = next_target.target.axis[Z] * 1000;
+        if (next_target.seen_E) babystep[3] = next_target.target.axis[E] * 1000;
         break;
       case 291:
-      #ifdef SUBPIXELMAX
-        vSUBPIXELMAX=next_target.seen_S?next_target.S:SUBPIXELMAX;
-        zprintf(PSTR("Subpixel max:%d\n"),fi(vSUBPIXELMAX));
-      #endif
+#ifdef SUBPIXELMAX
+        vSUBPIXELMAX = next_target.seen_S ? next_target.S : SUBPIXELMAX;
+        zprintf(PSTR("Subpixel max:%d\n"), fi(vSUBPIXELMAX));
+#endif
         break;
       case 221:
         //? --- M220: Set speed factor override percentage ---

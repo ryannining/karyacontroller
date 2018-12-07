@@ -40,7 +40,7 @@
 //#define BOARD_DIY_CNC1
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
-#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
+//#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
 
 
 // ======= STM32F103 ===================================================
@@ -96,21 +96,27 @@
   ============================================================================================
 */
 
-#define ARC_SUPPORT // 3kb
+#ifdef __AVR__
+//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
+#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
+#define CORESERIAL // smaller footprint 500byte, only AVR
+#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+// ==========================================================
 
-#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
+#else
+#define USER_INPUT
+#define ARC_SUPPORT // 3kb
 #define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-//#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
 //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
-#define CORESERIAL // smaller footprint 500byte, only AVR
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
-//#define TELEGRAM
+//#define TELEGRAM // unstable problem
+#define INTERPOLATEDELAY  // slower 4-8us
+#endif
 // ==========================================================
 
-//#define INTERPOLATEDELAY  // slower 4-8us
 
 #ifdef powerpin
 #define POWERFAILURE
