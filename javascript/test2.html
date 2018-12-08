@@ -1,0 +1,142 @@
+<head>
+  <!-- Plotly.js -->
+   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+
+<body>
+  Max Vel <input id=vel value="100" size=4>
+  Accel <input id=acc value="5" size=4>
+  Jerk <input id=jerk value="5" size=4>
+  <br>
+ <button onclick="plotvar();">Plot</button><br>  
+  <div id="myDiv"><!-- Plotly chart will be drawn inside this DIV --></div>
+  <script>
+    <!-- JAVASCRIPT CODE GOES HERE -->
+function mround(x) {
+    return parseFloat(x).toFixed(2);
+}
+
+function $(id) {
+    return document.getElementById(id);
+}
+function getvalue(el) {
+    return $(el).value;
+}
+
+function setvalue(el, val) {
+    $(el).value = val;
+}
+
+var dataJ=[];
+
+function plotme(vt,a,j){	
+	
+	var v=0;
+	var sc=1;
+	var steps=100;
+
+	scalea=1;
+	scalej=1;
+
+
+	jr=Math.ceil(a/j);
+	ramp=Math.ceil(vt/a);
+	if (jr>ramp/2)jr=ramp/2;
+	
+	// recalculate
+	if (j>=a){j=a;jr=1;dataJ=[];}
+
+	a=vt*1.0/ramp;
+	j=a*1.0/jr;
+
+	va=a*(ramp-jr+1);
+
+	sc=vt/va;
+
+
+	rampup=ramp;
+	rampdn=ramp;
+	vel=[];
+	acl=[];
+	jrk=[];
+	xrampup=rampup;
+	xrampdn=steps-rampdn;
+	jup1=jr;
+	jup2=rampup-jr;
+	jdn1=xrampdn+jr;
+	jdn2=steps-jr;
+	xa=0;
+	ax=[];
+	for(i=0;i<steps;i++){
+		la=xa;
+		if (xrampup>=0){
+			if (jup1>0)xa+=j;
+			if (jup2<0)xa+=-j;
+			m=sc;
+		}	
+		else if (xrampdn<=0){
+			if (jdn1>0)xa+=j;
+			if (jdn2<0)xa+=-j;
+			m=-sc;
+		} else {
+			xa=0;
+		}
+		jk=xa-la;
+		aa=xa;
+		//if (aa>a)aa=a;
+		//if (aa<0)aa=0;
+		v=v+aa*m;
+		
+		xrampup--;
+		xrampdn--;
+		jup1--;
+		jup2--;
+		jdn1--;
+		jdn2--;
+		ax.push(i);
+		vel.push(v);
+		if(jr==1)dataJ.push(v);
+		acl.push(aa*scalea*sc);
+		jrk.push(jk*scalej*sc);
+		
+	}
+
+	var trace1 = {
+	  x: ax,
+	  y: vel,
+	  mode: 'lines',
+		name: "Velo"
+
+	};
+	var trace1a = {
+	  x: ax,
+	  y: dataJ,
+	  mode: 'lines',
+		name: "Velo"
+
+	};
+	var trace2 = {
+	  x: ax,
+	  y: acl,
+	  mode: 'lines',
+	  name: "Accel"
+	};
+	var trace3 = {
+	  x: ax,
+	  y: jrk,
+	  mode: 'lines',
+		name: "Jerk"
+
+	};
+	var pdata = [ trace1,trace1a,trace2,trace3];
+
+	var layout = {};
+
+	Plotly.newPlot('myDiv', pdata, layout);
+}
+
+function plotvar(){
+	plotme(getvalue("vel")*1.0,getvalue("acc")*1.0,getvalue("jerk")*1.0);
+}
+</script>
+</body>

@@ -198,6 +198,12 @@ void setupwifi(int num) {
     xprintf(PSTR("MDNS responder started %s\n"), wifi_dns);
   }
 
+  server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
+    ispause=1;
+  });
+  server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
+    ispause=0;
+  });
   server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
     beginuncompress();
   });

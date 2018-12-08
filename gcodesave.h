@@ -3,4 +3,4 @@ extern void uncompress_loop();
 
 extern void enduncompress();
 extern void beginuncompress();
-
+extern int ispause;

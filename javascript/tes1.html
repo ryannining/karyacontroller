@@ -3,7 +3,7 @@
 </head>
 <html>
 <body>
-  <canvas id=drw width="200" height="100"></canvas>
+  <canvas id=drw width="400" height="400"></canvas>
 <script>
 var c = document.getElementById("drw");
 var ctx = c.getContext("2d");
@@ -238,7 +238,7 @@ function addmove(f,x2,y2,z2,e2,rel) {
   y1=y2;
   z1=z2;
   e1=e2;
-
+  ctx.lineTo(x1*10+100, y1*10+100);
 
 
 }
@@ -258,11 +258,11 @@ function startmove()
 // main code
 
 for (var i=1;i<5;i++){
-//  addmove(40,i*10,0,0,0);
+  //addmove(40,i*10,0,0,0);
 }
-  for(var x=1;x<5;x++){
-    addmove(10, +Math.sin(x/5.70)*2, Math.cos(x/5.70)*2, Math.sin(x/5.70)*2, 0);
-  }
+//  for(var x=1;x<14;x++){
+//    addmove(10, +Math.sin(x/5.70)*2, Math.cos(x/5.70)*2, Math.sin(x/5.70)*2, 0);
+//  }
 
 while (startmove()){
 

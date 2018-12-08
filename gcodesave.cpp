@@ -200,8 +200,9 @@ void enduncompress() {
   uncompress = 0;
   zprintf(PSTR("End Uncompress Gcode\n"));
 }
-
+int ispause=0;
 void uncompressaline() {
+  if (ispause)return;
   byte h;
   byte s;
   int x = 0;
