@@ -2423,9 +2423,12 @@ function addgcode(g){
       f = Math.min(gd['F']*0.0167, 250);
       write(f, 1);
     }
+	var dx=0;
+	var dy=0;
     if (gk.indexOf('X')+1) {
       x = gd['X'] * 100;
 	  if (isRel)x+=lx;
+	  dx=x-lx;
       lx=x;
       write(x+16000, 2);
 	  //log(x);
@@ -2433,7 +2436,8 @@ function addgcode(g){
     if (gk.indexOf('Y')+1) {
       x = gd['Y'] * 100;
 	  if (isRel)x+=ly;
-      ly=x;
+      dy=x-ly;
+	  ly=x;
       write(x+16000, 2);
     }
     if (gk.indexOf('Z')+1) {
@@ -2453,7 +2457,7 @@ function addgcode(g){
 	// save the vertex
 	if ((gd['G']<=1)){
 		var tx=lx+ly*0.3;
-		var ty=-lz+ly*0.4;
+		var ty=-lz-ly*0.3;
 		xmax=Math.max(xmax,tx);		
 		xmin=Math.min(xmin,tx);		
 		ymax=Math.max(ymax,ty);		
@@ -2461,10 +2465,11 @@ function addgcode(g){
 		zmax=Math.max(zmax,ly);		
 		zmin=Math.min(zmin,ly);
 		var l=Math.floor(Math.random() * 250);		
-		vertex.push([tx,ty,ly,l]);
+		vertex.push([tx,ty,-ly,l]);
 		
 		if (is_e){
-			lines.push([vertex.length-2,vertex.length-1]);
+			l=Math.abs(125*dx/Math.sqrt(dx*dx+dy*dy));
+			lines.push([vertex.length-2,vertex.length-1,l]);
 		}
 	}
   }
@@ -2477,7 +2482,7 @@ function addgcode(g){
 function getColor(v) {
     var letters = '0123456789ABCDEF';
     var color = letters[(v>>4)&15]+letters[v&15];
-    return "#88"+color+color;
+    return "#44"+color+"88";
 	
 	/*
     var letters = '0123456789ABCDEF';
@@ -2489,10 +2494,18 @@ function getColor(v) {
 }
 
 function drawlines(){
-	ctx.clearRect(0, 0, 200, 200);
+	var grd=ctx.createLinearGradient(0,0,0,200);
+	grd.addColorStop(0,"#88bbFF");
+	grd.addColorStop(0.35,"white");
+	grd.addColorStop(0.55,"#eeaa33");
+	grd.addColorStop(1,"#bb7711");
+
+	ctx.fillStyle=grd;
+	ctx.fillRect(0,0,200,200);
+	//ctx.clearRect(0, 0, 200, 200);
 
 	//calculate scale
-	var zs=255.0/(zmax-zmin);
+	var zs=125.0/(zmax-zmin);
 	var xs=200.0/(xmax-xmin);
 	var ys=200.0/(ymax-ymin);
 	
@@ -2500,30 +2513,37 @@ function drawlines(){
 	var xa=-xmin*xs;
 	var za=-zmin*zs;
 	var ya=-ymin*ys;
-	
+	// draw backlines
+	var l=[0];
 	for (var i=1;i<lines.length-1;i++){
 		var v1=vertex[lines[i][0]];
 		var v2=vertex[lines[i][1]];
+		ll=getColor(lines[i][2]+Math.floor(v1[2]*zs+za));
+		l.push(ll);
 		var x1=v1[0]*sc+xa;
 		var x2=v2[0]*sc+xa;
+		if (x1>x2)
+		{
 			ctx.beginPath();
-			ctx.strokeStyle=getColor(Math.floor(v1[2]*zs+za));
-			ctx.moveTo(x1, v1[1]*sc+ya+1);
-			ctx.lineTo(x2, v2[1]*sc+ya+1);
-			ctx.stroke();
-	}
-	for (var i=1;i<lines.length-1;i++){
-		var v1=vertex[lines[i][0]];
-		var v2=vertex[lines[i][1]];
-		var x1=v1[0]*sc+xa;
-		var x2=v2[0]*sc+xa;
-		if (x1>x2){
-			ctx.beginPath();
-			ctx.strokeStyle=getColor(Math.floor(v1[2]*zs+za));
+			ctx.strokeStyle=ll;
 			ctx.moveTo(x1, v1[1]*sc+ya);
 			ctx.lineTo(x2, v2[1]*sc+ya);
-			ctx.moveTo(x1, v1[1]*sc+ya+1);
-			ctx.lineTo(x2, v2[1]*sc+ya+1);
+			ctx.stroke();
+		}
+	}
+	// draw backlines
+	for (var i=1;i<lines.length-1;i++){
+		var v1=vertex[lines[i][0]];
+		var v2=vertex[lines[i][1]];
+		var x1=v1[0]*sc+xa;
+		var x2=v2[0]*sc+xa;
+		if (x1<x2){
+			ctx.beginPath();
+			ctx.strokeStyle=l[i];
+			ctx.moveTo(x1, v1[1]*sc+ya);
+			ctx.lineTo(x2, v2[1]*sc+ya);
+			//ctx.moveTo(x1, v1[1]*sc+ya+1);
+			//ctx.lineTo(x2, v2[1]*sc+ya+1);
 			ctx.stroke();
 		}
 	}
