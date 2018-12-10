@@ -2456,19 +2456,23 @@ function addgcode(g){
     }
 	// save the vertex
 	if ((gd['G']<=1)){
+		// 3d XYZ to 2D transform
 		var tx=lx+ly*0.3;
 		var ty=-lz-ly*0.3;
+		// save bounding box
 		xmax=Math.max(xmax,tx);		
 		xmin=Math.min(xmin,tx);		
 		ymax=Math.max(ymax,ty);		
 		ymin=Math.min(ymin,ty);		
 		zmax=Math.max(zmax,ly);		
 		zmin=Math.min(zmin,ly);
-		var l=Math.floor(Math.random() * 250);		
-		vertex.push([tx,ty,-ly,l]);
+		// save vertex
+		vertex.push([tx,ty,-ly]);
 		
 		if (is_e){
+			// cheap fast lighting
 			l=Math.abs(125*dx/Math.sqrt(dx*dx+dy*dy));
+			// if there is extruder value then save the line
 			lines.push([vertex.length-2,vertex.length-1,l]);
 		}
 	}
@@ -2480,20 +2484,14 @@ function addgcode(g){
 }
 
 function getColor(v) {
+	var v=Math.floor(v);
     var letters = '0123456789ABCDEF';
     var color = letters[(v>>4)&15]+letters[v&15];
     return "#44"+color+"88";
-	
-	/*
-    var letters = '0123456789ABCDEF';
-    var color = '#';
-    for (var i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;*/	
 }
 
-function drawlines(){
+function rendergcode(){
+    // nice background
 	var grd=ctx.createLinearGradient(0,0,0,200);
 	grd.addColorStop(0,"#88bbFF");
 	grd.addColorStop(0.35,"white");
@@ -2514,38 +2512,37 @@ function drawlines(){
 	var za=-zmin*zs;
 	var ya=-ymin*ys;
 	// draw backlines
-	var l=[0];
+	var front=[];
 	for (var i=1;i<lines.length-1;i++){
 		var v1=vertex[lines[i][0]];
 		var v2=vertex[lines[i][1]];
-		ll=getColor(lines[i][2]+Math.floor(v1[2]*zs+za));
-		l.push(ll);
+		// light color
+		ll=getColor(lines[i][2]+v1[2]*zs+za);
+		// transform to canvas size
 		var x1=v1[0]*sc+xa;
 		var x2=v2[0]*sc+xa;
+		var y1=v1[1]*sc+ya;
+		var y2=v2[1]*sc+ya;
 		if (x1>x2)
 		{
 			ctx.beginPath();
 			ctx.strokeStyle=ll;
-			ctx.moveTo(x1, v1[1]*sc+ya);
-			ctx.lineTo(x2, v2[1]*sc+ya);
+			ctx.moveTo(x1, y1);
+			ctx.lineTo(x2, y2);
 			ctx.stroke();
+		} else { 
+			// save front
+			front.push([x1, y1,x2, y2,ll]);
 		}
 	}
-	// draw backlines
-	for (var i=1;i<lines.length-1;i++){
-		var v1=vertex[lines[i][0]];
-		var v2=vertex[lines[i][1]];
-		var x1=v1[0]*sc+xa;
-		var x2=v2[0]*sc+xa;
-		if (x1<x2){
-			ctx.beginPath();
-			ctx.strokeStyle=l[i];
-			ctx.moveTo(x1, v1[1]*sc+ya);
-			ctx.lineTo(x2, v2[1]*sc+ya);
-			//ctx.moveTo(x1, v1[1]*sc+ya+1);
-			//ctx.lineTo(x2, v2[1]*sc+ya+1);
-			ctx.stroke();
-		}
+	// draw frontlines
+	for (var i=0;i<front.length-1;i++){
+		f=front[i];
+		ctx.beginPath();
+		ctx.strokeStyle=f[4];
+		ctx.moveTo(f[0], f[1]);
+		ctx.lineTo(f[2], f[3]);
+		ctx.stroke();
 	}
 }
 
@@ -2574,7 +2571,7 @@ function begincompress(){
 	
 	setvalue("gcomp",compress.toString());
 	$("info").innerHTML="Original "+totalgcode+"bytes > "+compress.length+" bytes, ratio "+mround(totalgcode/compress.length);
-	drawlines();
+	rendergcode();
 }
 function urlopen(s){
   var xhr = new XMLHttpRequest();
