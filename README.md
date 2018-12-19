@@ -91,6 +91,10 @@ motion [motion.exe].PRJ - for quincy IDE, we can show graphics of the motion sim
 Original code is in freebasic, you can check the old folder
 
 ## log
+10-12-2018
+![image](https://user-images.githubusercontent.com/11457832/49775685-83b68c80-fd2b-11e8-8161-39acdba5641b.png)
+Able to upload gcode to internal wemos flash, and start print without pc, without sdcard
+
 20-5-2018
 ![image](https://user-images.githubusercontent.com/11457832/40274504-1bbb86a0-5c02-11e8-9bbd-ba33fde2f281.png)
 New PCB using Wemos D1 mini, the smallest CNC/3D board ! not tested yet.
