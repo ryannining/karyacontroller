@@ -1113,7 +1113,11 @@ int32_t timing = 0;
   COMMAND BUFFER
   =================================================================================================================================================
 */
-#define NUMCMDBUF 140
+#ifdef __AVR__
+#define NUMCMDBUF 100
+#else
+#define NUMCMDBUF 500
+#endif
 #define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;

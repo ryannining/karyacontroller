@@ -154,6 +154,7 @@ void changefilament(float l)
 int reset_command() {
   // reset variables
   okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
+  
   uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
 
   next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
@@ -505,14 +506,15 @@ void process_gcode_command()
     next_target.target.e_relative = 0;
 
   // The GCode documentation was taken from http://reprap.org/wiki/Gcode .
-  if (compress_loop()){
-    cx1=next_target.target.axis[X];//startpoint.axis[X];
-    cy1=next_target.target.axis[Y];//startpoint.axis[Y];
-    cz1=next_target.target.axis[Z];//startpoint.axis[Z];
-    ce01=next_target.target.axis[E];//startpoint.axis[Z];
+#ifdef ESP8266
+  if (compress_loop()) {
+    cx1 = next_target.target.axis[X]; //startpoint.axis[X];
+    cy1 = next_target.target.axis[Y]; //startpoint.axis[Y];
+    cz1 = next_target.target.axis[Z]; //startpoint.axis[Z];
+    ce01 = next_target.target.axis[E]; //startpoint.axis[Z];
     return;
   }
-
+#endif
   if (next_target.seen_T) {
     //? --- T: Select Tool ---
     //?
@@ -961,76 +963,6 @@ void process_gcode_command()
 
         // unknown mcode: spit an error
 #ifdef USE_EEPROM
-#ifndef SAVE_RESETMOTION
-      case 502:
-        reset_eeprom();
-#endif
-      case 205:
-        reload_eeprom();
-#endif
-      case 503:
-        zprintf(PSTR("EPR:3 145 %f X Home Pos\n"), ff(ax_home[0]));
-        zprintf(PSTR("EPR:3 149 %f Y\n"), ff(ax_home[1]));
-        zprintf(PSTR("EPR:3 153 %f Z\n"), ff(ax_home[2]));
-
-        zprintf(PSTR("EPR:3 3 %f X step/mm\n"), ff(stepmmx[0]));
-        zprintf(PSTR("EPR:3 7 %f Y\n"), ff(stepmmx[1]));
-        zprintf(PSTR("EPR:3 11 %f Z\n"), ff(stepmmx[2]));
-        zprintf(PSTR("EPR:3 0 %f E\n"), ff(stepmmx[3]));
-
-        zprintf(PSTR("EPR:2 15 %d X maxF\n"), fi(maxf[0]));
-        zprintf(PSTR("EPR:2 19 %d Y\n"), fi(maxf[1]));
-        zprintf(PSTR("EPR:2 23 %d Z\n"), fi(maxf[2]));
-        zprintf(PSTR("EPR:2 27 %d E\n"), fi(maxf[3]));
-
-
-        zprintf(PSTR("EPR:3 181 %d Jrk\n"), fi(xyjerk));
-        zprintf(PSTR("EPR:3 51 %d Acl\n"), fi(accel));
-        zprintf(PSTR("EPR:3 67 %d TvAcl\n"), fi(mvaccel));
-        zprintf(PSTR("EPR:3 177 %d HomeF\n"), fi(homingspeed));
-        zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
-#ifdef NONLINEAR
-        zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
-        zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
-#endif
-        zprintf(PSTR("EPR:3 165 %f Xofs\n"), ff(axisofs[0]));
-#ifdef DRIVE_XYYZ
-        zprintf(PSTR("EPR:3 169 %f Y1ofs\n"), ff(axisofs[1]));
-        zprintf(PSTR("EPR:3 173 %f Y2ofs\n"), ff(axisofs[2]));
-#else
-        zprintf(PSTR("EPR:3 169 %f Yofs\n"), ff(axisofs[1]));
-        zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
-#endif
-
-        zprintf(PSTR("EPR:3 300 %f AtRetractIn\n"), ff(retract_in));
-        zprintf(PSTR("EPR:3 304 %f F\n"), ff(retract_in_f));
-        zprintf(PSTR("EPR:3 308 %f Out\n"), ff(retract_out));
-        zprintf(PSTR("EPR:3 312 %f F\n"), ff(retract_out_f));
-
-#ifdef USE_BACKLASH
-        zprintf(PSTR("EPR:3 80 %f X Backlash\n"), fi(xback[0]));
-        zprintf(PSTR("EPR:3 84 %f Y\n"), fi(xback[1]));
-        zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
-        zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
-#endif
-#if defined(temp_pin)
-        zprintf(PSTR("EPR:3 316 %f P\n"), ff(myPID.GetKp()));
-        zprintf(PSTR("EPR:3 320 %f I\n"), ff(myPID.GetKi()));
-        zprintf(PSTR("EPR:3 324 %f D\n"), ff(myPID.GetKd()));
-        //zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
-#endif
-        break;
-#ifdef WIFISERVER
-      // show wifi
-      case 504:
-        zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
-      case 505:
-        extern void setupwifi(int num);
-        setupwifi(1);
-        //zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
-        break;
-#endif
-#ifdef USE_EEPROM
       case 206:
         if (next_target.seen_X)next_target.S = next_target.target.axis[X];
         int32_t S_F;
@@ -1105,6 +1037,77 @@ void process_gcode_command()
           }
         reload_eeprom();
         break;
+#ifndef SAVE_RESETMOTION
+      case 502:
+        reset_eeprom();
+#endif
+      case 205:
+        reload_eeprom();
+#endif
+      case 503:
+
+        zprintf(PSTR("EPR:3 145 %f X Home Pos\n"), ff(ax_home[0]));
+        zprintf(PSTR("EPR:3 149 %f Y\n"), ff(ax_home[1]));
+        zprintf(PSTR("EPR:3 153 %f Z\n"), ff(ax_home[2]));
+
+        zprintf(PSTR("EPR:3 3 %f X step/mm\n"), ff(stepmmx[0]));
+        zprintf(PSTR("EPR:3 7 %f Y\n"), ff(stepmmx[1]));
+        zprintf(PSTR("EPR:3 11 %f Z\n"), ff(stepmmx[2]));
+        zprintf(PSTR("EPR:3 0 %f E\n"), ff(stepmmx[3]));
+
+        zprintf(PSTR("EPR:2 15 %d X maxF\n"), fi(maxf[0]));
+        zprintf(PSTR("EPR:2 19 %d Y\n"), fi(maxf[1]));
+        zprintf(PSTR("EPR:2 23 %d Z\n"), fi(maxf[2]));
+        zprintf(PSTR("EPR:2 27 %d E\n"), fi(maxf[3]));
+
+
+        zprintf(PSTR("EPR:3 181 %d Jrk\n"), fi(xyjerk));
+        zprintf(PSTR("EPR:3 51 %d Acl\n"), fi(accel));
+        zprintf(PSTR("EPR:3 67 %d TvAcl\n"), fi(mvaccel));
+        zprintf(PSTR("EPR:3 177 %d HomeF\n"), fi(homingspeed));
+        zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
+#ifdef NONLINEAR
+        zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
+        zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
+#endif
+        zprintf(PSTR("EPR:3 165 %f Xofs\n"), ff(axisofs[0]));
+#ifdef DRIVE_XYYZ
+        zprintf(PSTR("EPR:3 169 %f Y1ofs\n"), ff(axisofs[1]));
+        zprintf(PSTR("EPR:3 173 %f Y2ofs\n"), ff(axisofs[2]));
+#else
+        zprintf(PSTR("EPR:3 169 %f Yofs\n"), ff(axisofs[1]));
+        zprintf(PSTR("EPR:3 173 %f Zofs\n"), ff(axisofs[2]));
+#endif
+
+        zprintf(PSTR("EPR:3 300 %f AtRetractIn\n"), ff(retract_in));
+        zprintf(PSTR("EPR:3 304 %f F\n"), ff(retract_in_f));
+        zprintf(PSTR("EPR:3 308 %f Out\n"), ff(retract_out));
+        zprintf(PSTR("EPR:3 312 %f F\n"), ff(retract_out_f));
+
+#ifdef USE_BACKLASH
+        zprintf(PSTR("EPR:3 80 %f X Backlash\n"), fi(xback[0]));
+        zprintf(PSTR("EPR:3 84 %f Y\n"), fi(xback[1]));
+        zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
+        zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
+#endif
+#if defined(temp_pin)
+        zprintf(PSTR("EPR:3 316 %f P\n"), ff(myPID.GetKp()));
+        zprintf(PSTR("EPR:3 320 %f I\n"), ff(myPID.GetKi()));
+        zprintf(PSTR("EPR:3 324 %f D\n"), ff(myPID.GetKd()));
+        //zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
+#endif
+        break;
+#ifdef WIFISERVER
+      // show wifi
+      case 504:
+        zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
+        break;
+      case 505:
+        ESP.restart();
+        //zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
+        break;
+#endif
+#ifdef USE_EEPROM
 #endif
       case 220:
         //? --- M220: Set speed factor override percentage ---

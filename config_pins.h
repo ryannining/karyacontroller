@@ -47,8 +47,8 @@
 #elif defined(__ARM__)
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
-//#define BOARD_ST33DV1_STM32
-#define BOARD_ST33DV1_STM32_3DPLEX
+#define BOARD_ST33DV1_STM32
+//#define BOARD_ST33DV1_STM32_3DPLEX
 //#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 #define ANALOGSHIFT 2 // 12bit adc
@@ -100,7 +100,7 @@
 //#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
 #define CORESERIAL // smaller footprint 500byte, only AVR
-#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+//#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
 // ==========================================================
 
 #else
@@ -117,6 +117,7 @@
 #endif
 // ==========================================================
 
+USE_EEPROM
 
 #ifdef powerpin
 #define POWERFAILURE
@@ -221,10 +222,10 @@
 #define ZMAXFEEDRATE 5
 #define E0MAXFEEDRATE 100
 
-#define XSTEPPERMM 50//105.090//50//131//178
-#define YSTEPPERMM 50//105.090//50//175//125
-#define ZSTEPPERMM 1500//1020//1020 //420
-#define E0STEPPERMM 50//340//380
+#define XSTEPPERMM 19.2//50//105.090//50//131//178
+#define YSTEPPERMM 19.2////105.090//50//175//125
+#define ZSTEPPERMM 80//1020//1020 //420
+#define E0STEPPERMM 92//340//380
 
 #ifndef NUMBUFFER
 #define NUMBUFFER 20

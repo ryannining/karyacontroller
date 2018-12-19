@@ -31,6 +31,8 @@
 
 #ifdef ESP8266
 #define fdebug
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
 
 #include <FS.h>   // Include the SPIFFS library
 #include "gcode.h"   // Include the SPIFFS library
@@ -200,7 +202,62 @@ void enduncompress() {
   uncompress = 0;
   zprintf(PSTR("End Uncompress Gcode\n"));
 }
-int ispause=0;
+int ispause = 0;
+
+void gcodereadfile(uint8_t * addr, int len) {
+
+}
+
+long buffidx = 0;
+int buffpage = 0;
+char buffers[10000];
+int connected = 0;
+#define IOT_IP_ADDRESS "172.245.97.171"
+int gid = 0;
+void realreadnet(int s, int l, int bi) {
+  if (WiFi.status() != WL_CONNECTED)return;
+  //wifiConnect();
+  WiFiClient client;
+  client.connect(IOT_IP_ADDRESS, 8080);
+  if (client.connected()) {
+
+    client.print("GET /download?gid=");
+    client.print(String(gid)); client.print("&start="); client.print(String(s));
+    client.print("&length="); client.print(String(l));
+    client.print(" HTTP/1.1\r\nHost: "); client.print( String(IOT_IP_ADDRESS)); client.print("\r\nContent-Length: 0\r\n\r\n");
+
+    delay(200);
+    char lc, c;
+    int cp = 0;
+    char cc[20];
+    // skip all header
+    while (client.available()) {
+      c = client.read();
+      if ((c == '>') && (lc == '<'))break;
+      lc = c;
+    }
+    // read data
+    while (1) {
+      if (client.available()) {
+        c = client.read();
+        if (c == 10) break;
+        buffers[bi] = c; bi++;
+        if ((c == '>') && (lc == '<'))break;
+        lc = c;
+      } else delay(100);
+    }
+  }
+}
+void gcodereadnet(uint8_t * addr, int len) {
+  // read
+  // check if is need other read
+  if (buffidx > 1000) {
+
+  }
+}
+
+
+
 void uncompressaline() {
   if (ispause)return;
   byte h;
@@ -208,10 +265,7 @@ void uncompressaline() {
   int x = 0;
   fsGcode.read((uint8_t *)&h, 1);
   uctr++;
-  if (uctr < 0) {
-    enduncompress();
-    return;
-  }
+  //if (uctr>10) return enduncompress();
   if (h & 1) {
     next_target.seen_M = 1;
     switch ((h >> 1) & 3) {
@@ -288,6 +342,8 @@ void uncompress_loop() {
 }
 
 #else
-int compress_loop() {}
+int compress_loop() {
+  return 0;
+}
 void uncompress_loop() {}
 #endif

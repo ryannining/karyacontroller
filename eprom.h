@@ -61,7 +61,7 @@ static int32_t eepromread(int p)
   b = (uint16_t*)&r;
   EEPROM.read(p, b); p += 2; b++;
   EEPROM.read(p, b);
-  //zprintf(PSTR("Read eeprom %d %d\n"),fi(p),fi(r));
+  zprintf(PSTR("Read eeprom %d %d\n"),fi(p),fi(r));
   return r;
 }
 static void eepromwrite(int p, int32_t val)
@@ -70,7 +70,7 @@ static void eepromwrite(int p, int32_t val)
   b = (uint16_t*)&val;
   EEPROM.update(p, *b); p += 2; b++;
   EEPROM.update(p, *b);
-  //zprintf(PSTR("Write eeprom %d %d\n"),fi(p),fi(val));
+  zprintf(PSTR("Write eeprom %d %d\n"),fi(p),fi(val));
 }
 
 #define eepromcommit

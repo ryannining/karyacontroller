@@ -23,6 +23,7 @@
 #include <ESP8266mDNS.h>
 #include <FS.h>   // Include the SPIFFS library
 #include <WebSocketsServer.h>
+#include <ESP8266HTTPClient.h>
 
 #ifdef TELEGRAM
 #include <TelegramBot.h>
@@ -37,12 +38,65 @@ int bpwf = 0;
 ESP8266WebServer server ( 80 );
 WiFiServer servertcp(82);
 WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
+IPAddress ip ;
+
+#define IOT_IP_ADDRESS "172.245.97.171"
+long lm = 0;
+
+void touchserver(int v,String info) {
+  if (uncompress)return;
+  if (WiFi.status() != WL_CONNECTED)return;
+  // put your main code here, to run repeatedly:
+  long m = millis();
+  if (v || (m - lm > 5000)) {
+    char lc, c;
+    int cp = 0;
+    char cc[20];
+    HTTPClient http;
+    String url = "http://172.245.97.171:8080/connect?info="+info+"&ipaddress=" + String((ip[0])) + "." + String( (ip[1])) + "." + String( (ip[2])) + "." + String( (ip[3]));
+    http.begin(url);
+    int httpCode = http.GET();
+    String cmd, par;
+    cmd = http.getString();
+    //pn("Command:"+cmd);
+    if (cmd.indexOf(" ")>0) {
+      par = cmd.substring(cmd.indexOf(" ") + 1);
+      cmd = cmd.substring(0, cmd.indexOf(" "));
+    }
+    http.end();
+    if (cmd == "print") {
+      zprintf(PSTR("Download & Print:\n"));
+      String durl = "http://172.245.97.171:8080/download?gid=" + par;
+      File f = SPIFFS.open("/gcode", "w");
+      if (f) {
+        http.begin(durl);
+        int httpCode = http.GET();
+        if (httpCode > 0) {
+          if (httpCode == HTTP_CODE_OK) {
+            Serial.println(durl);
+            Serial.println(http.getSize());
+            http.writeToStream(&f);
+          }
+        } else {
+          zprintf(PSTR("Error download"));//[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        }
+        http.end();
+        f.close();
+        beginuncompress();
+      }
+    }
+    //p("\n");
+    lm = m;
+  }
+}
 
 File fsUploadFile;
 //#define NOINTS noInterrupts();
 //#define INTS interrupts();
 #define NOINTS
 #define INTS
+
+
 
 String getContentType(String filename) { // convert the file extension to the MIME type
   if (filename.endsWith(".html")) return "text/html";
@@ -144,7 +198,6 @@ WiFiClientSecure net_ssl;
 TelegramBot bot (BotToken, net_ssl);
 #endif
 
-IPAddress ip ;
 void setupwifi(int num) {
   NOINTS
   if (num) {
@@ -243,9 +296,9 @@ void setupwifi(int num) {
 
 boolean alreadyConnected = false;
 void wifi_loop() {
-
   webSocket.loop();
   server.handleClient();
+  touchserver(0,String(wifi_dns));
 
   // wait for a new client:
   if (servertcp.hasClient()) {
