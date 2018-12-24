@@ -1116,7 +1116,7 @@ int32_t timing = 0;
 #ifdef __AVR__
 #define NUMCMDBUF 100
 #else
-#define NUMCMDBUF 500
+#define NUMCMDBUF 100
 #endif
 #define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 

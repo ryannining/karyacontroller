@@ -3,7 +3,7 @@
 #include "common.h"
 #include "temp.h"
 
-char wifi_telebot[20] = "";
+int wifi_gcode = 0;
 char wifi_ap[50] = "myap";
 char wifi_pwd[20] = "pwd";
 char wifi_dns[30] = "karyacnc";
@@ -118,7 +118,7 @@ retract_in_f=(float)eepromread(EE_retract_in_f)   * 0.001;
 retract_out_f=(float)eepromread(EE_retract_out_f)   * 0.001;
 
 #ifdef WIFISERVER
-  eepromreadstring(380, wifi_telebot,20);
+  wifi_gcode=eepromread(EE_gcode);
   eepromreadstring(400, wifi_ap,50);
   eepromreadstring(450, wifi_pwd,20);
   eepromreadstring(470, wifi_dns,30);

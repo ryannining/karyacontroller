@@ -25,9 +25,6 @@
 #include <WebSocketsServer.h>
 #include <ESP8266HTTPClient.h>
 
-#ifdef TELEGRAM
-#include <TelegramBot.h>
-#endif
 
 uint8_t wfhead = 0;
 uint8_t wftail = 0;
@@ -43,7 +40,7 @@ IPAddress ip ;
 #define IOT_IP_ADDRESS "172.245.97.171"
 long lm = 0;
 
-void touchserver(int v,String info) {
+void touchserver(int v, String info) {
   if (uncompress)return;
   if (WiFi.status() != WL_CONNECTED)return;
   // put your main code here, to run repeatedly:
@@ -53,37 +50,42 @@ void touchserver(int v,String info) {
     int cp = 0;
     char cc[20];
     HTTPClient http;
-    String url = "http://172.245.97.171:8080/connect?info="+info+"&ipaddress=" + String((ip[0])) + "." + String( (ip[1])) + "." + String( (ip[2])) + "." + String( (ip[3]));
+    zprintf(PSTR("Touch server:\n"));
+    String url = "http://172.245.97.171/connect?info=" + info + "&ipaddress=" + String((ip[0])) + "." + String( (ip[1])) + "." + String( (ip[2])) + "." + String( (ip[3]));
     http.begin(url);
     int httpCode = http.GET();
     String cmd, par;
     cmd = http.getString();
     //pn("Command:"+cmd);
-    if (cmd.indexOf(" ")>0) {
+    if (cmd.indexOf(" ") > 0) {
       par = cmd.substring(cmd.indexOf(" ") + 1);
       cmd = cmd.substring(0, cmd.indexOf(" "));
     }
     http.end();
     if (cmd == "print") {
       zprintf(PSTR("Download & Print:\n"));
-      String durl = "http://172.245.97.171:8080/download?gid=" + par;
-      File f = SPIFFS.open("/gcode", "w");
-      if (f) {
-        http.begin(durl);
-        int httpCode = http.GET();
-        if (httpCode > 0) {
-          if (httpCode == HTTP_CODE_OK) {
-            Serial.println(durl);
-            Serial.println(http.getSize());
-            http.writeToStream(&f);
+      if (String(wifi_gcode) == par) {
+        // no need to redownload
+      } else {
+        String durl = "http://172.245.97.171/download?act=Download&gid=" + par;
+        File f = SPIFFS.open("/gcode", "w");
+        if (f) {
+          http.begin(durl);
+          int httpCode = http.GET();
+          if (httpCode > 0) {
+            if (httpCode == HTTP_CODE_OK) {
+              Serial.println(durl);
+              Serial.println(http.getSize());
+              http.writeToStream(&f);
+            }
+          } else {
+            zprintf(PSTR("Error download"));//[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
           }
-        } else {
-          zprintf(PSTR("Error download"));//[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+          http.end();
+          f.close();
         }
-        http.end();
-        f.close();
-        beginuncompress();
       }
+      beginuncompress();
     }
     //p("\n");
     lm = m;
@@ -131,7 +133,7 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   HTTPUpload& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
     String filename = upload.filename;
-    if(filename=="")filename="gcode";
+    if (filename == "")filename = "gcode";
     if (!filename.startsWith("/")) filename = "/" + filename;
     xprintf(PSTR("handleFileUpload Name: %s\n"), filename.c_str());
     fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
@@ -187,16 +189,6 @@ void wifiwr(uint8_t s) {
   }
 }
 
-#ifdef TELEGRAM
-String token = "540208354:AAEEbjIZGymE5Hfifcn9lVfVfCEkUQ2BCeg"   ; // REPLACE myToken WITH YOUR TELEGRAM BOT TOKEN
-const char BotToken[] = "540208354:AAEEbjIZGymE5Hfifcn9lVfVfCEkUQ2BCeg";
-
-#include <WiFiClientSecure.h>
-
-
-WiFiClientSecure net_ssl;
-TelegramBot bot (BotToken, net_ssl);
-#endif
 
 void setupwifi(int num) {
   NOINTS
@@ -206,9 +198,6 @@ void setupwifi(int num) {
     WiFi.disconnect();
     server.close();
     //    webSocket.end();
-#ifdef TELEGRAM
-    //    bot.end();
-#endif
   }
   char c = wifi_ap[0];
   if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
@@ -228,14 +217,6 @@ void setupwifi(int num) {
     ip = WiFi.localIP();
     xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
 
-#ifdef TELEGRAM
-    bot.begin();
-    char buf[46];
-    sprintf(buf, "CNC:%s http://%d.%d.%d.%d", wifi_dns, ip[0], ip[1], ip[2], ip[3] );
-
-    //if (strlen(wifi_telebot))
-    bot.sendMessage(wifi_telebot, buf);
-#endif
     xprintf(PSTR("HTTP server started\n"));
 
   } else {
@@ -252,16 +233,20 @@ void setupwifi(int num) {
   }
 
   server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
-    ispause=1;
+    ispause = 1;
+    server.send ( 200, "text/html","OK");
   });
   server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
-    ispause=0;
+    ispause = 0;
+    server.send ( 200, "text/html","OK");
   });
   server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
     beginuncompress();
+    server.send ( 200, "text/html","OK");
   });
   server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
     enduncompress();
+    server.send ( 200, "text/html","OK");
   });
   server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
     //xprintf(PSTR("Handle UPLOAD \n"));
@@ -291,14 +276,15 @@ void setupwifi(int num) {
 
   //if (!num)
   SPIFFS.begin();
+  touchserver(1, String(wifi_dns));
   INTS
 }
-
+extern int sendwait;
 boolean alreadyConnected = false;
 void wifi_loop() {
   webSocket.loop();
   server.handleClient();
-  touchserver(0,String(wifi_dns));
+  if (sendwait==1)touchserver(0, String(wifi_dns));
 
   // wait for a new client:
   if (servertcp.hasClient()) {
@@ -691,7 +677,7 @@ uint32_t t1;
 void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
-  serialinit(2*115200);//115200);
+  serialinit(2 * 115200); //115200);
   t1 = millis();
   //while (!Serial.available())continue;
 #ifndef DELAYEDSETUP

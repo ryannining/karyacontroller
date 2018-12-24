@@ -145,7 +145,7 @@ static void eepromwrite(int p, int32_t val)
 #define EE_lastline 200
 #endif
 
-#define EE_telebot 380
+#define EE_gcode 380
 #define EE_wifi_ap 400
 #define EE_wifi_pwd 450
 #define EE_wifi_dns 470
@@ -224,6 +224,6 @@ extern void reset_eeprom();
 extern char wifi_ap[50];
 extern char wifi_pwd[20];
 extern char wifi_dns[30];
-extern char wifi_telebot[20];
+extern int wifi_gcode;
 
 #endif // EEPROM_H

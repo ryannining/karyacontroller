@@ -36,6 +36,7 @@
 
 #include <FS.h>   // Include the SPIFFS library
 #include "gcode.h"   // Include the SPIFFS library
+#include "eprom.h"   // Include the SPIFFS library
 #include "common.h"   // Include the SPIFFS library
 File fsGcode;
 extern GCODE_COMMAND next_target;
@@ -184,9 +185,11 @@ int compress_loop() {
 // ============================================= uncompress ===============================================
 
 int uctr = 0;
+long eE=0;
 void beginuncompress() {
   if (uncompress)return;
   uctr = 1;
+  eE=0;
   fsGcode = SPIFFS.open("/gcode", "r");
   if (!fsGcode) {
     zprintf(PSTR("File not found\n"));
@@ -257,7 +260,6 @@ void gcodereadnet(uint8_t * addr, int len) {
 }
 
 
-
 void uncompressaline() {
   if (ispause)return;
   byte h;
@@ -278,7 +280,7 @@ void uncompressaline() {
       next_target.seen_S = 1;
       next_target.S = s;
     }
-    zprintf(PSTR("%d H%d M%d S%d\n"), fi(uctr), fi(h), fi(next_target.M), fi(s));
+    //zprintf(PSTR("%d H%d M%d S%d\n"), fi(uctr), fi(h), fi(next_target.M), fi(s));
   } else {
     next_target.seen_G = 1;
     switch ((h >> 1) & 3) {
@@ -288,40 +290,42 @@ void uncompressaline() {
         next_target.G = 28;
         cntg28--;
         break;
-      case 3: next_target.G = 92; break;
+      case 3: next_target.G = 92; eE=0;break;
     }
-    zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
+    //zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
     if (h & (1 << 3)) {
       fsGcode.read((uint8_t *)&s, 1);
       next_target.seen_F = 1;
       next_target.target.F = float(s);
-      zprintf(PSTR("F%d "), fi(s));
+      //zprintf(PSTR("F%d "), fi(s));
     }
     if (h & (1 << 4)) {
       fsGcode.read((uint8_t *)&x, 2);
-      zprintf(PSTR("X%d "), fi(x));
+      //zprintf(PSTR("X%d "), fi(x));
       next_target.seen_X = 1;
-      next_target.target.axis[X] = float(x) / 100.0 - 160;
+      next_target.target.axis[X] = float(x) / 100.0 - 300;
     }
     if (h & (1 << 5)) {
       fsGcode.read((uint8_t *)&x, 2);
-      zprintf(PSTR("Y%d "), fi(x));
+      //zprintf(PSTR("Y%d "), fi(x));
       next_target.seen_Y = 1;
-      next_target.target.axis[Y] = float(x) / 100.0 - 160;
+      next_target.target.axis[Y] = float(x) / 100.0 - 300;
     }
     if (h & (1 << 6)) {
       fsGcode.read((uint8_t *)&x, 2);
-      zprintf(PSTR("Z%d "), fi(x));
+      //zprintf(PSTR("Z%d "), fi(x));
       next_target.seen_Z = 1;
       next_target.target.axis[Z] = float(x) / 100.0 - 50;
     }
     if (h & (1 << 7)) {
-      fsGcode.read((uint8_t *)&x, 3);
-      zprintf(PSTR("E%d "), fi(x));
+      x=0;
+      fsGcode.read((uint8_t *)&x, 1);
+      //zprintf(PSTR("E%d "), fi(x));
       next_target.seen_E = 1;
-      next_target.target.axis[E] = float(x) / 1000.0;
+      eE=eE+x-127;
+      next_target.target.axis[E] = float(eE) / 50.0;
     }
-    zprintf(PSTR("\n"));
+    //zprintf(PSTR("\n"));
   }
   process_gcode_command();
   reset_command();

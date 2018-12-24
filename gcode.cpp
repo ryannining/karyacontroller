@@ -1100,11 +1100,11 @@ void process_gcode_command()
 #ifdef WIFISERVER
       // show wifi
       case 504:
-        zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
+        zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
         break;
       case 505:
         ESP.restart();
-        //zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s telID 380:%s\n"), wifi_ap, wifi_pwd, wifi_dns, wifi_telebot);
+        //zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
         break;
 #endif
 #ifdef USE_EEPROM
