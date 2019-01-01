@@ -85,7 +85,7 @@ void touchserver(int v, String info) {
           f.close();
         }
       }
-      beginuncompress();
+      beginuncompress("/gcode");
     }
     //p("\n");
     lm = m;
@@ -241,12 +241,24 @@ void setupwifi(int num) {
     server.send ( 200, "text/html","OK");
   });
   server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
-    beginuncompress();
+    beginuncompress("/gcode");
     server.send ( 200, "text/html","OK");
   });
   server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
     enduncompress();
     server.send ( 200, "text/html","OK");
+  });
+  server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
+    homing();
+    server.send ( 200, "text/html","OK");
+  });
+  server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
+    set_temp(180);
+    server.send ( 200, "text/html",String(Input));
+  });
+  server.on("/cooling", HTTP_GET, []() {                 // if the client requests the upload page
+    set_temp(0);
+    server.send ( 200, "text/html","Cooling");
   });
   server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
     //xprintf(PSTR("Handle UPLOAD \n"));

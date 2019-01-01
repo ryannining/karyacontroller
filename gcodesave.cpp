@@ -55,6 +55,7 @@ void checkuncompress() {
   fsGcode.close();
 }
 
+#ifdef compression
 void begincompress() {
   if (uncompress)return;
   fsGcode = SPIFFS.open("/gcode", "w");
@@ -155,21 +156,20 @@ void addgcode()
   //zprintf(PSTR("\n"));
 
 }
-void beginuncompress();
-void enduncompress();
 int compress_loop() {
   if (uncompress)return 0;
-  if (next_target.seen_M && (next_target.M == 130)) {
-    checkuncompress();
-  } else if (next_target.seen_M && (next_target.M == 131)) {
-    begincompress();
-  } else if (next_target.seen_M && (next_target.M == 132)) {
-    endcompress();
-  } else if (next_target.seen_M && (next_target.M == 133)) {
-    beginuncompress();
-  } else if (next_target.seen_M && (next_target.M == 134)) {
-    enduncompress();
-  } else if (compressing && (next_target.seen_M || next_target.seen_G)) {
+  if (next_target.seen_M) {
+    switch (next_target.M) {
+      /*case 130: checkuncompress(); goto ret;
+        case 131: begincompress(); goto ret;
+        case 132: endcompress(); goto ret;
+        case 133: beginuncompress(); goto ret;
+        case 134: enduncompress(); goto ret;*/
+      case 135: SPIFFS.format(); goto ret;
+    }
+  }
+  /*
+  if (compressing && (next_target.seen_M || next_target.seen_G)) {
     if (next_target.seen_G && (next_target.G == 90)) {
       next_target.option_all_relative = 0;
       zprintf(PSTR("Abs\n"));
@@ -179,18 +179,39 @@ int compress_loop() {
     }
     addgcode();
     return 1;
+  }*/
+ret:
+  return 0;
+}
+#else
+int compress_loop() {
+  if (uncompress)return 0;
+  if (next_target.seen_M) {
+    switch (next_target.M) {
+      /*case 130: checkuncompress(); goto ret;
+        case 131: begincompress(); goto ret;
+        case 132: endcompress(); goto ret;
+        case 133: beginuncompress(); goto ret;
+        case 134: enduncompress(); goto ret;*/
+      case 135: SPIFFS.format(); break;
+    }
   }
   return 0;
 }
+
+#endif
+
+void beginuncompress(String fn);
+void enduncompress();
 // ============================================= uncompress ===============================================
 
 int uctr = 0;
-long eE=0;
-void beginuncompress() {
+long eE = 0;
+void beginuncompress(String fn) {
   if (uncompress)return;
   uctr = 1;
-  eE=0;
-  fsGcode = SPIFFS.open("/gcode", "r");
+  eE = 0;
+  fsGcode = SPIFFS.open(fn, "r");
   if (!fsGcode) {
     zprintf(PSTR("File not found\n"));
     return;
@@ -221,7 +242,7 @@ void realreadnet(int s, int l, int bi) {
   if (WiFi.status() != WL_CONNECTED)return;
   //wifiConnect();
   WiFiClient client;
-  client.connect(IOT_IP_ADDRESS, 8080);
+  client.connect(IOT_IP_ADDRESS, 80);
   if (client.connected()) {
 
     client.print("GET /download?gid=");
@@ -290,7 +311,7 @@ void uncompressaline() {
         next_target.G = 28;
         cntg28--;
         break;
-      case 3: next_target.G = 92; eE=0;break;
+      case 3: next_target.G = 92; eE = 0; break;
     }
     //zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
     if (h & (1 << 3)) {
@@ -318,11 +339,11 @@ void uncompressaline() {
       next_target.target.axis[Z] = float(x) / 100.0 - 50;
     }
     if (h & (1 << 7)) {
-      x=0;
+      x = 0;
       fsGcode.read((uint8_t *)&x, 1);
       //zprintf(PSTR("E%d "), fi(x));
       next_target.seen_E = 1;
-      eE=eE+x-127;
+      eE = eE + x - 127;
       next_target.target.axis[E] = float(eE) / 50.0;
     }
     //zprintf(PSTR("\n"));

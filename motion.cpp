@@ -162,8 +162,10 @@ void user_input_loop() {
     if (user_cnt) {
       zprintf(PSTR("User input:%d\n"), fi(user_cnt));
       switch (user_cnt) {
-        case 3: beginuncompress(); break;
-        case 2: enduncompress(); break;
+        //case 1: homing(); break;
+        case 2: set_temp(0);break;
+        case 3: if (uncompress)enduncompress();else beginuncompress("/gcode"); break;
+        case 4: set_temp(180);break;
       }
       user_cnt = 0;
     }
