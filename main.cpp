@@ -53,7 +53,7 @@ int main(void)
   float v = 10.1234;
   zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
   demofile();
-  demo();
+  //demo();
   zprintf (PSTR("WAIT\n"));
   waitbufferempty();
   zprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -75,13 +75,14 @@ void demofile() {
   //#define fn "gcode/kotak.gcode"
   //#define fn "d:/3d/box1cm.gcode"
   //#define fn "gcode/bulet.gcode"
-  #define fn "gcode/naga.ngc"
+  //#define fn "gcode/naga.ngc"
+  #define fn "d:/git/karyacontroller/gcode/bug1.gcode"
   //#define fn "d:/3d/testarc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 1;
+  graphscale = 3;
   tickscale = 150;
   fscale=20;
   if (file == NULL) return; //could not open file

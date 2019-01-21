@@ -10,6 +10,7 @@ var py = 0;
 var pz = 0;
 var pe = 0;
 var etime=new Date();
+var checktemp=1;
 
 var comtype = 0; // 0 serial, 1 websocket
 var egcodes = [];
@@ -75,13 +76,15 @@ function execute(gcodes) {
     //sendgcode("M105");
 }
 
-
 function idleloop(){
-	if (wsconnected) {
+	
+	if (wsconnected && checktemp) {
         if (!running)sendgcode("M105");
+		checktemp=0;
     }
 	setTimeout(idleloop,3000);
 }
+
 var ss = "";
 var eeprom = {};
 var ineeprom = 0;
@@ -117,6 +120,7 @@ var onReadCallback = function(s) {
             }
             if (lastw.toUpperCase().indexOf("T:") >= 0) {
                 document.getElementById("info3d").innerHTML = lastw;
+				checktemp=1;
             }
 			
 			isok=(lastw.length==2) && (lastw[0].toUpperCase()=='O');
@@ -131,9 +135,16 @@ var onReadCallback = function(s) {
 
 
 function connectwebsock() {
-    if (window.location.host) {
+	if (wsconnected){
+		ws.close();
+		return;
+	}
+	h=getvalue("wsip");
+    if (h) {
         var lastcomtype = comtype;
         comtype = 1;
+        var a = document.getElementById("status");
+        a.innerHTML = "Web socket:Connecting...";
 
         function handlemessage(m) {
             msg = m.data;
@@ -141,15 +152,20 @@ function connectwebsock() {
             //if (debugs & 2) console.log(msg);
         }
 
-        ws = new WebSocket('ws://' + window.location.host + ':81/', ['arduino']);
+        ws = new WebSocket('ws://' + h + ':81/', ['arduino']);
         ws.onerror = function(e) {
             comtype = lastcomtype;
+            a.innerHTML = "Web socket:Failed connect ! ";
+			$("wsconnect").innerHTML='Connect';
+			ws.close();
+			wsconnected=0;
+
         } // back to serial if error.
         ws.onmessage = handlemessage;
         ws.onopen = function(e) {
             console.log('Ws Connected!');
-            a = document.getElementById("status");
             a.innerHTML = "Web socket:Connected";
+			$("wsconnect").innerHTML='Close';
             wsconnected = 1;
             nextgcode();
         };
@@ -157,14 +173,17 @@ function connectwebsock() {
         ws.onclose = function(e) {
             console.log('ws Disconnected!');
             a = document.getElementById("status");
-            a.innerHTML = "Web socket:disconnected<button onclick='connectwebsock()'>Reconnect</button>";
+            a.innerHTML = "Web socket:disconnected";
+			$("wsconnect").innerHTML='Connect';
             wsconnected = 0;
-			stopit();
         };
 		idleloop();
     }
 }
 
 window.onload = function() {
-    connectwebsock();
+	var h=window.location.host;
+    a = document.activeElement;
+    if ((a.tagName == "DIV") && (stotype == 1)) a.remove();
+	if (h)setvalue("wsip",h);
 };

@@ -166,7 +166,7 @@ void prepareramp(int32_t bpos)
 #define stepmm  Cstepmmx(faxis)
 
   float stepa = stepmm / (m->ac);
-  //float stepa = (ytotalstep*m->dis/m->ac); //*stepmm / (m->ac);
+  //float stepa = (ytotalstep*m->dis/m->ac); // *stepmm / (m->ac);
   //float stepa = m->axs*stepmm / (m->ac);
   float stepb = stepa;//stepmm / (m->ac);//(accel); // deceleration always use the feed accell
   CORELOOP

@@ -1,4 +1,5 @@
 <html>
+
 <body id=body style='font-family:arial'>
 <div style='width:800px;background:#eeffaa;border-radius:10px;padding:10px;border:1px solid green;margin:auto;box-shadow: 4px 4px 2px rgba(0,0,0,0.5);'>
 
@@ -35,7 +36,8 @@ Category<br><select id=ukategori><option value=0>Generic</option><option value=1
 <td>
 <div>GCODE SENDER</div>
 <hr>
-<div id=status></div>
+<br>WebSocket <input id=wsip size=10 class=saveit value="">
+<div id=status>Status:not connected </div><button id=wsconnect onclick="connectwebsock()">Connect</button>
 
 <hr>
 GCODE 
@@ -49,7 +51,7 @@ GCODE
 <hr>
 <table width=100%><tr><td>
 Paste or drag a gcode file here to begin print.
-<td align='right'><button onclick="printhub()">Load GCODE</button> from <a href="www.karyahub3d.xyz">KARYAHUB3D.XYZ</a>
+<td align='right'><button onclick="printhub()" id=btload>Load GCODE</button> from <a target=hub href="http://www.karyahub3d.xyz">KARYAHUB3D.XYZ</a>
 </table>
 </div>
 <script>
@@ -791,13 +793,15 @@ function realupload(gcode,jpg) {
             true
         );
   var progressBar = $('progress1');
-  xhr.onload = function(e) {progressBar.value = 0;if(!wemosd1)alert(xhr.response);};
+  xhr.onload = function(e) {
+	progressBar.value = 0;if(!wemosd1)alert(xhr.response);
+  };
   // Listen to the upload progress.
   xhr.upload.onprogress = function(e) {
-    if (e.lengthComputable) {
-      progressBar.value = (e.loaded / e.total) * 100;
-      progressBar.textContent = progressBar.value; // Fallback for unsupported browsers.
-    }
+		if (e.lengthComputable) {
+		  progressBar.value = (e.loaded / e.total) * 100;
+		  progressBar.textContent = progressBar.value; // Fallback for unsupported browsers.
+		}
   };
 
   xhr.send(form);
@@ -811,12 +815,18 @@ function upload(){
 
 function printhub(){
 	var gid=prompt("Please enter object #ID");
+	var bt=$("btload");
 	if (gid){
+		bt.innerHTML=='Loading.';
 		var oReq = new XMLHttpRequest();
 		oReq.open("GET", "http://karyahub3d.xyz/download?act=Download&gid="+gid, true);
 		oReq.responseType = "arraybuffer";
 
+	  oReq.onprogress = function(e) {
+			if (bt.innerText=='Loading...')bt.innerText=='Loading.';else bt.innerText=='Loading...';
+	  };
 		oReq.onload = function (oEvent) {
+			bt.innerText=='Load GCODE';
 		  var arrayBuffer = oReq.response; // Note: not oReq.responseText
 		  if (arrayBuffer) {
 			var byteArray = new Uint8Array(arrayBuffer);

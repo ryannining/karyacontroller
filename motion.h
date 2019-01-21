@@ -15,11 +15,11 @@
 #define LOWESTDELAY 120 // IF LESS than this microsec then do the subpixel
 #endif
 
-
-
+// 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
+// 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
 typedef struct {
-  uint8_t cmd  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
-  uint16_t dly  ; // 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
+  uint8_t cmd;
+  uint16_t dly;
 } tcmd;
 
 
@@ -45,6 +45,10 @@ typedef struct {
 #endif
 } tmove;
 
+
+
+
+
 extern float e_multiplier, f_multiplier;
 #ifdef ISPC
 extern float tick, tickscale, fscale, graphscale;
@@ -64,8 +68,8 @@ extern int mvaccel;
 extern int  maxf[4];
 extern int32_t dlp, dl;
 extern float stepmmx[4], xyscale;
-extern float retract_in,retract_out;
-extern float retract_in_f,retract_out_f;
+extern float retract_in, retract_out;
+extern float retract_in_f, retract_out_f;
 extern tmove move[NUMBUFFER];
 extern float cx1, cy1, cz1, ce01;
 extern uint8_t head, tail;
@@ -78,7 +82,7 @@ extern uint32_t cmctr;
 extern int8_t RUNNING;
 extern int8_t PAUSE;
 extern int constantlaserVal;
-
+extern float extadv;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 

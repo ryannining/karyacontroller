@@ -2,6 +2,8 @@
 //#define timing
 //#define timingG
 //#define echoserial
+//#define TCPSERVER
+#define WEBSOCKSERVER
 
 #include "platform.h"
 #include "config_pins.h"
@@ -17,13 +19,21 @@
 
 
 #ifdef WIFISERVER
-#include <ESP8266WiFi.h>
 #include <WiFiClient.h>
+
+#ifdef ESP32
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
+#else
+#include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
-#include <FS.h>   // Include the SPIFFS library
-#include <WebSocketsServer.h>
 #include <ESP8266HTTPClient.h>
+#ifdef WEBSOCKSERVER
+#include <WebSocketsServer.h>
+#endif
+#endif
+#include <FS.h>   // Include the SPIFFS library
 
 
 uint8_t wfhead = 0;
@@ -33,13 +43,21 @@ char wfb[300];
 int wfl = 0;
 int bpwf = 0;
 ESP8266WebServer server ( 80 );
+#ifdef TCPSERVER
+WiFiClient client;
 WiFiServer servertcp(82);
+#endif
+
+#ifdef WEBSOCKSERVER
 WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
+#endif
+
 IPAddress ip ;
 
 #define IOT_IP_ADDRESS "172.245.97.171"
 long lm = 0;
-
+int ISWIFIOK=0;
+#define TOUCHSERVER
 void touchserver(int v, String info) {
   if (uncompress)return;
   if (WiFi.status() != WL_CONNECTED)return;
@@ -110,7 +128,17 @@ String getContentType(String filename) { // convert the file extension to the MI
 }
 bool handleFileRead(String path) { // send the right file to the client (if it exists)
   NOINTS
-  if (path.endsWith("/")) path += "index.html";          // If a folder is requested, send the index file
+  if (path.endsWith("/3d")) path += ".html";          // If a folder is requested, send the index file
+  else if (path.endsWith("/config")) path = "/karyaconfig.html";          // If a folder is requested, send the index file
+  else if (path.endsWith("/")) {
+    // if wifi not connected redirect to configuration
+    if (ISWIFIOK) {
+      path = "/3d.html";          // If a folder is requested, send the index file
+      if (!SPIFFS.exists(path))path="/index.html";
+    }
+    else path = "/karyaconfig.html";          // If a folder is requested, send the index file
+  }
+
   xprintf(PSTR("handleFileRead: %s\n"), path.c_str());
   String contentType = getContentType(path);             // Get the MIME type
   String pathWithGz = path + ".gz";
@@ -153,6 +181,9 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   }
   INTS
 }
+
+#ifdef WEBSOCKSERVER
+
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
@@ -174,17 +205,20 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
   }
 }
 
-WiFiClient client;
+#endif
 void wifiwr(uint8_t s) {
   wfb[wfl] = s;
   wfl++;
   if (s == '\n') {
     wfb[wfl] = 0;
+#ifdef TCPSERVER
     if (client && client.connected()) {
       client.write(wfb, wfl);
-      //client.flush();
     }
+#endif
+#ifdef WEBSOCKSERVER
     webSocket.broadcastTXT(wfb);
+#endif
     wfl = 0;
   }
 }
@@ -197,68 +231,107 @@ void setupwifi(int num) {
     return;
     WiFi.disconnect();
     server.close();
-    //    webSocket.end();
   }
   char c = wifi_ap[0];
   if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-
-    xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin ( wifi_ap, wifi_pwd);
-    int cntr = 30;
-    while ( WiFi.status() != WL_CONNECTED ) {
-      delay ( 500 );
-      cntr--;
-      if (!cntr)break;
-      xprintf(PSTR("."));
-    }
+  } else {
+    String("karyacontroller").toCharArray(wifi_dns, 29);
+    String("Tenda_AD26C0").toCharArray(wifi_ap, 49);
+    String("45712319").toCharArray(wifi_pwd, 19);
+    eepromwritestring(470, wifi_dns);
+    eepromwritestring(400, wifi_ap);
+    eepromwritestring(450, wifi_pwd);
   }
+
+  xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin ( wifi_ap, wifi_pwd);
+  int cntr = 30;
+  while ( WiFi.status() != WL_CONNECTED ) {
+    delay ( 500 );
+    cntr--;
+    if (!cntr)break;
+    //xprintf(PSTR("."));
+    Serial.print(".");
+  }
+
+
   if (WiFi.status() == WL_CONNECTED) {
     ip = WiFi.localIP();
+    ISWIFIOK=1;
     xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
 
     xprintf(PSTR("HTTP server started\n"));
 
   } else {
     WiFi.mode(WIFI_AP);
+    ISWIFIOK=0;
     const char *password = "123456789";
-    //wifi_dns="CNCESP";
-    WiFi.softAP(wifi_dns, password);
+    WiFi.softAP("karya", password);
     ip = WiFi.softAPIP();
     xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), wifi_dns, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
   }
 
-  if ( MDNS.begin ( wifi_dns) ) {
-    xprintf(PSTR("MDNS responder started %s\n"), wifi_dns);
-  }
+  server.on("/setconfig", HTTP_GET, []() {                 // if the client requests the upload page
+    server.arg("name").toCharArray(wifi_dns, 29);
+    eepromwritestring(470, wifi_dns);
+    server.arg("ap").toCharArray(wifi_ap, 49);
+    eepromwritestring(400, wifi_ap);
+    server.arg("pw").toCharArray(wifi_pwd, 19);
+    eepromwritestring(450, wifi_pwd);
+    server.send ( 200, "text/html", "OK");
+  });
+  server.on("/getconfig", HTTP_GET, []() {                 // if the client requests the upload page
+    String st = "disconnected";
+    if (WiFi.status() == WL_CONNECTED)st = "connected";
+    server.send ( 200, "text/html", "['" + String(wifi_ap) + "','" + String(wifi_pwd) + "','" + String(wifi_dns) + "','" + st + "']");
+  });
+  server.on("/scanwifi", HTTP_GET, []() {
+    int n = WiFi.scanNetworks();
+    String res = "[";
+    if (n == 0) {
+    } else {
+      for (int i = 0; i < n; ++i) {
+        // Print SSID and RSSI for each network found
+        if (i)res += ",";
+        res += "['" + WiFi.SSID(i) + "','" + WiFi.RSSI(i) + "',";
+        if (WiFi.encryptionType(i) == ENC_TYPE_NONE) res += "''"; else res += "'*'";
+        res += "]";
+      }
+    }
+    res += "]";
+    server.send(200, "text/html", res);
+  });
+
+
 
   server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
     ispause = 1;
-    server.send ( 200, "text/html","OK");
+    server.send ( 200, "text/html", "OK");
   });
   server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
     ispause = 0;
-    server.send ( 200, "text/html","OK");
+    server.send ( 200, "text/html", "OK");
   });
   server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
+    server.send ( 200, "text/html", "OK");
     beginuncompress("/gcode");
-    server.send ( 200, "text/html","OK");
   });
   server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
+    server.send ( 200, "text/html", "OK");
     enduncompress();
-    server.send ( 200, "text/html","OK");
   });
   server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
+    server.send ( 200, "text/html", "OK");
     homing();
-    server.send ( 200, "text/html","OK");
   });
   server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
+    server.send ( 200, "text/html", String(Input));
     set_temp(180);
-    server.send ( 200, "text/html",String(Input));
   });
   server.on("/cooling", HTTP_GET, []() {                 // if the client requests the upload page
+    server.send ( 200, "text/html", "Cooling");
     set_temp(0);
-    server.send ( 200, "text/html","Cooling");
   });
   server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
     //xprintf(PSTR("Handle UPLOAD \n"));
@@ -278,12 +351,13 @@ void setupwifi(int num) {
       server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
   });
   server.begin();
+#ifdef TCPSERVER
   servertcp.begin();
-
+#endif
+#ifdef WEBSOCKSERVER
   webSocket.begin();                          // start the websocket server
   webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
-  MDNS.addService("http", "tcp", 80);
-
+#endif
 
 
   //if (!num)
@@ -294,11 +368,17 @@ void setupwifi(int num) {
 extern int sendwait;
 boolean alreadyConnected = false;
 void wifi_loop() {
-  webSocket.loop();
   server.handleClient();
-  if (sendwait==1)touchserver(0, String(wifi_dns));
+#ifdef WEBSOCKSERVER
+  webSocket.loop();
+#endif
+#ifdef TOUCHSERVER
+  if (sendwait == 1)touchserver(0, String(wifi_dns));
+#endif
 
+#ifdef TCPSERVER
   // wait for a new client:
+
   if (servertcp.hasClient()) {
     if (client)client.stop();
     client = servertcp.available();
@@ -317,15 +397,8 @@ void wifi_loop() {
       }
     } else client.stop();
   }
+#endif
 
-  // if there is an incoming message...
-  // its blocking/long time so no use
-  /* message m = bot.getUpdates(); // Read new messages
-    if ( m.chat_id != 0 ) { // Checks if there are some updates
-     Serial.println(m.text);
-     bot.sendMessage(m.chat_id, m.text);  // Reply to the same chat with the same text
-    }
-  */
 }
 #else
 #define wifi_loop()
@@ -650,10 +723,10 @@ void setupother() {
   init_gcode();
   zprintf(PSTR("Init Temp\n"));
   init_temp();
-  zprintf(PSTR("Init eeprom\n"));
-  reload_eeprom();
   zprintf(PSTR("Init timer\n"));
   timer_init();
+  zprintf(PSTR("Init eeprom\n"));
+  reload_eeprom();
 #else
   initmotion();
   init_gcode();
@@ -690,6 +763,7 @@ void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
   serialinit(2 * 115200); //115200);
+  LASER(!LASERON);
   t1 = millis();
   //while (!Serial.available())continue;
 #ifndef DELAYEDSETUP
@@ -705,7 +779,9 @@ void loop() {
     gcode_loop();
     control_loop();
     display_loop();
+#ifdef ESP8266
     wifi_loop();
     uncompress_loop();
+#endif
   }
 }

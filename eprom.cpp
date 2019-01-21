@@ -67,6 +67,7 @@ float EEMEM EE_pid_i;
 float EEMEM EE_pid_d;
 float EEMEM EE_pid_bang;
 
+float EEMEM EE_ext_adv;
 
 #endif
 
@@ -127,6 +128,8 @@ retract_out_f=(float)eepromread(EE_retract_out_f)   * 0.001;
   myPID.SetTunings(eepromread(EE_pid_p)*0.001,eepromread(EE_pid_i)*0.001,eepromread(EE_pid_d)*0.001);
   tbang=eepromread(EE_pid_bang)*0.001;
 #endif  
+  tbang=eepromread(EE_pid_bang)*0.001;
+  extadv=eepromread(EE_ext_adv)*0.001;
   preparecalc();
 }
 
@@ -189,6 +192,7 @@ void reset_eeprom() {
  eepromwrite(EE_pid_d,ff(400.0));
  eepromwrite(EE_pid_bang,ff(4.1));
 #endif
+ eepromwrite(EE_ext_adv,ff(0));
  eepromcommit;
 #endif
 }

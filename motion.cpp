@@ -36,7 +36,7 @@
 
 
 // JERK Setting
-#define MINCORNERSPEED 0 // minimum cornering speed
+#define MINCORNERSPEED 1 // minimum cornering speed
 #define MINSTEP 0
 // Centripetal
 //#define JERK1 //centripetal corner , still not good, back to repetier style jerk
@@ -44,7 +44,7 @@
 
 // repetier 1
 #define JERK2 //repetier style jerk
-//#define JERK2A //repetier style jerk
+#define JERK2A //repetier style jerk
 
 
 #ifdef USETIMER1
@@ -108,7 +108,7 @@ float stepmmx[4];
 int odir[4] = {1, 1, 1, 1};
 float retract_in, retract_out;
 float retract_in_f, retract_out_f;
-float cx1, cy1, cz1, ce01;
+float cx1, cy1, cz1, ce01, extadv;
 tmove move[NUMBUFFER];
 
 #define sqr2(n) (n)*(n)
@@ -152,7 +152,7 @@ float pta = 0;
 #define sqrt32(n) sqrt(n)
 
 
-#ifdef USER_INPUT
+#ifdef ACT_KEY
 int user_cnt = 0;
 long lastms = 0;
 void user_input_loop() {
@@ -163,9 +163,11 @@ void user_input_loop() {
       zprintf(PSTR("User input:%d\n"), fi(user_cnt));
       switch (user_cnt) {
         //case 1: homing(); break;
-        case 2: set_temp(0);break;
-        case 3: if (uncompress)enduncompress();else beginuncompress("/gcode"); break;
-        case 4: set_temp(180);break;
+        case 2: set_temp(0); break;
+#ifdef ESP8266
+        case 3: if (uncompress)enduncompress(); else beginuncompress("/gcode"); break;
+#endif
+        case 4: set_temp(180); break;
       }
       user_cnt = 0;
     }
@@ -211,8 +213,8 @@ void reset_motion()
 #endif
   homingspeed = HOMINGSPEED;
   xyjerk = XYJERK;
-  zjerk = 5;
-  zaccel = 50;
+  zjerk = 2;
+  zaccel = 20;
   xyscale = 1;
   ishoming = 0;
   cmctr = 0;
@@ -560,14 +562,14 @@ void planner(int32_t h)
     if (jerk > xyjerk) {
       factor = float(xyjerk) / jerk; // always < 1.0!
       CORELOOP
-      if (factor * max_f * 2.0 < xyjerk) {
-        //    factor = xyjerk / (2.0 * max_f);
-        CORELOOP
-      }
+      //if (factor * max_f * 2.0 < xyjerk) {
+      //    factor = xyjerk / (2.0 * max_f);
+      CORELOOP
+      //}
     }
 
     if (fdz > zjerk) {
-      factor = fmin(factor, 2.0 / fdz);
+      factor = fmin(factor, zjerk / fdz);
     }
 
 
@@ -579,6 +581,7 @@ void planner(int32_t h)
     CORELOOP
 #ifdef output_enable
     zprintf (PSTR("JERK:%d FACTOR:%f\n"), fi(jerk), ff(factor));
+    zprintf (PSTR("XMFZ:%f\n"), ff(currf[2]));
     zprintf (PSTR("XMF:%d\n"), fi(max_f));
 #endif
 
@@ -1409,6 +1412,7 @@ void newdircommand(int laserval)
 #endif
 // ===============================
 float ia = 0;
+long firstdown;
 int coreloop1()
 {
 #ifdef output_enable
@@ -1440,6 +1444,11 @@ int coreloop1()
       goto UPDATEDELAY;
     } else if ((rampdown -= rampv) < 0) {
       accele(acdn);
+      // de-advance of the extruder
+      if (firstdown) {
+        mcx[3] += firstdown;
+        firstdown = 0;
+      }
 UPDATEDELAY:
       if (ta < 1.05)ta = 1.05;
       //zprintf(PSTR("%d\n"),fi(ta));
@@ -1867,6 +1876,10 @@ int32_t startmove()
 
 #endif
   calculate_delta_steps();
+#ifdef EXTADVANCE
+  firstdown = fmin(extadv,ramdown)* totalstep;
+  if (rampup) mcx[3] = -fmin(extadv,rampup) * totalstep;;
+#endif
 #ifdef SUBPIXELMAX
   rampup *= subp;
   rampdown *= subp;
@@ -1876,6 +1889,7 @@ int32_t startmove()
 #ifdef UPDATE_F_EVERY
   nextdly = UPDATE_F_EVERY + 100;
 #endif
+
   return 1;
 }
 

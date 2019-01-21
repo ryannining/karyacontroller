@@ -366,9 +366,4 @@ void uncompress_loop() {
   }
 }
 
-#else
-int compress_loop() {
-  return 0;
-}
-void uncompress_loop() {}
 #endif

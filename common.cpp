@@ -60,7 +60,9 @@ void write_int32(void (*writechar)(uint8_t), int32_t v) {
   \param v number to send
 */
 void write_char(void (*writechar)(uint8_t), char* v) {
-  for (int i = 0; i < strlen(v); i++) {
+  int l=strlen(v);
+  if (l>25)l=25;
+  for (int i = 0; i < l; i++) {
     writechar(v[i]);
   }
 }
@@ -120,6 +122,7 @@ void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...) {
   uint16_t i = 0;
   uint8_t c = 1, j = 0;
   while ((c = pgm_read_byte(&format_P[i++]))) {
+    //delayMicroseconds(1);
     if (j) {
       switch (c) {
         case 'd':

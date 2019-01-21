@@ -19,7 +19,9 @@
 #define e0enable -1
 
 #define ISRTEMP // 120bytes check board.h
-#define LASERON HIGH
+//#define LASERON HIGH
+
+
 #define MAXTEMP 210
 
 // ========== AVR ================================================
@@ -72,7 +74,7 @@
 
 //#define BOARD_NANONANO_WEMOS
 #define BOARD_WEMOS3D
-#define DRIVE_COREXY
+//#define DRIVE_COREXY
 
 
 //#define BOARD_WEMOS3DCOREXY
@@ -89,6 +91,9 @@
 // for PC no pins
 #endif
 
+#define LASERON LOW
+#define NUMBUFFER 10
+
 
 /*
   ============================================================================================
@@ -104,19 +109,19 @@
 // ==========================================================
 
 #else
-#define USER_INPUT
+#define ACT_KEY
 #define ARC_SUPPORT // 3kb
 #define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
 //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-#define WIFISERVER
+//#define WIFISERVER
 //#define INTERPOLATEDELAY  // slower 4-8us
 #endif
 // ==========================================================
 
-USE_EEPROM
+//#define USE_EEPROM
 
 #ifdef powerpin
 #define POWERFAILURE
@@ -165,6 +170,7 @@ USE_EEPROM
 #undef USEDIO
 #undef ISRTEMP
 #undef CORESERIAL
+//#undef USE_EEPROM
 //#undef LCDDISPLAY
 //#undef USETIMER1
 
@@ -175,6 +181,7 @@ USE_EEPROM
 #undef USETIMER1
 #undef LASERMODE
 #undef SAVE_RESETMOTION
+#undef ACT_KEY
 
 //#define DRIVE_XYYZ  // dual Y individual homing
 //#define DRIVE_COREXY
@@ -216,14 +223,14 @@ USE_EEPROM
 #define XACCELL 50
 #define XMOVEACCELL 50
 
-#define XMAXFEEDRATE 120
-#define YMAXFEEDRATE 120
+#define XMAXFEEDRATE 80
+#define YMAXFEEDRATE 80
 #define ZMAXFEEDRATE 5
 #define E0MAXFEEDRATE 100
 
-#define XSTEPPERMM 19.2//50//105.090//50//131//178
-#define YSTEPPERMM 19.2////105.090//50//175//125
-#define ZSTEPPERMM 80//1020//1020 //420
+#define XSTEPPERMM 100//50//105.090//50//131//178
+#define YSTEPPERMM 100////105.090//50//175//125
+#define ZSTEPPERMM 2300//80//1020//1020 //420
 #define E0STEPPERMM 92//340//380
 
 #ifndef NUMBUFFER

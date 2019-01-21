@@ -84,7 +84,7 @@ typedef struct {
 #ifdef __AVR__ 
 #define g_str_len 64
 #else
-#define g_str_len 3000
+#define g_str_len 16000
 #endif
 
 extern int32_t linecount,lineprocess;

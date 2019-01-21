@@ -32,9 +32,9 @@ static void  eepromwritestring(int p, char* str) {
     EEPROM.put(p, str[i]);
   }
 }
-static int  eepromreadstring(int p, char* str,int len) {
+static void  eepromreadstring(int p, char* str,int len) {
   int i;
-  byte l;
+  byte l=0;
   
   EEPROM.get(p, l);
   if (l>len)l=len;
@@ -161,6 +161,8 @@ static void eepromwrite(int p, int32_t val)
 #define EE_pid_d 340
 #define EE_pid_bang 335
 
+#define EE_ext_adv 345
+
 
 #else
 extern float EEMEM EE_xhome;
@@ -215,6 +217,7 @@ extern float EEMEM EE_pid_i;
 extern float EEMEM EE_pid_d;
 extern float EEMEM EE_pid_bang;
 
+extern float EEMEM EE_ext_adv;
 
 #endif
 
