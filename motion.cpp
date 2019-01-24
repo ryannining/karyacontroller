@@ -1788,6 +1788,7 @@ int32_t startmove()
   prepareramp(t);
   m = &move[t];
   isG0 = m->status & 8;
+  
   laxis = fastaxis;
   fastaxis = FASTAXIS(m);
   totalstep = labs(m->dx[fastaxis]);
@@ -1890,6 +1891,11 @@ int32_t startmove()
   nextdly = UPDATE_F_EVERY + 100;
 #endif
 
+
+  // laser
+  if ((m->dx[3]!=0) && (!isG0)){
+    lastB--;
+  }
   return 1;
 }
 

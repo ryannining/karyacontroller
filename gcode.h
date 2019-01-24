@@ -91,6 +91,8 @@ extern int32_t linecount,lineprocess;
 extern int waitforline;
 extern char g_str[g_str_len];
 extern int rasterlen;
+extern int lastB;
+extern void str_wait();
 
 extern int g_str_c;
 #ifdef USE_SDCARD

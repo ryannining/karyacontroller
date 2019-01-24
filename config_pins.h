@@ -92,7 +92,7 @@
 #endif
 
 #define LASERON LOW
-#define NUMBUFFER 10
+#define NUMBUFFER 30
 
 
 /*

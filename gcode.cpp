@@ -96,6 +96,7 @@ char g_str[g_str_len];
 uint8_t okxyz;
 int g_str_c = 0;
 int rasterlen = 0;
+int g_str_l = 0;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
@@ -331,8 +332,10 @@ uint8_t gcode_parse_char(uint8_t c)
           break;
         // comments
         case '[':
-          next_target.read_string = 1;  // Reset by ')' or EOL.
+          next_target.read_string = 1;  // Reset by ')' or EOL
+          g_str_l=0;
           if (next_target.seen_P && next_target.seen_G) g_str_c = next_target.P; else g_str_c = 0;
+          if (next_target.G==7)str_wait();
           break;
 
         case ';':
@@ -376,6 +379,7 @@ uint8_t gcode_parse_char(uint8_t c)
       if (g_str_c < g_str_len - 1) {
         g_str[g_str_c] = c;
         g_str_c++;
+        g_str_l++;
       }
     }
     //next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
@@ -454,6 +458,20 @@ void temp_wait(void)
   wait_for_temp = 0;
 #endif
 
+}
+
+int lastB = 0;
+
+void str_wait()
+{
+  return;
+  uint32_t c = millis();
+  while (lastB>10) {
+    domotionloop
+    servo_loop();
+    MEMORY_BARRIER()
+    delayMicroseconds(10);
+  }
 }
 //int32_t mvc = 0;
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
@@ -665,8 +683,11 @@ void process_gcode_command()
         // G0 Y0.6
         // G1 X0 E0
         // G4
-
+        
         rasterlen = g_str_c; //next_target.S;
+        if (g_str_l==0){          
+          if (next_target.S)lastB+=next_target.S; else lastB=0;
+        }
         break;
       case 28:
         homing();

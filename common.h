@@ -5,7 +5,11 @@
 #include "config_pins.h"
 //#include "Arduino.h"
 
+#ifdef __AVR__
 #define BUFSIZE     64
+#else
+#define BUFSIZE     640
+#endif
 #define buf_canread(buffer)     ((buffer ## head - buffer ## tail ) & \
                                  (BUFSIZE - 1))
 
