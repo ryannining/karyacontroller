@@ -19,7 +19,7 @@
 
 
 #ifdef WIFISERVER
-#include <WiFiClient.h>
+//#include <WiFiClient.h>
 
 #ifdef ESP32
 #include <WiFi.h>

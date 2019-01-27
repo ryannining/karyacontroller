@@ -19,7 +19,8 @@
 #define e0enable -1
 
 #define ISRTEMP // 120bytes check board.h
-//#define LASERON HIGH
+#define LASERON HIGH
+#define SPINDLEON HIGH
 
 
 #define MAXTEMP 210
@@ -91,9 +92,6 @@
 // for PC no pins
 #endif
 
-#define LASERON LOW
-#define NUMBUFFER 30
-
 
 /*
   ============================================================================================
@@ -116,10 +114,18 @@
 //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
 #define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-//#define WIFISERVER
+#define WIFISERVER
 //#define INTERPOLATEDELAY  // slower 4-8us
 #endif
 // ==========================================================
+
+
+//#define MYLASER
+#ifdef MYLASER
+#undef WIFISERVER
+#define LASERON LOW
+#define NUMBUFFER 30
+#endif
 
 //#define USE_EEPROM
 

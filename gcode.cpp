@@ -97,6 +97,7 @@ uint8_t okxyz;
 int g_str_c = 0;
 int rasterlen = 0;
 int g_str_l = 0;
+int CNCMODE = 0;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
@@ -155,7 +156,7 @@ void changefilament(float l)
 int reset_command() {
   // reset variables
   okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
-  
+
   uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
 
   next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
@@ -333,9 +334,9 @@ uint8_t gcode_parse_char(uint8_t c)
         // comments
         case '[':
           next_target.read_string = 1;  // Reset by ')' or EOL
-          g_str_l=0;
+          g_str_l = 0;
           if (next_target.seen_P && next_target.seen_G) g_str_c = next_target.P; else g_str_c = 0;
-          if (next_target.G==7)str_wait();
+          if (next_target.G == 7)str_wait();
           break;
 
         case ';':
@@ -466,7 +467,7 @@ void str_wait()
 {
   return;
   uint32_t c = millis();
-  while (lastB>10) {
+  while (lastB > 10) {
     domotionloop
     servo_loop();
     MEMORY_BARRIER()
@@ -683,10 +684,10 @@ void process_gcode_command()
         // G0 Y0.6
         // G1 X0 E0
         // G4
-        
+
         rasterlen = g_str_c; //next_target.S;
-        if (g_str_l==0){          
-          if (next_target.S)lastB+=next_target.S; else lastB=0;
+        if (g_str_l == 0) {
+          if (next_target.S)lastB += next_target.S; else lastB = 0;
         }
         break;
       case 28:
@@ -846,28 +847,41 @@ void process_gcode_command()
       case 5:
         // already implemented using value = 255 = cutting
         //constantlaser = next_target.S == 1;
+        // cnc mode laser
+        CNCMODE = next_target.seen_P;
+        pinMode(laser_pin, OUTPUT);
+        zprintf(PSTR("SPINDLE OFF\n"));
+        SPINDLE(!SPINDLEON)
+        LASER(!LASERON)
+
         next_target.seen_S = 1;
         next_target.S = 0;
       case 3:
 #ifdef LASERMODE
-        // if no S defined then full power
-        if (!next_target.seen_S)next_target.S = 255;
-        S1 = next_target.S;
-        laserOn = S1 > 0;
-        constantlaserVal = next_target.S;
-        if (laserOn) zprintf(PSTR("LASERON\n"));
-        if (next_target.seen_P) {
-          waitbufferempty();
-          delay(100);
+        if (CNCMODE) {
           pinMode(laser_pin, OUTPUT);
-          zprintf(PSTR("PULSE LASER\n"));
-          LASER(LASERON)
-          delay(next_target.P);
-          LASER( !LASERON);
-        }
-        if (!laserOn) {
-          waitbufferempty();
-          //LASER( !LASERON);
+          zprintf(PSTR("SPINDLE OFF\n"));
+          SPINDLE(SPINDLEON)
+        } else {
+          // if no S defined then full power
+          if (!next_target.seen_S)next_target.S = 255;
+          S1 = next_target.S;
+          laserOn = S1 > 0;
+          constantlaserVal = next_target.S;
+          if (laserOn) zprintf(PSTR("LASERON\n"));
+          if (next_target.seen_P) {
+            waitbufferempty();
+            delay(100);
+            pinMode(laser_pin, OUTPUT);
+            zprintf(PSTR("PULSE LASER\n"));
+            LASER(LASERON)
+            delay(next_target.P);
+            LASER( !LASERON);
+          }
+          if (!laserOn) {
+            waitbufferempty();
+            //LASER( !LASERON);
+          }
         }
 #endif
         break;
@@ -1127,7 +1141,7 @@ void process_gcode_command()
         //zprintf(PSTR("NGOPO TO !"));
         break;
       case 505:
-        
+
         ESP.restart();
         //zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
         break;
