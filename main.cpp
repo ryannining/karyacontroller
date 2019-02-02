@@ -77,6 +77,7 @@ void demofile() {
   //#define fn "gcode/bulet.gcode"
   //#define fn "gcode/naga.ngc"
   #define fn "d:/git/karyacontroller/gcode/bug1.gcode"
+  //#define fn "d:/git/karyacontroller/gcode/graf.gcode"
   //#define fn "d:/3d/testarc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
@@ -84,7 +85,7 @@ void demofile() {
   int c;
   graphscale = 3;
   tickscale = 150;
-  fscale=20;
+  fscale=3;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l = 0;

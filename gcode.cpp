@@ -380,6 +380,7 @@ uint8_t gcode_parse_char(uint8_t c)
       if (g_str_c < g_str_len - 1) {
         g_str[g_str_c] = c;
         g_str_c++;
+        //g_str_c=g_str_c&8191;
         g_str_l++;
       }
     }
@@ -465,13 +466,16 @@ int lastB = 0;
 
 void str_wait()
 {
-  return;
-  uint32_t c = millis();
-  while (lastB > 10) {
+    
+  #ifdef ISPC
+    if (lastB > 5) zprintf(PSTR("Wait bitmap buffer %d\n"),fi(lastB));
+  #endif
+  //uint32_t c = millis();
+  while (lastB > 5) {
     domotionloop
     servo_loop();
     MEMORY_BARRIER()
-    delayMicroseconds(10);
+    //delayMicroseconds(10);
   }
 }
 //int32_t mvc = 0;
@@ -686,8 +690,8 @@ void process_gcode_command()
         // G4
 
         rasterlen = g_str_c; //next_target.S;
-        if (g_str_l == 0) {
-          if (next_target.S)lastB += next_target.S; else lastB = 0;
+        if (g_str_l != 0) {
+          if (next_target.S)lastB += next_target.S;
         }
         break;
       case 28:
@@ -848,20 +852,22 @@ void process_gcode_command()
         // already implemented using value = 255 = cutting
         //constantlaser = next_target.S == 1;
         // cnc mode laser
-        CNCMODE = next_target.seen_P;
-        pinMode(laser_pin, OUTPUT);
         zprintf(PSTR("SPINDLE OFF\n"));
+        CNCMODE = next_target.seen_P;
+        #ifndef ISPC 
+        pinMode(laser_pin, OUTPUT);
         SPINDLE(!SPINDLEON)
         LASER(!LASERON)
-
+        #endif
         next_target.seen_S = 1;
         next_target.S = 0;
       case 3:
-#ifdef LASERMODE
         if (CNCMODE) {
-          pinMode(laser_pin, OUTPUT);
           zprintf(PSTR("SPINDLE OFF\n"));
+          #ifndef ISPC 
+          pinMode(laser_pin, OUTPUT);
           SPINDLE(SPINDLEON)
+          #endif
         } else {
           // if no S defined then full power
           if (!next_target.seen_S)next_target.S = 255;
@@ -871,11 +877,15 @@ void process_gcode_command()
           if (laserOn) zprintf(PSTR("LASERON\n"));
           if (next_target.seen_P) {
             waitbufferempty();
+            zprintf(PSTR("PULSE LASER\n"));
+            #ifndef ISPC
             delay(100);
             pinMode(laser_pin, OUTPUT);
-            zprintf(PSTR("PULSE LASER\n"));
+            #endif
             LASER(LASERON)
+            #ifndef ISPC
             delay(next_target.P);
+            #endif
             LASER( !LASERON);
           }
           if (!laserOn) {
@@ -883,7 +893,6 @@ void process_gcode_command()
             //LASER( !LASERON);
           }
         }
-#endif
         break;
         /*      case 101:
                 //? --- M101: extruder on ---

@@ -8,6 +8,13 @@
 
 #include "platform.h"
 #define THEISR
+#ifdef ISPC
+#define LOW false
+#define HIGH true
+#endif
+
+#define LASERON HIGH
+#define SPINDLEON HIGH
 
 #ifndef ISPC
 #include<Arduino.h>
@@ -19,8 +26,6 @@
 #define e0enable -1
 
 #define ISRTEMP // 120bytes check board.h
-#define LASERON HIGH
-#define SPINDLEON HIGH
 
 
 #define MAXTEMP 210
@@ -51,6 +56,7 @@
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
 #define BOARD_ST33DV1_STM32
+//#define BOARD_ST33DV11_STM32
 //#define BOARD_ST33DV1_STM32_3DPLEX
 //#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
@@ -75,7 +81,7 @@
 
 //#define BOARD_NANONANO_WEMOS
 #define BOARD_WEMOS3D
-//#define DRIVE_COREXY
+#define DRIVE_COREXY
 
 
 //#define BOARD_WEMOS3DCOREXY
@@ -120,11 +126,13 @@
 // ==========================================================
 
 
+
 //#define MYLASER
+
 #ifdef MYLASER
 #undef WIFISERVER
 #define LASERON LOW
-#define NUMBUFFER 30
+#define NUMBUFFER 50
 #endif
 
 //#define USE_EEPROM
@@ -225,19 +233,19 @@
 #define ZOFFSET 0
 #define EOFFSET 0
 
-#define XYJERK 15
-#define XACCELL 50
-#define XMOVEACCELL 50
+#define XYJERK 25
+#define XACCELL 3200
+#define XMOVEACCELL 3200
 
-#define XMAXFEEDRATE 80
-#define YMAXFEEDRATE 80
-#define ZMAXFEEDRATE 5
+#define XMAXFEEDRATE 200
+#define YMAXFEEDRATE 100
+#define ZMAXFEEDRATE 1
 #define E0MAXFEEDRATE 100
 
-#define XSTEPPERMM 100//50//105.090//50//131//178
-#define YSTEPPERMM 100////105.090//50//175//125
-#define ZSTEPPERMM 2300//80//1020//1020 //420
-#define E0STEPPERMM 92//340//380
+#define XSTEPPERMM 10//50//105.090//50//131//178
+#define YSTEPPERMM 10////105.090//50//175//125
+#define ZSTEPPERMM 10//2300//80//1020//1020 //420
+#define E0STEPPERMM 1//92//340//380
 
 #ifndef NUMBUFFER
 #define NUMBUFFER 20

@@ -44,7 +44,7 @@
 
 // repetier 1
 #define JERK2 //repetier style jerk
-#define JERK2A //repetier style jerk
+//#define JERK2A //repetier style jerk
 
 
 #ifdef USETIMER1
@@ -628,6 +628,8 @@ int8_t repos = 0;
 #ifdef USE_BACKLASH
 int ldir[NUMAXIS] = {0, 0, 0, 0};
 #endif
+
+
 void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int rel)
 {
 
@@ -642,8 +644,8 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   }
 #ifdef output_enable
   zprintf(PSTR("\n\nADDMOVE\nTail:%d Head:%d \n"), fi(tail), fi(head));
-  zprintf(PSTR("F:%f From X:%f Y:%f Z:%f\n"), ff(cf), ff(cx1), ff(cy1), ff(cz1));
-  zprintf(PSTR("To X:%f Y:%f Z:%f\n"),  ff(cx2), ff(cy2), ff(cz2));
+  zprintf(PSTR("F:%f From X:%f Y:%f Z:%f E:%f\n"), ff(cf), ff(cx1), ff(cy1), ff(cz1), ff(ce01));
+  zprintf(PSTR("To X:%f Y:%f Z:%f E:%f\n"),  ff(cx2), ff(cy2), ff(cz2), ff(ce02));
 #endif
   tmove *curr;
   curr = &move[nextbuff(head)];
@@ -729,7 +731,9 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   CORELOOP
   // if rasterlen then step/mm is set to 32 to easily get the original position by shift register
   if (rasterlen) {
-    x2[3] = (int32_t)(ce02) - (int32_t)(ce01);
+
+    if (g0)x2[3] = 0;
+    else x2[3] = (int32_t)(ce02) - (int32_t)(ce01);
     //x2[3] += x2[3] > 0 ? -4 : 4;
   } else
     x2[3] = (int32_t)(ce02 * e_multiplier * Cstepmmx(3)) - (int32_t)(ce01 * e_multiplier * Cstepmmx(3));
@@ -857,6 +861,10 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   }
 
 }
+
+
+
+
 
 #define N_ARC_CORRECTION 25
 #ifdef ARC_SUPPORT
@@ -1000,109 +1008,18 @@ void calculate_delta_steps();
 static uint32_t cmdly;
 int jerkctr = 0;
 
-
 #ifdef ISPC
+int laseron = 0;
+#define LASER(x) {laseron=x==LASERON;}
 
 float xs[4] = {0, 0, 0, 0};
 float gx, gy, lx, ly;
 int pcsx[4];
 #define graphstep(ix) xs[ix] +=pcsx[ix]
 float lstepdiv = 1;
-void dographics()
-{
-  if (cmdly < DIRDELAY) {
-    zprintf(PSTR("Odd delay:%d\n"), cmdly);
-    return;
-  }
-  // this might be wrong because the last cmd maybe is from previous segment which have different step/mm
-  float f = lstepdiv / cmdly;
-  lstepdiv = stepdiv;
-  f = sqrt(ta);
-  //f =  sqrt(ta)/stepdiv2;
-  tick = tick + cmdly; //1.0/timescale;
-  int32_t c;
-  // color by segment
-  c = (tail & 3) + 10;
-  if (jerkctr > 0)c = 1;
-  // color by speed
-  //c = (f - 20) * 4;
-
-  //float cf = float(timescale) / dl;
-
-  //pset (tick*tickscale+10,400-f*fscale),c
-#define realpos1(i) (xs[i] / stepmmx[i])
-  if (tick * tickscale / timescale > 600) {
-    gx = 0;
-    tick = 0;
-  }
-  //putpixel (tick * tickscale / timescale + 30, 450 -  fscale * cf, c - 8);
-  lx = gx;
-  ly = gy;
-  gx = tick * tickscale / timescale + 10;
-  gy = 480 -  fscale * f * 0.1;
-  setcolor(c);
-  putpixel (gx, gy, c);
-  setcolor(1);
-  f = sqrt(ta);
-  gy = 480 -  fscale * f * 0.1;
-  //putpixel (gx, gy, c);
-
-  //line(lx, ly, gx, gy);
-  //zprintf(PSTR("X:%f Y:%f\n"), ff(gx), ff(gy));
-  setcolor(0);
-  line(gx + 1, 480 - 1, gx + 1, 480 - 100);
-  gy = 480 -  fscale * 100 * 0.1;
-  setcolor(1);
-  line(0, gy, 200, gy);
-
-#ifdef NONLINEAR
-  float ex = realpos1(0) * graphscale;
-  float ey = realpos1(1) * graphscale;
-  float ez = realpos1(2) * graphscale;
-
-#if defined( DRIVE_DELTASIAN)
-  circle  (150, 251 - ex + 0, 5);
-  circle  (350, 251 - ez + 0, 5);
-  circle  (251 + ey * 0.1, 251 + ey * 0.1 + 0, 5);
-  circle  (150, 249 - ex + 0, 5);
-  circle  (350, 249 - ez + 0, 5);
-  circle  (249 + ey * 0.1, 249 + ey * 0.1 + 0, 5);
-  setcolor(9);
-  circle  (150, 250 - ex + 0, 5);
-  setcolor(12);
-  circle  (350, 250 - ez + 0, 5);
-  setcolor(14);
-  circle (250 + ey * 0.1, 250 + ey * 0.1 + 0, 5);
-#elif defined( DRIVE_DELTA)
-  circle(150, 251 + ex + 0, 5);
-  circle (350, 251 + ey + 0, 5);
-  circle (250, 201 + ez + 0, 5);
-  circle (150, 249 + ex + 0, 5);
-  circle (350, 249 + ey + 0, 5);
-  circle (250, 199 + ez + 0, 5);
-
-  setcolor(9);
-  circle (150, 250 + ex + 0, 5);
-  setcolor(12);
-  circle (350, 250 + ey + 0, 5);
-  setcolor(14);
-  circle (250, 200 + ez + 0, 5);
+void dographics();
 #endif
 
-#else
-  float ex = realpos1(0) * graphscale;
-  float ey = realpos1(1) * graphscale;
-  float ez = realpos1(2) * graphscale;
-
-  //putpixel (ex + 320, ey + 150, c);
-  //putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
-  putpixel (ex + 320, ey  + 150, c);
-#endif
-
-}
-#else
-#define graphstep(ix)
-#endif
 /*
   =================================================================================================================================================
   MOTIONLOOP
@@ -1123,6 +1040,8 @@ int32_t timing = 0;
 #else
 #define NUMCMDBUF 100
 #endif
+
+
 #define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
@@ -1136,16 +1055,6 @@ static int8_t mo = 0;
 static volatile int nextok = 0, laserwason = 0;
 
 int sendwait = 0;
-static THEISR void readpixel()
-{
-  char vv = g_str[e_ctr];
-  vv &= ~32;
-  switch (vv ) {
-    case 'A': cmdlaserval = 0; break;
-    case 'Z': cmdlaserval = 255; break;
-    default: cmdlaserval = (327 * (vv - 'A')) >> 5;
-  }
-}
 
 int maincmdlaserval = 0;
 static THEISR void decodecmd()
@@ -1170,19 +1079,17 @@ static THEISR void decodecmd()
 
     // if rasterlen then laser value get from raster data
     cmdlaserval = maincmdlaserval = (cmd >> 9) & 255;
-    if (rasterlen && cmdlaserval) {
-      readpixel();
-    }
-    if (Setpoint == 0)LASER( !LASERON);
 
 
     //else zprintf(PSTR("\nR"));
     //zprintf(PSTR("%d\n"), fi(cmdlaserval));
     //zprintf(PSTR("int %d\n"), fi(cmdlaserval));
   }
-  if (maincmdlaserval && rasterlen) {
-    //zprintf(PSTR("%d\n"), fi(e_ctr));
-  };
+  //if (Setpoint == 0)LASER( !LASERON);
+  //  if (maincmdlaserval && !rasterlen) {
+  //zprintf(PSTR("%d\n"), fi(e_ctr));
+  //    LASER(LASERON);
+  //  };
   //zprintf(PSTR("%d"), fi(cmdlaserval));
 
   /*Serial.print("X ");
@@ -1196,7 +1103,7 @@ static THEISR void decodecmd()
   cmtail = nextbuffm(cmtail);
 #ifdef USETIMER1
   timer_set(cmdly);
-#ifdef LASERMODE
+#endif
   if (Setpoint == 0) {
     laserwason = maincmdlaserval > 0;
     if (laserwason && cmdlaserval) {
@@ -1208,15 +1115,15 @@ static THEISR void decodecmd()
         //delayMicroseconds(las);
         //LASER(!LASERON);
         //timer_set(cmdly-las*(CLOCKCONSTANT / 1000000));
+#ifdef USETIMER1
         timer_set2(cmdly, las);
-      } else LASER( LASERON);
+#endif
+      } else if(!rasterlen)LASER(LASERON);
 
     } else {
       LASER( !LASERON);
     }
   }
-#endif
-#endif
 }
 
 uint32_t mc, dmc, cmctr;
@@ -1256,16 +1163,14 @@ void THEISR coreloopm()
     mm_ctr++;
     if (cmcmd) { // 1: move
 
+      if (rasterlen) {
+        if (cmbit & 8)LASER( LASERON) else LASER( !LASERON);
+      }
       if (cmbit & 8) {
         ectstep++;
-        if (rasterlen) {
-          e_ctr -= e_dir;
-          readpixel();
-          //zprintf(PSTR("%d "), fi(e_ctr));
-        }
-
         motor_3_STEP();
-      }
+      };
+
       if (cmbit & 1) {
         cmctr++;
         xctstep++;
@@ -1389,12 +1294,126 @@ void newdircommand(int laserval)
   pushcmd();
 
 }
+
+
+
+/* ================================================================================================================
+  PC SIMULATION
+
+  this need to move to interrupt for smooth movement
+  ================================================================================================================
+*/
+
+#ifdef ISPC
+void dographics()
+{
+  if (cmdly < DIRDELAY) {
+    //zprintf(PSTR("Odd delay:%d\n"), cmdly);
+    return;
+  }
+  // this might be wrong because the last cmd maybe is from previous segment which have different step/mm
+  float f = lstepdiv / cmdly;
+  lstepdiv = stepdiv;
+  f = sqrt(ta);
+  //f =  sqrt(ta)/stepdiv2;
+  tick = tick + cmdly; //1.0/timescale;
+  int32_t c;
+  // color by segment
+  c = (tail & 3) + 10;
+  if (jerkctr > 0)c = 1;
+  // color by speed
+  //c = (f - 20) * 4;
+
+  //float cf = float(timescale) / dl;
+
+
+
+  //pset (tick*tickscale+10,400-f*fscale),c
+#define realpos1(i) (xs[i] / stepmmx[i])
+  if (tick * tickscale / timescale > 600) {
+    gx = 0;
+    tick = 0;
+  }
+  //putpixel (tick * tickscale / timescale + 30, 450 -  fscale * cf, c - 8);
+  lx = gx;
+  ly = gy;
+  gx = tick * tickscale / timescale + 10;
+  gy = 480 -  fscale * f * 0.1;
+  setcolor(c);
+  putpixel (gx, gy, c);
+  setcolor(1);
+  f = sqrt(ta);
+  gy = 480 -  fscale * f * 0.1;
+  //putpixel (gx, gy, c);
+
+  //line(lx, ly, gx, gy);
+  //zprintf(PSTR("X:%f Y:%f\n"), ff(gx), ff(gy));
+  setcolor(0);
+  line(gx + 1, 480 - 1, gx + 1, 480 - 100);
+  gy = 480 -  fscale * 100 * 0.1;
+  setcolor(1);
+  line(0, gy, 200, gy);
+
+#ifdef NONLINEAR
+  float ex = realpos1(0) * graphscale;
+  float ey = realpos1(1) * graphscale;
+  float ez = realpos1(2) * graphscale;
+
+#if defined( DRIVE_DELTASIAN)
+  circle  (150, 251 - ex + 0, 5);
+  circle  (350, 251 - ez + 0, 5);
+  circle  (251 + ey * 0.1, 251 + ey * 0.1 + 0, 5);
+  circle  (150, 249 - ex + 0, 5);
+  circle  (350, 249 - ez + 0, 5);
+  circle  (249 + ey * 0.1, 249 + ey * 0.1 + 0, 5);
+  setcolor(9);
+  circle  (150, 250 - ex + 0, 5);
+  setcolor(12);
+  circle  (350, 250 - ez + 0, 5);
+  setcolor(14);
+  circle (250 + ey * 0.1, 250 + ey * 0.1 + 0, 5);
+#elif defined( DRIVE_DELTA)
+  circle(150, 251 + ex + 0, 5);
+  circle (350, 251 + ey + 0, 5);
+  circle (250, 201 + ez + 0, 5);
+  circle (150, 249 + ex + 0, 5);
+  circle (350, 249 + ey + 0, 5);
+  circle (250, 199 + ez + 0, 5);
+
+  setcolor(9);
+  circle (150, 250 + ex + 0, 5);
+  setcolor(12);
+  circle (350, 250 + ey + 0, 5);
+  setcolor(14);
+  circle (250, 200 + ez + 0, 5);
+#endif
+
+#else
+  float ex = realpos1(0) * graphscale;
+  float ey = realpos1(1) * graphscale;
+  float ez = realpos1(2) * graphscale;
+
+  //putpixel (ex + 320, ey + 150, c);
+  putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
+  //putpixel (ex + 320, ey  + 150, c);
+#endif
+  if (laseron) {
+    putpixel (ex * 2 , ey * 2, 15);
+  }// else     putpixel (ex * 5 , ey * 5, 9);
+
+
+}
+#else
+#define graphstep(ix)
+#endif
+
 /* ================================================================================================================
   BRESENHAM CORE
 
   this need to move to interrupt for smooth movement
   ================================================================================================================
 */
+
 
 
 #define bresenham(ix)\
@@ -1413,6 +1432,15 @@ void newdircommand(int laserval)
 // ===============================
 float ia = 0;
 long firstdown;
+
+int pixelon = 0;
+static THEISR void readpixel2() {
+
+  //e_ctr=e_ctr&8191;
+  char vv = g_str[e_ctr];
+  vv &= ~32;
+  if (vv == 'A')pixelon = 0; else pixelon = 1;
+}
 int coreloop1()
 {
 #ifdef output_enable
@@ -1435,7 +1463,14 @@ int coreloop1()
     bresenham(0);
     bresenham(1);
     bresenham(2);
-    bresenham(3);
+    if (rasterlen) {
+      if ((mcx[3] -= bsdx[3]) < 0) {
+        e_ctr += sx[3];
+        readpixel2();
+        mcx[3] += totalstep;
+      }
+      if (pixelon)cmd0 |= 2 << 3;
+    } else bresenham(3);
     // if rasterlen and e is change then read the new laser value
     // next speed
 #define accele(a) ia=(ia+a)*0.5;ta+=ia
@@ -1466,7 +1501,7 @@ UPDATEDELAY:
     }
     CALCDELAY
 
-
+    //if (dl<30)dl=30;
     cmd0 |= (dl) << 5;
     if (mctr < 20) {
       ///*
@@ -1766,13 +1801,15 @@ int32_t startmove()
     if (!sendwait && (cmdempty)) {
 
       // send one time, is buffer is emspy after running
-#ifdef LASERMODE
       if (Setpoint == 0) {
         LASER( !LASERON);
         laserwason = 0;
       }
-#endif
+      #ifdef __ARM__
+      sendwait = 600000;
+      #else
       sendwait = 100000;
+      #endif
     }
     return 0;
   }
@@ -1788,7 +1825,7 @@ int32_t startmove()
   prepareramp(t);
   m = &move[t];
   isG0 = m->status & 8;
-  
+
   laxis = fastaxis;
   fastaxis = FASTAXIS(m);
   totalstep = labs(m->dx[fastaxis]);
@@ -1868,7 +1905,7 @@ int32_t startmove()
   zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
   zprintf(PSTR("RU:%d Rd:%d Ts:%d Dis:%f\n"), fi(rampup), fi(rampdown), fi(totalstep), ff(m->dis));
   zprintf(PSTR("FS:%f FN:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->ac));
-  zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(acup), fi(acdn));
+  zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(rampup), fi(rampdown));
   zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
 
   //zprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
@@ -1878,8 +1915,8 @@ int32_t startmove()
 #endif
   calculate_delta_steps();
 #ifdef EXTADVANCE
-  firstdown = fmin(extadv,ramdown)* totalstep;
-  if (rampup) mcx[3] = -fmin(extadv,rampup) * totalstep;;
+  firstdown = fmin(extadv, ramdown) * totalstep;
+  if (rampup) mcx[3] = -fmin(extadv, rampup) * totalstep;;
 #endif
 #ifdef SUBPIXELMAX
   rampup *= subp;
@@ -1893,8 +1930,13 @@ int32_t startmove()
 
 
   // laser
-  if ((m->dx[3]!=0) && (!isG0)){
-    lastB--;
+  if (rasterlen) {
+    if (isG0)e_ctr = m->dtx[3];
+    if ((m->dx[3] != 0) && (!isG0)) {
+      lastB--;
+
+    }
+    pixelon=0;
   }
   return 1;
 }
@@ -2181,8 +2223,8 @@ void initmotion()
 
 #ifdef LASERMODE
   pinMode(laser_pin, OUTPUT);
-  LASER( !LASERON);
 #endif
+  LASER( !LASERON);
 #ifdef limit_pin
   pinMode(limit_pin, ENDPIN);
 #endif

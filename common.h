@@ -37,7 +37,7 @@
 //#define POWERS(e) (float)pgm_read_float(&(powers[e]))
 const int32_t PROGMEM powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};;
 #define POWERS(e) (int32_t)pgm_read_dword(&(powers[e]))
-#define DECFLOAT_EXP_MAX 7
+#define DECFLOAT_EXP_MAX 8
 
 #ifndef ISPC
 //#define output_enable

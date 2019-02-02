@@ -18,8 +18,8 @@
 
 #if defined(__AVR__) || defined(ESP8266)|| defined(ESP32)  || defined (__ARM__)
 extern int CNCMODE;
-#define LASER(x) if (!CNCMODE)digitalWrite(laser_pin,x); 
-#define SPINDLE(x) if (CNCMODE)digitalWrite(laser_pin,x); 
+#define LASER(x) {if (!CNCMODE)digitalWrite(laser_pin,x);} 
+#define SPINDLE(x) {if (CNCMODE)digitalWrite(laser_pin,x); }
 
 #else
 //#warning This is PC
