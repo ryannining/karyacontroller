@@ -162,12 +162,13 @@ void user_input_loop() {
     if (user_cnt) {
       zprintf(PSTR("User input:%d\n"), fi(user_cnt));
       switch (user_cnt) {
-        //case 1: homing(); break;
-        case 2: set_temp(0); break;
+        case 4: homing(); break;
+        case 2: set_temp(180); break;
+        case 5: set_temp(180); break;
 #ifdef ESP8266
         case 3: if (uncompress)enduncompress(); else beginuncompress("/gcode"); break;
 #endif
-        case 4: set_temp(180); break;
+        //case 1: set_temp(0); break;
       }
       user_cnt = 0;
     }
@@ -1394,13 +1395,15 @@ void dographics()
   float ez = realpos1(2) * graphscale;
 
   //putpixel (ex + 320, ey + 150, c);
-  putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
+  putpixel (ex + ey * 0.3 + 220, ey * 0.3 - ez + 150, c);
   //putpixel (ex + 320, ey  + 150, c);
 #endif
-  if (laseron) {
-    putpixel (ex * 2 , ey * 2, 15);
-  }// else     putpixel (ex * 5 , ey * 5, 9);
 
+#ifdef showlaser
+  if (laseron) {
+    putpixel (ex , ey, 15);
+  }// else     putpixel (ex * 5 , ey * 5, 9);
+#endif
 
 }
 #else

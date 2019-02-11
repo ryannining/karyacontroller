@@ -80,8 +80,9 @@
 
 
 //#define BOARD_NANONANO_WEMOS
-#define BOARD_WEMOS3D
-#define DRIVE_COREXY
+//#define BOARD_WEMOS3D
+#define BOARD_WEMOS3D_COREXY
+//#define DRIVE_COREXY
 
 
 //#define BOARD_WEMOS3DCOREXY
@@ -113,7 +114,7 @@
 // ==========================================================
 
 #else
-#define ACT_KEY
+//#define ACT_KEY
 #define ARC_SUPPORT // 3kb
 #define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
@@ -124,7 +125,6 @@
 //#define INTERPOLATEDELAY  // slower 4-8us
 #endif
 // ==========================================================
-
 
 
 //#define MYLASER
@@ -242,9 +242,9 @@
 #define ZMAXFEEDRATE 1
 #define E0MAXFEEDRATE 100
 
-#define XSTEPPERMM 10//50//105.090//50//131//178
-#define YSTEPPERMM 10////105.090//50//175//125
-#define ZSTEPPERMM 10//2300//80//1020//1020 //420
+#define XSTEPPERMM 5//50//105.090//50//131//178
+#define YSTEPPERMM 5////105.090//50//175//125
+#define ZSTEPPERMM 5//2300//80//1020//1020 //420
 #define E0STEPPERMM 1//92//340//380
 
 #ifndef NUMBUFFER

@@ -76,14 +76,15 @@ void demofile() {
   //#define fn "d:/3d/box1cm.gcode"
   //#define fn "gcode/bulet.gcode"
   //#define fn "gcode/naga.ngc"
-  #define fn "d:/git/karyacontroller/gcode/bug1.gcode"
+  //#define fn "d:/git/karyacontroller/gcode/bug1.gcode"
   //#define fn "d:/git/karyacontroller/gcode/graf.gcode"
+  #define fn "D:/cutting/File ukiran.nc/File ukiran.nc"
   //#define fn "d:/3d/testarc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 3;
+  graphscale = 1;
   tickscale = 150;
   fscale=3;
   if (file == NULL) return; //could not open file

@@ -160,6 +160,7 @@ void reset_eeprom() {
 
   eepromwrite(EE_homing, homingspeed);
   eepromwrite(EE_jerk, xyjerk);
+  zjerk=homingspeed/3;
   eepromwrite(EE_xyscale, ff(xyscale));
 #ifdef NONLINEAR
   eepromwrite(EE_hor_radius, ff(delta_radius));

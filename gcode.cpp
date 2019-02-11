@@ -933,6 +933,7 @@ void process_gcode_command()
         break;
       case 105:
         zprintf(PSTR("T:%f\n"), ff(Input));
+        //zprintf(PSTR("TS:%f\n"), ff(Setpoint));
         //zprintf(PSTR("B:%d/%d\n"), fi(bufflen()),fi(NUMBUFFER));
         break;
       case 109:

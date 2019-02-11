@@ -63,7 +63,7 @@ extern int32_t mm_ctr;
 extern int xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
-extern int xyjerk, accel;
+extern int xyjerk, zjerk,accel;
 extern int mvaccel;
 extern int  maxf[4];
 extern int32_t dlp, dl;
