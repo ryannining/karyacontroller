@@ -1395,13 +1395,13 @@ void dographics()
   float ez = realpos1(2) * graphscale;
 
   //putpixel (ex + 320, ey + 150, c);
-  putpixel (ex + ey * 0.3 + 220, ey * 0.3 - ez + 150, c);
+  putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
   //putpixel (ex + 320, ey  + 150, c);
 #endif
 
 #ifdef showlaser
   if (laseron) {
-    putpixel (ex , ey, 15);
+    putpixel (ex * 2+50 , ey * 2+50, 15);
   }// else     putpixel (ex * 5 , ey * 5, 9);
 #endif
 

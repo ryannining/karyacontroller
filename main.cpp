@@ -52,8 +52,8 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  demofile();
-  //demo();
+  //demofile();
+  demo();
   zprintf (PSTR("WAIT\n"));
   waitbufferempty();
   zprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -62,7 +62,7 @@ int main(void)
 }
 void demofile() {
   //#define fn "d:/git/hipopotamo.gcode"
-  //#define fn "d:/3d/5050.gcode"
+  #define fn "d:/3d/5050.gcode"
   //#define fn "d:/3d/font.gcode"
   //#define fn "d:/git/bowdenlock.gcode"
   //#define fn "d:/3d/fish_fossilz.gcode"
@@ -77,8 +77,9 @@ void demofile() {
   //#define fn "gcode/bulet.gcode"
   //#define fn "gcode/naga.ngc"
   //#define fn "d:/git/karyacontroller/gcode/bug1.gcode"
+  //#define fn "d:/git/karyacontroller/gcode/bug2.gcode"
   //#define fn "d:/git/karyacontroller/gcode/graf.gcode"
-  #define fn "D:/cutting/File ukiran.nc/File ukiran.nc"
+  //#define fn "D:/cutting/File ukiran.nc/File ukiran.nc"
   //#define fn "d:/3d/testarc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
@@ -114,7 +115,7 @@ void demofile() {
 
 void demo() {
   graphscale = 5;
-  tickscale = 360;
+  tickscale = 30;
   fscale = 60;
   int f = 100;
   ///*
@@ -122,13 +123,13 @@ void demo() {
  //   amove(20, sin(x/5.7)*5, cos(x/5.7)*10, 0, 0);
   }
   for(int x=1;x<360;x++){
-    amove(30, +sin(x/5.70)*(2+x/40.0), cos(x/5.70)*(2+x/60.0), sin(x/5.70)*1, 0*x/10.0);
+  //  amove(30, +sin(x/5.70)*(2+x/40.0), cos(x/5.70)*(2+x/60.0), sin(x/5.70)*1, 0*x/10.0);
   }
    //*/
-  /*amove(50, 50, 0, 0, 1,1);
+  amove(50, 50, 0, 0, 1,1);
   amove(50, 100, 0, 1, 1,1);
   amove(50, 30, 0, 1, 1,1);
-*/
+
 //  amove(80, 30, 0, 0, 0);
 //  amove(80, 30, 30, 0, 0);
 //  amove(80, 30, 50, 0, 0);
