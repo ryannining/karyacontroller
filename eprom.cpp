@@ -68,6 +68,7 @@ float EEMEM EE_pid_d;
 float EEMEM EE_pid_bang;
 
 float EEMEM EE_ext_adv;
+float EEMEM EE_un_microstep;
 
 #endif
 
@@ -130,6 +131,7 @@ retract_out_f=(float)eepromread(EE_retract_out_f)   * 0.001;
 #endif  
   tbang=eepromread(EE_pid_bang)*0.001;
   extadv=eepromread(EE_ext_adv)*0.001;
+  unms=eepromread(EE_un_microstep);
   preparecalc();
 }
 

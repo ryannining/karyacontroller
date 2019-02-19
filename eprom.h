@@ -162,7 +162,7 @@ static void eepromwrite(int p, int32_t val)
 #define EE_pid_bang 335
 
 #define EE_ext_adv 345
-
+#define EE_un_microstep 350
 
 #else
 extern float EEMEM EE_xhome;

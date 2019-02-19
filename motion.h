@@ -83,6 +83,7 @@ extern int8_t RUNNING;
 extern int8_t PAUSE;
 extern int constantlaserVal;
 extern float extadv;
+extern int32_t unms;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 

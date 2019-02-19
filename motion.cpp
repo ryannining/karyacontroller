@@ -96,7 +96,7 @@ float wstepdiv2;
 int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
 int8_t  sx[NUMAXIS];
-int32_t dlp, dl, dln;
+int32_t dlp, dl, dln,unms;
 int8_t checkendstop, xctstep, yctstep, zctstep, ectstep, xcheckevery, ycheckevery, zcheckevery, echeckevery;
 int16_t endstopstatus;
 int8_t ishoming;
@@ -1117,7 +1117,7 @@ static THEISR void decodecmd()
         //LASER(!LASERON);
         //timer_set(cmdly-las*(CLOCKCONSTANT / 1000000));
 #ifdef USETIMER1
-        timer_set2(cmdly, las);
+        //timer_set2(cmdly, las);
 #endif
       } else if(!rasterlen)LASER(LASERON);
 

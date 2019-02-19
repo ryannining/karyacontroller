@@ -1060,6 +1060,7 @@ void process_gcode_command()
               eprom_wr(328, EE_pid_bang, S_F);
 
               eprom_wr(332, EE_ext_adv, S_F);
+              eprom_wr(336, EE_un_microstep, S_I);
 #ifdef USE_BACKLASH
               eprom_wr(80, EE_xbacklash, S_F);
               eprom_wr(84, EE_ybacklash, S_F);
@@ -1143,6 +1144,7 @@ void process_gcode_command()
         //zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
 #endif
         zprintf(PSTR("EPR:3 332 %f EXTADV\n"), ff(extadv));
+        zprintf(PSTR("EPR:3 332 %d UNMS\n"), fi(unms));
         break;
 #ifdef WIFISERVER
       // show wifi
