@@ -56,8 +56,7 @@ IPAddress ip ;
 
 #define IOT_IP_ADDRESS "172.245.97.171"
 long lm = 0;
-int ISWIFIOK=0;
-#define TOUCHSERVER
+int ISWIFIOK = 0;
 void touchserver(int v, String info) {
   if (uncompress)return;
   if (WiFi.status() != WL_CONNECTED)return;
@@ -134,7 +133,7 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
     // if wifi not connected redirect to configuration
     if (ISWIFIOK) {
       path = "/3d.html";          // If a folder is requested, send the index file
-      if (!SPIFFS.exists(path))path="/index.html";
+      if (!SPIFFS.exists(path))path = "/index.html";
     }
     else path = "/karyaconfig.html";          // If a folder is requested, send the index file
   }
@@ -233,7 +232,7 @@ void setupwifi(int num) {
     server.close();
   }
   char c = wifi_ap[0];
-  if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+  if ((c == 0) || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
   } else {
     String("karyacontroller").toCharArray(wifi_dns, 29);
     String("Tenda_AD26C0").toCharArray(wifi_ap, 49);
@@ -241,31 +240,32 @@ void setupwifi(int num) {
     eepromwritestring(470, wifi_dns);
     eepromwritestring(400, wifi_ap);
     eepromwritestring(450, wifi_pwd);
+    c = 'a';
   }
-
-  xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin ( wifi_ap, wifi_pwd);
-  int cntr = 30;
-  while ( WiFi.status() != WL_CONNECTED ) {
-    delay ( 500 );
-    cntr--;
-    if (!cntr)break;
-    //xprintf(PSTR("."));
-    Serial.print(".");
+  if (c != 0) {
+    xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin ( wifi_ap, wifi_pwd);
+    int cntr = 30;
+    while ( WiFi.status() != WL_CONNECTED ) {
+      delay ( 500 );
+      cntr--;
+      if (!cntr)break;
+      //xprintf(PSTR("."));
+      Serial.print(".");
+    }
   }
-
 
   if (WiFi.status() == WL_CONNECTED) {
     ip = WiFi.localIP();
-    ISWIFIOK=1;
+    ISWIFIOK = 1;
     xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
 
     xprintf(PSTR("HTTP server started\n"));
 
   } else {
     WiFi.mode(WIFI_AP);
-    ISWIFIOK=0;
+    ISWIFIOK = 0;
     const char *password = "123456789";
     WiFi.softAP("karya", password);
     ip = WiFi.softAPIP();
@@ -363,6 +363,9 @@ void setupwifi(int num) {
   //if (!num)
   SPIFFS.begin();
   touchserver(1, String(wifi_dns));
+  #ifdef DISABLESERIAL
+  //Serial.end();
+  #endif
   INTS
 }
 extern int sendwait;

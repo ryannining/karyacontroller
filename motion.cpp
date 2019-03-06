@@ -160,16 +160,17 @@ void user_input_loop() {
   if (m - lastms > 2000) {
     lastms = m;
     if (user_cnt) {
-      zprintf(PSTR("User input:%d\n"), fi(user_cnt));
-      switch (user_cnt) {
+      zprintf(PSTR("USERKEY:%d\n"), fi(user_cnt));
+/*      switch (user_cnt) {
         case 4: homing(); break;
-        case 2: set_temp(180); break;
+        //case 2: set_temp(0); break;
         case 5: set_temp(180); break;
 #ifdef ESP8266
-        case 3: if (uncompress)enduncompress(); else beginuncompress("/gcode"); break;
+        //case 3: if (uncompress)enduncompress(); else beginuncompress("/gcode"); break;
 #endif
         //case 1: set_temp(0); break;
       }
+      */
       user_cnt = 0;
     }
   }
@@ -193,6 +194,29 @@ void close_user_input() {
 #define user_input_loop()
 #define  init_user_input()
 #define close_user_input()
+#endif
+
+#ifndef ISPC
+
+//#define INTR_LIMIT
+int home_cnt = 0;
+#ifdef INTR_LIMIT
+void home_input() {
+  home_cnt++;
+  // tap home 3 times to start printing
+}
+void init_home_input() {
+  home_cnt=0;
+  attachInterrupt(digitalPinToInterrupt(limit_pin), home_input, FALLING);
+}
+void close_home_input() {
+  detachInterrupt(digitalPinToInterrupt(limit_pin));
+
+}
+#else
+void init_home_input() {};
+void close_home_input() {};
+#endif
 #endif
 
 /*
@@ -222,16 +246,21 @@ void reset_motion()
   e_multiplier = f_multiplier = 1;
   checkendstop = 0;
   endstopstatus = 0;
+  #ifdef INTR_LIMIT
+  xcheckevery=ycheckevery=zcheckevery=echeckevery=1;
+  #else
   xcheckevery = CHECKENDSTOP_EVERY * stepmmx[0];
   ycheckevery = CHECKENDSTOP_EVERY * stepmmx[1];
   zcheckevery = CHECKENDSTOP_EVERY * stepmmx[2];
   echeckevery = CHECKENDSTOP_EVERY * stepmmx[3];
-
+  #endif
   head = tail = tailok = 0;
   cx1 = 0;
   cy1 = 0;
   cz1 = 0;
   ce01 = 0;
+  extadv= 0;
+  unms= 0;
 #ifdef ISPC
   tick = 0;
 #endif
@@ -714,10 +743,10 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
 #endif
 
 #ifndef NONLINEAR
-  x2[0] += (int32_t)(cx2 * Cstepmmx(0)) - (int32_t)(cx1 * Cstepmmx(0));
-  x2[1] += (int32_t)(cy2 * Cstepmmx(1)) - (int32_t)(cy1 * Cstepmmx(1));
-  x2[2] += (int32_t)(cz2 * Cstepmmx(2)) - (int32_t)(cz1 * Cstepmmx(2));
-
+  int32_t un=(1 << unms);
+  x2[0] += (((int32_t)(cx2 * Cstepmmx(0)) - (int32_t)(cx1 * Cstepmmx(0))) * un)/un;
+  x2[1] += (((int32_t)(cy2 * Cstepmmx(1)) - (int32_t)(cy1 * Cstepmmx(1))) * un)/un;
+  x2[2] += (((int32_t)(cz2 * Cstepmmx(2)) - (int32_t)(cz1 * Cstepmmx(2))) * un)/un;
 
 
 #else
@@ -761,7 +790,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     // when homing the z will threat as normal cartesian Z that can be homing normally.
   } else {
     //
-    //x2[3] = x2[2];
+    x2[3] = x2[2];
     x2[2] = x2[1];
   }
 #elif defined(NONLINEAR)
@@ -1104,6 +1133,9 @@ static THEISR void decodecmd()
   cmtail = nextbuffm(cmtail);
 #ifdef USETIMER1
   timer_set(cmdly);
+  #ifdef heater_pin
+  xdigitalWrite(heater_pin,HEATING);
+  #endif
 #endif
   if (Setpoint == 0) {
     laserwason = maincmdlaserval > 0;
@@ -1125,6 +1157,7 @@ static THEISR void decodecmd()
       LASER( !LASERON);
     }
   }
+  
 }
 
 uint32_t mc, dmc, cmctr;
@@ -1132,7 +1165,7 @@ int e_dir = 0;
 int32_t e_ctr = 0;
 
 int32_t mm_ctr = 0;
-
+int16_t zmmm=0;
 void THEISR coreloopm()
 {
 
@@ -1179,10 +1212,12 @@ void THEISR coreloopm()
       }
       if (cmbit & 2) {
         yctstep++;
+        
         motor_1_STEP();
       }
       if (cmbit & 4) {
         zctstep++;
+        zmmm++;
         motor_2_STEP();
       }
       pinCommit();
@@ -1210,7 +1245,7 @@ void THEISR coreloopm()
       if (checkendstop) { // check endstop every 30 step
         if ((xctstep >= xcheckevery) || (yctstep >= ycheckevery) || (zctstep >= zcheckevery) || (ectstep >= echeckevery) ) {
           xctstep = yctstep = zctstep = ectstep = 0;
-          docheckendstop();
+          docheckendstop(0);
           if (endstopstatus < 0) {
             cmtail = cmhead;
             nextok = 0;
@@ -1809,9 +1844,9 @@ int32_t startmove()
         laserwason = 0;
       }
       #ifdef __ARM__
-      sendwait = 600000;
+      sendwait = 1200000;
       #else
-      sendwait = 100000;
+      sendwait = 600000;
       #endif
     }
     return 0;
@@ -1957,7 +1992,7 @@ int32_t startmove()
 
 #define ENDPIN INPUT_PULLUP
 
-void docheckendstop()
+void docheckendstop(int m)
 {
 
   // AVR specific code here
@@ -1968,12 +2003,20 @@ void docheckendstop()
 #ifndef ISPC
 
 #ifdef limit_pin
-  int nc = 0;
-  endstopstatus = 0;
-  for (int d = 0; d < 3; d++) {
-    if (ENDCHECK dread(limit_pin))nc++;
+  #ifndef INTR_LIMIT
+  // use old method if not using interrupt
+  m=1;
+  #endif
+  if (m==1){
+    int nc = 0;
+    endstopstatus = 0;
+    for (int d = 0; d < 3; d++) {
+      if (ENDCHECK dread(limit_pin))nc++;
+    }
+    if (nc > 2)endstopstatus = -1;
+  } else {
+    endstopstatus=home_cnt>0;
   }
-  if (nc > 2)endstopstatus = -1;
 #endif
 
 #else
@@ -1991,7 +2034,7 @@ void docheckendstop()
 void homing()
 {
   close_user_input();
-
+  init_home_input();
   // clear buffer
   addmove(100, 0, 0, ax_home[2] < 1 ? 0 : cz1, ce01);
   waitbufferempty();
@@ -2094,9 +2137,161 @@ void homing()
   //zprintf(PSTR("Home to:X:%f Y:%f Z:%f\n"),  ff(cx1), ff(cy1), ff(cz1));
   ishoming = 0;
   init_pos();
+  close_home_input();
   init_user_input();
 
 }
+
+
+/*
+  =================================================================================================================================================
+  PROBING
+  =================================================================================================================================================
+*/
+
+int XCount,YCount;
+float ZValues[6][6];
+
+float pointProbing()
+{
+  close_user_input();
+
+  // clear buffer
+  waitbufferempty();
+  zmmm=0;
+  int32_t tx;
+#define mmax HOMING_MOVE
+#define smmax ENDSTOP_MOVE
+  tx = -20;
+
+  // fast check every 31 step
+  //zprintf(PSTR("Homing to %d %d %d\n"), tx[0], tx[1], tx[2]);
+
+  // move away before endstop
+  checkendstop = 1;
+  int o=zcheckevery;
+  zcheckevery=1;
+  addmove(homingspeed, 0, 0, tx, 0, 1, 1);
+
+
+  // now slow down and check endstop once again
+  waitbufferempty();
+  float zmm=zmmm;
+  zmm/=stepmmx[2];
+  zprintf(PSTR("Probe %f,%f = %f\n"),ff(cx1),ff(cy1),ff(zmm));
+  checkendstop = 0;
+  zcheckevery=o;
+  //move back
+  addmove(homingspeed, 0, 0, zmm, 0, 1, 1);
+  init_user_input();
+  return zmm;
+}
+
+void meshprobe(float sx,float sy,float tx,float ty,int mc){
+  
+}
+/*
+  =================================================================================================================================================
+  Z bilinear interpotale
+  =================================================================================================================================================
+*/
+
+
+float Interpolizer(float zX, float zY) {
+
+  //Z Values Range
+  float X0Y0 = 0;
+  float X0Y1 =0;
+  float X1Y0 =0;
+  float X1Y1 =0;
+
+  //X and Y Ranges
+  float X0 =0;
+  float X1=0;
+  float Y0=0;
+  float Y1=0;
+
+  //Indexes
+  int X0i =0;
+  int X1i =0;
+  int Y0i =0;
+  int Y1i =0;
+  int Xmax = XCount;
+  int Ymax = YCount;
+
+
+  //Interpolated values
+  float XMY0 = 0; //Interpolated Z from X at  Y0
+  float XMY1 = 0; //Interpolated Z from X at Y1
+
+  //Check the boundary 
+  if(zX>ZValues[Xmax-1][0] || zX<ZValues[1][0] || zY<ZValues[0][1] || zY>ZValues[0][Ymax-1]) return 0;
+  //Load the table data into the variables
+  for (int i=1; i<Xmax-1;i++) {
+    
+    if(ZValues[i][0] == zX) X0i = i;
+    else if(ZValues[i+1][0] == zX) X1i = i+1;
+    if(zX>= ZValues[i][0] && zX<= ZValues[i+1][0]) {
+      X0i = i;
+      X1i = i+1;
+    }
+  }
+
+  for (int i=1; i<=Ymax-1;i++){
+    
+    if(ZValues[0][i] == zY) Y0i = i;
+    else if(ZValues[0][i+1] == zY) Y1i = i+1;
+    else if(zY>= ZValues[0][i] && zY<= ZValues[0][i+1]) {
+      Y0i = i;
+      Y1i = i+1;
+    }   
+  }
+  
+
+  X0 = ZValues[X0i][0];
+  X1 = ZValues[X1i][0];
+  Y0 = ZValues[0][Y0i];
+  Y1 = ZValues[0][Y1i];
+  X0Y0 = ZValues[X0i][Y0i];
+  X0Y1 = ZValues[X0i][Y1i];
+  X1Y0 = ZValues[X1i][Y0i];
+  X1Y1 = ZValues[X1i][Y1i];
+  
+  //Performs the calculations
+
+  //X is on the lower edge, no interpolation needed
+  if(zX==X0) {
+    XMY0 = X0Y0; 
+    XMY1 = X0Y1;
+  }
+  //X is on the higher edge, no interpolation needed
+  else if(zX==X1) {
+    XMY0 = X1Y0;
+    XMY1 = X1Y1;
+  }
+  //X is between the higher and lower edges, interpolation needed
+  else {
+    XMY0 = X0Y0 + (zX-X0)*(X1Y0-X0Y0)/(X1-X0);
+    XMY1 = X0Y1 + (zX-X0)*(X1Y1-X0Y1)/(X1-X0);
+  }
+
+  //Y is on the lower edge, no interpolation needed
+  if(zY==Y0) {
+    return  XMY0;
+  }
+  //Y is on the higher edge, no interpolation needed
+  else if(zY==Y1) {
+    return  XMY1; 
+    
+  }
+  //Y is between the higher and lower edges, interpolation needed
+  else {
+    return XMY0 + (zY-Y0)*(XMY1-XMY0)/(Y1-Y0);
+  }
+
+}
+
+
 
 /*
   =================================================================================================================================================
@@ -2198,7 +2393,9 @@ void init_pos()
 void initmotion()
 {
 #ifdef __ARM__
+  #ifndef _VARIANT_ARDUINO_STM32_
   disableDebugPorts();
+  #endif
 #endif
   reset_motion();
   preparecalc();
@@ -2225,7 +2422,7 @@ void initmotion()
 #endif
 
 #ifdef LASERMODE
-  pinMode(laser_pin, OUTPUT);
+  xpinMode(laser_pin, OUTPUT);
 #endif
   LASER( !LASERON);
 #ifdef limit_pin

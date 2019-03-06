@@ -5,11 +5,24 @@
 #include "motion.h"
 #include "pid.h"
 
+#ifndef temp_pin
+#define EMULATETEMP
+#endif
+
+#ifdef EMULATETEMP
+  #undef ISRTEMP
+  float emutemp=30;
+#endif
+
+
+
+
 uint32_t next_temp;
 uint16_t ctemp = 0;
 double Setpoint, Input, Output;
 float tbang = 4.1;
 int wait_for_temp = 0;
+byte HEATING=0;
 
 int fan_val = 0;
 void setfan_val(int val) {
@@ -64,17 +77,13 @@ ISR (ADC_vect)
 
 int WindowSize = 1500;
 unsigned long windowStartTime;
-
 void set_temp(float set) {
   if (set>MAXTEMP)set=MAXTEMP;
   Setpoint = set;
   windowStartTime=millis();
-  pinMode(heater_pin, OUTPUT);
-#ifdef usetmr1
-  digitalWrite(heater_pin, 0);
-#else
-  analogWrite(heater_pin, 0);
-#endif
+  xpinMode(heater_pin, OUTPUT);
+  
+  xdigitalWrite(heater_pin, 0);
 }
 void init_temp()
 {
@@ -137,6 +146,19 @@ void temp_loop(uint32_t cm)
   if (cm - next_temp > TEMPTICK) {
     next_temp = cm; // each 0.5 second
     int v = 0;
+#ifdef EMULATETEMP
+// emulated sensor
+    if (HEATING){
+      emutemp+=5;
+    }
+    // heat dissipation to air
+    emutemp+=(20-emutemp)*0.1;
+    Input = emutemp;
+
+
+#else
+// real hardware sensor
+
 #if defined( __AVR__) && defined(ISRTEMP)
     // automatic in ESR
     ADCREAD(temp_pin)
@@ -155,26 +177,25 @@ void temp_loop(uint32_t cm)
 //    ctemp = v;//(ctemp * 2 + v * 6) / 8; // averaging
     ctemp = (ctemp + v) / 2; // averaging
     Input =  read_temp(ctemp);
+#endif
+
 #ifdef fan_pin
     if ((Input > 80) && (fan_val < 50)) setfan_val(255);
 #endif
     if (Setpoint > 0) {
 #ifdef heater_pin
-      //pinMode(heater_pin, OUTPUT);
+      //xpinMode(heater_pin, OUTPUT);
 
       myPID.Compute();
-#ifdef ESP8266
-
-#ifdef usetmr1
+#define BANGBANG      
+#ifdef BANGBANG
       myPID.SetOutputLimits(0, WindowSize);
-#warning USING BANG BANG HEATER
       goto bang;
-#else
-      analogWrite(heater_pin, Output * 4);
-#warning USING PWM HEATER
+      #warning USING BANG HEATER
 #endif
 
-#elif defined __ARM__
+
+#if defined __ARM__
       analogWrite(heater_pin, Output * 2);
 #else
       analogWrite(heater_pin, Output * 17 / 20);
@@ -186,9 +207,7 @@ void temp_loop(uint32_t cm)
     }
   }
 return;  
-#ifdef ESP8266
-
-#ifdef usetmr1
+#ifdef BANGBANG
 bang:
   /************************************************
        turn the output pin on/off based on pid output
@@ -199,10 +218,12 @@ bang:
     windowStartTime += WindowSize;
   }
 
-  if (Output > now - windowStartTime) digitalWrite(heater_pin, HIGH);
-  else digitalWrite(heater_pin, LOW);
+  if (Output > now - windowStartTime) {
+      HEATING=HIGH;
+  }
+  else HEATING=LOW;
+  xdigitalWrite(heater_pin, HEATING);
   //zprintf(PSTR("OUT:%d %W:%d\n"),fi(Output),fi(now-windowStartTime));
-#endif
 #endif
 
 }

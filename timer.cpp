@@ -190,6 +190,7 @@ void timer_init()
     =======================================  ARM TIMER   =======================================  
 */
 #ifdef __ARM__
+//#include "HardwareTimer.h"
 #define USETIMEROK
 //HardwareTimer timer1(2);
 #define MINDELAY 45000

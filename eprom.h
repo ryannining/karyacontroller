@@ -57,24 +57,37 @@ static void  eepromreadstring(int p, char* str,int len) {
 static int32_t eepromread(int p)
 {
   int32_t r;
+  #ifdef _VARIANT_ARDUINO_STM32_
+  r=EEPROM.read(p);
+  #else
   uint16_t* b;
   b = (uint16_t*)&r;
   EEPROM.read(p, b); p += 2; b++;
   EEPROM.read(p, b);
+  #endif
   zprintf(PSTR("Read eeprom %d %d\n"),fi(p),fi(r));
   return r;
 }
 static void eepromwrite(int p, int32_t val)
 {
+  #ifdef _VARIANT_ARDUINO_STM32_
+  EEPROM.put(p,val);
+  #else
   uint16_t* b;
   b = (uint16_t*)&val;
   EEPROM.update(p, *b); p += 2; b++;
   EEPROM.update(p, *b);
+  #endif
   zprintf(PSTR("Write eeprom %d %d\n"),fi(p),fi(val));
 }
 
 #define eepromcommit
-#define eeprominit EEPROM.PageBase0 = 0x801F000; EEPROM.PageBase1 = 0x801F800; EEPROM.PageSize  = 0x400;EEPROM.init();
+
+  #ifdef _VARIANT_ARDUINO_STM32_
+  #define eeprominit 
+  #else
+  #define eeprominit EEPROM.PageBase0 = 0x801F000; EEPROM.PageBase1 = 0x801F800; EEPROM.PageSize  = 0x400;EEPROM.init();
+  #endif //
 #endif //
 
 
@@ -218,7 +231,7 @@ extern float EEMEM EE_pid_d;
 extern float EEMEM EE_pid_bang;
 
 extern float EEMEM EE_ext_adv;
-
+extern int32_t  EE_un_microstep;
 #endif
 
 

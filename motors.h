@@ -166,39 +166,6 @@ MOTOR(3, e0direction, e0step)
 DUMMYMOTOR(3, 0, 0, 0)
 #endif
 
-static void move_motor(int n, int oldir, long nstep) {
-  switch (n) {
-    case 0: motor_0_ON(); motor_0_DIR(nstep); break;
-    case 1: motor_1_ON(); motor_1_DIR(nstep); break;
-    case 2: motor_2_ON(); motor_2_DIR(nstep); break;
-    case 3: motor_3_ON(); motor_3_DIR(nstep); break;
-  }
-  nstep = abs(nstep);
-  if (nstep)
-    while (nstep--) {
-      switch (n) {
-        case 0: motor_0_STEP(); break;
-        case 1: motor_1_STEP(); break;
-        case 2: motor_2_STEP(); break;
-        case 3: motor_3_STEP(); break;
-      }
-      somedelay(150);
-      switch (n) {
-        case 0: motor_0_UNSTEP(); break;
-        case 1: motor_1_UNSTEP(); break;
-        case 2: motor_2_UNSTEP(); break;
-        case 3: motor_3_UNSTEP(); break;
-      }
-
-    }
-  switch (n) {
-    case 0: motor_0_DIR(oldir); break;
-    case 1: motor_1_DIR(oldir); break;
-    case 2: motor_2_DIR(oldir); break;
-    case 3: motor_3_DIR(oldir); break;
-  }
-}
-
 #ifndef ISPC
 #endif
 

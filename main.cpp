@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #ifdef ISPC
-
+#warning IS PC ?
 #include <graphics.h>
 #include <stdlib.h>
 #include <stdio.h>

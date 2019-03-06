@@ -563,14 +563,14 @@
 #define INVERTENDSTOP
 
 #define temp_pin PB1
-#define temp2_pin PB0
+//#define temp2_pin PB0
 #define heater_pin PA0
-#define heater2_pin PA1
-#define fan_pin PA3
+//#define heater2_pin PA1
+//#define fan_pin PA3
 
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
-#define NUMBUFFER 20
+#define NUMBUFFER 40
 /*
   ============================================================================================
      BOARD_ST3DV1 XYYZ
@@ -662,6 +662,44 @@
 //#define SDCARD_CS PA4
 //#define KBOX_PIN PA3
 
+#define NUMBUFFER 20
+
+/*
+  ============================================================================================
+     BOARD_ST3DV1
+  ============================================================================================
+*/
+#elif defined(BOARD_STM32F0)
+
+//#define xenable PA4
+#define xdirection PA4
+#define xstep PA5
+
+//#define yenable PA6
+#define ydirection PA6
+#define ystep PA7
+
+//#define zenable PB9
+#define zdirection PA9
+#define zstep PA10
+
+//#define e0enable PB9
+#define e0direction PA9
+#define e0step PA13
+#define SHARE_EZ
+
+#define limit_pin PA1
+
+#define INVERTENDSTOP
+
+//#define temp_pin PA0
+//#define temp2_pin PB0
+#define heater_pin PA0
+//#define heater2_pin PA1
+//#define fan_pin PA3
+
+//#define SDCARD_CS PA4
+//#define KBOX_PIN PA3
 #define NUMBUFFER 20
 
 /*
@@ -972,7 +1010,37 @@
 #define heater_pin D1
 
 //#define INVERTENDSTOP
-#define NUMBUFFER 100
+#define NUMBUFFER 30
+#define SHARE_EZ
+
+/*
+  ============================================================================================
+     _WEMOS3D
+  ============================================================================================
+*/
+#elif defined(BOARD_WEMOS_CNC_XZYY)
+
+// motor will be X->X board  Z->Y board Y1->Zboard Y2->EBoard
+
+#define xdirection D5
+#define xstep D4
+#define e0direction D7
+#define e0step D3
+
+// z and e have same direction pin, we think that normally slicer never move z and e together.. we hope we right :D
+#define ydirection D6
+#define ystep D0
+#define zdirection D6
+#define zstep D2
+
+#define limit_pin D8
+
+#define temp_pin A0
+#define heater_pin D1
+
+//#define INVERTENDSTOP
+#define NUMBUFFER 30
+#define DRIVE_XYYZ
 /*
   ============================================================================================
      _WEMOS3D
@@ -999,6 +1067,7 @@
 //#define INVERTENDSTOP
 #define NUMBUFFER 100
 #define DRIVE_COREXY
+#define SHARE_EZ
 
 /*
   ============================================================================================
@@ -1094,32 +1163,30 @@
 #define pinclock TX
 #define pinlatch D0
 #define pindata D1
+#define limit_pin RX
+
 
 // Implemented shift register pin for motors
-#define xdirection 6
-#define xstep 7
-#define ydirection 4
+#define xdirection 1
+#define xstep 2
+#define ydirection 6
 #define ystep 5
-#define zdirection 3
-#define zstep 2
-#define e0direction 0
-#define e0step 1
+#define zdirection 4
+#define zstep 7
+//#define e0direction 0
+//#define e0step 1
+#define laser_pin 0
+//#define heater_pin 0
 
-#define xenable RX
-#define yenable RX
-#define zenable RX
-#define e0enable RX
+#define xenable 3
+#define yenable 3
+#define zenable 3
+#define e0enable 3
 
-//#define limit_pin D1
-
-//#define temp_pin A0
-//#define heater_pin RX
-//#define fan_pin D4
 
 #define ENABLEWIFI 10
-
+#define DISABLESERIAL
 #define INVERTENDSTOP
-//#define SDCARD_CS D8
 #define NUMBUFFER 20
 #else
 #warning No BOARD Defined !

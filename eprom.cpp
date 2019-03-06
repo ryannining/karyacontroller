@@ -68,7 +68,7 @@ float EEMEM EE_pid_d;
 float EEMEM EE_pid_bang;
 
 float EEMEM EE_ext_adv;
-float EEMEM EE_un_microstep;
+int32_t EEMEM EE_un_microstep;
 
 #endif
 
@@ -196,6 +196,7 @@ void reset_eeprom() {
  eepromwrite(EE_pid_bang,ff(4.1));
 #endif
  eepromwrite(EE_ext_adv,ff(0));
+ eepromwrite(EE_un_microstep,fi(0));
  eepromcommit;
 #endif
 }

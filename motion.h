@@ -1,7 +1,13 @@
 
+
+
 #ifndef MOTION_H
 #define MOTION_H
 
+#define D_CARTESIAN 0
+#define D_COREXY 1
+#define D_COREXZ 2
+#define D_XYYZ 3
 
 #include "platform.h"
 #include<math.h>
@@ -47,7 +53,10 @@ typedef struct {
 
 
 
+extern int XCount,YCount;
+extern float ZValues[6][6];
 
+extern float pointProbing();
 
 extern float e_multiplier, f_multiplier;
 #ifdef ISPC
@@ -166,7 +175,7 @@ extern float delta_radius;
 
 extern void homing();
 extern int32_t bufflen();
-void docheckendstop();
+void docheckendstop(int m);
 extern void reset_motion();
 extern void preparecalc();
 extern tmove* m;

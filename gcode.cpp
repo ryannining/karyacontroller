@@ -137,7 +137,7 @@ void changefilament(float l)
   checkendstop = 1;
   //zprintf(PSTR("change filemant, then push endstop\n"));
   while (1) {
-    docheckendstop();
+    docheckendstop(0);
     if (endstopstatus < 0) break;
     domotionloop
 
@@ -466,10 +466,10 @@ int lastB = 0;
 
 void str_wait()
 {
-    
-  #ifdef ISPC
-    if (lastB > 5) zprintf(PSTR("Wait bitmap buffer %d\n"),fi(lastB));
-  #endif
+
+#ifdef ISPC
+  if (lastB > 5) zprintf(PSTR("Wait bitmap buffer %d\n"), fi(lastB));
+#endif
   //uint32_t c = millis();
   while (lastB > 5) {
     domotionloop
@@ -509,6 +509,8 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
            , I, J, cw);
 }
 int lastG = 0;
+float probex1, probey1;
+int probemode = 0;
 void process_gcode_command()
 {
   uint32_t	backup_f;
@@ -597,7 +599,7 @@ void process_gcode_command()
         enqueue(&next_target, 0);
         if (laserOn) {
 #ifndef ISPC
-          pinMode(laser_pin, OUTPUT);
+          xpinMode(laser_pin, OUTPUT);
 #endif
         }
         break;
@@ -703,6 +705,48 @@ void process_gcode_command()
         printposition();
         break;
 
+      // Probing
+      // mesh bed probing from current position to width , height and number of data
+      // G30 Snumdata Xwidth Yheight
+      // G30 S4 X100 Y100
+      //
+      // single probe
+      // G30 Xpos Ypos
+      // G30 (current position)
+      case 30:
+        if (next_target.seen_S) {
+          int w = next_target.S;
+          probex1 = cx1;
+          probey1 = cy1;
+
+          XCount = probemode + 1;
+          YCount = probemode + 1;
+          float dx = (next_target.target.axis[X] - probex1) / w;
+          float dy = (next_target.target.axis[Y] - probey1) / w;
+          for (int j = 0; j <= w; j++) {
+            ZValues[0][j] = probey1 + j * dy;
+            ZValues[j + 1][0] = probex1 + j * dx;
+
+            for (int i = 0; i <= w; i++) {
+              addmove(4000, probex1 + j * dx, probey1 + i * dy, cz1, ce01, 0, 0);
+
+              ZValues[j + 1][i + 1] = pointProbing();
+            }
+          }
+
+
+        } else {
+
+          if (!next_target.seen_X)next_target.target.axis[X] = cx1;
+          if (!next_target.seen_Y)next_target.target.axis[Y] = cy1;
+          addmove(4000, next_target.target.axis[X], next_target.target.axis[Y], cz1, ce01, 1, 0);
+
+          pointProbing();
+        }
+        break;
+      // manually store probing data
+      case 31:
+        break;
       case 90:
         //? --- G90: Set to Absolute Positioning ---
         //?
@@ -854,20 +898,20 @@ void process_gcode_command()
         // cnc mode laser
         zprintf(PSTR("SPINDLE OFF\n"));
         CNCMODE = next_target.seen_P;
-        #ifndef ISPC 
-        pinMode(laser_pin, OUTPUT);
+#ifndef ISPC
+        xpinMode(laser_pin, OUTPUT);
         SPINDLE(!SPINDLEON)
         LASER(!LASERON)
-        #endif
+#endif
         next_target.seen_S = 1;
         next_target.S = 0;
       case 3:
         if (CNCMODE) {
           zprintf(PSTR("SPINDLE OFF\n"));
-          #ifndef ISPC 
-          pinMode(laser_pin, OUTPUT);
+#ifndef ISPC
+          xpinMode(laser_pin, OUTPUT);
           SPINDLE(SPINDLEON)
-          #endif
+#endif
         } else {
           // if no S defined then full power
           if (!next_target.seen_S)next_target.S = 255;
@@ -878,14 +922,14 @@ void process_gcode_command()
           if (next_target.seen_P) {
             waitbufferempty();
             zprintf(PSTR("PULSE LASER\n"));
-            #ifndef ISPC
+#ifndef ISPC
             delay(100);
-            pinMode(laser_pin, OUTPUT);
-            #endif
+            xpinMode(laser_pin, OUTPUT);
+#endif
             LASER(LASERON)
-            #ifndef ISPC
+#ifndef ISPC
             delay(next_target.P);
-            #endif
+#endif
             LASER( !LASERON);
           }
           if (!laserOn) {
@@ -998,7 +1042,7 @@ void process_gcode_command()
         //? --- M119: report endstop status ---
         //? Report the current status of the endstops configured in the
         //? firmware to the host.
-        docheckendstop();
+        docheckendstop(1);
         zprintf(PSTR("END:"));
         zprintf(endstopstatus < 0 ? PSTR("HI ") : PSTR("LOW "));
 
@@ -1144,7 +1188,7 @@ void process_gcode_command()
         //zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
 #endif
         zprintf(PSTR("EPR:3 332 %f EXTADV\n"), ff(extadv));
-        zprintf(PSTR("EPR:3 332 %d UNMS\n"), fi(unms));
+        zprintf(PSTR("EPR:3 336 %d UNMS\n"), fi(unms));
         break;
 #ifdef WIFISERVER
       // show wifi

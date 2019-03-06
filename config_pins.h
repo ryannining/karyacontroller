@@ -5,7 +5,8 @@
 */
 #ifndef CONFIG_PINS
 #define CONFIG_PINS
-
+//#define SHARE_EZ
+#define NUMBUFFER 20
 #include "platform.h"
 #define THEISR
 #ifdef ISPC
@@ -55,11 +56,13 @@
 #elif defined(__ARM__)
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
-#define BOARD_ST33DV1_STM32
-//#define BOARD_ST33DV11_STM32
+//#define BOARD_ST33DV1_STM32
+#define BOARD_ST33DV11_STM32
 //#define BOARD_ST33DV1_STM32_3DPLEX
 //#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
+//#define BOARD_STM32F0
+
 #define ANALOGSHIFT 2 // 12bit adc
 #define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel // set 1 to disable but can be adjust using M291 Sxx
 
@@ -80,10 +83,9 @@
 
 
 //#define BOARD_NANONANO_WEMOS
-//#define BOARD_WEMOS3D
-#define BOARD_WEMOS3D_COREXY
-
-
+#define BOARD_WEMOS3D
+//#define BOARD_WEMOS3D_COREXY
+//#define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
 //#define BOARD_WEMOSCNC
 //#define BOARD_MINICNC_ESP01
@@ -106,24 +108,26 @@
 */
 
 #ifdef __AVR__
-//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
-#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-#define CORESERIAL // smaller footprint 500byte, only AVR
-//#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
-// ==========================================================
-
+  //#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
+  #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
+  #define CORESERIAL // smaller footprint 500byte, only AVR
+  #define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+  // ==========================================================
+  
 #else
-//#define ACT_KEY
-#define ARC_SUPPORT // 3kb
-#define USE_BACKLASH  // 400bytes code
-#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-//#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
-#define CHANGEFILAMENT //580byte
-#define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-#define WIFISERVER
-//#define INTERPOLATEDELAY  // slower 4-8us
+  #define ARC_SUPPORT // 3kb
+  #define USE_BACKLASH  // 400bytes code
+  #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
+  //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
+  //#define CHANGEFILAMENT //580byte
+  #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
+  #define WIFISERVER
+  #define TOUCHSERVER
+  //#define INTERPOLATEDELAY  // slower 4-8us
 #endif
 // ==========================================================
+
+#define ACT_KEY
 
 
 //#define MYLASER
@@ -167,8 +171,8 @@
 
 
 // ESP8266
-#if defined(ESP8266) && !defined(USE_SHIFTREG)
-#define SHARE_EZ
+#ifdef SHARE_EZ
+#warning Share E and Z direction
 #endif
 
 
