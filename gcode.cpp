@@ -704,7 +704,9 @@ void process_gcode_command()
         next_target.target.axis[E] = ce01;
         printposition();
         break;
-
+      case 29:
+        MESHLEVELING = next_target.S;
+        break;
       // Probing
       // mesh bed probing from current position to width , height and number of data
       // G30 Snumdata Xwidth Yheight
@@ -715,33 +717,54 @@ void process_gcode_command()
       // G30 (current position)
       case 30:
         if (next_target.seen_S) {
-          int w = next_target.S;
-          probex1 = cx1;
-          probey1 = cy1;
 
-          XCount = probemode + 1;
-          YCount = probemode + 1;
-          float dx = (next_target.target.axis[X] - probex1) / w;
-          float dy = (next_target.target.axis[Y] - probey1) / w;
-          for (int j = 0; j <= w; j++) {
-            ZValues[0][j] = probey1 + j * dy;
-            ZValues[j + 1][0] = probex1 + j * dx;
-
-            for (int i = 0; i <= w; i++) {
-              addmove(4000, probex1 + j * dx, probey1 + i * dy, cz1, ce01, 0, 0);
-
-              ZValues[j + 1][i + 1] = pointProbing();
+          MESHLEVELING = 0;
+          if (next_target.seen_S) {
+            int w = next_target.S;
+            probex1 = cx1;
+            probey1 = cy1;
+            float ww = next_target.target.axis[X];
+            float hh = next_target.target.axis[Y];
+            XCount = floor(ww / w) + 2;
+            YCount = floor(hh / w) + 2;
+            float dx = ww / (XCount - 1);
+            float dy = hh / (YCount - 1);;
+            float zmin = 10000;
+            for (int j = 0; j < YCount; j++) {
+              ZValues[0][j] = probey1 + j * dy;
             }
+            for (int j = 0; j < XCount; j++) {
+              ZValues[j + 1][0] = probex1 + j * dx;
+
+              for (int i = 0; i < YCount; i++) {
+                addmove(8000, probex1 + j * dx, probey1 + i * dy, cz1, ce01, 0, 0);
+                float zz = pointProbing();
+                zmin = fmin(zmin, zz);
+                ZValues[j + 1][i + 1] = zz;
+              }
+            }
+            addmove(8000, probex1 , probey1 , cz1 - zmin, ce01, 0, 0);
+            // normalize the data
+            for (int j = 0; j < XCount; j++) {
+              zprintf(PSTR("MESH %d ["), fi(j));
+              for (int i = 0; i < YCount; i++) {
+                ZValues[j + 1][i + 1] -= zmin;
+                zprintf(PSTR("%f "), ff(ZValues[j + 1][i + 1]));
+              }
+              zprintf(PSTR("]\n"));
+            }
+            // activate leveling
+            MESHLEVELING = 1;
           }
-
-
         } else {
 
           if (!next_target.seen_X)next_target.target.axis[X] = cx1;
           if (!next_target.seen_Y)next_target.target.axis[Y] = cy1;
+          zprintf(PSTR("Probe X=%f Y=%f \n"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
           addmove(4000, next_target.target.axis[X], next_target.target.axis[Y], cz1, ce01, 1, 0);
 
-          pointProbing();
+          float zz = pointProbing();
+          zprintf(PSTR(" dZ=%f \n"), ff(zz));
         }
         break;
       // manually store probing data
@@ -784,9 +807,11 @@ void process_gcode_command()
         //?
         //? Allows programming of absolute zero point, by reseting the current position to the values specified.  This would set the machine's X coordinate to 10, and the extrude coordinate to 90. No physical motion will occur.
         //?
-
         queue_wait();
-
+        float lx;
+        lx = cx1;
+        float ly;
+        ly = cy1;
         if (next_target.seen_X) {
           cx1 = next_target.target.axis[X];
           axisSelected = 1;
@@ -811,6 +836,18 @@ void process_gcode_command()
                                   ce01 = next_target.target.axis[E] = 0;
         }
         init_pos();
+        if (MESHLEVELING) {
+          lx -= cx1;
+          ly -= cy1;
+          // normalize the data
+          for (int j = 0; j < XCount; j++) {
+            ZValues[j + 1][0] -= lx;
+          }
+          for (int j = 0; j < YCount; j++) {
+            ZValues[0][j + 1] -= ly;
+          }
+          // activate leveling
+        }
 
         break;
 
@@ -977,6 +1014,9 @@ void process_gcode_command()
         break;
       case 105:
         zprintf(PSTR("T:%f\n"), ff(Input));
+#ifdef EMULATETEMP
+        zprintf(PSTR("Tx:%f\n"), ff(xInput));
+#endif
         //zprintf(PSTR("TS:%f\n"), ff(Setpoint));
         //zprintf(PSTR("B:%d/%d\n"), fi(bufflen()),fi(NUMBUFFER));
         break;

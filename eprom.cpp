@@ -89,6 +89,7 @@ void reload_eeprom() {
   maxf[1] = eepromread(EE_max_y_feedrate);
   maxf[2] = eepromread(EE_max_z_feedrate);
   maxf[3] = eepromread(EE_max_e_feedrate);
+  zaccel = accel*maxf[2]/maxf[0];
 
   stepmmx[0] = (float)eepromread(EE_xstepmm)  * 0.001;
   stepmmx[1] = (float)eepromread(EE_ystepmm)  * 0.001;
@@ -97,6 +98,8 @@ void reload_eeprom() {
 
   xyjerk = eepromread(EE_jerk);
   homingspeed = eepromread(EE_homing);
+  zjerk=fmin(homingspeed/3,xyjerk);
+  
   xyscale = (float)eepromread(EE_xyscale) * 0.001;
 #ifdef NONLINEAR
   delta_radius = (float)eepromread(EE_hor_radius)   * 0.001;
@@ -162,7 +165,6 @@ void reset_eeprom() {
 
   eepromwrite(EE_homing, homingspeed);
   eepromwrite(EE_jerk, xyjerk);
-  zjerk=homingspeed/3;
   eepromwrite(EE_xyscale, ff(xyscale));
 #ifdef NONLINEAR
   eepromwrite(EE_hor_radius, ff(delta_radius));

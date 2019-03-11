@@ -52,8 +52,8 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  //demofile();
-  demo();
+  demofile();
+  //demo();
   zprintf (PSTR("WAIT\n"));
   waitbufferempty();
   zprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -62,7 +62,7 @@ int main(void)
 }
 void demofile() {
   //#define fn "d:/git/hipopotamo.gcode"
-  #define fn "d:/3d/5050.gcode"
+  //#define fn "d:/3d/5050.gcode"
   //#define fn "d:/3d/font.gcode"
   //#define fn "d:/git/bowdenlock.gcode"
   //#define fn "d:/3d/fish_fossilz.gcode"
@@ -81,6 +81,7 @@ void demofile() {
   //#define fn "d:/git/karyacontroller/gcode/graf.gcode"
   //#define fn "D:/cutting/File ukiran.nc/File ukiran.nc"
   //#define fn "d:/3d/testarc.gcode"
+  #define fn "d:/testcnc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;

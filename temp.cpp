@@ -5,13 +5,10 @@
 #include "motion.h"
 #include "pid.h"
 
-#ifndef temp_pin
-#define EMULATETEMP
-#endif
 
 #ifdef EMULATETEMP
-  #undef ISRTEMP
-  float emutemp=30;
+#undef ISRTEMP
+float emutemp = 30;
 #endif
 
 
@@ -19,10 +16,10 @@
 
 uint32_t next_temp;
 uint16_t ctemp = 0;
-double Setpoint, Input, Output;
+double Setpoint, Input, xInput, Output;
 float tbang = 4.1;
 int wait_for_temp = 0;
-byte HEATING=0;
+int HEATING = 0;
 
 int fan_val = 0;
 void setfan_val(int val) {
@@ -78,11 +75,11 @@ ISR (ADC_vect)
 int WindowSize = 1500;
 unsigned long windowStartTime;
 void set_temp(float set) {
-  if (set>MAXTEMP)set=MAXTEMP;
+  if (set > MAXTEMP)set = MAXTEMP;
   Setpoint = set;
-  windowStartTime=millis();
+  windowStartTime = millis();
   xpinMode(heater_pin, OUTPUT);
-  
+
   xdigitalWrite(heater_pin, 0);
 }
 void init_temp()
@@ -140,24 +137,38 @@ float read_temp(int32_t temp) {
   }
   return 0;
 }
-
 void temp_loop(uint32_t cm)
 {
   if (cm - next_temp > TEMPTICK) {
+    float sec = (cm - next_temp) / 1000000.0;
+    if (sec > 1)sec = 1;
     next_temp = cm; // each 0.5 second
     int v = 0;
 #ifdef EMULATETEMP
-// emulated sensor
-    if (HEATING){
-      emutemp+=5;
+    // emulated sensor
+    float dt;
+    if (HEATING) {
+      dt = pow(200 - emutemp, 0.2);
+    } else {
+      // heat dissipation to air
+      // must be able to tweak using eeprom ???
+      dt = -pow(emutemp, 3) *0.00000075; // value must be tweaked
     }
-    // heat dissipation to air
-    emutemp+=(20-emutemp)*0.1;
+    emutemp += dt * sec;
+    if (emutemp > 200)emutemp = 200;
+    if (emutemp < 30)emutemp = 30;
     Input = emutemp;
-
+#ifdef temp_pin
+    // for debugging
+    // still read the sensor if available and reported as Tx:$$
+    v = analogRead(temp_pin) >> ANALOGSHIFT;
+    v = v * 1 + 120; //22K resistor
+    ctemp = (ctemp + v) / 2; // averaging
+    xInput =  read_temp(ctemp);
+#endif
 
 #else
-// real hardware sensor
+    // real hardware sensor
 
 #if defined( __AVR__) && defined(ISRTEMP)
     // automatic in ESR
@@ -174,7 +185,7 @@ void temp_loop(uint32_t cm)
 
 #endif
 
-//    ctemp = v;//(ctemp * 2 + v * 6) / 8; // averaging
+    //    ctemp = v;//(ctemp * 2 + v * 6) / 8; // averaging
     ctemp = (ctemp + v) / 2; // averaging
     Input =  read_temp(ctemp);
 #endif
@@ -187,11 +198,11 @@ void temp_loop(uint32_t cm)
       //xpinMode(heater_pin, OUTPUT);
 
       myPID.Compute();
-#define BANGBANG      
+#define BANGBANG
 #ifdef BANGBANG
       myPID.SetOutputLimits(0, WindowSize);
       goto bang;
-      #warning USING BANG HEATER
+#warning USING BANG HEATER
 #endif
 
 
@@ -206,7 +217,7 @@ void temp_loop(uint32_t cm)
 #endif
     }
   }
-return;  
+  return;
 #ifdef BANGBANG
 bang:
   /************************************************
@@ -219,9 +230,9 @@ bang:
   }
 
   if (Output > now - windowStartTime) {
-      HEATING=HIGH;
+    HEATING = HIGH;
   }
-  else HEATING=LOW;
+  else HEATING = LOW;
   xdigitalWrite(heater_pin, HEATING);
   //zprintf(PSTR("OUT:%d %W:%d\n"),fi(Output),fi(now-windowStartTime));
 #endif

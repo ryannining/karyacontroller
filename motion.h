@@ -62,6 +62,7 @@ extern float e_multiplier, f_multiplier;
 #ifdef ISPC
 extern float tick, tickscale, fscale, graphscale;
 #endif
+extern int MESHLEVELING;
 extern int vSUBPIXELMAX;
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
@@ -73,7 +74,7 @@ extern int xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
 extern int xyjerk, zjerk,accel;
-extern int mvaccel;
+extern int mvaccel,zaccel;
 extern int  maxf[4];
 extern int32_t dlp, dl;
 extern float stepmmx[4], xyscale;
@@ -95,6 +96,7 @@ extern float extadv;
 extern int32_t unms;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
+extern float Interpolizer(float zX, float zY);
 
 
 #define degtorad(x) x*22/(7*180);
