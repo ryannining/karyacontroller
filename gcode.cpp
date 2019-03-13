@@ -128,7 +128,7 @@ void changefilament(float l)
   float backupE = ce01;
   float backupX = cx1;
   float backupY = cy1;
-  float backupZ = cz1;
+  float backupZ = ocz1;
 
   addmove(50, 0, 0, 0, -2, 0, 1); // retract
   addmove(50, 0, 0, 30, 0, 0, 1); // move up
@@ -149,7 +149,7 @@ void changefilament(float l)
   ce01 = backupE;
   cx1 = backupX;
   cy1 = backupY;
-  cz1 = backupZ;
+  ocz1 = backupZ;
 #endif
 }
 
@@ -417,7 +417,7 @@ void printposition()
 {
   zprintf(PSTR("X:%f Y:%f Z:%f E:%f\n"),
           ff(cx1), ff(cy1),
-          ff(cz1), ff(ce01));
+          ff(ocz1), ff(ce01));
 
 }
 void printbufflen()
@@ -506,7 +506,7 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
   }
   draw_arc(F1, t->seen_X ? t->target.axis[X] : cx1
            , t->seen_Y ? t->target.axis[Y] : cy1
-           , t->seen_Z ? t->target.axis[Z] : cz1
+           , t->seen_Z ? t->target.axis[Z] : ocz1
            , t->seen_E ? t->target.axis[E] : ce01
            , I, J, cw);
 }
@@ -522,7 +522,7 @@ void process_gcode_command()
   if (next_target.option_all_relative) {
     next_target.target.axis[X] += cx1;//startpoint.axis[X];
     next_target.target.axis[Y] += cy1;//startpoint.axis[Y];
-    next_target.target.axis[Z] += cz1;//startpoint.axis[Z];
+    next_target.target.axis[Z] += ocz1;//startpoint.axis[Z];
     next_target.target.axis[E] += ce01;//startpoint.axis[Z];
   }
 
@@ -538,7 +538,7 @@ void process_gcode_command()
   if (compress_loop()) {
     cx1 = next_target.target.axis[X]; //startpoint.axis[X];
     cy1 = next_target.target.axis[Y]; //startpoint.axis[Y];
-    cz1 = next_target.target.axis[Z]; //startpoint.axis[Z];
+    ocz1 = next_target.target.axis[Z]; //startpoint.axis[Z];
     ce01 = next_target.target.axis[E]; //startpoint.axis[Z];
     return;
   }
@@ -646,7 +646,7 @@ void process_gcode_command()
       case 6:
         cx1 = 0;
         cy1 = 0;
-        cz1 = 0;
+        ocz1 = 0;
         ce01 = 0;
         amove(1, 100, 100, 100, 0);
         /*
@@ -703,7 +703,7 @@ void process_gcode_command()
         homing();
         next_target.target.axis[X] = cx1;
         next_target.target.axis[Y] = cy1;
-        next_target.target.axis[Z] = cz1;
+        next_target.target.axis[Z] = ocz1;
         next_target.target.axis[E] = ce01;
         printposition();
         break;
@@ -728,9 +728,9 @@ void process_gcode_command()
           int w = next_target.S;
           probex1 = cx1;
           probey1 = cy1;
-          float probez1 = cz1;
+          float probez1 = ocz1;
           // move up before probing
-          //addmove(8000, probex1 , probey1 , cz1 + 15, ce01, 0, 0);
+          //addmove(8000, probex1 , probey1 , ocz1 + 15, ce01, 0, 0);
           int ww = next_target.target.axis[X];
           int hh = next_target.target.axis[Y];
           XCount = floor(ww / w) + 2; // 150/200 = 0 + 2 = 2
@@ -745,7 +745,7 @@ void process_gcode_command()
             ZValues[j + 1][0] = probex1 + j * dx;
 
             for (int i = 0; i < YCount; i++) {
-              addmove(8000, probex1 + j * dx, probey1 + i * dy, cz1, ce01, 0, 0);
+              addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
               int16_t zz = 1000*pointProbing(); // fixed point
               zmin = fmin(zmin, zz);
               ZValues[j + 1][i + 1] = zz;
@@ -765,20 +765,21 @@ void process_gcode_command()
           }
           zprintf(PSTR("\n"));
           // activate leveling
-          MESHLEVELING = 1;
           // back to zero position and adjust
-          addmove(8000, probex1 , probey1 , cz1, ce01, 0, 0);
-          //addmove(8000, probex1 , probey1 , cz1+ZValues[1][1], ce01, 0, 0);
+          addmove(8000, probex1 , probey1 , ocz1, ce01, 0, 0);
+          //addmove(8000, probex1 , probey1 , ocz1+ZValues[1][1], ce01, 0, 0);
           waitbufferempty();
-          cz1=probez1;
+          ocz1=0;
+          cz1=0;
           printposition();
+          MESHLEVELING = 1;
 
         } else {
 
           if (!next_target.seen_X)next_target.target.axis[X] = cx1;
           if (!next_target.seen_Y)next_target.target.axis[Y] = cy1;
           //zprintf(PSTR("PR X=%f Y=%f \n"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
-          addmove(4000, next_target.target.axis[X], next_target.target.axis[Y], cz1, ce01, 1, 0);
+          addmove(4000, next_target.target.axis[X], next_target.target.axis[Y], ocz1, ce01, 1, 0);
 
           float zz = pointProbing();
           zprintf(PSTR("DZ:%f \n"), ff(zz));
@@ -838,7 +839,7 @@ void process_gcode_command()
           axisSelected = 1;
         };
         if (next_target.seen_Z) {
-          cz1 = next_target.target.axis[Z];
+          ocz1 = next_target.target.axis[Z];
           axisSelected = 1;
         };
         if (next_target.seen_E) {
@@ -849,7 +850,7 @@ void process_gcode_command()
         if (axisSelected == 0) {
           cx1 = next_target.target.axis[X] =
                   cy1 = next_target.target.axis[Y] =
-                          cz1 = next_target.target.axis[Z] =
+                          ocz1 = next_target.target.axis[Z] =
                                   ce01 = next_target.target.axis[E] = 0;
         }
         init_pos();
@@ -904,7 +905,7 @@ void process_gcode_command()
           RUNNING = 0;
           waitbufferempty();
           printposition();
-          printbufflen();
+          //printbufflen();
           rasterlen = 0;
         }
         break;
@@ -924,7 +925,7 @@ void process_gcode_command()
         //for (i = 0; i < NUM_HEATERS; i++)temp_set(i, 0);
         power_off();
 
-        zprintf(PSTR("\nstop\n"));
+        //zprintf(PSTR("\nstop\n"));
         break;
 
       /*      case 6:
@@ -942,15 +943,9 @@ void process_gcode_command()
       // xxx will limit the G1 maximum feedrate
       //
 
-      case 4:
-        // already implemented using value = 255 = cutting
-        //constantlaser = next_target.S == 1;
-        break;
       case 5:
-        // already implemented using value = 255 = cutting
-        //constantlaser = next_target.S == 1;
         // cnc mode laser
-        zprintf(PSTR("SPINDLE OFF\n"));
+        //zprintf(PSTR("SPINDLE OFF\n"));
         CNCMODE = next_target.seen_P;
 #ifndef ISPC
   #ifdef laser_pin
@@ -963,7 +958,7 @@ void process_gcode_command()
         next_target.S = 0;
       case 3:
         if (CNCMODE) {
-          zprintf(PSTR("SPINDLE OFF\n"));
+          //zprintf(PSTR("SPINDLE OFF\n"));
 #ifndef ISPC
           xpinMode(laser_pin, OUTPUT);
           SPINDLE(SPINDLEON)

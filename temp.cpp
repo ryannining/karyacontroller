@@ -248,12 +248,8 @@ bang:
     windowStartTime += WindowSize;
   }
 
-  if (Output > now - windowStartTime) {
-    HEATING = HIGH;
-  }
-  else HEATING = LOW;
+  HEATING =(Output > now - windowStartTime;
   xdigitalWrite(heater_pin, HEATING);
-  //zprintf(PSTR("OUT:%d %W:%d\n"),fi(Output),fi(now-windowStartTime));
 #endif
 
 }

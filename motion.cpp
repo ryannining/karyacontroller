@@ -996,8 +996,8 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
   //uint32_t linear_travel = 0; //target[axis_linear] - position[axis_linear];
   float ne = ce01;
   float extruder_travel = (ce02 - ce01);
-  float nz = cz1;
-  float z_travel = (cz2 - cz1);
+  float nz = ocz1;
+  float z_travel = (cz2 - ocz1);
 
   float r_axis0 = -fI;  // Radius vector from center to current location
   float r_axis1 = -fJ;
@@ -2083,12 +2083,12 @@ void homing()
   close_user_input();
   init_home_input();
   // clear buffer
-  addmove(100, 0, 0, ax_home[2] < 1 ? 0 : cz1, ce01);
+  addmove(100, 0, 0, ax_home[2] < 1 ? 0 : ocz1, ce01);
   waitbufferempty();
   ishoming = 1;
   cx1 = 0;
   cy1 = 0;
-  cz1 = 0;
+  ocz1 = 0;
   ce01 = 0;
 
   x2[0] = x2[1] = x2[2] = x2[3] = 0;
@@ -2176,8 +2176,9 @@ void homing()
   else  cx1 = 0;
   if (vx[1] > 0) cy1 = ax_home[1];
   else  cy1 = 0;
-  if (vx[2] > 0) cz1 = ax_home[2];
-  else  cz1 = 0;
+  if (vx[2] > 0) ocz1 = ax_home[2];
+  else  ocz1 = 0;
+  cz1=ocz1;
 
 #endif // NONLINEAR
 
