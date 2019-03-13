@@ -17,7 +17,7 @@ float emutemp = 30;
 uint32_t next_temp;
 uint16_t ctemp = 0;
 double Setpoint, Input, xInput, Output;
-float tbang = 4.1;
+float tbang = 6;
 int wait_for_temp = 0;
 int HEATING = 0;
 
@@ -36,7 +36,7 @@ void setfan_val(int val) {
 }
 
 
-#if defined(temp_pin) && !defined(ISPC)
+#if defined(heater_pin) && !defined(ISPC)
 #include "pid.h"
 
 
@@ -137,6 +137,9 @@ float read_temp(int32_t temp) {
   }
   return 0;
 }
+
+uint32_t ectstep2 = 0;
+int tmc1 = 0;
 void temp_loop(uint32_t cm)
 {
   if (cm - next_temp > TEMPTICK) {
@@ -145,26 +148,42 @@ void temp_loop(uint32_t cm)
     next_temp = cm; // each 0.5 second
     int v = 0;
 #ifdef EMULATETEMP
-    // emulated sensor
+    // emulated sensor using math formula, sec= delta time
     float dt;
     if (HEATING) {
       dt = pow(200 - emutemp, 0.2);
     } else {
-      // heat dissipation to air
-      // must be able to tweak using eeprom ???
-      dt = -pow(emutemp, 3) *0.00000075; // value must be tweaked
+      // heat dissipation to air, can be tweak using eeprom ET
+      dt = -pow(emutemp, 3) * 0.0000001;
+      float tt = tbang;
+      if (ectstep2 != ectstep) {
+        // if there is printing / extruding then need to adjust, since the flow of filament take the heat away
+        uint32_t et = (ectstep2 - ectstep);
+        if (et < 0)et = 0;
+        if (et >stepmmx[3])et = stepmmx[3];
+        //zprintf(PSTR("%d\n"),fi(et));
+        tt += et * 68.0/stepmmx[3];
+        ectstep2 = ectstep;
+      }
+      dt *= tt;
     }
     emutemp += dt * sec;
+    // clamp the temperature calculation
     if (emutemp > 200)emutemp = 200;
     if (emutemp < 30)emutemp = 30;
     Input = emutemp;
-#ifdef temp_pin
-    // for debugging
-    // still read the sensor if available and reported as Tx:$$
-    v = analogRead(temp_pin) >> ANALOGSHIFT;
-    v = v * 1 + 120; //22K resistor
-    ctemp = (ctemp + v) / 2; // averaging
-    xInput =  read_temp(ctemp);
+#ifdef xtemp_pin
+    tmc1++;
+    if (tmc1 > 40) {
+      tmc1=0;
+      // for debugging, still read the sensor if available and reported as Tx:$$
+      v = analogRead(temp_pin) >> ANALOGSHIFT;
+      v = v + 120; //22K resistor
+      ctemp = (ctemp + v) / 2; // averaging
+      xInput =  read_temp(ctemp);
+      // averaging with the emulated one if the real temperature is higher
+      if (xInput > Input)Input = Input * 0.5 + xInput * 0.5;
+    }
 #endif
 
 #else

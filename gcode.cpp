@@ -492,10 +492,12 @@ inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
 
   amove(g0 ? F0 : F1, t->seen_X ? t->target.axis[X] : cx1
         , t->seen_Y ? t->target.axis[Y] : cy1
-        , t->seen_Z ? t->target.axis[Z] : cz1
+        , t->seen_Z ? t->target.axis[Z] : ocz1
         , t->seen_E ? t->target.axis[E] : ce01
-        , g0);
+        , g0,0);
 }
+#ifdef ARC_SUPPORT
+
 inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
 {
 
@@ -508,8 +510,9 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
            , t->seen_E ? t->target.axis[E] : ce01
            , I, J, cw);
 }
+#endif
 int lastG = 0;
-float probex1, probey1;
+int probex1, probey1;
 int probemode = 0;
 void process_gcode_command()
 {
@@ -706,6 +709,8 @@ void process_gcode_command()
         break;
       case 29:
         MESHLEVELING = next_target.S;
+        zprintf(PSTR("A.L "));
+        if (MESHLEVELING)zprintf(PSTR("on\n"));else zprintf(PSTR("off\n"));
         break;
       // Probing
       // mesh bed probing from current position to width , height and number of data
@@ -719,52 +724,64 @@ void process_gcode_command()
         if (next_target.seen_S) {
 
           MESHLEVELING = 0;
-          if (next_target.seen_S) {
-            int w = next_target.S;
-            probex1 = cx1;
-            probey1 = cy1;
-            float ww = next_target.target.axis[X];
-            float hh = next_target.target.axis[Y];
-            XCount = floor(ww / w) + 2;
-            YCount = floor(hh / w) + 2;
-            float dx = ww / (XCount - 1);
-            float dy = hh / (YCount - 1);;
-            float zmin = 10000;
-            for (int j = 0; j < YCount; j++) {
-              ZValues[0][j] = probey1 + j * dy;
-            }
-            for (int j = 0; j < XCount; j++) {
-              ZValues[j + 1][0] = probex1 + j * dx;
 
-              for (int i = 0; i < YCount; i++) {
-                addmove(8000, probex1 + j * dx, probey1 + i * dy, cz1, ce01, 0, 0);
-                float zz = pointProbing();
-                zmin = fmin(zmin, zz);
-                ZValues[j + 1][i + 1] = zz;
-              }
-            }
-            addmove(8000, probex1 , probey1 , cz1 - zmin, ce01, 0, 0);
-            // normalize the data
-            for (int j = 0; j < XCount; j++) {
-              zprintf(PSTR("MESH %d ["), fi(j));
-              for (int i = 0; i < YCount; i++) {
-                ZValues[j + 1][i + 1] -= zmin;
-                zprintf(PSTR("%f "), ff(ZValues[j + 1][i + 1]));
-              }
-              zprintf(PSTR("]\n"));
-            }
-            // activate leveling
-            MESHLEVELING = 1;
+          int w = next_target.S;
+          probex1 = cx1;
+          probey1 = cy1;
+          float probez1 = cz1;
+          // move up before probing
+          //addmove(8000, probex1 , probey1 , cz1 + 15, ce01, 0, 0);
+          int ww = next_target.target.axis[X];
+          int hh = next_target.target.axis[Y];
+          XCount = floor(ww / w) + 2; // 150/200 = 0 + 2 = 2
+          YCount = floor(hh / w) + 2; // 50/200 = 0 + 2 = 2
+          int dx = ww / (XCount - 1); // 150/1 = 150
+          int dy = hh / (YCount - 1);; // 50/1 = 50
+          int zmin = 10000;
+          for (int j = 0; j < YCount; j++) { // 0,1
+            ZValues[0][j + 1] = probey1 + j * dy;  // [
           }
+          for (int j = 0; j < XCount; j++) {
+            ZValues[j + 1][0] = probex1 + j * dx;
+
+            for (int i = 0; i < YCount; i++) {
+              addmove(8000, probex1 + j * dx, probey1 + i * dy, cz1, ce01, 0, 0);
+              int16_t zz = 1000*pointProbing(); // fixed point
+              zmin = fmin(zmin, zz);
+              ZValues[j + 1][i + 1] = zz;
+            }
+          }
+          zmin = ZValues[1][1];
+
+          // normalize the data
+          zprintf(PSTR("MESH\n"));
+          for (int j = 0; j <= XCount; j++) {
+            for (int i = 0; i <= YCount; i++) {
+              if (i && j)ZValues[j][i] -= zmin;
+              if (i)zprintf(PSTR(","));
+              zprintf(PSTR("%f"), ff(ZValues[j][i]));
+            }
+            zprintf(PSTR("\n"));
+          }
+          zprintf(PSTR("\n"));
+          // activate leveling
+          MESHLEVELING = 1;
+          // back to zero position and adjust
+          addmove(8000, probex1 , probey1 , cz1, ce01, 0, 0);
+          //addmove(8000, probex1 , probey1 , cz1+ZValues[1][1], ce01, 0, 0);
+          waitbufferempty();
+          cz1=probez1;
+          printposition();
+
         } else {
 
           if (!next_target.seen_X)next_target.target.axis[X] = cx1;
           if (!next_target.seen_Y)next_target.target.axis[Y] = cy1;
-          zprintf(PSTR("Probe X=%f Y=%f \n"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
+          //zprintf(PSTR("PR X=%f Y=%f \n"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
           addmove(4000, next_target.target.axis[X], next_target.target.axis[Y], cz1, ce01, 1, 0);
 
           float zz = pointProbing();
-          zprintf(PSTR(" dZ=%f \n"), ff(zz));
+          zprintf(PSTR("DZ:%f \n"), ff(zz));
         }
         break;
       // manually store probing data
@@ -836,7 +853,7 @@ void process_gcode_command()
                                   ce01 = next_target.target.axis[E] = 0;
         }
         init_pos();
-        if (MESHLEVELING) {
+        /*if (MESHLEVELING) {
           lx -= cx1;
           ly -= cy1;
           // normalize the data
@@ -847,7 +864,7 @@ void process_gcode_command()
             ZValues[0][j + 1] -= ly;
           }
           // activate leveling
-        }
+        }*/
 
         break;
 
@@ -936,9 +953,11 @@ void process_gcode_command()
         zprintf(PSTR("SPINDLE OFF\n"));
         CNCMODE = next_target.seen_P;
 #ifndef ISPC
+  #ifdef laser_pin
         xpinMode(laser_pin, OUTPUT);
         SPINDLE(!SPINDLEON)
         LASER(!LASERON)
+  #endif
 #endif
         next_target.seen_S = 1;
         next_target.S = 0;
@@ -1015,7 +1034,9 @@ void process_gcode_command()
       case 105:
         zprintf(PSTR("T:%f\n"), ff(Input));
 #ifdef EMULATETEMP
+#ifdef temp_pin
         zprintf(PSTR("Tx:%f\n"), ff(xInput));
+#endif
 #endif
         //zprintf(PSTR("TS:%f\n"), ff(Setpoint));
         //zprintf(PSTR("B:%d/%d\n"), fi(bufflen()),fi(NUMBUFFER));
@@ -1221,11 +1242,13 @@ void process_gcode_command()
         zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
         zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
 #endif
-#if defined(temp_pin)
+#if defined(heater_pin)
         zprintf(PSTR("EPR:3 316 %f P\n"), ff(myPID.GetKp()));
         zprintf(PSTR("EPR:3 320 %f I\n"), ff(myPID.GetKi()));
         zprintf(PSTR("EPR:3 324 %f D\n"), ff(myPID.GetKd()));
-        //zprintf(PSTR("EPR:3 328 %f BG\n"), ff(tbang));
+#ifdef EMULATETEMP
+        zprintf(PSTR("EPR:3 328 %f ET\n"), ff(tbang));
+#endif
 #endif
         zprintf(PSTR("EPR:3 332 %f EXTADV\n"), ff(extadv));
         zprintf(PSTR("EPR:3 336 %d UNMS\n"), fi(unms));

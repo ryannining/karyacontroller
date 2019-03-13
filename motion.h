@@ -45,6 +45,7 @@ typedef struct {
   float dtx[NUMAXIS]; // keep the original coordinate before transform
   //#endif
   int32_t dx[NUMAXIS]; //original delta before transform
+//  float mm[NUMAXIS]; // needed for backplanner
 #ifdef ISPC
   // for graphics
   int col;
@@ -54,7 +55,7 @@ typedef struct {
 
 
 extern int XCount,YCount;
-extern float ZValues[6][6];
+extern int ZValues[6][6];
 
 extern float pointProbing();
 
@@ -81,7 +82,7 @@ extern float stepmmx[4], xyscale;
 extern float retract_in, retract_out;
 extern float retract_in_f, retract_out_f;
 extern tmove move[NUMBUFFER];
-extern float cx1, cy1, cz1, ce01;
+extern float cx1, cy1, cz1,ocz1, ce01;
 extern uint8_t head, tail;
 extern int8_t checkendstop;
 extern int16_t endstopstatus;
@@ -103,7 +104,7 @@ extern float Interpolizer(float zX, float zY);
 
 
 extern void power_off();
-
+extern uint32_t ectstep;
 extern int32_t motionrunning;
 extern int32_t mctr;
 extern int motionloop();
@@ -116,8 +117,11 @@ extern void waitbufferempty();
 extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();
-extern void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, int rel = 0);
+#ifdef ARC_SUPPORT
+
 extern void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, float fJ, uint8_t isclockwise);
+#endif
+extern void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int rel);
 
 extern float axisofs[4];
 

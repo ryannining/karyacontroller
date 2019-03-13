@@ -752,15 +752,17 @@
 #define zdirection 7
 #define zstep 4
 
-#define e0enable 8  // set the jumper for 4th motor https://blog.protoneer.co.nz/arduino-cnc-shield-v3-00-assembly-guide/#4THAXIS
-#define e0direction 13
-#define e0step 12
+//#define e0enable 8  // set the jumper for 4th motor https://blog.protoneer.co.nz/arduino-cnc-shield-v3-00-assembly-guide/#4THAXIS
+//#define e0direction 13
+//#define e0step 12
 
 #define limit_pin 0
 
 
-#define temp_pin 0 //analog 0, on pin ABORT
-#define heater_pin A3 // on pin COOLANT
+//#define temp_pin 0 //analog 0, on pin ABORT
+//#define heater_pin A3 // on pin SPINDLE
+#define laser_pin 12 // on pin SPINDLE
+#define NUMBUFFER 12
 
 /*
   ============================================================================================

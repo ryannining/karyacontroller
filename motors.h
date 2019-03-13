@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #endif
 
-static int8_t lsx[4] = {0, 0, 0, 0};
+//static int8_t lsx[4] = {0, 0, 0, 0};
 
 
 
@@ -77,7 +77,7 @@ static void pinCommit() {
 #ifndef ISPC
 
 
-static uint8_t bsteps = 0;
+//static uint8_t bsteps = 0;
 
 #define STEPDELAY
 //somedelay(10);

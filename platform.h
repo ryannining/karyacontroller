@@ -26,7 +26,7 @@
 #if defined(__AVR__) || defined(ESP8266)|| defined(ESP32)  || defined (__ARM__)
   extern int CNCMODE;
   extern int HEATING;
-  #include "motors.h";
+  #include "motors.h"
   #define LASER(x) {if (!CNCMODE)xdigitalWrite(laser_pin,x);}
   //#define LASER(x) {if (!HEATING)digitalWrite(laser_pin,x);}
   #define SPINDLE(x) {if (CNCMODE)xdigitalWrite(laser_pin,x); }  

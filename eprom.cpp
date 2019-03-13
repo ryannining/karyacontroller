@@ -128,7 +128,7 @@ retract_out_f=(float)eepromread(EE_retract_out_f)   * 0.001;
   eepromreadstring(450, wifi_pwd,20);
   eepromreadstring(470, wifi_dns,30);
 #endif
-#if defined(temp_pin)
+#if defined(heater_pin)
   myPID.SetTunings(eepromread(EE_pid_p)*0.001,eepromread(EE_pid_i)*0.001,eepromread(EE_pid_d)*0.001);
   tbang=eepromread(EE_pid_bang)*0.001;
 #endif  
@@ -191,7 +191,7 @@ void reset_eeprom() {
   eepromwrite(EE_ebacklash, fi(xback[3]));
 #endif
 
-#if defined(temp_pin)
+#if defined(heater_pin)
  eepromwrite(EE_pid_p,ff(8.0));
  eepromwrite(EE_pid_i,ff(600.0));
  eepromwrite(EE_pid_d,ff(400.0));

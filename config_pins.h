@@ -33,10 +33,10 @@
 
 // ========== AVR ================================================
 #if defined(__AVR__)
-//#define BOARD_CHCSHIELDV3
+#define BOARD_CHCSHIELDV3
 //#define BOARD_TARANTHOLE
 //#define BOARD_SEMEDIYNANO
-#define BOARD_NANONANO
+//#define BOARD_NANONANO
 //#define BOARD_NANONANO_DELTA
 //#define BOARD_NANONANO_DELTA_NOSD
 //#define BOARD_NANONANO_SDCARD
@@ -83,8 +83,8 @@
 
 
 //#define BOARD_NANONANO_WEMOS
-//#define BOARD_WEMOS3D
-#define BOARD_WEMOS3D_COREXY
+#define BOARD_WEMOS3D
+//#define BOARD_WEMOS3D_COREXY
 //#define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
 //#define BOARD_WEMOSCNC
@@ -112,9 +112,11 @@
   #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
   #define CORESERIAL // smaller footprint 500byte, only AVR
   #define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+  #define MESHLEVEL
   // ==========================================================
   
 #else
+  #define MESHLEVEL
   #define ARC_SUPPORT // 3kb
   #define USE_BACKLASH  // 400bytes code
   #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
@@ -127,21 +129,26 @@
 #endif
 // ==========================================================
 
-#define ACT_KEY
+//#define ACT_KEY
 
 //
-#define EMULATETEMP
-
 #ifndef temp_pin
 #define EMULATETEMP
 #endif
 
+
+//#define EMULATETEMP
+#ifdef EMULATETEMP
+#undef temp_pin
+#endif
+
+
 //#define MYLASER
 
 #ifdef MYLASER
-#undef WIFISERVER
-#define LASERON LOW
-#define NUMBUFFER 50
+  #undef WIFISERVER
+  #define LASERON LOW
+  #define NUMBUFFER 50
 #endif
 
 //#define USE_EEPROM

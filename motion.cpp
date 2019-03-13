@@ -98,7 +98,8 @@ int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
 int8_t  sx[NUMAXIS];
 int32_t dlp, dl, dln, unms;
-int8_t checkendstop, xctstep, yctstep, zctstep, ectstep, xcheckevery, ycheckevery, zcheckevery, echeckevery;
+int8_t checkendstop, xctstep, yctstep, zctstep,  xcheckevery, ycheckevery, zcheckevery, echeckevery;
+uint32_t ectstep=0;
 int16_t endstopstatus;
 int8_t ishoming;
 float axisofs[4] = {0, 0, 0, 0};
@@ -109,7 +110,7 @@ float stepmmx[4];
 int odir[4] = {1, 1, 1, 1};
 float retract_in, retract_out;
 float retract_in_f, retract_out_f;
-float cx1, cy1, cz1, ce01, extadv;
+float cx1, cy1, cz1,ocz1, ce01, extadv;
 tmove move[NUMBUFFER];
 
 #define sqr2(n) (n)*(n)
@@ -567,7 +568,52 @@ void planner(int32_t h)
   float max_f = MINCORNERSPEED * MINCORNERSPEED;
   if (bufflen() > 1) {
 
+/*
+ * 
+    p = prevbuff(h);
+    prev = &move[p];
 
+    float junction_unit_vec[3];
+    float junction_cos_theta = 0.0;
+    for (idx=0; idx<3; idx++) {
+      junction_cos_theta -= prev.dx[idx]*curr.dx[idx]/(prev.dx[idx]*prev.dx[idx]);
+      junction_unit_vec[idx] = curr.mm[idx]-prev.mm[idx];
+    }
+
+    // NOTE: Computed without any expensive trig, sin() or acos(), by trig half angle identity of cos(theta).
+    if (junction_cos_theta > 0.999999) {
+      //  For a 0 degree acute junction, just set minimum junction speed.
+      block->max_junction_speed_sqr = MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED;
+    } else {
+      if (junction_cos_theta < -0.999999) {
+        // Junction is a straight line or 180 degrees. Junction speed is infinite.
+        block->max_junction_speed_sqr = SOME_LARGE_VALUE;
+      } else {
+        convert_delta_vector_to_unit_vector(junction_unit_vec);
+        float junction_acceleration = limit_value_by_axis_maximum(settings.acceleration, junction_unit_vec);
+        float sin_theta_d2 = sqrt(0.5*(1.0-junction_cos_theta)); // Trig half angle identity. Always positive.
+        block->max_junction_speed_sqr = max( MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED,
+                       (junction_acceleration * settings.junction_deviation * sin_theta_d2)/(1.0-sin_theta_d2) );
+      }
+    }
+  }
+
+  // Block system motion from updating this data to ensure next g-code motion is computed correctly.
+  if (!(block->condition & PL_COND_FLAG_SYSTEM_MOTION)) {
+    float nominal_speed = plan_compute_profile_nominal_speed(block);
+    plan_compute_profile_parameters(block, nominal_speed, pl.previous_nominal_speed);
+    pl.previous_nominal_speed = nominal_speed;
+
+    // Update previous path unit_vector and planner position.
+    memcpy(pl.previous_unit_vec, unit_vec, sizeof(unit_vec)); // pl.previous_unit_vec[] = unit_vec[]
+    memcpy(pl.position, target_steps, sizeof(target_steps)); // pl.position[] = target_steps[]
+
+    // New block is all set. Update buffer head and next buffer head indices.
+    block_buffer_head = next_buffer_head;
+    next_buffer_head = plan_next_block_index(block_buffer_head);
+
+ 
+ */
 
 
     max_f = fmax(currf[4], prevf[4]);
@@ -654,7 +700,7 @@ int ldir[NUMAXIS] = {0, 0, 0, 0};
 #endif
 
 
-void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int rel)
+void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0=1, int rel=0)
 {
 
 
@@ -688,8 +734,10 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   }
 
 // mesh leveling
+  float ocz2=cz2;
   if (MESHLEVELING){
-    cz1-=Interpolizer(cx2,cy2);    
+    cz2-=Interpolizer(cx2,cy2);
+    zprintf(PSTR("ZI:%f\n"),  ff(cz2));
   }
 
 
@@ -702,6 +750,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
   mmdis[1] = (cy2 - cy1) * odir[1];
   mmdis[2] = (cz2 - cz1) * odir[2];
   mmdis[3] = (ce02 - ce01) * odir[3];
+  
 #ifdef output_enable
 
   zprintf(PSTR("Dis X:%f Y:%f Z:%f\n"),  ff(mmdis[0]), ff(mmdis[1]), ff(mmdis[2]));
@@ -881,6 +930,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int 
     cx1 = curr->dtx[0] = cx2; // save the target, not the original
     cy1 = curr->dtx[1] = cy2;
     cz1 = curr->dtx[2] = cz2;
+    ocz1=ocz2;
     ce01 = curr->dtx[3] = ce02;
     /*#else
       cx1 = cx2;
@@ -1202,7 +1252,7 @@ void THEISR coreloopm()
         if (cmbit & 8)LASER( LASERON) else LASER( !LASERON);
       }
       if (cmbit & 8) {
-        ectstep++;
+        ectstep+=e_dir;
         motor_3_STEP();
       };
 
@@ -2147,7 +2197,7 @@ void homing()
 */
 
 int XCount, YCount;
-float ZValues[6][6];
+int ZValues[6][6];
 
 float pointProbing()
 {
@@ -2194,30 +2244,28 @@ void meshprobe(float sx, float sy, float tx, float ty, int mc) {
 */
 
 // need to extrapolate if outside area
-void normalizemesh(){
-  
-}
+#ifdef MESHLEVEL
 float Interpolizer(float zX, float zY) {
 
   //Z Values Range
-  float X0Y0 = 0;
-  float X0Y1 = 0;
-  float X1Y0 = 0;
-  float X1Y1 = 0;
+  int X0Y0 = 0;
+  int X0Y1 = 0;
+  int X1Y0 = 0;
+  int X1Y1 = 0;
 
   //X and Y Ranges
-  float X0 = 0;
-  float X1 = 0;
-  float Y0 = 0;
-  float Y1 = 0;
+  int X0 = 0;
+  int X1 = 0;
+  int Y0 = 0;
+  int Y1 = 0;
 
   //Indexes
   int X0i = 0;
   int X1i = 0;
   int Y0i = 0;
   int Y1i = 0;
-  int Xmax = XCount;
-  int Ymax = YCount;
+  int Xmax = XCount+1;
+  int Ymax = YCount+1;
 
 
   //Interpolated values
@@ -2281,21 +2329,23 @@ float Interpolizer(float zX, float zY) {
 
   //Y is on the lower edge, no interpolation needed
   if (zY == Y0) {
-    return  XMY0;
+    return  XMY0*0.001;
   }
   //Y is on the higher edge, no interpolation needed
   else if (zY == Y1) {
-    return  XMY1;
+    return  XMY1*0.001;
 
   }
   //Y is between the higher and lower edges, interpolation needed
   else {
-    return XMY0 + (zY - Y0) * (XMY1 - XMY0) / (Y1 - Y0);
+    return (XMY0 + (zY - Y0) * (XMY1 - XMY0) / (Y1 - Y0))*0.001;
   }
 
 }
+#else
+float Interpolizer(float zX,float zY) {return 0;}
 
-
+#endif
 
 /*
   =================================================================================================================================================
