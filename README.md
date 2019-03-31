@@ -12,10 +12,7 @@ its not 100% exact code, but i have read lots of their code, so my code will eff
 ### Feature
 
 feature i need to have in this software is: (* implemented)
-- Per motor step using float speed ramping acceleration (smooth ) *
-- per axis acceleration *
 - per axis max feedrate *
-- per axis jerk  *
 - path planner (backward and forward) *
 - step per mm for each axis *
 - motor stepper hardware layer using GPIO and ShiftRegister *
@@ -23,8 +20,11 @@ feature i need to have in this software is: (* implemented)
 - 4 axis X Y Z E *
 - eeprom configuration (step/mm, accel, travel accel, jerk, max axis) *
 - implement endstop reading (xmin xmax , etc)*
+- implement Probing Z ()*
+- implement Mesh autolevel ()*
 - Endstop configuration using EEPROM *
 - heater with PID E0 PWM or Bang Bang*
+- temp sensor math model (heating pid without real sensor) *
 - Async temp reading *
 - config files contain board definition to set pins and parameter *
 - G0 and G1 can have different acceleration (travel vs feed/extrude) *
@@ -34,7 +34,7 @@ feature i need to have in this software is: (* implemented)
 - NEW: Laser constant burn per step, by only turn on the laser on specific time then turn off on each motor step *
 - NEW: G7 Raster data for Laser Engraving for optimum speed laser engraving *
 - NEW: M290 Baby stepping for 3d printing *
-- NEW: M206 Pxxx [sss] xxx=380 400 450 470 configure wifi and telegram client, M504 to show setting
+- NEW: M206 Pxxx [sss] xxx=380 400 450 470 configure wifi and telegram client, M504 to show setting*
 - NEW: Retract conversion, just set the retract speed to 1 on slicer it will be converted to retract setting on eeprom. *
 - NEW: M2 will stop the code immediately, without waiting buffer emptied, but still know the correct position *
 - IDEA: Implement clever gcode sender that pre-compile the gcode by doing path planner and send the plan to the firmware
@@ -91,6 +91,9 @@ motion [motion.exe].PRJ - for quincy IDE, we can show graphics of the motion sim
 Original code is in freebasic, you can check the old folder
 
 ## log
+5-3-2019
+Auto level using MESH bilinear interpolation. 
+
 10-12-2018
 ![image](https://user-images.githubusercontent.com/11457832/49775685-83b68c80-fd2b-11e8-8161-39acdba5641b.png)
 Able to upload gcode to internal wemos flash, and start print without pc, without sdcard
