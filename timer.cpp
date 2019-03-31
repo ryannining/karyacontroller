@@ -165,7 +165,7 @@ ISR(TIMER1_COMPA_vect)
     ndelay = ndelay2;
     ndelay2 = 0;
 #ifdef laser_pin
-    LASER(!LASERON)
+    //LASER(!LASERON)
 #endif
   }
   OCR1A = ndelay > 30000 ? 30000 : ndelay;
@@ -300,7 +300,7 @@ void THEISR timer_set(int32_t delay)
 // Laser constant burn timer
 void THEISR timer_set2(int32_t delay, int32_t delayL)
 {
-  LASER(  !LASERON);
+  //LASER(  !LASERON);
   delay = fmin(MINDELAY, delay);
   ndelay = fmax(1, delay - delayL); // laser on delay
   ndelay2 = fmax(1, delayL); // the rest delay after laser on

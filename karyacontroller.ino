@@ -126,6 +126,7 @@ String getContentType(String filename) { // convert the file extension to the MI
   return "text/plain";
 }
 bool handleFileRead(String path) { // send the right file to the client (if it exists)
+  motionloop();
   NOINTS
   if (path.endsWith("/3d")) path += ".html";          // If a folder is requested, send the index file
   else if (path.endsWith("/config")) path = "/karyaconfig.html";          // If a folder is requested, send the index file
@@ -281,6 +282,14 @@ void setupwifi(int num) {
     eepromwritestring(450, wifi_pwd);
     server.send ( 200, "text/html", "OK");
   });
+  server.on("/gcode", HTTP_GET, []() {                 // if the client requests the upload page
+    char gc[100];
+    server.arg("t").toCharArray(gc, 99);
+    for (int i = 0; i < strlen(gc); i++) {
+      buf_push(wf, gc[i]);
+    }
+    
+  });
   server.on("/getconfig", HTTP_GET, []() {                 // if the client requests the upload page
     String st = "disconnected";
     if (WiFi.status() == WL_CONNECTED)st = "connected";
@@ -340,6 +349,10 @@ void setupwifi(int num) {
 
   server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
   []() {
+    server.sendHeader("Access-Control-Expose-Headers","Access-Control-*");
+    server.sendHeader("Access-Control-Allow-Headers", "Access-Control-*, Origin, X-Requested-With, Content-Type, Accept");
+    server.sendHeader("Access-Control-Allow-Methods","GET, POST, PUT, DELETE, OPTIONS, HEAD");    
+    server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200);
   },                          // Send status 200 (OK) to tell the client we are ready to receive
   handleFileUpload                                    // Receive and save the file
@@ -348,7 +361,7 @@ void setupwifi(int num) {
 
   server.onNotFound([]() {                              // If the client requests any URI
     if (!handleFileRead(server.uri()))                  // send it if it exists
-      server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
+      server.send(404, "text/plain", "404: Not Found ?"); // otherwise, respond with a 404 (Not Found) error
   });
   server.begin();
 #ifdef TCPSERVER

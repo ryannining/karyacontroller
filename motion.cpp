@@ -78,6 +78,7 @@
 #define Z 2
 #define E 3
 
+extern int CNCMODE;
 int MESHLEVELING=0;
 int vSUBPIXELMAX = 1;
 int constantlaserVal = 0;
@@ -1185,7 +1186,7 @@ static THEISR void decodecmd()
 #ifdef USETIMER1
   timer_set(cmdly);
 #ifdef heater_pin
-  xdigitalWrite(heater_pin, HEATING);
+  if(CNCMODE==0)xdigitalWrite(heater_pin, HEATING);
 #endif
 #endif
   if (Setpoint == 0) {
@@ -1205,6 +1206,7 @@ static THEISR void decodecmd()
       } else if (!rasterlen)LASER(LASERON);
 
     } else {
+      // only change laser if CNCMODE is 0
       LASER( !LASERON);
     }
   }
@@ -1248,7 +1250,7 @@ void THEISR coreloopm()
     mm_ctr++;
     if (cmcmd) { // 1: move
 
-      if (rasterlen) {
+      if (rasterlen) { // only if RASTERMODE
         if (cmbit & 8)LASER( LASERON) else LASER( !LASERON);
       }
       if (cmbit & 8) {
@@ -1729,7 +1731,7 @@ void otherloop(int r)
 #ifndef ISPC
 
   // this both check take 8us
-  temp_loop(cm);
+  if (Setpoint>0)temp_loop(cm);
 #ifdef motortimeout
   if (!m   && (cm - nextmotoroff >= motortimeout)) {
     nextmotoroff = cm;
@@ -1877,7 +1879,6 @@ void calculate_delta_steps()
   m->col++;
 #endif
 }
-
 
 
 int32_t startmove()
@@ -2355,6 +2356,7 @@ float Interpolizer(float zX,float zY) {return 0;}
   waitbufferempty
   Proses semua gerakan di buffer, dan akhiri dengan deselerasi ke 0
 */
+extern void wifi_loop();
 void waitbufferempty()
 {
   //if (head != tail)prepareramp(head);
@@ -2373,6 +2375,7 @@ void waitbufferempty()
     //zprintf(PSTR("->%d\n"), fi(mctr));
   }
 #ifdef laser_pin
+  
   if (Setpoint == 0)LASER( !LASERON);
 #endif
   LOOP_OUT(2)
@@ -2476,9 +2479,9 @@ void initmotion()
   attachInterrupt(powerpin, faildetected, CHANGE);
 #endif
 
-#ifdef LASERMODE
+//#ifdef LASERMODE
   xpinMode(laser_pin, OUTPUT);
-#endif
+//#endif
   LASER( !LASERON);
 #ifdef limit_pin
   pinMode(limit_pin, ENDPIN);

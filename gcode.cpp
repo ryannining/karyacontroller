@@ -494,7 +494,7 @@ inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
         , t->seen_Y ? t->target.axis[Y] : cy1
         , t->seen_Z ? t->target.axis[Z] : ocz1
         , t->seen_E ? t->target.axis[E] : ce01
-        , g0,0);
+        , g0, 0);
 }
 #ifdef ARC_SUPPORT
 
@@ -578,8 +578,10 @@ void process_gcode_command()
         //?
         //? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
         //?
-        laserOn = 0;
-        constantlaserVal = 0;
+        if (CNCMODE == 0) {
+          laserOn = 0;
+          constantlaserVal = 0;
+        }
         enqueue(&next_target, 1);
         break;
 
@@ -597,12 +599,14 @@ void process_gcode_command()
         if (next_target.seen_S) {
           S1 = next_target.S;
         }
-        laserOn = S1 > 0;
-        constantlaserVal = S1;
+        if (CNCMODE == 0) {
+          laserOn = S1 > 0;
+          constantlaserVal = S1;
+        }
         enqueue(&next_target, 0);
         if (laserOn) {
 #ifndef ISPC
-          xpinMode(laser_pin, OUTPUT);
+          //xpinMode(laser_pin, OUTPUT);
 #endif
         }
         break;
@@ -710,7 +714,7 @@ void process_gcode_command()
       case 29:
         MESHLEVELING = next_target.S;
         zprintf(PSTR("A.L "));
-        if (MESHLEVELING)zprintf(PSTR("on\n"));else zprintf(PSTR("off\n"));
+        if (MESHLEVELING)zprintf(PSTR("on\n")); else zprintf(PSTR("off\n"));
         break;
       // Probing
       // mesh bed probing from current position to width , height and number of data
@@ -746,9 +750,11 @@ void process_gcode_command()
 
             for (int i = 0; i < YCount; i++) {
               addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
-              int16_t zz = 1000*pointProbing(); // fixed point
+              int16_t zz = 1000 * pointProbing(); // fixed point
               zmin = fmin(zmin, zz);
               ZValues[j + 1][i + 1] = zz;
+              wifi_loop();
+
             }
           }
           zmin = ZValues[1][1];
@@ -769,8 +775,8 @@ void process_gcode_command()
           addmove(8000, probex1 , probey1 , ocz1, ce01, 0, 0);
           //addmove(8000, probex1 , probey1 , ocz1+ZValues[1][1], ce01, 0, 0);
           waitbufferempty();
-          ocz1=0;
-          cz1=0;
+          ocz1 = 0;
+          cz1 = 0;
           printposition();
           MESHLEVELING = 1;
 
@@ -839,7 +845,7 @@ void process_gcode_command()
           axisSelected = 1;
         };
         if (next_target.seen_Z) {
-          ocz1 = next_target.target.axis[Z];
+          cz1 = ocz1 = next_target.target.axis[Z];
           axisSelected = 1;
         };
         if (next_target.seen_E) {
@@ -850,11 +856,11 @@ void process_gcode_command()
         if (axisSelected == 0) {
           cx1 = next_target.target.axis[X] =
                   cy1 = next_target.target.axis[Y] =
-                          ocz1 = next_target.target.axis[Z] =
-                                  ce01 = next_target.target.axis[E] = 0;
+                          cz1 = ocz1 = next_target.target.axis[Z] =
+                                         ce01 = next_target.target.axis[E] = 0;
         }
         init_pos();
-        /*if (MESHLEVELING) {
+        if (MESHLEVELING) {
           lx -= cx1;
           ly -= cy1;
           // normalize the data
@@ -865,7 +871,7 @@ void process_gcode_command()
             ZValues[0][j + 1] -= ly;
           }
           // activate leveling
-        }*/
+        }
 
         break;
 
@@ -946,24 +952,32 @@ void process_gcode_command()
       case 5:
         // cnc mode laser
         //zprintf(PSTR("SPINDLE OFF\n"));
-        CNCMODE = next_target.seen_P;
+        if (next_target.seen_P)CNCMODE = next_target.P;
 #ifndef ISPC
-  #ifdef laser_pin
-        xpinMode(laser_pin, OUTPUT);
-        SPINDLE(!SPINDLEON)
-        LASER(!LASERON)
-  #endif
+#ifdef laser_pin
+        //xpinMode(laser_pin, OUTPUT);
 #endif
-        next_target.seen_S = 1;
-        next_target.S = 0;
+        if (CNCMODE)goto SPINDLEOFF;
+        LASER(!LASERON)
+#endif
+
+        break;
       case 3:
         if (CNCMODE) {
           //zprintf(PSTR("SPINDLE OFF\n"));
 #ifndef ISPC
-          xpinMode(laser_pin, OUTPUT);
-          SPINDLE(SPINDLEON)
+          if (!next_target.seen_S)next_target.S = 255;
+          //xpinMode(laser_pin, OUTPUT);
+          if (next_target.S) {
+            SPINDLE(SPINDLEON)
+
+          } else {
+SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
+            waitbufferempty();
+            SPINDLE(!SPINDLEON)
+          }
 #endif
-        } else {
+        } else { // if not CNCMODE
           // if no S defined then full power
           if (!next_target.seen_S)next_target.S = 255;
           S1 = next_target.S;
@@ -975,17 +989,21 @@ void process_gcode_command()
             zprintf(PSTR("PULSE LASER\n"));
 #ifndef ISPC
             delay(100);
-            xpinMode(laser_pin, OUTPUT);
+            //xpinMode(laser_pin, OUTPUT);
 #endif
             LASER(LASERON)
 #ifndef ISPC
             delay(next_target.P);
 #endif
+            // after some delay turn off laser
             LASER( !LASERON);
-          }
-          if (!laserOn) {
-            waitbufferempty();
-            //LASER( !LASERON);
+          } else {
+            if (!laserOn) {
+              //
+              // turn off M3 S0
+              waitbufferempty();
+              LASER(!LASERON);
+            }
           }
         }
         break;

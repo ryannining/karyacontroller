@@ -83,9 +83,10 @@
 
 
 //#define BOARD_NANONANO_WEMOS
-#define BOARD_WEMOS3D
+//#define BOARD_WEMOS3D
 //#define BOARD_WEMOS3D_COREXY
-//#define BOARD_WEMOS_CNC_XZYY
+//#define BOARD_ESPUNO_COREXY
+#define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
 //#define BOARD_WEMOSCNC
 //#define BOARD_MINICNC_ESP01
@@ -137,7 +138,7 @@
 #endif
 
 
-//#define EMULATETEMP
+#define EMULATETEMP
 #ifdef EMULATETEMP
 #undef temp_pin
 #endif

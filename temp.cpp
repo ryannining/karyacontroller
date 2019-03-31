@@ -78,9 +78,8 @@ void set_temp(float set) {
   if (set > MAXTEMP)set = MAXTEMP;
   Setpoint = set;
   windowStartTime = millis();
-  xpinMode(heater_pin, OUTPUT);
 
-  xdigitalWrite(heater_pin, 0);
+  if (CNCMODE==0)xdigitalWrite(heater_pin, 0);
 }
 void init_temp()
 {
@@ -91,6 +90,7 @@ void init_temp()
   myPID.SetMode(AUTOMATIC);
 
   next_temp = micros();
+  xpinMode(heater_pin, OUTPUT);
   set_temp(0);
 #ifdef temp_pin
 
@@ -160,9 +160,8 @@ void temp_loop(uint32_t cm)
         // if there is printing / extruding then need to adjust, since the flow of filament take the heat away
         uint32_t et = (ectstep2 - ectstep);
         if (et < 0)et = 0;
-        if (et >stepmmx[3])et = stepmmx[3];
+        if (et >stepmmx[3]*5)tt += 5;else tt+=et/stepmmx[3];
         //zprintf(PSTR("%d\n"),fi(et));
-        tt += et * 68.0/stepmmx[3];
         ectstep2 = ectstep;
       }
       dt *= tt;
@@ -172,7 +171,7 @@ void temp_loop(uint32_t cm)
     if (emutemp > 200)emutemp = 200;
     if (emutemp < 30)emutemp = 30;
     Input = emutemp;
-#ifdef xtemp_pin
+#ifdef temp_pin
     tmc1++;
     if (tmc1 > 40) {
       tmc1=0;
@@ -248,13 +247,13 @@ bang:
     windowStartTime += WindowSize;
   }
 
-  HEATING =(Output > now - windowStartTime;
-  xdigitalWrite(heater_pin, HEATING);
+  HEATING =Output > now - windowStartTime;
+  if(CNCMODE==0)xdigitalWrite(heater_pin, HEATING);
 #endif
 
 }
 int temp_achieved() {
-  return Input >= Setpoint - 10;
+  return Input >= Setpoint;
 
   //  return fabs(Input - Setpoint) < 10;
 }

@@ -74,7 +74,7 @@ int32_t EEMEM EE_un_microstep;
 
 
 
-
+extern int CNCMODE;
 void reload_eeprom() {
   eepromcommit;
 
@@ -99,7 +99,9 @@ void reload_eeprom() {
   xyjerk = eepromread(EE_jerk);
   homingspeed = eepromread(EE_homing);
   zjerk=fmin(homingspeed/3,xyjerk);
-  
+
+  CNCMODE=((ax_home[0]+ax_home[1]+ax_home[2]==0) && (xyjerk<=15));
+  if(CNCMODE)zprintf(PSTR("CNCMODE\n"));
   xyscale = (float)eepromread(EE_xyscale) * 0.001;
 #ifdef NONLINEAR
   delta_radius = (float)eepromread(EE_hor_radius)   * 0.001;
