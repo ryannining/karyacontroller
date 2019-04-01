@@ -78,8 +78,8 @@ void set_temp(float set) {
   if (set > MAXTEMP)set = MAXTEMP;
   Setpoint = set;
   windowStartTime = millis();
-
-  if (CNCMODE==0)xdigitalWrite(heater_pin, 0);
+  
+  HEATER(LOW);
 }
 void init_temp()
 {
@@ -223,6 +223,7 @@ void temp_loop(uint32_t cm)
 #warning USING BANG HEATER
 #endif
 
+#ifndef BANGBANG
 
 #if defined __ARM__
       analogWrite(heater_pin, Output * 2);
@@ -236,6 +237,8 @@ void temp_loop(uint32_t cm)
     }
   }
   return;
+#endif
+  
 #ifdef BANGBANG
 bang:
   /************************************************
@@ -248,7 +251,7 @@ bang:
   }
 
   HEATING =Output > now - windowStartTime;
-  if(CNCMODE==0)xdigitalWrite(heater_pin, HEATING);
+  HEATER(HEATING);
 #endif
 
 }

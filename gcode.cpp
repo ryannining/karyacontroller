@@ -514,6 +514,8 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
 int lastG = 0;
 int probex1, probey1;
 int probemode = 0;
+extern void wifi_loop();
+
 void process_gcode_command()
 {
   uint32_t	backup_f;
@@ -782,13 +784,14 @@ void process_gcode_command()
 
         } else {
 
+          MESHLEVELING = 0;
           if (!next_target.seen_X)next_target.target.axis[X] = cx1;
           if (!next_target.seen_Y)next_target.target.axis[Y] = cy1;
-          //zprintf(PSTR("PR X=%f Y=%f \n"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
+          zprintf(PSTR("PR X=%f Y=%f :"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
           addmove(4000, next_target.target.axis[X], next_target.target.axis[Y], ocz1, ce01, 1, 0);
 
           float zz = pointProbing();
-          zprintf(PSTR("DZ:%f \n"), ff(zz));
+          zprintf(PSTR("%f \n"), ff(zz));
         }
         break;
       // manually store probing data

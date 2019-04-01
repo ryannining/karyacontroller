@@ -253,6 +253,7 @@ void reset_motion()
   cx1 = 0;
   cy1 = 0;
   cz1 = 0;
+  ocz1 = 0;
   ce01 = 0;
   extadv = 0;
   unms = 0;
@@ -1186,7 +1187,7 @@ static THEISR void decodecmd()
 #ifdef USETIMER1
   timer_set(cmdly);
 #ifdef heater_pin
-  if(CNCMODE==0)xdigitalWrite(heater_pin, HEATING);
+  HEATER(HEATING);
 #endif
 #endif
   if (Setpoint == 0) {
@@ -1255,17 +1256,19 @@ void THEISR coreloopm()
       }
       if (cmbit & 8) {
         ectstep+=e_dir;
+        zmmm++;
         motor_3_STEP();
       };
 
       if (cmbit & 1) {
         cmctr++;
         xctstep++;
+        zmmm++;
         motor_0_STEP();
       }
       if (cmbit & 2) {
         yctstep++;
-
+        zmmm++;
         motor_1_STEP();
       }
       if (cmbit & 4) {
@@ -2226,8 +2229,8 @@ float pointProbing()
   // now slow down and check endstop once again
   waitbufferempty();
   float zmm = zmmm;
+  zprintf(PSTR("Probe %f,%f = %f\n"), ff(cx1), ff(cy1), ff(zmm));
   zmm /= stepmmx[2];
-  //zprintf(PSTR("Probe %f,%f = %f\n"), ff(cx1), ff(cy1), ff(zmm));
   checkendstop = 0;
   zcheckevery = o;
   //move back
@@ -2356,7 +2359,6 @@ float Interpolizer(float zX,float zY) {return 0;}
   waitbufferempty
   Proses semua gerakan di buffer, dan akhiri dengan deselerasi ke 0
 */
-extern void wifi_loop();
 void waitbufferempty()
 {
   //if (head != tail)prepareramp(head);
@@ -2446,7 +2448,6 @@ void init_pos()
 {
   babystep[0] = babystep[1] = babystep[2] = babystep[3] = 0;
   e_ctr = ce01;
-
 }
 void initmotion()
 {
@@ -2458,6 +2459,7 @@ void initmotion()
   reset_motion();
   preparecalc();
   dl  = 1000;
+  
 
 #ifdef ISPC
   tickscale = 60;
@@ -2483,6 +2485,7 @@ void initmotion()
   xpinMode(laser_pin, OUTPUT);
 //#endif
   LASER( !LASERON);
+  SPINDLE(!SPINDLEON);
 #ifdef limit_pin
   pinMode(limit_pin, ENDPIN);
 #endif

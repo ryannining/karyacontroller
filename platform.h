@@ -30,6 +30,7 @@
   #define LASER(x) {if (!CNCMODE){xdigitalWrite(laser_pin,x);}}
   //#define LASER(x) {if (!HEATING)digitalWrite(laser_pin,x);}
   #define SPINDLE(x) {if (CNCMODE){xdigitalWrite(laser_pin,x);} }  
+  #define HEATER(x) {if (!CNCMODE){xdigitalWrite(heater_pin,x);} }  
 #else
   #warning Detected as PC
   #define LASER(x) {}

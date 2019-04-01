@@ -1032,6 +1032,7 @@
 // z and e have same direction pin, we think that normally slicer never move z and e together.. we hope we right :D
 #define ydirection D6
 #define ystep D0
+
 #define zdirection D6
 #define zstep D2
 
