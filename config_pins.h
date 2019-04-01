@@ -96,6 +96,7 @@
 
 #include "myboards.h"
 #define USE_EEPROM
+#define EMULATETEMP
 
 #else
 // for PC no pins
@@ -113,7 +114,8 @@
   #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
   #define CORESERIAL // smaller footprint 500byte, only AVR
   #define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
-  #define MESHLEVEL
+  #define USE_BACKLASH  // 400bytes code
+  #define MESHLEVEL // 4Kb
   // ==========================================================
   
 #else
@@ -138,7 +140,6 @@
 #endif
 
 
-#define EMULATETEMP
 #ifdef EMULATETEMP
 #undef temp_pin
 #endif

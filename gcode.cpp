@@ -713,9 +713,10 @@ void process_gcode_command()
         next_target.target.axis[E] = ce01;
         printposition();
         break;
-      case 29:
+#ifdef MESHLEVEL        
+      case 29:      
         MESHLEVELING = next_target.S;
-        zprintf(PSTR("A.L "));
+        //zprintf(PSTR("A.L "));
         if (MESHLEVELING)zprintf(PSTR("on\n")); else zprintf(PSTR("off\n"));
         break;
       // Probing
@@ -734,7 +735,7 @@ void process_gcode_command()
           int w = next_target.S;
           probex1 = cx1;
           probey1 = cy1;
-          float probez1 = ocz1;
+          //float probez1 = ocz1;
           // move up before probing
           //addmove(8000, probex1 , probey1 , ocz1 + 15, ce01, 0, 0);
           int ww = next_target.target.axis[X];
@@ -745,14 +746,14 @@ void process_gcode_command()
           int dy = hh / (YCount - 1);; // 50/1 = 50
           int zmin = 10000;
           for (int j = 0; j < YCount; j++) { // 0,1
-            ZValues[0][j + 1] = probey1 + j * dy;  // [
+            ZValues[0][j + 1] = (probey1 + j * dy);  // [
           }
           for (int j = 0; j < XCount; j++) {
-            ZValues[j + 1][0] = probex1 + j * dx;
+            ZValues[j + 1][0] = (probex1 + j * dx);
 
             for (int i = 0; i < YCount; i++) {
               addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
-              int16_t zz = 1000 * pointProbing(); // fixed point
+              int zz = 100 * pointProbing(); // fixed point
               zmin = fmin(zmin, zz);
               ZValues[j + 1][i + 1] = zz;
               wifi_loop();
@@ -762,16 +763,16 @@ void process_gcode_command()
           zmin = ZValues[1][1];
 
           // normalize the data
-          zprintf(PSTR("MESH\n"));
+          //zprintf(PSTR("MESH\n"));
           for (int j = 0; j <= XCount; j++) {
             for (int i = 0; i <= YCount; i++) {
               if (i && j)ZValues[j][i] -= zmin;
-              if (i)zprintf(PSTR(","));
-              zprintf(PSTR("%f"), ff(ZValues[j][i]));
+              //if (i)zprintf(PSTR(","));
+              //zprintf(PSTR("%f"), ff(ZValues[j][i]));
             }
-            zprintf(PSTR("\n"));
+            //zprintf(PSTR("\n"));
           }
-          zprintf(PSTR("\n"));
+          //zprintf(PSTR("\n"));
           // activate leveling
           // back to zero position and adjust
           addmove(8000, probex1 , probey1 , ocz1, ce01, 0, 0);
@@ -787,14 +788,15 @@ void process_gcode_command()
           MESHLEVELING = 0;
           if (!next_target.seen_X)next_target.target.axis[X] = cx1;
           if (!next_target.seen_Y)next_target.target.axis[Y] = cy1;
-          zprintf(PSTR("PR X=%f Y=%f :"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
+          //zprintf(PSTR("PR X=%f Y=%f :"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
           addmove(4000, next_target.target.axis[X], next_target.target.axis[Y], ocz1, ce01, 1, 0);
 
           float zz = pointProbing();
-          zprintf(PSTR("%f \n"), ff(zz));
+          zprintf(PSTR("%f\n"), ff(zz));
         }
         break;
       // manually store probing data
+#endif
       case 31:
         break;
       case 90:
@@ -880,7 +882,7 @@ void process_gcode_command()
 
       // unknown gcode: spit an error
       default:
-        zprintf(PSTR("E:G%d\nok\n"), next_target.G);
+        //zprintf(PSTR("E:G%d\nok\n"), next_target.G);
         return;
     }
   } else if (next_target.seen_M) {
@@ -986,10 +988,10 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
           S1 = next_target.S;
           laserOn = S1 > 0;
           constantlaserVal = next_target.S;
-          if (laserOn) zprintf(PSTR("LASERON\n"));
+          //if (laserOn) zprintf(PSTR("LASERON\n"));
           if (next_target.seen_P) {
             waitbufferempty();
-            zprintf(PSTR("PULSE LASER\n"));
+            //zprintf(PSTR("PULSE LASER\n"));
 #ifndef ISPC
             delay(100);
             //xpinMode(laser_pin, OUTPUT);
@@ -1120,10 +1122,9 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         //? Report the current status of the endstops configured in the
         //? firmware to the host.
         docheckendstop(1);
-        zprintf(PSTR("END:"));
-        zprintf(endstopstatus < 0 ? PSTR("HI ") : PSTR("LOW "));
-
-        zprintf(PSTR("\n"));
+        //zprintf(PSTR("END:"));
+        zprintf(endstopstatus < 0 ? PSTR("HI\n") : PSTR("LOW\n"));
+        //zprintf(PSTR("\n"));
 
         break;
 
@@ -1272,7 +1273,10 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
 #ifdef WIFISERVER
       // show wifi
       case 504:
+      extern IPAddress ip ;
+
         zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
+        zprintf(PSTR("%d.%d.%d.%d\n"), fi(ip[0]),fi(ip[1]),fi(ip[2]),fi(ip[3]));
         //zprintf(PSTR("NGOPO TO !"));
         break;
       case 505:

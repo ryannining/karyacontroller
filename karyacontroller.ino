@@ -417,7 +417,7 @@ void wifi_loop() {
 
 }
 #else
-#define wifi_loop()
+void wifi_loop(){}
 void setupwifi(int num) {}
 #endif
 

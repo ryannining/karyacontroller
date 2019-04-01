@@ -55,7 +55,7 @@ typedef struct {
 
 
 extern int XCount,YCount;
-extern int ZValues[6][6];
+extern int ZValues[10][10];
 
 extern float pointProbing();
 
@@ -97,7 +97,7 @@ extern float extadv;
 extern int32_t unms;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
-extern float Interpolizer(float zX, float zY);
+extern float Interpolizer(int zX, int zY);
 
 
 #define degtorad(x) x*22/(7*180);
