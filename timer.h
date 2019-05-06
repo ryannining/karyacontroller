@@ -6,7 +6,7 @@
 extern int somedelay(int32_t n);
 //#define somedelay(n) delayMicroseconds(n);
 extern int feedthedog();
-#define TEMPTICK 500000 //500ms
+#define TEMPTICK 100000 //500ms
 #define timescale 1000000L
 #ifdef ISPC
 extern uint32_t micros();

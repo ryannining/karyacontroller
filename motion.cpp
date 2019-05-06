@@ -619,12 +619,20 @@ void planner(int32_t h)
 
 
     max_f = fmax(currf[4], prevf[4]);
-    int32_t fdz = abs(currf[2] - prevf[2]);
+#ifdef DRIVE_XYYZ
+#define MZ 1
+#define MY 2
+#else
+#define MZ 2
+#define MY 1
+
+#endif
+    int32_t fdz = abs(currf[MZ] - prevf[MZ]);
 #ifdef JERK2A
     float jerk = max_f * 0.7 * (1 - (currf[0] * prevf[0] + currf[1] * prevf[1] + currf[2] * prevf[2]) / ((currf[4] * prevf[4])));
 #else
     int32_t fdx = currf[0] - prevf[0];
-    int32_t fdy = currf[1] - prevf[1];
+    int32_t fdy = currf[MY] - prevf[MY];
 
     float jerk = sqrt(fdx * fdx + fdy * fdy);
 
@@ -701,6 +709,9 @@ int8_t repos = 0;
 int ldir[NUMAXIS] = {0, 0, 0, 0};
 #endif
 
+float lastmm[NUMAXIS]; // keep the original coordinate before transform
+float currmm[NUMAXIS]; // keep the original coordinate before transform
+
 
 void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, int rel = 0)
 {
@@ -748,9 +759,11 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
 #endif
   // this x2 is local
 
-  mmdis[0] = (cx2 - cx1) * odir[0];
-  mmdis[1] = (cy2 - cy1) * odir[1];
-  mmdis[2] = (cz2 - cz1) * odir[2];
+  memcpy(lastmm, currmm, sizeof(currmm[0])*3);
+  
+  currmm[0]=mmdis[0] = (cx2 - cx1) * odir[0];
+  currmm[1]=mmdis[1] = (cy2 - cy1) * odir[1];
+  currmm[2]=mmdis[2] = (cz2 - cz1) * odir[2];
   mmdis[3] = (ce02 - ce01) * odir[3];
 
 #ifdef output_enable
@@ -1218,8 +1231,8 @@ uint32_t mc, dmc, cmctr;
 int e_dir = 0;
 int32_t e_ctr = 0;
 
-int32_t mm_ctr = 0;
-int16_t zmmm = 0;
+int mm_ctr = 0;
+//int16_t zmmm = 0;
 void THEISR coreloopm()
 {
 
@@ -1248,32 +1261,29 @@ void THEISR coreloopm()
     nextmicros = cm;
 #endif
 
-    mm_ctr++;
     if (cmcmd) { // 1: move
+      mm_ctr++;
 
       if (rasterlen) { // only if RASTERMODE
-        if (cmbit & 8)LASER( LASERON) else LASER( !LASERON);
+        LASER( (cmbit & 8) ? LASERON : !LASERON);
       }
+      //zmmm++;
       if (cmbit & 8) {
         ectstep += e_dir;
-        zmmm++;
         motor_3_STEP();
       };
 
       if (cmbit & 1) {
-        cmctr++;
+        //cmctr++;
         xctstep++;
-        zmmm++;
         motor_0_STEP();
       }
       if (cmbit & 2) {
         yctstep++;
-        zmmm++;
         motor_1_STEP();
       }
       if (cmbit & 4) {
         zctstep++;
-        zmmm++;
         motor_2_STEP();
       }
       pinCommit();
@@ -1299,7 +1309,7 @@ void THEISR coreloopm()
 #endif
 
       if (checkendstop) { // check endstop every 30 step
-        if ((xctstep >= xcheckevery) || (yctstep >= ycheckevery) || (zctstep >= zcheckevery) || (ectstep >= echeckevery) ) {
+        if ((xctstep >= xcheckevery) || (yctstep >= ycheckevery) || (zctstep >= zcheckevery)) { // || (ectstep >= echeckevery) ) {
           xctstep = yctstep = zctstep = ectstep = 0;
           docheckendstop(0);
           if (endstopstatus < 0) {
@@ -1734,7 +1744,7 @@ void otherloop(int r)
 #ifndef ISPC
 
   // this both check take 8us
-  if (Setpoint > 0)temp_loop(cm);
+  temp_loop(cm);
 #ifdef motortimeout
   if (!m   && (cm - nextmotoroff >= motortimeout)) {
     nextmotoroff = cm;
@@ -1901,7 +1911,7 @@ int32_t startmove()
 #ifdef __ARM__
       sendwait = 1200000;
 #else
-      sendwait = 600000;
+      sendwait = 800000;
 #endif
     }
     return 0;
@@ -2210,7 +2220,7 @@ float pointProbing()
 
   // clear buffer
   waitbufferempty();
-  zmmm = 0;
+  mm_ctr = 0;
   int32_t tx;
 #define mmax HOMING_MOVE
 #define smmax ENDSTOP_MOVE
@@ -2228,8 +2238,8 @@ float pointProbing()
 
   // now slow down and check endstop once again
   waitbufferempty();
-  float zmm = zmmm;
-  zprintf(PSTR("Probe %f,%f = %f\n"), ff(cx1), ff(cy1), ff(zmm));
+  float zmm = mm_ctr;
+  //zprintf(PSTR("Probe %f,%f = %f\n"), ff(cx1), ff(cy1), ff(zmm));
   zmm /= stepmmx[2];
   checkendstop = 0;
   zcheckevery = o;
@@ -2250,6 +2260,7 @@ void meshprobe(float sx, float sy, float tx, float ty, int mc) {
 
 // need to extrapolate if outside area
 #ifdef MESHLEVEL
+// crude interpolizer resolution is mm for x and y and 0.1mm for z
 float Interpolizer(int zX, int zY) {
 
   //Indexes
@@ -2285,7 +2296,7 @@ float Interpolizer(int zX, int zY) {
   int X1 = ZValues[X0i + 1][0];
   int Y0 = ZValues[0][Y0i];
   int Y1 = ZValues[0][Y0i + 1];
-  
+
   int X0Y0 = ZValues[X0i][Y0i];
   int X0Y1 = ZValues[X0i][Y0i + 1];
   int X1Y0 = ZValues[X0i + 1][Y0i];
@@ -2296,7 +2307,7 @@ float Interpolizer(int zX, int zY) {
   int XMY0 = X0Y0 + (zX - X0) * (X1Y0 - X0Y0) / (X1 - X0);
   int XMY1 = X0Y1 + (zX - X0) * (X1Y1 - X0Y1) / (X1 - X0);
 
-  return (XMY0 + (zY - Y0) * (XMY1 - XMY0) / (Y1 - Y0)) * 0.01;
+  return (XMY0 + (zY - Y0) * (XMY1 - XMY0) / (Y1 - Y0)) * 0.1;
 
 }
 #else

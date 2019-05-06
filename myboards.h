@@ -6,49 +6,49 @@
   ============================================================================================
      NAMEBOARD
   ============================================================================================
-#ifdef BOARD_NAMEBOARD
+  #ifdef BOARD_NAMEBOARD
 
-// motors PIN
-#define xenable 2
-#define xdirection 6
-#define xstep 4
+  // motors PIN
+  #define xenable 2
+  #define xdirection 6
+  #define xstep 4
 
-#define yenable 7
-#define ydirection 9
-#define ystep 8
+  #define yenable 7
+  #define ydirection 9
+  #define ystep 8
 
-#define zenable 10
-#define zdirection A5
-#define zstep A4
+  #define zenable 10
+  #define zdirection A5
+  #define zstep A4
 
-#define e0enable 11
-#define e0direction A2
-#define e0step A3
-
-
-// ENDSTOPS PIN, can be using just 1 pin
-#define limit_pin 0
-
-#define temp_pin 6
-#define temp2_pin 6
-#define heater_pin 3
-#define heater2_pin 3
-
-#define DRIVE_XYYZ
-#define DRIVE_COREXY
-#define DRIVE_COREXZ
-#define DRIVE_DELTA
-#define DRIVE_DELTASIAN
-
-#define ISRTEMP    // avr reading using interrupt
-#define USETIMER1  // using timer1 or other timer (implemented timer1 on avr)
-#define CORESERIAL // reduce code on AVR
-#define OLEDDISPLAY // still WIP
-#define SDCARD_CS // pin for SDCARD
-#define KBOX_PIN // 4 key Kontrolbox using analog pin and serial resistors
+  #define e0enable 11
+  #define e0direction A2
+  #define e0step A3
 
 
-#define USE_EEPROM
+  // ENDSTOPS PIN, can be using just 1 pin
+  #define limit_pin 0
+
+  #define temp_pin 6
+  #define temp2_pin 6
+  #define heater_pin 3
+  #define heater2_pin 3
+
+  #define DRIVE_XYYZ
+  #define DRIVE_COREXY
+  #define DRIVE_COREXZ
+  #define DRIVE_DELTA
+  #define DRIVE_DELTASIAN
+
+  #define ISRTEMP    // avr reading using interrupt
+  #define USETIMER1  // using timer1 or other timer (implemented timer1 on avr)
+  #define CORESERIAL // reduce code on AVR
+  #define OLEDDISPLAY // still WIP
+  #define SDCARD_CS // pin for SDCARD
+  #define KBOX_PIN // 4 key Kontrolbox using analog pin and serial resistors
+
+
+  #define USE_EEPROM
 */
 
 
@@ -350,13 +350,13 @@
 #define ydirection 4
 #define ystep 5
 /*
-#define zenable 2
-#define zdirection A1 //A5
-#define zstep 5 //A4
+  #define zenable 2
+  #define zdirection A1 //A5
+  #define zstep 5 //A4
 
-#define e0enable 2
-#define e0direction A2
-#define e0step A3
+  #define e0enable 2
+  #define e0direction A2
+  #define e0step A3
 
 */
 
@@ -394,13 +394,13 @@
 #define ydirection 3
 #define ystep 2
 /*
-#define zenable 2
-#define zdirection A1 //A5
-#define zstep 5 //A4
+  #define zenable 2
+  #define zdirection A1 //A5
+  #define zstep 5 //A4
 
-#define e0enable 2
-#define e0direction A2
-#define e0step A3
+  #define e0enable 2
+  #define e0direction A2
+  #define e0step A3
 
 */
 
@@ -512,6 +512,17 @@
 #define ydirection PB5
 #define ystep PB6
 
+//#define SWAPEZ
+
+#ifdef SWAPEZ
+#define zenable PB9
+#define zdirection PB14
+#define zstep PB15
+
+#define e0enable PB9
+#define e0direction PB3
+#define e0step PB4
+#else
 #define zenable PB9
 #define zdirection PB3
 #define zstep PB4
@@ -519,7 +530,7 @@
 #define e0enable PB9
 #define e0direction PB14
 #define e0step PB15
-
+#endif
 
 #define limit_pin PB12
 
@@ -602,10 +613,10 @@
 #define INVERTENDSTOP // uncomment for normally open
 
 /*
-#define temp_pin PB1
-#define temp2_pin PB0
-#define fan_pin PA3
-#define heater2_pin PA1
+  #define temp_pin PB1
+  #define temp2_pin PB0
+  #define fan_pin PA3
+  #define heater2_pin PA1
 */
 //#define heater_pin PA0
 #define laser_pin PA0
@@ -649,10 +660,10 @@
 #define INVERTENDSTOP // uncomment for normally open
 
 /*
-#define temp_pin PB1
-#define temp2_pin PB0
-#define fan_pin PA3
-#define heater2_pin PA1
+  #define temp_pin PB1
+  #define temp2_pin PB0
+  #define fan_pin PA3
+  #define heater2_pin PA1
 */
 #define heater_pin PA0
 #define laser_pin PA0
@@ -756,7 +767,7 @@
 //#define e0direction 13
 //#define e0step 12
 
-#define limit_pin 0
+#define limit_pin 9
 
 
 //#define temp_pin 0 //analog 0, on pin ABORT
@@ -1122,6 +1133,8 @@
 
 //#define temp_pin A0
 //#define heater_pin D1
+#define heater_pin D1
+#define laser_pin D1
 
 //#define INVERTENDSTOP
 #define NUMBUFFER 20

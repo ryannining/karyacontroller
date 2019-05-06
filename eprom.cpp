@@ -89,7 +89,7 @@ void reload_eeprom() {
   maxf[1] = eepromread(EE_max_y_feedrate);
   maxf[2] = eepromread(EE_max_z_feedrate);
   maxf[3] = eepromread(EE_max_e_feedrate);
-  zaccel = accel*maxf[2]/maxf[0];
+  zaccel = accel * maxf[2] / maxf[0];
 
   stepmmx[0] = (float)eepromread(EE_xstepmm)  * 0.001;
   stepmmx[1] = (float)eepromread(EE_ystepmm)  * 0.001;
@@ -98,10 +98,10 @@ void reload_eeprom() {
 
   xyjerk = eepromread(EE_jerk);
   homingspeed = eepromread(EE_homing);
-  zjerk=fmin(homingspeed/3,xyjerk);
+  zjerk = fmin(homingspeed / 3, xyjerk);
 
-  CNCMODE=((ax_home[0]+ax_home[1]+ax_home[2]==0) && (xyjerk<=15));
-  if(CNCMODE)zprintf(PSTR("CNCMODE\n"));
+  CNCMODE = ((ax_home[0] + ax_home[1] + ax_home[2] == 0) && (xyjerk <= 15));
+  if (CNCMODE)zprintf(PSTR("CNCMODE\n"));
   xyscale = (float)eepromread(EE_xyscale) * 0.001;
 #ifdef NONLINEAR
   delta_radius = (float)eepromread(EE_hor_radius)   * 0.001;
@@ -119,34 +119,34 @@ void reload_eeprom() {
 
 #endif
 
-retract_in=(float)eepromread(EE_retract_in)   * 0.001;
-retract_out=(float)eepromread(EE_retract_out)   * 0.001;
-retract_in_f=(float)eepromread(EE_retract_in_f)   * 0.001;
-retract_out_f=(float)eepromread(EE_retract_out_f)   * 0.001;
+  retract_in = (float)eepromread(EE_retract_in)   * 0.001;
+  retract_out = (float)eepromread(EE_retract_out)   * 0.001;
+  retract_in_f = (float)eepromread(EE_retract_in_f)   * 0.001;
+  retract_out_f = (float)eepromread(EE_retract_out_f)   * 0.001;
 
 #ifdef WIFISERVER
-  wifi_gcode=eepromread(EE_gcode);
-  eepromreadstring(400, wifi_ap,50);
-  eepromreadstring(450, wifi_pwd,20);
-  eepromreadstring(470, wifi_dns,30);
+  wifi_gcode = eepromread(EE_gcode);
+  eepromreadstring(400, wifi_ap, 50);
+  eepromreadstring(450, wifi_pwd, 20);
+  eepromreadstring(470, wifi_dns, 30);
 #endif
 #if defined(heater_pin)
-  myPID.SetTunings(eepromread(EE_pid_p)*0.001,eepromread(EE_pid_i)*0.001,eepromread(EE_pid_d)*0.001);
-  tbang=eepromread(EE_pid_bang)*0.001;
-#endif  
-  tbang=eepromread(EE_pid_bang)*0.001;
-  extadv=eepromread(EE_ext_adv)*0.001;
-  unms=eepromread(EE_un_microstep);
+  myPID.SetTunings(eepromread(EE_pid_p) * 0.001, eepromread(EE_pid_i) * 0.001, eepromread(EE_pid_d) * 0.001);
+  tbang = eepromread(EE_pid_bang) * 0.001;
+#endif
+  tbang = eepromread(EE_pid_bang) * 0.001;
+  extadv = eepromread(EE_ext_adv) * 0.001;
+  unms = eepromread(EE_un_microstep);
   preparecalc();
 }
 
 void reset_eeprom() {
 #ifndef SAVE_RESETMOTION
   reset_motion();
-  retract_in=1;
-  retract_out=1;
-  retract_in_f=6;
-  retract_out_f=4;
+  retract_in = 1;
+  retract_out = 1;
+  retract_in_f = 6;
+  retract_out_f = 4;
   eepromwrite(EE_xhome, ff(ax_home[0]));
   eepromwrite(EE_yhome, ff(ax_home[1]));
   eepromwrite(EE_zhome, ff(ax_home[2]));
@@ -176,14 +176,14 @@ void reset_eeprom() {
   eepromwrite(EE_towerb_ofs, ff(axisofs[1]));
   eepromwrite(EE_towerc_ofs, ff(axisofs[2]));
 
-  eepromwrite(EE_towera_ofs,0);
-  eepromwrite(EE_towerb_ofs,0);
-  eepromwrite(EE_towerc_ofs,0);
+  eepromwrite(EE_towera_ofs, 0);
+  eepromwrite(EE_towerb_ofs, 0);
+  eepromwrite(EE_towerc_ofs, 0);
 
-  eepromwrite(EE_retract_in,0);
-  eepromwrite(EE_retract_out,0);
-  eepromwrite(EE_retract_in_f,10000);
-  eepromwrite(EE_retract_out_f,10000);
+  eepromwrite(EE_retract_in, 0);
+  eepromwrite(EE_retract_out, 0);
+  eepromwrite(EE_retract_in_f, 10000);
+  eepromwrite(EE_retract_out_f, 10000);
 
 
 #ifdef USE_BACKLASH
@@ -194,14 +194,14 @@ void reset_eeprom() {
 #endif
 
 #if defined(heater_pin)
- eepromwrite(EE_pid_p,ff(8.0));
- eepromwrite(EE_pid_i,ff(600.0));
- eepromwrite(EE_pid_d,ff(400.0));
- eepromwrite(EE_pid_bang,ff(4.1));
+  eepromwrite(EE_pid_p, ff(8.0));
+  eepromwrite(EE_pid_i, ff(600.0));
+  eepromwrite(EE_pid_d, ff(400.0));
+  eepromwrite(EE_pid_bang, ff(4.1));
 #endif
- eepromwrite(EE_ext_adv,ff(0));
- eepromwrite(EE_un_microstep,fi(0));
- eepromcommit;
+  eepromwrite(EE_ext_adv, ff(0));
+  eepromwrite(EE_un_microstep, fi(0));
+  eepromcommit;
 #endif
 }
 #else

@@ -74,18 +74,20 @@ void begincompress() {
 }
 void endcompress() {
   if (!compressing)return;
+/*  
   byte h = 1;
   h |= 2 << 1;
   zprintf(PSTR("End Compress Gcode\n"));
   fsGcode.write((uint8_t *)&h, 1);
   fsGcode.close();
+*/
   compressing = 0;
 }
 
 void addgcode()
 {
   if (!compressing)return;
-  char h = 0;
+/*  char h = 0;
   byte f, s;
   int x;
   if (next_target.seen_M) {
@@ -154,7 +156,7 @@ void addgcode()
     cntg28 = 2;
   }
   //zprintf(PSTR("\n"));
-
+*/
 }
 int compress_loop() {
   if (uncompress)return 0;
@@ -169,7 +171,7 @@ int compress_loop() {
     }
   }
   /*
-  if (compressing && (next_target.seen_M || next_target.seen_G)) {
+    if (compressing && (next_target.seen_M || next_target.seen_G)) {
     if (next_target.seen_G && (next_target.G == 90)) {
       next_target.option_all_relative = 0;
       zprintf(PSTR("Abs\n"));
@@ -179,7 +181,7 @@ int compress_loop() {
     }
     addgcode();
     return 1;
-  }*/
+    }*/
 ret:
   return 0;
 }
@@ -280,7 +282,18 @@ void gcodereadnet(uint8_t * addr, int len) {
   }
 }
 
+// version, old is using eSize 1
+#define eSize 2
 
+#if eSize==2
+#define xyMul 100.0
+#define eMul 500.0
+#define eBound 10000
+#else
+#define xyMul 100.0
+#define eMul 50.0
+#define eBound 127
+#endif
 void uncompressaline() {
   if (ispause)return;
   byte h;
@@ -324,27 +337,27 @@ void uncompressaline() {
       fsGcode.read((uint8_t *)&x, 2);
       //zprintf(PSTR("X%d "), fi(x));
       next_target.seen_X = 1;
-      next_target.target.axis[X] = float(x) / 100.0 - 300;
+      next_target.target.axis[X] = float(x) / xyMul - 300;
     }
     if (h & (1 << 5)) {
       fsGcode.read((uint8_t *)&x, 2);
       //zprintf(PSTR("Y%d "), fi(x));
       next_target.seen_Y = 1;
-      next_target.target.axis[Y] = float(x) / 100.0 - 300;
+      next_target.target.axis[Y] = float(x) / xyMul - 300;
     }
     if (h & (1 << 6)) {
       fsGcode.read((uint8_t *)&x, 2);
       //zprintf(PSTR("Z%d "), fi(x));
       next_target.seen_Z = 1;
-      next_target.target.axis[Z] = float(x) / 100.0 - 50;
+      next_target.target.axis[Z] = float(x) / xyMul - 50;
     }
     if (h & (1 << 7)) {
       x = 0;
-      fsGcode.read((uint8_t *)&x, 1);
+      fsGcode.read((uint8_t *)&x, eSize);
       //zprintf(PSTR("E%d "), fi(x));
       next_target.seen_E = 1;
-      eE = eE + x - 127;
-      next_target.target.axis[E] = float(eE) / 50.0;
+      eE = eE + x - eBound;
+      next_target.target.axis[E] = float(eE) / eMul;
     }
     //zprintf(PSTR("\n"));
   }

@@ -1,15 +1,15 @@
- /*
- * DIO2.h
- *
- *  Created on: 11. 2. 2014
- *      Author: Jan Dolinay
- *  Adapted by: Thierry Paris
- *
- *   Alternate version of digital input/output for Arduino.
- *   This is common file included to user application.
- *   It includes the pins2_arduino.h with definitions specific to given
- *   Arduino variant (e.g. standard or mega).
- *   
+/*
+  DIO2.h
+
+   Created on: 11. 2. 2014
+       Author: Jan Dolinay
+   Adapted by: Thierry Paris
+
+    Alternate version of digital input/output for Arduino.
+    This is common file included to user application.
+    It includes the pins2_arduino.h with definitions specific to given
+    Arduino variant (e.g. standard or mega).
+
   This is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
@@ -18,8 +18,8 @@
   This library is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.  
- */
+  Lesser General Public License for more details.
+*/
 
 #ifndef ARDUINO2_H_
 #define ARDUINO2_H_
@@ -73,7 +73,7 @@ typedef int GPIO_pin_t;
 
 
 #ifdef __cplusplus
-extern "C"{
+extern "C" {
 #endif
 // Definitions specific for selected board
 #if defined(__AVR_ATmega2560__)
@@ -115,9 +115,9 @@ static inline void digitalWrite2f(GPIO_pin_t pin, uint8_t value);
 
 // User configuration defined in main.cpp or default value in pins2_arduino.h
 #if GPIO2_PREFER_SPEED
-  #define   GPIO2_USE_INLINE_FUNCTIONS  1
+#define   GPIO2_USE_INLINE_FUNCTIONS  1
 #else
-  #define   GPIO2_USE_INLINE_FUNCTIONS  0
+#define   GPIO2_USE_INLINE_FUNCTIONS  0
 #endif
 
 // Note: ATOMIC_BLOCK is macro in AVR Libc, but it cannot be used in current Arduino verison
@@ -126,9 +126,9 @@ static inline void digitalWrite2f(GPIO_pin_t pin, uint8_t value);
 #define GPIO2_ATOMIC_BEGIN    { uint8_t matom_oldSREG = SREG; cli();
 #define GPIO2_ATOMIC_END      SREG = matom_oldSREG; __asm__ volatile ("" ::: "memory"); }
 /*
-// Version which can be used if the program is compiled using std=c99
-#define GPIO2_ATOMIC_BEGIN    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-#define GPIO2_ATOMIC_END      }
+  // Version which can be used if the program is compiled using std=c99
+  #define GPIO2_ATOMIC_BEGIN    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+  #define GPIO2_ATOMIC_END      }
 */
 
 // ARDUINO2_IOREGS_ABOVEFF - is defined in pins2_arduino.h, independently for each
@@ -138,11 +138,11 @@ static inline void digitalWrite2f(GPIO_pin_t pin, uint8_t value);
 // instructions for AVR MCUs with some registers above this address.
 // For parts of code which should be always atomic, use GPIO2_ATOMIC_BEGIN
 #if GPIO2_IOREGS_ABOVEFF
-  #define GPIO2_OPTIONAL_ATOMIC_BEGIN   GPIO2_ATOMIC_BEGIN
-  #define GPIO2_OPTIONAL_ATOMIC_END   GPIO2_ATOMIC_END
+#define GPIO2_OPTIONAL_ATOMIC_BEGIN   GPIO2_ATOMIC_BEGIN
+#define GPIO2_OPTIONAL_ATOMIC_END   GPIO2_ATOMIC_END
 #else
-  #define GPIO2_OPTIONAL_ATOMIC_BEGIN
-  #define GPIO2_OPTIONAL_ATOMIC_END
+#define GPIO2_OPTIONAL_ATOMIC_BEGIN
+#define GPIO2_OPTIONAL_ATOMIC_END
 #endif
 
 
@@ -215,34 +215,34 @@ static inline
 void pinMode2f(GPIO_pin_t pin, uint8_t mode )
 {
 
-   if (__builtin_constant_p(pin) && __builtin_constant_p(mode))
-   {
-     // GPIO2_OPTIONAL_ATOMIC_ expands to nothing when not needed (atmega328)
-     // and to ATOMIC_BLOCK when needed (atmega2560)
-     GPIO2_OPTIONAL_ATOMIC_BEGIN
-       // fast version which results in single instruction on atmega328
-       if ( mode == OUTPUT )
-       {
-          GPIO_DDR_REG(pin) |= GPIO_PIN_MASK(pin);
-       }
-       else
-       {
-        if ( mode == INPUT_PULLUP )
-        {
-          GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
-          GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
-        }
-        else
-        {
-          // input mode without pull-up
-          GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
-          GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
-        }
-       }
-     GPIO2_OPTIONAL_ATOMIC_END
-   }
-   else
-   {
+  if (__builtin_constant_p(pin) && __builtin_constant_p(mode))
+  {
+    // GPIO2_OPTIONAL_ATOMIC_ expands to nothing when not needed (atmega328)
+    // and to ATOMIC_BLOCK when needed (atmega2560)
+    GPIO2_OPTIONAL_ATOMIC_BEGIN
+    // fast version which results in single instruction on atmega328
+    if ( mode == OUTPUT )
+    {
+      GPIO_DDR_REG(pin) |= GPIO_PIN_MASK(pin);
+    }
+    else
+    {
+      if ( mode == INPUT_PULLUP )
+      {
+        GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
+        GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
+      }
+      else
+      {
+        // input mode without pull-up
+        GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
+        GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
+      }
+    }
+    GPIO2_OPTIONAL_ATOMIC_END
+  }
+  else
+  {
     // The pin or mode are not know at compile-time but the user wants
     // inline code (GPIO2_PREFER_SPEED = 1)
 #if GPIO2_USE_INLINE_FUNCTIONS
@@ -250,7 +250,7 @@ void pinMode2f(GPIO_pin_t pin, uint8_t mode )
     if ( mode == OUTPUT )
     {
       GPIO2_ATOMIC_BEGIN
-        GPIO_DDR_REG(pin) |= GPIO_PIN_MASK(pin);
+      GPIO_DDR_REG(pin) |= GPIO_PIN_MASK(pin);
       GPIO2_ATOMIC_END
     }
     else
@@ -258,26 +258,26 @@ void pinMode2f(GPIO_pin_t pin, uint8_t mode )
       if ( mode == INPUT_PULLUP )
       {
         GPIO2_ATOMIC_BEGIN
-          GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
-          GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
+        GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
+        GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
         GPIO2_ATOMIC_END
       }
       else
       {
         // input mode without pull-up
         GPIO2_ATOMIC_BEGIN
-          GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
-          GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
+        GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
+        GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
         GPIO2_ATOMIC_END
       }
     }
 
 #else
-     // Call non-inline version
-     internal_pinMode2(pin, mode);
+    // Call non-inline version
+    internal_pinMode2(pin, mode);
 #endif
 
-   }
+  }
 }
 
 //
@@ -326,7 +326,7 @@ uint8_t digitalRead2f(GPIO_pin_t pin)
 //
 // digitalWrite2f
 //
-// Set value of a given pin. The pin must be in output mode. 
+// Set value of a given pin. The pin must be in output mode.
 //
 // Size: 2 B with const pin (single SBI instruction). (Atmega328)
 //    42 B (including rjmp) with pin as a variable and non-inline worker
@@ -340,48 +340,48 @@ static inline void digitalWrite2f(GPIO_pin_t, uint8_t) __attribute__((always_inl
 static inline
 void digitalWrite2f(GPIO_pin_t pin, uint8_t value)
 {
-   // If we know the pin number and value at compile-time, the compiler
-   // will compute everything during compilation and resulting code will
-   // be single instruction - which does not need disabled interrupts  
-   if (__builtin_constant_p(pin) && __builtin_constant_p(value))
-   {
-     // ARDUINO2_ATOMIC expands to nothing when not needed (atmega328)
-     // and to ATOMIC_BLOCK when needed (atmega2560)
-     GPIO2_OPTIONAL_ATOMIC_BEGIN
-       if ( value == 0 )
-         GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
-       else
-         GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
-     GPIO2_OPTIONAL_ATOMIC_END
-   }
-   else
-   {
-     // If pin or value must be computed in runtime, resulting code
-     // will always require disabled interrupts.
+  // If we know the pin number and value at compile-time, the compiler
+  // will compute everything during compilation and resulting code will
+  // be single instruction - which does not need disabled interrupts
+  if (__builtin_constant_p(pin) && __builtin_constant_p(value))
+  {
+    // ARDUINO2_ATOMIC expands to nothing when not needed (atmega328)
+    // and to ATOMIC_BLOCK when needed (atmega2560)
+    GPIO2_OPTIONAL_ATOMIC_BEGIN
+    if ( value == 0 )
+      GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
+    else
+      GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
+    GPIO2_OPTIONAL_ATOMIC_END
+  }
+  else
+  {
+    // If pin or value must be computed in runtime, resulting code
+    // will always require disabled interrupts.
 #if GPIO2_USE_INLINE_FUNCTIONS
 
-     // NOTE: if you make change here, make it also in internal_digitalWrite2()!
-     if ( value == 0 )
-     {
-       GPIO2_ATOMIC_BEGIN
-         GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
-       GPIO2_ATOMIC_END
-     }
-     else
-     {
-       GPIO2_ATOMIC_BEGIN
-         GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
-       GPIO2_ATOMIC_END
-     }
+    // NOTE: if you make change here, make it also in internal_digitalWrite2()!
+    if ( value == 0 )
+    {
+      GPIO2_ATOMIC_BEGIN
+      GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
+      GPIO2_ATOMIC_END
+    }
+    else
+    {
+      GPIO2_ATOMIC_BEGIN
+      GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
+      GPIO2_ATOMIC_END
+    }
 
 #else
-     internal_digitalWrite2(pin, value);
+    internal_digitalWrite2(pin, value);
 #endif
-   }
+  }
 
-   // NOTE: Version of the code with macros GPIO_PORT_REG etc. placed directly  
-   // in the code results in the same code after compilation as if we use local
-   // variables to store the mask and register address.
+  // NOTE: Version of the code with macros GPIO_PORT_REG etc. placed directly
+  // in the code results in the same code after compilation as if we use local
+  // variables to store the mask and register address.
 }
 
 // Macro which obtains pin code from Arduino-style pin number
@@ -391,21 +391,21 @@ void digitalWrite2f(GPIO_pin_t pin, uint8_t value)
 //
 // Arduino_to_GPIO_pin
 //
-// Convert Arduino-style pin number (0 thru N) to pin code used by the fast '2f' 
+// Convert Arduino-style pin number (0 thru N) to pin code used by the fast '2f'
 // functions.
 //
 // Note: If we use big switch, the compiler can evaluate this in compile-time
 // for const pin numbers, which results in single instruction digitalRead/Write.
 // It cannot do so if we use an array.
-// BUT the compiler will only do the single instruction version if the function 
+// BUT the compiler will only do the single instruction version if the function
 // is declared inline. Otherwise it will generate normal call even for const pin.
 // BUT inline function will be inlined for all calls, making the program
 // very big.
-// The solution used e.g. in digitalWrite2f, with __builtin_constant_p(pin), 
+// The solution used e.g. in digitalWrite2f, with __builtin_constant_p(pin),
 // does not seem nice here; we would need 2 copies of the same code, one directly
 // in this function for inlining and one in helper, non-inline function.
 // Ideal solution would be normal, non-inline function which the compiler would
-// automatically inline (make into single instruction) for const input. Since 
+// automatically inline (make into single instruction) for const input. Since
 // this seem impossible to achieve for me now, I use the array version of code and
 // inline function.
 static inline GPIO_pin_t Arduino_to_GPIO_pin(uint8_t) __attribute__((always_inline, unused));

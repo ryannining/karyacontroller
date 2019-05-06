@@ -1,6 +1,6 @@
 #include "pid.h"
 
-extern double Setpoint, Input, xInput,Output;
+extern double Setpoint, Input, xInput, Output;
 extern void setfan_val(int val);
 extern int HEATING;
 /**
@@ -18,18 +18,18 @@ extern int HEATING;
 const uint16_t PROGMEM temptable[NUMTEMPS][2] = {
   // EXTRUDER temp table using Beta algorithm with parameters:
   // R0 = 100000, T0 = 25, R1 = 0, R2 = 4700, beta = 4092, maxadc = 1023
-/*
-  {   5,  1966}, //  491 C,     23 ohms, 0.024 V, 0.03 mW, m =  0.000
-  {   6,  1865}, //  466 C,     28 ohms, 0.029 V, 0.03 mW, m = 25.339
-  {   7,  1784}, //  446 C,     32 ohms, 0.034 V, 0.04 mW, m = 20.169
-  {   9,  1662}, //  415 C,     42 ohms, 0.044 V, 0.05 mW, m = 15.333
-  {  11,  1571}, //  392 C,     51 ohms, 0.054 V, 0.06 mW, m = 11.357
-  {  14,  1469}, //  367 C,     65 ohms, 0.068 V, 0.07 mW, m =  8.483
-  {  18,  1371}, //  342 C,     84 ohms, 0.088 V, 0.09 mW, m =  6.153
-  {  22,  1297}, //  324 C,    103 ohms, 0.107 V, 0.11 mW, m =  4.602
-  {  27,  1226}, //  306 C,    127 ohms, 0.132 V, 0.14 mW, m =  3.552
-  {  33,  1160}, //  290 C,    157 ohms, 0.161 V, 0.17 mW, m =  2.749
-*/
+  /*
+    {   5,  1966}, //  491 C,     23 ohms, 0.024 V, 0.03 mW, m =  0.000
+    {   6,  1865}, //  466 C,     28 ohms, 0.029 V, 0.03 mW, m = 25.339
+    {   7,  1784}, //  446 C,     32 ohms, 0.034 V, 0.04 mW, m = 20.169
+    {   9,  1662}, //  415 C,     42 ohms, 0.044 V, 0.05 mW, m = 15.333
+    {  11,  1571}, //  392 C,     51 ohms, 0.054 V, 0.06 mW, m = 11.357
+    {  14,  1469}, //  367 C,     65 ohms, 0.068 V, 0.07 mW, m =  8.483
+    {  18,  1371}, //  342 C,     84 ohms, 0.088 V, 0.09 mW, m =  6.153
+    {  22,  1297}, //  324 C,    103 ohms, 0.107 V, 0.11 mW, m =  4.602
+    {  27,  1226}, //  306 C,    127 ohms, 0.132 V, 0.14 mW, m =  3.552
+    {  33,  1160}, //  290 C,    157 ohms, 0.161 V, 0.17 mW, m =  2.749
+  */
   {  40,  1100}, //  275 C,    191 ohms, 0.195 V, 0.20 mW, m =  2.150
   {  48,  1045}, //  261 C,    231 ohms, 0.234 V, 0.24 mW, m =  1.705
   {  68,   947}, //  236 C,    334 ohms, 0.332 V, 0.33 mW, m =  1.229
@@ -60,13 +60,13 @@ extern float tbang;
 #ifdef __AVR__
 #ifdef MUX5
 #define ADCREAD(pin) adcpin=pin;\
-                ADMUX = bit (REFS0) | (pin);\
-                if(pin>8)ADCSRB |= _BV(MUX5);else ADCSRB &= ~_BV(MUX5);\
-                ADCSRA |= bit (ADSC) | bit (ADIE);
+  ADMUX = bit (REFS0) | (pin);\
+  if(pin>8)ADCSRB |= _BV(MUX5);else ADCSRB &= ~_BV(MUX5);\
+  ADCSRA |= bit (ADSC) | bit (ADIE);
 #else
 #define ADCREAD(pin) adcpin=pin;\
-                ADMUX = bit (REFS0) | (pin);\
-                ADCSRA |= bit (ADSC) | bit (ADIE);
+  ADMUX = bit (REFS0) | (pin);\
+  ADCSRA |= bit (ADSC) | bit (ADIE);
 #endif
 #endif
 

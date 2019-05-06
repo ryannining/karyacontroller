@@ -10,7 +10,7 @@
 #include <avr/interrupt.h>
 #include "Arduino.h"
 #include "stdint.h"
-                                    
+
 #define ASCII_XOFF  19
 #define ASCII_XON   17
 volatile uint8_t rxhead = 0;
@@ -39,12 +39,12 @@ volatile uint8_t flowflags = FLOWFLAG_SEND_XON;
 #define xBAUD 115200
 void serial_init(float BAUD) {
 #define F_CPU 16000000L
-  if (BAUD > 38401){
+  if (BAUD > 38401) {
     UCSR0A = MASK(U2X0);
     UBRR0 = (((F_CPU / 8) / BAUD) - 0.5);
-  }else{
+  } else {
     UCSR0A = 0;
-    UBRR0 = (((F_CPU / 16) /BAUD) - 0.5);  
+    UBRR0 = (((F_CPU / 16) / BAUD) - 0.5);
   }
 
   UCSR0B = MASK(RXEN0) | MASK(TXEN0);
@@ -78,15 +78,15 @@ ISR(USART0_RX_vect)
     trash = UDR0;
   }
 
-  #ifdef XONXOFF
-    if (flowflags & FLOWFLAG_STATE_XON && buf_canwrite(rx) <= 16) {
-      // The buffer has only 16 free characters left, so send an XOFF.
-      // More characters might come in until the XOFF takes effect.
-      flowflags = FLOWFLAG_SEND_XOFF | FLOWFLAG_STATE_XON;
-      // Enable TX interrupt so we can send this character.
-      UCSR0B |= MASK(UDRIE0);
-    }
-  #endif
+#ifdef XONXOFF
+  if (flowflags & FLOWFLAG_STATE_XON && buf_canwrite(rx) <= 16) {
+    // The buffer has only 16 free characters left, so send an XOFF.
+    // More characters might come in until the XOFF takes effect.
+    flowflags = FLOWFLAG_SEND_XOFF | FLOWFLAG_STATE_XON;
+    // Enable TX interrupt so we can send this character.
+    UCSR0B |= MASK(UDRIE0);
+  }
+#endif
 }
 #pragma GCC diagnostic pop
 
@@ -101,22 +101,22 @@ ISR(USART_UDRE_vect)
 ISR(USART0_UDRE_vect)
 #endif
 {
-  #ifdef XONXOFF
-    if (flowflags & FLOWFLAG_SEND_XON) {
-      UDR0 = ASCII_XON;
-      flowflags = FLOWFLAG_STATE_XON;
-    }
-    else if (flowflags & FLOWFLAG_SEND_XOFF) {
-      UDR0 = ASCII_XOFF;
-      flowflags = FLOWFLAG_STATE_XOFF;
-    }
-    else
-  #endif
-
-  if (buf_canread(tx))
-    buf_pop(tx, UDR0);
+#ifdef XONXOFF
+  if (flowflags & FLOWFLAG_SEND_XON) {
+    UDR0 = ASCII_XON;
+    flowflags = FLOWFLAG_STATE_XON;
+  }
+  else if (flowflags & FLOWFLAG_SEND_XOFF) {
+    UDR0 = ASCII_XOFF;
+    flowflags = FLOWFLAG_STATE_XOFF;
+  }
   else
-    UCSR0B &= ~MASK(UDRIE0);
+#endif
+
+    if (buf_canread(tx))
+      buf_pop(tx, UDR0);
+    else
+      UCSR0B &= ~MASK(UDRIE0);
 }
 
 /** Check how many characters can be read.
@@ -127,8 +127,8 @@ uint8_t serial_rxchars() {
 
 /** Read one character.
 */
-uint8_t serial_available(){
-    return (buf_canread(rx));
+uint8_t serial_available() {
+  return (buf_canread(rx));
 }
 uint8_t serial_popchar() {
   uint8_t c = 0;
@@ -138,13 +138,13 @@ uint8_t serial_popchar() {
   if (buf_canread(rx))
     buf_pop(rx, c);
 
-  #ifdef XONXOFF
-    if ((flowflags & FLOWFLAG_STATE_XON) == 0 && buf_canread(rx) <= 16) {
-      // The buffer has (BUFSIZE - 16) free characters again, so send an XON.
-      flowflags = FLOWFLAG_SEND_XON;
-      UCSR0B |= MASK(UDRIE0);
-    }
-  #endif
+#ifdef XONXOFF
+  if ((flowflags & FLOWFLAG_STATE_XON) == 0 && buf_canread(rx) <= 16) {
+    // The buffer has (BUFSIZE - 16) free characters again, so send an XON.
+    flowflags = FLOWFLAG_SEND_XON;
+    UCSR0B |= MASK(UDRIE0);
+  }
+#endif
 
   return c;
 }

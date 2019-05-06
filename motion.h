@@ -45,7 +45,7 @@ typedef struct {
   float dtx[NUMAXIS]; // keep the original coordinate before transform
   //#endif
   int32_t dx[NUMAXIS]; //original delta before transform
-//  float mm[NUMAXIS]; // needed for backplanner
+  //  float mm[NUMAXIS]; // needed for backplanner
 #ifdef ISPC
   // for graphics
   int col;
@@ -54,7 +54,7 @@ typedef struct {
 
 
 
-extern int XCount,YCount;
+extern int XCount, YCount;
 extern int ZValues[10][10];
 
 extern float pointProbing();
@@ -69,20 +69,20 @@ extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 extern int babystep[4];
 extern int32_t e_ctr;
-extern int32_t mm_ctr;
+extern int mm_ctr;
 //extern int32_t px[4];
 extern int xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
-extern int xyjerk, zjerk,accel;
-extern int mvaccel,zaccel;
+extern int xyjerk, zjerk, accel;
+extern int mvaccel, zaccel;
 extern int  maxf[4];
 extern int32_t dlp, dl;
 extern float stepmmx[4], xyscale;
 extern float retract_in, retract_out;
 extern float retract_in_f, retract_out_f;
 extern tmove move[NUMBUFFER];
-extern float cx1, cy1, cz1,ocz1, ce01;
+extern float cx1, cy1, cz1, ocz1, ce01;
 extern uint8_t head, tail;
 extern int8_t checkendstop;
 extern int16_t endstopstatus;

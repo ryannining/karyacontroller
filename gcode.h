@@ -81,13 +81,13 @@ typedef struct {
   //uint8_t						checksum_calculated;	///< checksum we calculated
 } GCODE_COMMAND;
 
-#ifdef __AVR__ 
+#ifdef __AVR__
 #define g_str_len 64
 #else
-#define g_str_len 8000
+#define g_str_len 14000
 #endif
 
-extern int32_t linecount,lineprocess;
+extern int32_t linecount, lineprocess;
 extern int waitforline;
 extern char g_str[g_str_len];
 extern int rasterlen;

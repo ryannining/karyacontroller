@@ -14,19 +14,19 @@
                                  (BUFSIZE - 1))
 
 #define buf_pop(buffer, data)   do { \
-                                  data = buffer ## buf[buffer ## tail]; \
-                                  buffer ## tail = (buffer ## tail + 1) & \
-                                    (BUFSIZE - 1); \
-                                } while (0)
+    data = buffer ## buf[buffer ## tail]; \
+    buffer ## tail = (buffer ## tail + 1) & \
+                     (BUFSIZE - 1); \
+  } while (0)
 
 #define buf_canwrite(buffer)    ((buffer ## tail - buffer ## head - 1) & \
                                  (BUFSIZE - 1))
 
 #define buf_push(buffer, data)  do { \
-                                  buffer ## buf[buffer ## head] = data; \
-                                  buffer ## head = (buffer ## head + 1) & \
-                                    (BUFSIZE - 1); \
-                                } while (0)
+    buffer ## buf[buffer ## head] = data; \
+    buffer ## head = (buffer ## head + 1) & \
+                     (BUFSIZE - 1); \
+  } while (0)
 
 #define MASK(PIN) (1 << PIN)
 
@@ -63,11 +63,18 @@ extern uint8_t serial_available();
 //#ifdef __ARM__
 #ifdef WIFISERVER
 extern void wifiwr(uint8_t s);
-static void serialwr(uint8_t s){Serial.write(s);wifiwr(s);}
+static void serialwr(uint8_t s) {
+  Serial.write(s);
+  wifiwr(s);
+}
 #else
-static void serialwr(uint8_t s){Serial.write(s);}
+static void serialwr(uint8_t s) {
+  Serial.write(s);
+}
 #endif
-static void serialwr0(uint8_t s){Serial.write(s);}
+static void serialwr0(uint8_t s) {
+  Serial.write(s);
+}
 
 //#else
 //#define serialwr Serial.write
@@ -79,7 +86,7 @@ static void serialwr0(uint8_t s){Serial.write(s);}
 #endif
 
 
-void sendf_P(void (*writechar)(uint8_t),PGM_P format_P, ...);
+void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...);
 // No __attribute__ ((format (printf, 1, 2)) here because %q isn't supported.
 
 

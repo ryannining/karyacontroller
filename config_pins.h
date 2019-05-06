@@ -29,7 +29,7 @@
 #define ISRTEMP // 120bytes check board.h
 
 
-#define MAXTEMP 210
+#define MAXTEMP 185
 
 // ========== AVR ================================================
 #if defined(__AVR__)
@@ -50,7 +50,7 @@
 //#define BOARD_SEMEDIY128AU
 #define ANALOGSHIFT 0 // 10bit adc
 //#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
-
+#define BAUDRATE 115200
 
 // ======= STM32F103 ===================================================
 #elif defined(__ARM__)
@@ -64,39 +64,44 @@
 //#define BOARD_STM32F0
 
 #define ANALOGSHIFT 2 // 12bit adc
-#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel // set 1 to disable but can be adjust using M291 Sxx
+//#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel // set 1 to disable but can be adjust using M291 Sxx
+//#define EMULATETEMP
+#define BAUDRATE 115200*1
 
 
 // ====== ESP32 ====================================================
 #elif defined(ESP32)
 #define BOARD_ESP32VN3D
-#define THEISR ICACHE_RAM_ATTR 
+#define THEISR ICACHE_RAM_ATTR
 #define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
+#define EMULATETEMP
+#define BAUDRATE 115200*2
 
 
 // ====== ESP8266 ====================================================
 #elif defined(ESP8266)
 #define MAXTEMP 190
 #define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
-#define THEISR ICACHE_RAM_ATTR 
+#define THEISR ICACHE_RAM_ATTR
 #define ANALOGSHIFT 0 // 10bit adc ??
+#define BAUDRATE 115200*2
 
 
 //#define BOARD_NANONANO_WEMOS
 //#define BOARD_WEMOS3D
-//#define BOARD_WEMOS3D_COREXY
+#define BOARD_WEMOS3D_COREXY
 //#define BOARD_ESPUNO_COREXY
-#define BOARD_WEMOS_CNC_XZYY
+//#define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
 //#define BOARD_WEMOSCNC
 //#define BOARD_MINICNC_ESP01
 //#define BOARD_WEMOS_XYY_LASER
 //#define BOARD_ESP01CNC_V1
+#define EMULATETEMP
 #endif
 
 #include "myboards.h"
 #define USE_EEPROM
-#define EMULATETEMP
 
 #else
 // for PC no pins
@@ -110,25 +115,25 @@
 */
 
 #ifdef __AVR__
-  //#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
-  #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-  #define CORESERIAL // smaller footprint 500byte, only AVR
-  #define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
-  #define USE_BACKLASH  // 400bytes code
-  #define MESHLEVEL // 4Kb
-  // ==========================================================
-  
+//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
+#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
+#define CORESERIAL // smaller footprint 500byte, only AVR
+#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
+#define USE_BACKLASH  // 400bytes code
+//#define MESHLEVEL // 4Kb
+// ==========================================================
+
 #else
-  #define MESHLEVEL
-  #define ARC_SUPPORT // 3kb
-  #define USE_BACKLASH  // 400bytes code
-  #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-  //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
-  //#define CHANGEFILAMENT //580byte
-  #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-  #define WIFISERVER
-  #define TOUCHSERVER
-  //#define INTERPOLATEDELAY  // slower 4-8us
+#define MESHLEVEL
+#define ARC_SUPPORT // 3kb
+#define USE_BACKLASH  // 400bytes code
+#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
+//#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
+//#define CHANGEFILAMENT //580byte
+#define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
+#define WIFISERVER
+//#define TOUCHSERVER
+//#define INTERPOLATEDELAY  // slower 4-8us
 #endif
 // ==========================================================
 
@@ -148,9 +153,10 @@
 //#define MYLASER
 
 #ifdef MYLASER
-  #undef WIFISERVER
-  #define LASERON LOW
-  #define NUMBUFFER 50
+//#undef WIFISERVER
+#undef heater_pin
+#define LASERON LOW
+#define NUMBUFFER 50
 #endif
 
 //#define USE_EEPROM
@@ -159,7 +165,7 @@
 #define POWERFAILURE
 #endif
 
-// lets assume if not laser_pin not defined use the heater_pin 
+// lets assume if not laser_pin not defined use the heater_pin
 
 #ifdef laser_pin
 #define LASERMODE
@@ -251,28 +257,49 @@
 #define ZOFFSET 0
 #define EOFFSET 0
 
+#ifdef BOARD_WEMOS3D_COREXY
+#define XYJERK 25
+#define XACCELL 1600
+#define XMOVEACCELL 1600
+#else
 #define XYJERK 25
 #define XACCELL 100
 #define XMOVEACCELL 100
-
+#endif
+#ifdef BOARD_WEMOS3D_COREXY
+#define XMAXFEEDRATE 100
+#define YMAXFEEDRATE 100
+#define ZMAXFEEDRATE 30
+#define E0MAXFEEDRATE 25
+#else
 #define XMAXFEEDRATE 200
 #define YMAXFEEDRATE 100
 #define ZMAXFEEDRATE 30
 #define E0MAXFEEDRATE 100
-
+#endif
+#ifdef BOARD_WEMOS3D_COREXY
+#define XSTEPPERMM 100.5//50//105.090//50//131//178
+#define YSTEPPERMM 100.5////105.090//50//175//125
+#define ZSTEPPERMM 243.75//2300//80//1020//1020 //420
+#define E0STEPPERMM 152//92//340//380
+#else
 #define XSTEPPERMM 50//50//105.090//50//131//178
 #define YSTEPPERMM 50////105.090//50//175//125
 #define ZSTEPPERMM 150//2300//80//1020//1020 //420
 #define E0STEPPERMM 10//92//340//380
-
+#endif
 #ifndef NUMBUFFER
 #define NUMBUFFER 20
 #endif
-
+#ifdef BOARD_WEMOS3D_COREXY
+#define XMAX 0
+#define YMAX 0
+#define ZMAX 159
+#else
 #define XMAX 1
 #define YMAX 1
 #define ZMAX 1
-
+#endif
 #define MOTOR_X_BACKLASH 20  // MOTOR 0 = X, 1= Y 2=Z 3=E
 #define MOTOR_Y_BACKLASH 20
 #define MOTOR_Z_BACKLASH 0

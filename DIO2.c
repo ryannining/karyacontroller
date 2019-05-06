@@ -27,7 +27,7 @@ void internal_pinMode2(GPIO_pin_t pin, uint8_t mode)
   if ( mode == OUTPUT )
   {
     GPIO2_ATOMIC_BEGIN
-      GPIO_DDR_REG(pin) |= GPIO_PIN_MASK(pin);
+    GPIO_DDR_REG(pin) |= GPIO_PIN_MASK(pin);
     GPIO2_ATOMIC_END
   }
   else
@@ -35,16 +35,16 @@ void internal_pinMode2(GPIO_pin_t pin, uint8_t mode)
     if ( mode == INPUT_PULLUP )
     {
       GPIO2_ATOMIC_BEGIN
-        GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
-        GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
+      GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
+      GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
       GPIO2_ATOMIC_END
     }
     else
     {
       // input mode without pull-up
       GPIO2_ATOMIC_BEGIN
-        GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
-        GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
+      GPIO_DDR_REG(pin) &= ~GPIO_PIN_MASK(pin);
+      GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
       GPIO2_ATOMIC_END
     }
   }
@@ -69,15 +69,15 @@ void internal_digitalWrite2(GPIO_pin_t pin, uint8_t value)
   if ( value == 0 )
   {
     GPIO2_ATOMIC_BEGIN
-      GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
+    GPIO_PORT_REG(pin) &= ~GPIO_PIN_MASK(pin);
     GPIO2_ATOMIC_END
-   }
-   else
-   {
-     GPIO2_ATOMIC_BEGIN
-       GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
-     GPIO2_ATOMIC_END
-   }
+  }
+  else
+  {
+    GPIO2_ATOMIC_BEGIN
+    GPIO_PORT_REG(pin) |= GPIO_PIN_MASK(pin);
+    GPIO2_ATOMIC_END
+  }
 }
 
 int GPIO_to_Arduino_pin(GPIO_pin_t inPin)
@@ -85,7 +85,7 @@ int GPIO_to_Arduino_pin(GPIO_pin_t inPin)
 #ifdef GPIO2_PREFER_SPEED
   switch ((uint32_t)inPin)
   {
-    GPIO_TO_ARDUINO;
+      GPIO_TO_ARDUINO;
   }
 #else
   int i;

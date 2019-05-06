@@ -60,8 +60,8 @@ void write_int32(void (*writechar)(uint8_t), int32_t v) {
   \param v number to send
 */
 void write_char(void (*writechar)(uint8_t), char* v) {
-  int l=strlen(v);
-  if (l>25)l=25;
+  int l = strlen(v);
+  if (l > 25)l = 25;
   for (int i = 0; i < l; i++) {
     writechar(v[i]);
   }

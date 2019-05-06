@@ -32,13 +32,13 @@ static void  eepromwritestring(int p, char* str) {
     EEPROM.put(p, str[i]);
   }
 }
-static void  eepromreadstring(int p, char* str,int len) {
+static void  eepromreadstring(int p, char* str, int len) {
   int i;
-  byte l=0;
-  
+  byte l = 0;
+
   EEPROM.get(p, l);
-  if (l>len)l=len;
-  if (l<0)l=0;
+  if (l > len)l = len;
+  if (l < 0)l = 0;
   for (i = 0; i < l; i++) {
     p++;
     EEPROM.get(p, str[i]);
@@ -57,37 +57,37 @@ static void  eepromreadstring(int p, char* str,int len) {
 static int32_t eepromread(int p)
 {
   int32_t r;
-  #ifdef _VARIANT_ARDUINO_STM32_
-  r=EEPROM.read(p);
-  #else
+#ifdef _VARIANT_ARDUINO_STM32_
+  r = EEPROM.read(p);
+#else
   uint16_t* b;
   b = (uint16_t*)&r;
   EEPROM.read(p, b); p += 2; b++;
   EEPROM.read(p, b);
-  #endif
-  zprintf(PSTR("Read eeprom %d %d\n"),fi(p),fi(r));
+#endif
+  zprintf(PSTR("Read eeprom %d %d\n"), fi(p), fi(r));
   return r;
 }
 static void eepromwrite(int p, int32_t val)
 {
-  #ifdef _VARIANT_ARDUINO_STM32_
-  EEPROM.put(p,val);
-  #else
+#ifdef _VARIANT_ARDUINO_STM32_
+  EEPROM.put(p, val);
+#else
   uint16_t* b;
   b = (uint16_t*)&val;
   EEPROM.update(p, *b); p += 2; b++;
   EEPROM.update(p, *b);
-  #endif
-  zprintf(PSTR("Write eeprom %d %d\n"),fi(p),fi(val));
+#endif
+  zprintf(PSTR("Write eeprom %d %d\n"), fi(p), fi(val));
 }
 
 #define eepromcommit
 
-  #ifdef _VARIANT_ARDUINO_STM32_
-  #define eeprominit 
-  #else
-  #define eeprominit EEPROM.PageBase0 = 0x801F000; EEPROM.PageBase1 = 0x801F800; EEPROM.PageSize  = 0x400;EEPROM.init();
-  #endif //
+#ifdef _VARIANT_ARDUINO_STM32_
+#define eeprominit
+#else
+#define eeprominit EEPROM.PageBase0 = 0x801F000; EEPROM.PageBase1 = 0x801F800; EEPROM.PageSize  = 0x400;EEPROM.init();
+#endif //
 #endif //
 
 

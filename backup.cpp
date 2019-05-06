@@ -1,14 +1,14 @@
 /*
- * 
 
 
 
 
-=========================
 
-#ifdef DRIVE_DELTA
-void addmoveDELTA(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , int rel)
-{
+  =========================
+
+  #ifdef DRIVE_DELTA
+  void addmoveDELTA(float cf, float cx2, float cy2 , float cz2, float ce02, int g0 , int rel)
+  {
   // create delta segments if needed
 
 
@@ -48,14 +48,14 @@ void addmoveDELTA(float cf, float cx2, float cy2 , float cz2, float ce02, int g0
     //addmove(cf,cx2,cy2,cz2,ce02,g0,rel);
   }
 
-}
+  }
 
-#endif
-
-
+  #endif
 
 
-uint32_t approx_distance_3(uint32_t dx, uint32_t dy, uint32_t dz) {
+
+
+  uint32_t approx_distance_3(uint32_t dx, uint32_t dy, uint32_t dz) {
   uint32_t min, med, max, approx;
 
   if ( dx < dy ) {
@@ -84,8 +84,8 @@ uint32_t approx_distance_3(uint32_t dx, uint32_t dy, uint32_t dz) {
 
   // add 512 for proper rounding
   return (( approx + 512 ) >> 10 );
-}
-uint32_t approx_distance(uint32_t dx, uint32_t dy) {
+  }
+  uint32_t approx_distance(uint32_t dx, uint32_t dy) {
   uint32_t min, max, approx;
 
   // If either axis is zero, return the other one.
@@ -105,7 +105,7 @@ uint32_t approx_distance(uint32_t dx, uint32_t dy) {
 
   // add 512 for proper rounding
   return (( approx + 512 ) >> 10 );
-}
+  }
 
 
 
@@ -153,17 +153,17 @@ uint32_t approx_distance(uint32_t dx, uint32_t dy) {
 
 
 
-void prepareramp(int32_t bpos)
-{
+  void prepareramp(int32_t bpos)
+  {
 
-#define preprampdebug
+  #define preprampdebug
   tmove *m, *next;
   m = &move[bpos];
   //if (m->status & 4)return; // already calculated
 
   int faxis = FASTAXIS(m);
   int32_t ytotalstep = labs(m->dx[faxis]);
-#define stepmm  Cstepmmx(faxis)
+  #define stepmm  Cstepmmx(faxis)
 
   float stepa = stepmm / (m->ac);
   //float stepa = (ytotalstep*m->dis/m->ac); // *stepmm / (m->ac);
@@ -178,10 +178,10 @@ void prepareramp(int32_t bpos)
   ramplenq(rampup, m->fs, m->fn, stepa);
   ramplenq(rampdown, fe, m->fn, stepa);
 
-#ifdef preprampdebug
+  #ifdef preprampdebug
   zprintf(PSTR("\n========1========\nRU:%d Rd:%d Ts:%d\n"), rampup, rampdown, ytotalstep);
   zprintf(PSTR("FS:%f AC:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->ac), ff(m->fn),  ff(fe));
-#endif
+  #endif
 
   if (rampup + rampdown > ytotalstep) {
     // if crossing and have rampup
@@ -199,13 +199,13 @@ void prepareramp(int32_t bpos)
 
   CORELOOP
 
-#ifdef preprampdebug
+  #ifdef preprampdebug
   zprintf(PSTR("========FINAL========\nRU:%d Rd:%d\n"), rampup, rampdown);
   zprintf(PSTR("FS:%f AC:%f FN:%f FE:%f\n"), ff(m->fs), ff(m->ac), ff(m->fn),  ff(fe));
-#endif
+  #endif
   m->status |= 4;
   CORELOOP
-}
+  }
 
 
- */
+*/

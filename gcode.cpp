@@ -8,6 +8,10 @@
 #include "eprom.h"
 #include "gcodesave.h"
 
+#ifdef ESP8266
+//#include <WiFi.h>
+//#include <WiFiClient.h>
+#endif
 
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
 // generic sdcard add about 800uint8_t ram and 8kb code
@@ -115,12 +119,6 @@ static float decfloat_to_float(void)
   MLOOP
   return read_digit.sign ? -r : r;
 }
-void pausemachine()
-{
-  PAUSE = !PAUSE;
-  if (PAUSE)zprintf(PSTR("Pause\n"));
-  else zprintf(PSTR("Resume\n"));
-}
 void changefilament(float l)
 {
 #ifdef CHANGEFILAMENT
@@ -184,7 +182,7 @@ int reset_command() {
 uint8_t gcode_parse_char(uint8_t c)
 {
   uint8_t checksum_char = c;
-  //Serial.write(c);
+  //serialwr(c);
   // uppercase
   if (c >= 'a' && c <= 'z' && !next_target.read_string)
     c &= ~32;
@@ -425,6 +423,22 @@ void printbufflen()
   zprintf(PSTR("Buf:%d\n"), fi(bufflen()));
 
 }
+void pausemachine()
+{
+  PAUSE = !PAUSE;
+  if (PAUSE)zprintf(PSTR("Pause\n"));
+  else zprintf(PSTR("Resume\n"));
+}
+void stopmachine() {
+  if (m) {
+    rasterlen = 0;
+    RUNNING = 0;
+    waitbufferempty();
+    printposition();
+    rasterlen = 0;
+    //printbufflen();
+  }
+}
 
 #define queue_wait() needbuffer()
 
@@ -571,7 +585,7 @@ void process_gcode_command()
 
     lastG = next_target.G;
     uint8_t axisSelected = 0;
-    //zprintf(PSTR("Gcode %su \n"),next_target.G);
+    //zprintf(PSTR("Gcode G%d \n"),fi(next_target.G));
     switch (next_target.G) {
       case 0:
         //? G0: Rapid Linear Motion
@@ -699,7 +713,6 @@ void process_gcode_command()
         // G0 Y0.6
         // G1 X0 E0
         // G4
-
         rasterlen = g_str_c; //next_target.S;
         if (g_str_l != 0) {
           if (next_target.S)lastB += next_target.S;
@@ -713,8 +726,8 @@ void process_gcode_command()
         next_target.target.axis[E] = ce01;
         printposition();
         break;
-#ifdef MESHLEVEL        
-      case 29:      
+#ifdef MESHLEVEL
+      case 29:
         MESHLEVELING = next_target.S;
         //zprintf(PSTR("A.L "));
         if (MESHLEVELING)zprintf(PSTR("on\n")); else zprintf(PSTR("off\n"));
@@ -753,7 +766,7 @@ void process_gcode_command()
 
             for (int i = 0; i < YCount; i++) {
               addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
-              int zz = 100 * pointProbing(); // fixed point
+              int zz = 10 * pointProbing(); // fixed point
               zmin = fmin(zmin, zz);
               ZValues[j + 1][i + 1] = zz;
               wifi_loop();
@@ -763,16 +776,16 @@ void process_gcode_command()
           zmin = ZValues[1][1];
 
           // normalize the data
-          //zprintf(PSTR("MESH\n"));
+          zprintf(PSTR("MESH\n"));
           for (int j = 0; j <= XCount; j++) {
             for (int i = 0; i <= YCount; i++) {
               if (i && j)ZValues[j][i] -= zmin;
-              //if (i)zprintf(PSTR(","));
-              //zprintf(PSTR("%f"), ff(ZValues[j][i]));
+              if (i)zprintf(PSTR(","));
+              zprintf(PSTR("%f"), ff(ZValues[j][i]));
             }
-            //zprintf(PSTR("\n"));
+            zprintf(PSTR("\n"));
           }
-          //zprintf(PSTR("\n"));
+          zprintf(PSTR("\n"));
           // activate leveling
           // back to zero position and adjust
           addmove(8000, probex1 , probey1 , ocz1, ce01, 0, 0);
@@ -795,7 +808,7 @@ void process_gcode_command()
           zprintf(PSTR("%f\n"), ff(zz));
         }
         break;
-      // manually store probing data
+        // manually store probing data
 #endif
       case 31:
         break;
@@ -887,6 +900,7 @@ void process_gcode_command()
     }
   } else if (next_target.seen_M) {
     //uint8_t i;
+    //zprintf(PSTR("Gcode M%d \n"),fi(next_target.M));
 
     switch (next_target.M) {
       /*#ifndef ISPC
@@ -912,13 +926,7 @@ void process_gcode_command()
 
       case 2:
         // stop and clear all buffer
-        if (m) {
-          RUNNING = 0;
-          waitbufferempty();
-          printposition();
-          //printbufflen();
-          rasterlen = 0;
-        }
+        stopmachine();
         break;
       case 25:
         // stop and clear all buffer
@@ -1060,6 +1068,7 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         //zprintf(PSTR("B:%d/%d\n"), fi(bufflen()),fi(NUMBUFFER));
         break;
       case 109:
+        waitbufferempty();
         set_temp(next_target.S);
         temp_wait();
         break;
@@ -1273,10 +1282,10 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
 #ifdef WIFISERVER
       // show wifi
       case 504:
-      extern IPAddress ip ;
+        //extern IPAddress ip ;
 
         zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
-        zprintf(PSTR("%d.%d.%d.%d\n"), fi(ip[0]),fi(ip[1]),fi(ip[2]),fi(ip[3]));
+        //zprintf(PSTR("%d.%d.%d.%d\n"), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]));
         //zprintf(PSTR("NGOPO TO !"));
         break;
       case 505:

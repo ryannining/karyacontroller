@@ -187,7 +187,7 @@ void timer_init()
 #endif // avr timer
 
 /*
-    =======================================  ARM TIMER   =======================================  
+    =======================================  ARM TIMER   =======================================
 */
 #ifdef __ARM__
 //#include "HardwareTimer.h"
@@ -215,8 +215,8 @@ void tm()
     LASER(  LASERON);
 #endif
   }
-  int d=ndelay >= 30000 ? 30000 : ndelay;
-  if (d<6)d=6;
+  int d = ndelay >= 30000 ? 30000 : ndelay;
+  if (d < 6)d = 6;
   Timer1.setOverflow(d);
   Timer1.setCompare1(d);
   Timer1.resume();
@@ -262,8 +262,8 @@ void ICACHE_RAM_ATTR tm()
     LASER(  LASERON);
 #endif
   }
-  int d=ndelay >= 30000 ? 30000 : ndelay;
-  if (d<6)d=6;
+  int d = ndelay >= 30000 ? 30000 : ndelay;
+  if (d < 6)d = 6;
 #ifdef usetmr1
   timer1_write(d);
 #else

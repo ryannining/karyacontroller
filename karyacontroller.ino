@@ -158,28 +158,33 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
 
 void handleFileUpload() { // upload a new file to the SPIFFS
   NOINTS
-  HTTPUpload& upload = server.upload();
-  if (upload.status == UPLOAD_FILE_START) {
-    String filename = upload.filename;
-    if (filename == "")filename = "gcode";
-    if (!filename.startsWith("/")) filename = "/" + filename;
-    xprintf(PSTR("handleFileUpload Name: %s\n"), filename.c_str());
-    fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
-    filename = String();
-  } else if (upload.status == UPLOAD_FILE_WRITE) {
-    if (fsUploadFile)
-      fsUploadFile.write(upload.buf, upload.currentSize); // Write the received bytes to the file
-  } else if (upload.status == UPLOAD_FILE_END) {
-    if (fsUploadFile) {                                   // If the file was successfully created
-      fsUploadFile.close();                               // Close the file again
-      xprintf(PSTR("handleFileUpload Size: %d\n"), upload.totalSize);
-      server.sendHeader("Location", "/upload");     // Redirect the client to the success page
-      server.send(303);
-    } else {
-      server.send(500, "text/plain", "500: couldn't create file");
+  if (uncompress) {
+    server.send(500, "text/plain", "Still PRINTING");
+  } else {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      String filename = upload.filename;
+      if (filename == "")filename = "gcode";
+      if (!filename.startsWith("/")) filename = "/" + filename;
+      xprintf(PSTR("handleFileUpload Name: %s\n"), filename.c_str());
+      fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
+      filename = String();
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      // do temploop to avoid overheating
+      temp_loop(micros());
+      if (fsUploadFile)
+        fsUploadFile.write(upload.buf, upload.currentSize); // Write the received bytes to the file
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (fsUploadFile) {                                   // If the file was successfully created
+        fsUploadFile.close();                               // Close the file again
+        xprintf(PSTR("handleFileUpload Size: %d\n"), upload.totalSize);
+        server.sendHeader("Location", "/upload");     // Redirect the client to the success page
+        server.send(303);
+      } else {
+        server.send(500, "text/plain", "500: couldn't create file");
+      }
     }
-  }
-  INTS
+  }  INTS
 }
 
 #ifdef WEBSOCKSERVER
@@ -281,6 +286,7 @@ void setupwifi(int num) {
     server.arg("pw").toCharArray(wifi_pwd, 19);
     eepromwritestring(450, wifi_pwd);
     server.send ( 200, "text/html", "OK");
+    reload_eeprom();
   });
   server.on("/gcode", HTTP_GET, []() {                 // if the client requests the upload page
     char gc[100];
@@ -288,7 +294,7 @@ void setupwifi(int num) {
     for (int i = 0; i < strlen(gc); i++) {
       buf_push(wf, gc[i]);
     }
-    
+
   });
   server.on("/getconfig", HTTP_GET, []() {                 // if the client requests the upload page
     String st = "disconnected";
@@ -323,12 +329,20 @@ void setupwifi(int num) {
     server.send ( 200, "text/html", "OK");
   });
   server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
-    server.send ( 200, "text/html", "OK");
-    beginuncompress("/gcode");
+    if (uncompress) {
+      server.send ( 200, "text/html", "FAIL, STILL PRINTING");
+    } else {
+      server.send ( 200, "text/html", "OK");
+      beginuncompress("/gcode");
+    }
   });
   server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
-    server.send ( 200, "text/html", "OK");
-    enduncompress();
+    if (!uncompress) {
+      server.send ( 200, "text/html", "FAIL, NOT PRINTING");
+    } else {
+      server.send ( 200, "text/html", "OK");
+      enduncompress();
+    }
   });
   server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
     server.send ( 200, "text/html", "OK");
@@ -349,9 +363,9 @@ void setupwifi(int num) {
 
   server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
   []() {
-    server.sendHeader("Access-Control-Expose-Headers","Access-Control-*");
+    server.sendHeader("Access-Control-Expose-Headers", "Access-Control-*");
     server.sendHeader("Access-Control-Allow-Headers", "Access-Control-*, Origin, X-Requested-With, Content-Type, Accept");
-    server.sendHeader("Access-Control-Allow-Methods","GET, POST, PUT, DELETE, OPTIONS, HEAD");    
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200);
   },                          // Send status 200 (OK) to tell the client we are ready to receive
@@ -376,9 +390,9 @@ void setupwifi(int num) {
   //if (!num)
   SPIFFS.begin();
   touchserver(1, String(wifi_dns));
-  #ifdef DISABLESERIAL
+#ifdef DISABLESERIAL
   //Serial.end();
-  #endif
+#endif
   INTS
 }
 extern int sendwait;
@@ -417,7 +431,7 @@ void wifi_loop() {
 
 }
 #else
-void wifi_loop(){}
+void wifi_loop() {}
 void setupwifi(int num) {}
 #endif
 
@@ -568,7 +582,7 @@ void control_loop() {
 */
 int tmax, tmin;
 uint32_t dbtm, dbcm = 0;
-void gcode_loop() {
+char gcode_loop() {
 
 #ifndef ISPC
 
@@ -711,6 +725,7 @@ void gcode_loop() {
       lineprocess++;
     }
 
+    //#define echoserial
 #ifdef echoserial
     serialwr(c);
 #endif
@@ -724,7 +739,7 @@ void gcode_loop() {
   }
 #else
 #endif
-
+  return c;
 }
 int setupok = 0;
 
@@ -778,7 +793,7 @@ uint32_t t1;
 void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
-  serialinit(2 * 115200); //115200);
+  serialinit(BAUDRATE); //115200);
   LASER(!LASERON);
   t1 = millis();
   //while (!Serial.available())continue;
@@ -792,12 +807,12 @@ void loop() {
   if (!setupok && (t1 - millis() > DELAYSETUP * 1000))setupother();
 #endif
   if (setupok) {
-    gcode_loop();
+    char c=gcode_loop();
     control_loop();
     display_loop();
 #ifdef ESP8266
     wifi_loop();
-    uncompress_loop();
+    if (c==0)uncompress_loop();
 #endif
   }
 }
