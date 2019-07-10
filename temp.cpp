@@ -9,6 +9,7 @@
 #ifdef EMULATETEMP
 #undef ISRTEMP
 float emutemp = 30;
+float HEATINGSCALE = 1;
 #endif
 
 
@@ -150,26 +151,29 @@ void temp_loop(uint32_t cm)
 #ifdef EMULATETEMP
     // emulated sensor using math formula, sec= delta time
     float dt;
+    float tt = 0;
     if (HEATING) {
-      dt = pow(200 - emutemp, 0.2);
-    } else {
-      // heat dissipation to air, can be tweak using eeprom ET
-      dt = -pow(emutemp, 3) * 0.0000001;
-      float tt = tbang;
-      if (ectstep2 != ectstep) {
-        // if there is printing / extruding then need to adjust, since the flow of filament take the heat away
-        uint32_t et = (ectstep2 - ectstep);
-        if (et < 0)et = 0;
-        #define stmax 3
-        if (et > stepmmx[3] * stmax)tt += stmax; else tt += et / stepmmx[3];
-        //zprintf(PSTR("%d\n"),fi(et));
-        ectstep2 = ectstep;
-      }
-      dt *= tt;
+      if (emutemp<200)dt = pow(200.0 - emutemp, 0.2);
+      else dt=1;//pow((250.0-emutemp)/50.0,2);
+      emutemp += dt * sec;
+    } else tt=tbang;
+    // heat dissipation to air, can be tweak using eeprom ET
+    dt = -pow(emutemp, 2.97) * 0.0000001;
+    if (ectstep2 != ectstep) {
+      // if there is printing / extruding then need to adjust, since the flow of filament take the heat away
+      uint32_t et = (ectstep2 - ectstep);
+      if (et < 0)et = 0;
+      #define stmax 16
+      float tt2;
+      if (et > stepmmx[3] * stmax)tt2 = stmax; else tt2 = et / stepmmx[3];
+      tt+=tt2*HEATINGSCALE;
+      //zprintf(PSTR("%d\n"),fi(et));
+      ectstep2 = ectstep;
     }
+    dt *= tt;
     emutemp += dt * sec;
     // clamp the temperature calculation
-    if (emutemp > 200)emutemp = 200;
+    if (emutemp > 250)emutemp = 250;
     if (emutemp < 30)emutemp = 30;
     Input = emutemp;
     #ifdef temp_pin

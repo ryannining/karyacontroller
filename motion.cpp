@@ -722,7 +722,8 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
 
 
   int32_t x2[NUMAXIS];
-  XYSCALING
+  //XYSCALING
+  //cx2*=xyscale;  cy2*=xyscale;
   if (head == tail) {
     //zprintf(PSTR("Empty !\n"));
   }
@@ -1909,9 +1910,9 @@ int32_t startmove()
         laserwason = 0;
       }
 #ifdef __ARM__
-      sendwait = 1200000;
-#else
       sendwait = 800000;
+#else
+      sendwait = 600000;
 #endif
     }
     return 0;

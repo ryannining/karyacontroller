@@ -173,6 +173,7 @@ static void eepromwrite(int p, int32_t val)
 #define EE_pid_i 325
 #define EE_pid_d 340
 #define EE_pid_bang 335
+#define EE_pid_HS 355
 
 #define EE_ext_adv 345
 #define EE_un_microstep 350
@@ -229,6 +230,7 @@ extern float EEMEM EE_pid_p;
 extern float EEMEM EE_pid_i;
 extern float EEMEM EE_pid_d;
 extern float EEMEM EE_pid_bang;
+extern float EEMEM EE_pid_HS;
 
 extern float EEMEM EE_ext_adv;
 extern int32_t  EE_un_microstep;

@@ -9,6 +9,7 @@
 #include "gcodesave.h"
 
 #ifdef ESP8266
+#include <ESP8266WiFi.h>
 //#include <WiFi.h>
 //#include <WiFiClient.h>
 #endif
@@ -105,6 +106,7 @@ int CNCMODE = 0;
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
+extern void wifi_loop();
 
 static float decfloat_to_float(void)
 {
@@ -410,7 +412,7 @@ uint8_t gcode_parse_char(uint8_t c)
 // implement minimalis code to match teacup
 
 float lastE;
-
+int overridetemp=0;
 void printposition()
 {
   zprintf(PSTR("X:%f Y:%f Z:%f E:%f\n"),
@@ -464,6 +466,7 @@ void temp_wait(void)
   while (wait_for_temp && !temp_achieved()) {
     domotionloop
     servo_loop();
+    wifi_loop();
     //report each second
     if (millis() - c > 1000) {
       c = millis();
@@ -528,7 +531,6 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
 int lastG = 0;
 int probex1, probey1;
 int probemode = 0;
-extern void wifi_loop();
 
 void process_gcode_command()
 {
@@ -668,8 +670,8 @@ void process_gcode_command()
         cy1 = 0;
         ocz1 = 0;
         ce01 = 0;
-        amove(1, 100, 100, 100, 0);
         /*
+        amove(1, 100, 100, 100, 0);
           amove(100, 10, 0, 0, 0);
           amove(100, 10, 10, 0, 0);
           amove(100, 0, 10, 0, 0);
@@ -766,6 +768,9 @@ void process_gcode_command()
 
             for (int i = 0; i < YCount; i++) {
               addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
+
+              
+              if (i+j==0) pointProbing(); // first test
               int zz = 10 * pointProbing(); // fixed point
               zmin = fmin(zmin, zz);
               ZValues[j + 1][i + 1] = zz;
@@ -1056,6 +1061,12 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
 #endif
       case 104:
         set_temp(next_target.S);
+        #ifdef EMULATETEMP
+        extern float HEATINGSCALE;
+        if (next_target.seen_P){
+          HEATINGSCALE=next_target.P/100.0;
+        }
+        #endif
         break;
       case 105:
         zprintf(PSTR("T:%f\n"), ff(Input));
@@ -1069,8 +1080,11 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         break;
       case 109:
         waitbufferempty();
-        set_temp(next_target.S);
+        if (overridetemp)next_target.S=overridetemp;
+        overridetemp=0;
+        set_temp(next_target.S+3);
         temp_wait();
+        set_temp(next_target.S);
         break;
       case 7:
       case 107:
@@ -1189,6 +1203,8 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
               eprom_wr(320, EE_pid_i, S_F);
               eprom_wr(324, EE_pid_d, S_F);
               eprom_wr(328, EE_pid_bang, S_F);
+              eprom_wr(340, EE_pid_HS, S_F);
+              eprom_wr(380, EE_gcode, S_I);
 
               eprom_wr(332, EE_ext_adv, S_F);
               eprom_wr(336, EE_un_microstep, S_I);
@@ -1199,9 +1215,6 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
               eprom_wr(92, EE_ebacklash, S_F);
 #endif
 #ifdef WIFISERVER
-            case 380:
-              eepromwritestring(380, g_str);
-              break;
             case 400:
               eepromwritestring(400, g_str);
               break;
@@ -1274,18 +1287,22 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         zprintf(PSTR("EPR:3 324 %f D\n"), ff(myPID.GetKd()));
 #ifdef EMULATETEMP
         zprintf(PSTR("EPR:3 328 %f ET\n"), ff(tbang));
+        zprintf(PSTR("EPR:3 340 %f HS\n"), ff(HEATINGSCALE));
 #endif
 #endif
         zprintf(PSTR("EPR:3 332 %f EXTADV\n"), ff(extadv));
         zprintf(PSTR("EPR:3 336 %d UNMS\n"), fi(unms));
+#ifdef WIFISERVER
+        zprintf(PSTR("EPR:3 380 %d GCODE\n"), fi(wifi_gcode));
+#endif
         break;
 #ifdef WIFISERVER
       // show wifi
       case 504:
-        //extern IPAddress ip ;
 
         zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
-        //zprintf(PSTR("%d.%d.%d.%d\n"), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]));
+        extern IPAddress ip ;
+        zprintf(PSTR("%d.%d.%d.%d\n"), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]));
         //zprintf(PSTR("NGOPO TO !"));
         break;
       case 505:

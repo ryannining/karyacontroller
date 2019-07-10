@@ -66,6 +66,7 @@ float EEMEM EE_pid_p;
 float EEMEM EE_pid_i;
 float EEMEM EE_pid_d;
 float EEMEM EE_pid_bang;
+float EEMEM EE_pid_HS;
 
 float EEMEM EE_ext_adv;
 int32_t EEMEM EE_un_microstep;
@@ -129,12 +130,16 @@ void reload_eeprom() {
   eepromreadstring(400, wifi_ap, 50);
   eepromreadstring(450, wifi_pwd, 20);
   eepromreadstring(470, wifi_dns, 30);
+  //eepromreadstring(500, wifi_gcode, 30);
 #endif
 #if defined(heater_pin)
   myPID.SetTunings(eepromread(EE_pid_p) * 0.001, eepromread(EE_pid_i) * 0.001, eepromread(EE_pid_d) * 0.001);
   tbang = eepromread(EE_pid_bang) * 0.001;
+  extern float HEATINGSCALE;
+  HEATINGSCALE= eepromread(EE_pid_HS) * 0.001;
 #endif
   tbang = eepromread(EE_pid_bang) * 0.001;
+  HEATINGSCALE = eepromread(EE_pid_HS) * 0.001;
   extadv = eepromread(EE_ext_adv) * 0.001;
   unms = eepromread(EE_un_microstep);
   preparecalc();
@@ -198,6 +203,7 @@ void reset_eeprom() {
   eepromwrite(EE_pid_i, ff(600.0));
   eepromwrite(EE_pid_d, ff(400.0));
   eepromwrite(EE_pid_bang, ff(4.1));
+  eepromwrite(EE_pid_HS, ff(1.0));
 #endif
   eepromwrite(EE_ext_adv, ff(0));
   eepromwrite(EE_un_microstep, fi(0));

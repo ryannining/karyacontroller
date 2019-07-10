@@ -338,12 +338,14 @@ void uncompressaline() {
       //zprintf(PSTR("X%d "), fi(x));
       next_target.seen_X = 1;
       next_target.target.axis[X] = float(x) / xyMul - 300;
+      next_target.target.axis[X] *=xyscale;
     }
     if (h & (1 << 5)) {
       fsGcode.read((uint8_t *)&x, 2);
       //zprintf(PSTR("Y%d "), fi(x));
       next_target.seen_Y = 1;
       next_target.target.axis[Y] = float(x) / xyMul - 300;
+      next_target.target.axis[Y] *=xyscale;
     }
     if (h & (1 << 6)) {
       fsGcode.read((uint8_t *)&x, 2);

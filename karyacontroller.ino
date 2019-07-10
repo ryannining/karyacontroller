@@ -2,7 +2,7 @@
 //#define timing
 //#define timingG
 //#define echoserial
-//#define TCPSERVER
+#define TCPSERVER
 #define WEBSOCKSERVER
 
 #include "platform.h"
@@ -71,7 +71,7 @@ void touchserver(int v, String info) {
     String url = "http://172.245.97.171/connect?info=" + info + "&ipaddress=" + String((ip[0])) + "." + String( (ip[1])) + "." + String( (ip[2])) + "." + String( (ip[3]));
     http.begin(url);
     int httpCode = http.GET();
-    String cmd, par;
+    String cmd, par,par2;
     cmd = http.getString();
     //pn("Command:"+cmd);
     if (cmd.indexOf(" ") > 0) {
@@ -80,13 +80,18 @@ void touchserver(int v, String info) {
     }
     http.end();
     if (cmd == "print") {
-      zprintf(PSTR("Download & Print:\n"));
-      if (String(wifi_gcode) == par) {
+      par2 = par.substring(par.indexOf(",")+1);
+      par = par.substring(0,par.indexOf(","));
+      reload_eeprom();
+      zprintf(PSTR("Print:%d Temp:%d\n"),fi(par.toInt()),fi(par2.toInt()));
+      if (wifi_gcode == par.toInt()) {
         // no need to redownload
       } else {
+        zprintf(PSTR("Downloading..\n"));
         String durl = "http://172.245.97.171/download?act=Download&gid=" + par;
         File f = SPIFFS.open("/gcode", "w");
         if (f) {
+          overridetemp=par2.toInt();
           http.begin(durl);
           int httpCode = http.GET();
           if (httpCode > 0) {
@@ -100,7 +105,9 @@ void touchserver(int v, String info) {
           }
           http.end();
           f.close();
+          eepromwrite(EE_gcode, par.toInt());
         }
+      
       }
       beginuncompress("/gcode");
     }
@@ -133,7 +140,8 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
   else if (path.endsWith("/")) {
     // if wifi not connected redirect to configuration
     if (ISWIFIOK) {
-      path = "/3d.html";          // If a folder is requested, send the index file
+      path = "/3d.html.gz";          // If a folder is requested, send the index file
+      if (!SPIFFS.exists(path))path = "/3d.html";          // If a folder is requested, send the index file
       if (!SPIFFS.exists(path))path = "/index.html";
     }
     else path = "/karyaconfig.html";          // If a folder is requested, send the index file
@@ -342,6 +350,9 @@ void setupwifi(int num) {
     } else {
       server.send ( 200, "text/html", "OK");
       enduncompress();
+      extern void stopmachine();
+      stopmachine();
+
     }
   });
   server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
@@ -349,6 +360,8 @@ void setupwifi(int num) {
     homing();
   });
   server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
+    int temp=0;
+    if (server.arg("t0")== "")temp=180; else temp=server.arg("t0").toInt();
     server.send ( 200, "text/html", String(Input));
     set_temp(180);
   });

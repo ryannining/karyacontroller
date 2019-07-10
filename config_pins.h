@@ -29,7 +29,7 @@
 #define ISRTEMP // 120bytes check board.h
 
 
-#define MAXTEMP 185
+#define MAXTEMP 249
 
 // ========== AVR ================================================
 #if defined(__AVR__)
@@ -80,7 +80,7 @@
 
 // ====== ESP8266 ====================================================
 #elif defined(ESP8266)
-#define MAXTEMP 190
+#define MAXTEMP 249
 #define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
 #define THEISR ICACHE_RAM_ATTR
 #define ANALOGSHIFT 0 // 10bit adc ??
@@ -132,7 +132,7 @@
 //#define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
-//#define TOUCHSERVER
+#define TOUCHSERVER
 //#define INTERPOLATEDELAY  // slower 4-8us
 #endif
 // ==========================================================
