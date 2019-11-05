@@ -91,6 +91,11 @@ motion [motion.exe].PRJ - for quincy IDE, we can show graphics of the motion sim
 Original code is in freebasic, you can check the old folder
 
 ## log
+
+5-11-2019
+Multiple job stored on flash, and more other feature.
+![image](https://user-images.githubusercontent.com/11457832/68217253-e33d1b00-0014-11ea-83b4-d407353b8957.png)
+
 5-3-2019
 Auto level using MESH bilinear interpolation. 
 
