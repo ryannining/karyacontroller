@@ -43,11 +43,7 @@ int main(void)
   for (int i = 0; i < 256; i++) {
     //setrgbpalette(i,i,i,i);
   }
-  setcolor(1);
   graphscale = 25;
-  line(0, 400, 600, 400);
-  line(0, 400 - 50 * fscale, 600, 400 - 50 * fscale);
-  line(0, 400 - 100 * fscale, 600, 400 - 100 * fscale);
 
   //int8_t z=100;
   float v = 10.1234;
@@ -81,14 +77,14 @@ void demofile() {
   //#define fn "d:/git/karyacontroller/gcode/graf.gcode"
   //#define fn "D:/cutting/File ukiran.nc/File ukiran.nc"
   //#define fn "d:/3d/testarc.gcode"
-#define fn "d:/testcnc.gcode"
+  #define fn "d:/testnc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 1;
-  tickscale = 150;
-  fscale = 3;
+  graphscale = 3;
+  tickscale = 90;
+  fscale = 30;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l = 0;
@@ -127,9 +123,9 @@ void demo() {
     //  amove(30, +sin(x/5.70)*(2+x/40.0), cos(x/5.70)*(2+x/60.0), sin(x/5.70)*1, 0*x/10.0);
   }
   //*/
-  amove(50, 50, 0, 0, 1, 1);
-  amove(50, 100, 0, 1, 1, 1);
-  amove(50, 30, 0, 1, 1, 1);
+  amove(50, 50, 0, 0, 1, 1,0);
+  amove(50, 100, 0, 1, 1, 1,0);
+  amove(50, 30, 0, 1, 1, 1,0);
 
   //  amove(80, 30, 0, 0, 0);
   //  amove(80, 30, 30, 0, 0);

@@ -75,7 +75,7 @@
 #define THEISR ICACHE_RAM_ATTR
 #define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
 #define EMULATETEMP
-#define BAUDRATE 115200*2
+#define BAUDRATE 115200*1
 
 
 // ====== ESP8266 ====================================================
@@ -84,7 +84,7 @@
 #define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
 #define THEISR ICACHE_RAM_ATTR
 #define ANALOGSHIFT 0 // 10bit adc ??
-#define BAUDRATE 115200*2
+#define BAUDRATE 115200*1
 
 
 //#define BOARD_NANONANO_WEMOS
@@ -132,8 +132,8 @@
 //#define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
-#define TOUCHSERVER
-//#define INTERPOLATEDELAY  // slower 4-8us
+//#define TOUCHSERVER
+#define INTERPOLATEDELAY  // slower 4-8us
 #endif
 // ==========================================================
 
@@ -258,50 +258,54 @@
 #define EOFFSET 0
 
 #ifdef BOARD_WEMOS3D_COREXY
-#define XYJERK 25
-#define XACCELL 1600
-#define XMOVEACCELL 1600
+  #define XYJERK 25
+  #define XACCELL 1600
+  #define XMOVEACCELL 1600
 #else
-#define XYJERK 25
-#define XACCELL 100
-#define XMOVEACCELL 100
+  #define XYJERK 15
+  #define XACCELL 150
+  #define XMOVEACCELL 550
 #endif
+
 #ifdef BOARD_WEMOS3D_COREXY
-#define XMAXFEEDRATE 100
-#define YMAXFEEDRATE 100
-#define ZMAXFEEDRATE 30
-#define E0MAXFEEDRATE 25
+  #define XMAXFEEDRATE 100
+  #define YMAXFEEDRATE 100
+  #define ZMAXFEEDRATE 30
+  #define E0MAXFEEDRATE 25
 #else
-#define XMAXFEEDRATE 200
-#define YMAXFEEDRATE 100
-#define ZMAXFEEDRATE 30
-#define E0MAXFEEDRATE 100
+  #define XMAXFEEDRATE 100
+  #define YMAXFEEDRATE 100
+  #define ZMAXFEEDRATE 12
+  #define E0MAXFEEDRATE 100
 #endif
+
 #ifdef BOARD_WEMOS3D_COREXY
-#define XSTEPPERMM 100.5//50//105.090//50//131//178
-#define YSTEPPERMM 100.5////105.090//50//175//125
-#define ZSTEPPERMM 243.75//2300//80//1020//1020 //420
-#define E0STEPPERMM 152//92//340//380
+  #define XSTEPPERMM 100.5//50//105.090//50//131//178
+  #define YSTEPPERMM 100.5////105.090//50//175//125
+  #define ZSTEPPERMM 243.75//2300//80//1020//1020 //420
+  #define E0STEPPERMM 152//92//340//380
 #else
-#define XSTEPPERMM 50//50//105.090//50//131//178
-#define YSTEPPERMM 50////105.090//50//175//125
-#define ZSTEPPERMM 150//2300//80//1020//1020 //420
-#define E0STEPPERMM 10//92//340//380
+  #define XSTEPPERMM 100//50//105.090//50//131//178
+  #define YSTEPPERMM 100////105.090//50//175//125
+  #define ZSTEPPERMM 400//2300//80//1020//1020 //420
+  #define E0STEPPERMM 100//92//340//380
 #endif
+
 #ifndef NUMBUFFER
-#define NUMBUFFER 20
+  #define NUMBUFFER 20
 #endif
 #ifdef BOARD_WEMOS3D_COREXY
-#define XMAX 0
-#define YMAX 0
-#define ZMAX 159
+  #define XMAX 0
+  #define YMAX 0
+  #define ZMAX 159
 #else
-#define XMAX 1
-#define YMAX 1
-#define ZMAX 1
+  #define XMAX 1
+  #define YMAX 1
+  #define ZMAX 1
 #endif
-#define MOTOR_X_BACKLASH 20  // MOTOR 0 = X, 1= Y 2=Z 3=E
-#define MOTOR_Y_BACKLASH 20
+
+#define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
+#define MOTOR_Y_BACKLASH 0
 #define MOTOR_Z_BACKLASH 0
 #define MOTOR_E_BACKLASH 0
 

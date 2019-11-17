@@ -774,7 +774,9 @@ void process_gcode_command()
               int zz = 10 * pointProbing(); // fixed point
               zmin = fmin(zmin, zz);
               ZValues[j + 1][i + 1] = zz;
+              #ifdef TCPSERVER
               wifi_loop();
+              #endif
 
             }
           }
@@ -854,6 +856,7 @@ void process_gcode_command()
         //?
         //? Allows programming of absolute zero point, by reseting the current position to the values specified.  This would set the machine's X coordinate to 10, and the extrude coordinate to 90. No physical motion will occur.
         //?
+        waitbufferempty();
         queue_wait();
         float lx;
         lx = cx1;
@@ -1082,7 +1085,7 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         waitbufferempty();
         if (overridetemp)next_target.S=overridetemp;
         overridetemp=0;
-        set_temp(next_target.S+3);
+        set_temp(next_target.S+8);
         temp_wait();
         set_temp(next_target.S);
         break;
@@ -1204,8 +1207,9 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
               eprom_wr(324, EE_pid_d, S_F);
               eprom_wr(328, EE_pid_bang, S_F);
               eprom_wr(340, EE_pid_HS, S_F);
+#if defined(ESP8266)
               eprom_wr(380, EE_gcode, S_I);
-
+#endif
               eprom_wr(332, EE_ext_adv, S_F);
               eprom_wr(336, EE_un_microstep, S_I);
 #ifdef USE_BACKLASH

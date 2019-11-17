@@ -1,98 +1,55 @@
 
-#include "motion.h"
-#include "gcode.h"
-#include "common.h"
-#include "config_pins.h"
-#include "timer.h"
-#include "temp.h"
-#include <stdint.h>
-
-
-#ifndef ISPC
-#include<Arduino.h>
-#include "eprom.h"
-#include "gcodesave.h"
-#else
-#include <graphics.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <conio.h>
-#endif // ispac
-
 
 // bikin pusing !, buat check TIMER di AVR, malah freeze
-//#define DEBUGLOOP
 
-#ifdef DEBUGLOOP
-#define LOOP_IN(n) zprintf(PSTR("LOOP %d IN "),fi(n));
-#define LOOP_OUT(n) zprintf(PSTR("LOOP %d OUT "),fi(n));
-#else
-#define LOOP_IN(n)
-#define LOOP_OUT(n)
-#endif // debugloop
+zprintf=console.log;
+function PSTR(x){return x;}
+
+function LOOP_IN(n) {zprintf(PSTR("LOOP %d IN "),fi(n));}
+function LOOP_OUT(n) {zprintf(PSTR("LOOP %d OUT "),fi(n));}
 
 
 
 
 
 // JERK Setting
-#define MINCORNERSPEED 1 // minimum cornering speed
-#define MINSTEP 0
+var MINCORNERSPEED=1; // minimum cornering speed
+var MINSTEP=0;
 // Centripetal
-//#define JERK1 //centripetal corner , still not good, back to repetier style jerk
-#define DEVIATE 5//;0.02*50 - for centripetal corner safe speed
+//var JERK1 //centripetal corner , still not good, back to repetier style jerk
+var DEVIATE=5;//;0.02*50 - for centripetal corner safe speed
+
+// repetier 1
+var JERK2=1;//repetier style jerk
+//var JERK2A //repetier style jerk
 
 
+var CLOCKCONSTANT=5000000.0;        // tick/seconds
+var DSCALE=0;   // use 5Mhz timer shift 0bit
+var DIRDELAY=20; // usec
 
+var X=0;
+var Y=1;
+var Z=2;
+var E=3;
 
-#ifdef USETIMER1
-#ifdef __AVR__
-#define CLOCKCONSTANT 2000000.f        // tick/seconds
-#define DSCALE 0   // use 2Mhz timer need to shift right 2bit
-#define DIRDELAY 20
-#endif // avr
-
-#ifdef __ARM__
-#define CLOCKCONSTANT 8000000.f        // tick/seconds
-#define DSCALE 0   // use 8Mhz timer shift 0bit
-#define DIRDELAY 20 // usec
-#endif // arm
-
-#ifdef ESP8266
-#define CLOCKCONSTANT 5000000.f        // tick/seconds
-#define DSCALE 0   // use 5Mhz timer shift 0bit
-#define DIRDELAY 20 // usec
-#endif // esp
-
-#else // usetimer1
-#define CLOCKCONSTANT 1000000.f        // tick/seconds
-
-#define DSCALE 0  // 1mhz use micros shift 3bit
-#define DIRDELAY 20
-#endif // usetimer
-
-#define X 0
-#define Y 1
-#define Z 2
-#define E 3
-
-extern int CNCMODE;
-int MESHLEVELING = 0;
-int vSUBPIXELMAX = 1;
-int constantlaserVal = 0;
-int laserOn = 0, isG0 = 1;
-int babystep[4] = {0, 0, 0, 0};
-uint8_t homingspeed;
-int xback[4];
-uint8_t head, tail, tailok;
-int maxf[4];
-float xyscale, f_multiplier, e_multiplier;
-int xyjerk, zjerk, accel, zaccel;
-int i;
-int mvaccel;
-float ax_home[NUMAXIS];
-float stepdiv, stepdiv2;
-float wstepdiv2;
+var CNCMODE=1;
+var MESHLEVELING = 0;
+var vSUBPIXELMAX = 1;
+var constantlaserVal = 0;
+var laserOn = isG0 = 1;
+var babystep[4] = [0, 0, 0, 0];
+var homingspeed=0;
+var xback=[0,0,0,0];
+var head=tail=tailok=0;
+var maxf=[0,0,0,0];
+var xyscale=f_multiplier=e_multiplier=0;
+var xyjerk=zjerk=accel=zaccel=0;
+var i;
+var mvaccel;
+var ax_home[NUMAXIS];
+var stepdiv, stepdiv2;
+var wstepdiv2;
 int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
 int8_t  sx[NUMAXIS];
@@ -101,34 +58,34 @@ int8_t checkendstop, xctstep, yctstep, zctstep,  xcheckevery, ycheckevery, zchec
 uint32_t ectstep = 0;
 int16_t endstopstatus;
 int8_t ishoming;
-float axisofs[4] = {0, 0, 0, 0};
-float F_SCALE = 1;
+var axisofs[4] = {0, 0, 0, 0};
+var F_SCALE = 1;
 int8_t RUNNING = 1;
 int8_t PAUSE = 0;
-float stepmmx[4];
-int odir[4] = {1, 1, 1, 1};
-float retract_in, retract_out;
-float retract_in_f, retract_out_f;
-float cx1, cy1, cz1, ocz1, ce01, extadv;
+var stepmmx[4];
+var odir[4] = {1, 1, 1, 1};
+var retract_in, retract_out;
+var retract_in_f, retract_out_f;
+var cx1, cy1, cz1, ocz1, ce01, extadv;
 tmove move[NUMBUFFER];
 
-#define sqr2(n) (n)*(n)
+var sqr2(n) (n)*(n)
 
 
 #include "nonlinear.h"
 
 // to calculate delay from v^2, fast invsqrt hack
 #ifdef __AVR__
-//#define FASTINVSQRT  // less precice speed faster 4us
+//var FASTINVSQRT  // less precice speed faster 4us
 
-float InvSqrt(float x)
+var InvSqrt(var x)
 {
 #ifdef FASTINVSQRT
-  int32_t* i = (int32_t*)&x;           // store floating-point bits in integer
+  int32_t* i = (int32_t*)&x;           // store floating-povar bits in integer
   *i = 0x5f335a86  - (*i >> 1);    // initial guess for Newton's method
 #else // if FAST then bypass newtons method
-  float xhalf = 0.5f * x;
-  int32_t i = *(int32_t*)&x;            // store floating-point bits in integer
+  var xhalf = 0.5f * x;
+  int32_t i = *(int32_t*)&x;            // store floating-povar bits in integer
   i = 0x5f375a86  - (i >> 1);    // initial guess for Newton's method
   x = *(float*)&i;              // convert new bits into float
   x = x * (1.5f - xhalf * x * x); // One round of Newton's method , disable if want faster but not precise
@@ -137,24 +94,24 @@ float InvSqrt(float x)
 }
 #else // avr
 // other CPU use normal SQRT
-#define InvSqrt(f) 1.0/sqrt(f)
+var InvSqrt(f) 1.0/sqrt(f)
 #endif // avr
 
-//#define xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
+//var xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
 
-//#define xInvSqrt(n) stepdiv2*InvSqrt(n)
-//#define xInvSqrt(n) n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2
+//var xInvSqrt(n) stepdiv2*InvSqrt(n)
+//var xInvSqrt(n) n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2
 
-float pta = 0;
-//#define xInvSqrt(d,n) pta=(pta+n)*0.5;d=pta>0.25?stepdiv2*InvSqrt(pta):2*stepdiv2;
-#define xInvSqrt(d,n) d=n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2;
+var pta = 0;
+//var xInvSqrt(d,n) pta=(pta+n)*0.5;d=pta>0.25?stepdiv2*InvSqrt(pta):2*stepdiv2;
+var xInvSqrt(d,n) d=n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2;
 
 
-#define sqrt32(n) sqrt(n)
+var sqrt32(n) sqrt(n)
 
 
 #ifdef ACT_KEY
-int user_cnt = 0;
+var user_cnt = 0;
 long lastms = 0;
 void user_input_loop() {
   long m = millis();
@@ -192,16 +149,16 @@ void close_user_input() {
 
 }
 #else // 155
-#define user_input_loop()
-#define  init_user_input()
-#define close_user_input()
+var user_input_loop()
+var  init_user_input()
+var close_user_input()
 #endif // 155
 
 #ifdef ISPC
 void init_home_input() {};
 void close_home_input() {};
 #else
-int home_cnt = 0;
+var home_cnt = 0;
 void home_input() {
   home_cnt++;
   // tap home 3 times to start printing
@@ -320,11 +277,11 @@ int32_t mcx[NUMAXIS];
 
 
 
-#define FASTAXIS(n) ((n->status >> 4)&3)
+var FASTAXIS(n) ((n->status >> 4)&3)
 //if(m)coreloop();
 #include "motors.h"
 
-int mb_ctr;
+var mb_ctr;
 int32_t bufflen()
 {
   mb_ctr = head >= tail ? head - tail : (NUMBUFFER + head) - tail; // 5+0 - 4
@@ -357,54 +314,47 @@ void power_off()
   24-4-2018, i change the math of ramp calculation using mm distance
 
 * */
-float currdis, prevdis, fe;
+var currdis, prevdis, fe;
 
 #ifdef NONLINEAR
-float rampv;
-float rampseg, rampup, rampdown;
+var rampv;
+var rampseg, rampup, rampdown;
 #else
 int32_t rampseg, rampup, rampdown;
-#define rampv 1
+var rampv 1
 #endif
-#define sqr(x) x*x
+var sqr(x) x*x
+var ramplenq(oo,v0,v1,stepa) if (v1>v0)oo=(v1-v0)*stepa;
+//var speedat(v0,a,s,stp) (a * s / stp + v0)
+var speedat(v0,a,s) (a * s  + v0)
 
-/* ramplen is basically
- dV / 2*ac
- 
- S = V0t * 1/2at^2
-*/
-
-#define ramplenq(oo,v0,v1,stepa) if (v1>v0)oo=(v1-v0)*stepa;
-//#define speedat(v0,a,s,stp) (a * s / stp + v0)
-#define speedat(v0,a,s) (a * s  + v0)
-
-/*#define ramplen(oo,v0,v1,a,stepmm) oo=((int32_t)v1-(int32_t)v0)*stepmm/(a);
-  #define accelat(v0,v1,s) ((int32_t)v1  - (int32_t)v0 ) / (2 * s)
+/*var ramplen(oo,v0,v1,a,stepmm) oo=((int32_t)v1-(int32_t)v0)*stepmm/(a);
+  var accelat(v0,v1,s) ((int32_t)v1  - (int32_t)v0 ) / (2 * s)
 
 
 
-  #define ramplenmm(oo,v0,v1,a) oo=(((int32_t)v1-(int32_t)v0)<<5)/(a);
-  #define speedatmm(v0,a,s) ((((int32_t)a * s)>>5)  + (int32_t)v0)
+  var ramplenmm(oo,v0,v1,a) oo=(((int32_t)v1-(int32_t)v0)<<5)/(a);
+  var speedatmm(v0,a,s) ((((int32_t)a * s)>>5)  + (int32_t)v0)
 */
 void prepareramp(int32_t bpos)
 {
 
-  //#define preprampdebug
+  //var preprampdebug
   tmove *m, *next;
   m = &move[bpos];
   //if (m->status & 4)return; // already calculated
 
-  int faxis = FASTAXIS(m);
+  var faxis = FASTAXIS(m);
   int32_t ytotalstep = labs(m->dx[faxis]);
-#define stepmm  Cstepmmx(faxis)
+var stepmm  Cstepmmx(faxis)
 
-  float stepa = 1.0 / (m->ac);
+  var stepa = 1.0 / (m->ac);
   CORELOOP
   if (bpos != (head)) {
     next = &move[nextbuff(bpos)];
     fe = next->fs;
   } else fe = 0;
-  float ru, rd;
+  var ru, rd;
   ru = rd = 0;
   ramplenq(ru, m->fs, m->fn, stepa);
   ramplenq(rd, fe, m->fn, stepa);
@@ -417,7 +367,7 @@ void prepareramp(int32_t bpos)
 
   if (ru + rd > m->dis) {
     // if crossing and have rampup
-    float r = ((ru + rd) - m->dis) / 2;
+    var r = ((ru + rd) - m->dis) / 2;
     ru -= r;
     rd -= r;
     if (ru < 0)ru = 0;
@@ -451,14 +401,14 @@ void prepareramp(int32_t bpos)
 
 */
 
-float curru[5], prevu[5];
-float lastf = 0;
+var currf[5], prevf[5];
+var lastf = 0;
 
 void backforward()
 {
   //zprintf(PSTR("bfplan. %d %d\n"), fi(tailok), fi(head));
 
-  int h;
+  var h;
   tmove *next, *curr;
   // now back planner
   h = head; //
@@ -473,8 +423,8 @@ void backforward()
     next = curr;
     curr = &move[h];
     if (curr->fs != curr->maxs) {
-      float fs = next->fs + (curr->ac * curr->dis);
-      //float fs = next->fs + (accel * curr->dis);
+      var fs = next->fs + (curr->ac * curr->dis);
+      //var fs = next->fs + (accel * curr->dis);
       //zprintf(PSTR("back. %f\n"), ff(fs));
       if (fs < curr->maxs) {
         curr->fs = fs;
@@ -500,7 +450,7 @@ void backforward()
     curr = next;
     next = &move[h];
     if (curr->fs < next->fs) {
-      float fs = curr->fs + (curr->ac * curr->dis);
+      var fs = curr->fs + (curr->ac * curr->dis);
       //zprintf(PSTR("Forw. %f\n"), ff(fs));
       if (fs < next->fs) {
         next->fs = fs;
@@ -514,55 +464,44 @@ void backforward()
   CORELOOP
 
 }
-float mmdis[4];
+var mmdis[4];
 void planner(int32_t h)
 {
   // mengubah semua cross feedrate biar optimal secepat mungkin
   int32_t p;
   tmove *curr;
   tmove *prev;
-#define MX 0
-
-#ifdef DRIVE_XYYZ
-#define MZ 1
-#define MY 2
-#else
-#define MZ 2
-#define MY 1
-#endif
 
   curr = &move[h];
-  float  scale = 1;
+  var  scale = 1;
   int32_t xtotalstep = abs(curr->dx[FASTAXIS(curr)]);
-  memcpy(prevu, curru, sizeof prevu);
-  curru[4] = 1;
-  float ujerk = xyjerk;
-  for (int i = 0; i < 4; i++) {
-    curru[i] = 0;
+  memcpy(prevf, currf, sizeof prevf);
+  currf[4] = curr->fn;
+  for (var i = 0; i < NUMAXIS; i++) {
+    //prevf[i] = currf[i];
+    currf[i] = 0;
     if (curr->dx[i] != 0) {
 
-      float cdx = curr->fn * mmdis[i];
+      var cdx = curr->fn * mmdis[i];
       if ((i != 3)) {
-        float scale2 = float(maxf[i]) * curr->dis / fabs(cdx);
+        var scale2 = float(maxf[i]) * curr->dis / fabs(cdx);
         if (scale2 < scale) scale = scale2;
       }
       // if Z then need to scale the acceleration too
-      if (i == MZ) {
-        float scalea = zaccel * curr->dis / fabs(curr->ac * mmdis[i]);
-        if (scalea < 1) {
-          //curr->ac *= scalea;
-          ujerk = zjerk;
-        }
+      if (i == 2) {
+        var scalea = zaccel * curr->dis / fabs(curr->ac * mmdis[i]);
+        if (scalea < 1)curr->ac *= scalea;
 #ifdef output_enable
         zprintf (PSTR("NEW AC :%f\n"), ff(curr->ac));
 #endif
       }
-      curru[i] = float(mmdis[i] / curr->dis);
+      currf[i] = float(cdx) / curr->dis;
+
       CORELOOP
     }
   }
-  //ujerk *= scale;
-  ujerk *= ujerk;
+  var ujerk = xyjerk * scale;
+
   // update all speed and square it up, after this all m->f are squared !
   //zprintf (PSTR("Fratio :%f\n"), ff(scale));
 #ifdef output_enable
@@ -573,24 +512,99 @@ void planner(int32_t h)
 #ifdef output_enable
   zprintf (PSTR("FN :%d\n"), fi(curr->fn));
 #endif
+  //var   1
+
+
+  //if (bufflen() < 1) return;
+  //p = prevbuff(h);
+  //prev = &move[p];
+  //if ((prev->status & 3) == 2)return;// if already planned
 
   // ==================================
   // Centripetal corner max speed calculation, copy from other firmware
-  float max_f = MINCORNERSPEED * MINCORNERSPEED;
+  var max_f = MINCORNERSPEED * MINCORNERSPEED;
   if (bufflen() > 1) {
 
+    /*
+
+        p = prevbuff(h);
+        prev = &move[p];
+
+        var junction_unit_vec[3];
+        var junction_cos_theta = 0.0;
+        for (idx=0; idx<3; idx++) {
+          junction_cos_theta -= prev.dx[idx]*curr.dx[idx]/(prev.dx[idx]*prev.dx[idx]);
+          junction_unit_vec[idx] = curr.mm[idx]-prev.mm[idx];
+        }
+
+        // NOTE: Computed without any expensive trig, sin() or acos(), by trig half angle identity of cos(theta).
+        if (junction_cos_theta > 0.999999) {
+          //  For a 0 degree acute junction, just set minimum junction speed.
+          block->max_junction_speed_sqr = MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED;
+        } else {
+          if (junction_cos_theta < -0.999999) {
+            // Junction is a straight line or 180 degrees. Junction speed is infinite.
+            block->max_junction_speed_sqr = SOME_LARGE_VALUE;
+          } else {
+            convert_delta_vector_to_unit_vector(junction_unit_vec);
+            var junction_acceleration = limit_value_by_axis_maximum(settings.acceleration, junction_unit_vec);
+            var sin_theta_d2 = sqrt(0.5*(1.0-junction_cos_theta)); // Trig half angle identity. Always positive.
+            block->max_junction_speed_sqr = max( MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED,
+                           (junction_acceleration * settings.junction_deviation * sin_theta_d2)/(1.0-sin_theta_d2) );
+          }
+        }
+      }
+
+      // Block system motion from updating this data to ensure next g-code motion is computed correctly.
+      if (!(block->condition & PL_COND_FLAG_SYSTEM_MOTION)) {
+        var nominal_speed = plan_compute_profile_nominal_speed(block);
+        plan_compute_profile_parameters(block, nominal_speed, pl.previous_nominal_speed);
+        pl.previous_nominal_speed = nominal_speed;
+
+        // Update previous path unit_vector and planner position.
+        memcpy(pl.previous_unit_vec, unit_vec, sizeof(unit_vec)); // pl.previous_unit_vec[] = unit_vec[]
+        memcpy(pl.position, target_steps, sizeof(target_steps)); // pl.position[] = target_steps[]
+
+        // New block is all set. Update buffer head and next buffer head indices.
+        block_buffer_head = next_buffer_head;
+        next_buffer_head = plan_next_block_index(block_buffer_head);
 
 
-    float jerk = 0;
-    float factor = 1;
-    float junc_cos = -prevu[MX] * curru[MX] - prevu[MY] * curru[MY] - prevu[MZ] * curru[MZ];
-    if (junc_cos > 0.999999) {
-      max_f = MINCORNERSPEED * MINCORNERSPEED;
-    } else if (junc_cos < -0.999999) {
-      max_f = 40000;
-    } else {
-      float sin_theta_d2 = sqrt(0.5 * (1.0 - junc_cos)); // Trig half angle identity. Always positive.
-      max_f = fmax( 1, (ujerk * sin_theta_d2) / (1.0 - sin_theta_d2) );
+    */
+
+
+    max_f = fmax(currf[4], prevf[4]);
+#ifdef DRIVE_XYYZ
+var MZ 1
+var MY 2
+#else
+var MZ 2
+var MY 1
+
+#endif
+    int32_t fdz = abs(currf[MZ] - prevf[MZ]);
+#ifdef JERK2A
+    var jerk = max_f * 0.7 * (1 - (currf[0] * prevf[0] + currf[1] * prevf[1] + currf[2] * prevf[2]) / ((currf[4] * prevf[4])));
+#else
+    int32_t fdx = currf[0] - prevf[0];
+    int32_t fdy = currf[MY] - prevf[MY];
+
+    var jerk = sqrt(fdx * fdx + fdy * fdy);
+
+#endif
+    CORELOOP
+    var factor = 1;
+    if (jerk > xyjerk) {
+      factor = float(xyjerk) / jerk; // always < 1.0!
+      CORELOOP
+      //if (factor * max_f * 2.0 < xyjerk) {
+      //    factor = xyjerk / (2.0 * max_f);
+      CORELOOP
+      //}
+    }
+
+    if (fdz > zjerk) {
+      factor = fmin(factor, zjerk / fdz);
     }
 
 
@@ -598,8 +612,15 @@ void planner(int32_t h)
     //jerk = abs(fdz) ;
     //if (jerk > ZJERK) max_f = ZJERK * max_f / jerk;
 
+    max_f = fmax(max_f * factor, MINCORNERSPEED);
     CORELOOP
+#ifdef output_enable
+    zprintf (PSTR("JERK:%d FACTOR:%f\n"), fi(jerk), ff(factor));
+    zprintf (PSTR("XMFZ:%f\n"), ff(currf[2]));
+    zprintf (PSTR("XMF:%d\n"), fi(max_f));
+#endif
 
+    max_f *= max_f;
   }
   //max_f=20;
   curr->maxs = fmin(curr->fn, lastf);
@@ -625,29 +646,29 @@ int32_t x1[NUMAXIS], x2[NUMAXIS];
 tmove *m;
 
 #ifdef ISPC
-float fctr, tick;
-float tickscale, fscale, graphscale;
+var fctr, tick;
+var tickscale, fscale, graphscale;
 #endif
 
 int32_t  f;
-float ta, acup, acdn, oacup, oacdn;
+var ta, acup, acdn, oacup, oacdn;
 int32_t mctr, xtotalseg;
-uint8_t fastaxis;
+var fastaxis;
 uint32_t nextmicros;
 uint32_t nextdly;
 uint32_t nextmotoroff;
-float otx[NUMAXIS]; // keep the original coordinate before transform
+var otx[NUMAXIS]; // keep the original coordinate before transform
 int8_t repos = 0;
 
 #ifdef USE_BACKLASH
-int ldir[NUMAXIS] = {0, 0, 0, 0};
+var ldir[NUMAXIS] = {0, 0, 0, 0};
 #endif
 
-float lastmm[NUMAXIS]; // keep the original coordinate before transform
-float currmm[NUMAXIS]; // keep the original coordinate before transform
+var lastmm[NUMAXIS]; // keep the original coordinate before transform
+var currmm[NUMAXIS]; // keep the original coordinate before transform
 
 
-void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, int rel = 0)
+void addmove(var cf, var cx2, var cy2, var cz2, var ce02, var g0 = 1, var rel = 0)
 {
 
 
@@ -682,7 +703,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   }
 
   // mesh leveling
-  float ocz2 = cz2;
+  var ocz2 = cz2;
   if (MESHLEVELING) {
     cz2 -= Interpolizer(cx2, cy2);
     zprintf(PSTR("ZI:%f\n"),  ff(cz2));
@@ -694,11 +715,11 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
 #endif
   // this x2 is local
 
-  memcpy(lastmm, currmm, sizeof(currmm[0]) * 3);
-
-  currmm[0] = mmdis[0] = (cx2 - cx1) * odir[0];
-  currmm[1] = mmdis[1] = (cy2 - cy1) * odir[1];
-  currmm[2] = mmdis[2] = (cz2 - cz1) * odir[2];
+  memcpy(lastmm, currmm, sizeof(currmm[0])*3);
+  
+  currmm[0]=mmdis[0] = (cx2 - cx1) * odir[0];
+  currmm[1]=mmdis[1] = (cy2 - cy1) * odir[1];
+  currmm[2]=mmdis[2] = (cz2 - cz1) * odir[2];
   mmdis[3] = (ce02 - ce01) * odir[3];
 
 #ifdef output_enable
@@ -706,13 +727,13 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   zprintf(PSTR("Dis X:%f Y:%f Z:%f\n"),  ff(mmdis[0]), ff(mmdis[1]), ff(mmdis[2]));
 #endif
 
-  for (int i = 0; i < NUMAXIS; i++) {
+  for (var i = 0; i < NUMAXIS; i++) {
     x2[i] = 0;
-#define deltax mmdis[i]
+var deltax mmdis[i]
 
 
 #ifdef USE_BACKLASH
-    int dir;
+    var dir;
     if (deltax < 0)dir = -1;
     else if (deltax > 0)dir = 1;
     else dir = 0;
@@ -724,7 +745,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
       //getch();
       // i think we should not doing backlash like this,
       // we should directly add to cmd buffer with step delay is
-      float b = xback[i] * dir * 0.001;
+      var b = xback[i] * dir * 0.001;
       deltax += b;
       x2[i] = b * Cstepmmx(i);
     }
@@ -823,13 +844,13 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   //calculate delta
   int32_t dd;
   dd = 0;
-  int faxis = 0;
+  var faxis = 0;
   // calculate the delta, and direction
 
 #ifdef SHARE_EZ
   // if delta[Z] is not same direction with delta[E] then
   //  if (cz2 != cz1) ce02 = ce01; // zeroing the E movement if Z is moving and ZE share direction pin
-#define delt(i) x2[i]*odir[i]
+var delt(i) x2[i]*odir[i]
   if ((delt(2) != 0) && (delt(2)*delt(3) < 0)) {
     ce02 = ce01; // zeroing the E movement if Z is moving and ZE share direction pin
     x2[3] = 0;
@@ -837,7 +858,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
 #endif
 
 
-  for (int i = 0; i < NUMAXIS; i++) {
+  for (var i = 0; i < NUMAXIS; i++) {
     babystep[i] = 0;
 
     int32_t delta = x2[i];
@@ -897,12 +918,12 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
 
 
 
-#define N_ARC_CORRECTION 25
+var N_ARC_CORRECTION 25
 #ifdef ARC_SUPPORT
 
 /*
 
-  ARC using Float implementation
+  ARC using var implementation
 
 */
 
@@ -929,30 +950,30 @@ uint32_t approx_distance(uint32_t dx, uint32_t dy)
   return (( approx + 512 ) >> 10 );
 }
 
-void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, float fJ, uint8_t isclockwise)
+void draw_arc(var cf, var cx2, var cy2, var cz2, var ce02, var fI, var fJ, var isclockwise)
 {
-#define debug0
+var debug0
   uint32_t radius = approx_distance(abs(fI), abs(fJ));
-  //   int acceleration_manager_was_enabled = plan_is_acceleration_manager_enabled();
+  //   var acceleration_manager_was_enabled = plan_is_acceleration_manager_enabled();
   //   plan_set_acceleration_manager_enabled(false); // disable acceleration management for the duration of the arc
 
-  float cx = cx1 + fI ;
-  float cy = cy1 + fJ ;
+  var cx = cx1 + fI ;
+  var cy = cy1 + fJ ;
 #ifdef debug1
   zprintf(PSTR("Arc  I, J,R:%f,%f,%d\n"), fI, fJ, radius);
   zprintf(PSTR("go cX cY:%f %f\n"), cx, cy);
 #endif
 
   //uint32_t linear_travel = 0; //target[axis_linear] - position[axis_linear];
-  float ne = ce01;
-  float extruder_travel = (ce02 - ce01);
-  float nz = ocz1;
-  float z_travel = (cz2 - ocz1);
+  var ne = ce01;
+  var extruder_travel = (ce02 - ce01);
+  var nz = ocz1;
+  var z_travel = (cz2 - ocz1);
 
-  float r_axis0 = -fI;  // Radius vector from center to current location
-  float r_axis1 = -fJ;
-  float rt_axis0 = cx2 - cx;
-  float rt_axis1 = cy2 - cy;
+  var r_axis0 = -fI;  // Radius vector from center to current location
+  var r_axis1 = -fJ;
+  var rt_axis0 = cx2 - cx;
+  var rt_axis1 = cy2 - cy;
 
 #ifdef debug1
   sersendf_P(PSTR("go rX rY:%f %f\n"), r_axis0, r_axis1);
@@ -960,7 +981,7 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
 #endif
 
   // CCW angle between position and target from circle center. Only one atan2() trig computation required.
-  float angular_travel = atan2(r_axis0 * rt_axis1 - r_axis1 * rt_axis0, r_axis0 * rt_axis0 + r_axis1 * rt_axis1);
+  var angular_travel = atan2(r_axis0 * rt_axis1 - r_axis1 * rt_axis0, r_axis0 * rt_axis0 + r_axis1 * rt_axis1);
   if ((!isclockwise && angular_travel <= 0.00001) || (isclockwise && angular_travel < -0.000001)) {
     angular_travel += 2.0f * M_PI;
   }
@@ -977,17 +998,17 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
   }
   int32_t segments = fmax(1, millimeters_of_travel * 10);
 
-  float theta_per_segment = angular_travel / segments;
-  float extruder_per_segment = (extruder_travel) / segments;
-  float z_per_segment = (z_travel) / segments;
+  var theta_per_segment = angular_travel / segments;
+  var extruder_per_segment = (extruder_travel) / segments;
+  var z_per_segment = (z_travel) / segments;
 
-  float cos_T = 2.0 - theta_per_segment * theta_per_segment;
-  float sin_T = theta_per_segment * 0.16666667 * (cos_T + 4.0);
+  var cos_T = 2.0 - theta_per_segment * theta_per_segment;
+  var sin_T = theta_per_segment * 0.16666667 * (cos_T + 4.0);
   cos_T *= 0.5;
 
-  float sin_Ti;
-  float cos_Ti;
-  float r_axisi;
+  var sin_Ti;
+  var cos_Ti;
+  var r_axisi;
   int32_t i;
   int32_t count = 0;
 
@@ -1017,8 +1038,8 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
     }
 
     // Update arc_target location
-    float nx = cx + r_axis0;
-    float ny = cy + r_axis1;
+    var nx = cx + r_axis0;
+    var ny = cy + r_axis1;
     ne += extruder_per_segment;
     nz += z_per_segment;
     //move.axis[E] = extscaled>>4;
@@ -1037,17 +1058,17 @@ void calculate_delta_steps();
 
 
 static uint32_t cmdly;
-int jerkctr = 0;
+var jerkctr = 0;
 
 #ifdef ISPC
-int laseron = 0;
-#define LASER(x) {laseron=x==LASERON;}
+var laseron = 0;
+var LASER(x) {laseron=x==LASERON;}
 
-float xs[4] = {0, 0, 0, 0};
-float gx, gy, lx, ly;
-int pcsx[4];
-#define graphstep(ix) xs[ix] +=pcsx[ix]
-float lstepdiv = 1;
+var xs[4] = {0, 0, 0, 0};
+var gx, gy, lx, ly;
+var pcsx[4];
+var graphstep(ix) xs[ix] +=pcsx[ix]
+var lstepdiv = 1;
 void dographics();
 #endif
 
@@ -1056,7 +1077,7 @@ void dographics();
   MOTIONLOOP
   =================================================================================================================================================
 */
-void otherloop(int r);
+void otherloop(var r);
 uint32_t cm, ocm,  mctr2, dlmin, dlmax;
 int32_t timing = 0;
 
@@ -1067,27 +1088,27 @@ int32_t timing = 0;
   =================================================================================================================================================
 */
 #ifdef __AVR__
-#define NUMCMDBUF 100
+var NUMCMDBUF 100
 #else
-#define NUMCMDBUF 100
+var NUMCMDBUF 100
 #endif
 
 
-#define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
+var nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
-static volatile uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit = 0;
+static volatile var cmhead = 0, cmtail = 0, cmcmd, cmbit = 0;
 static volatile uint32_t cmdlaserval = 0;
 
 static int8_t mo = 0;
-#define cmdfull (nextbuffm(cmhead)==cmtail)
-#define cmdnotfull (nextbuffm(cmhead)!=cmtail)
-#define cmdempty (cmhead==cmtail)
-static volatile int nextok = 0, laserwason = 0;
+var cmdfull (nextbuffm(cmhead)==cmtail)
+var cmdnotfull (nextbuffm(cmhead)!=cmtail)
+var cmdempty (cmhead==cmtail)
+static volatile var nextok = 0, laserwason = 0;
 
-int sendwait = 0;
+var sendwait = 0;
 
-int maincmdlaserval = 0;
+var maincmdlaserval = 0;
 static THEISR void decodecmd()
 {
   if (cmdempty) {
@@ -1114,9 +1135,9 @@ static THEISR void decodecmd()
 
     //else zprintf(PSTR("\nR"));
     //zprintf(PSTR("%d\n"), fi(cmdlaserval));
-    //zprintf(PSTR("int %d\n"), fi(cmdlaserval));
+    //zprintf(PSTR("var %d\n"), fi(cmdlaserval));
   }
-  //if (Setpoint == 0)LASER( !LASERON);
+  //if (Setpovar == 0)LASER( !LASERON);
   //  if (maincmdlaserval && !rasterlen) {
   //zprintf(PSTR("%d\n"), fi(e_ctr));
   //    LASER(LASERON);
@@ -1138,14 +1159,14 @@ static THEISR void decodecmd()
   HEATER(HEATING);
 #endif
 #endif
-  if (Setpoint == 0) {
+  if (Setpovar == 0) {
     laserwason = maincmdlaserval > 0;
     if (laserwason && cmdlaserval) {
       // if laserval is 255 then we know its the full power / cutting
       if ((cmdlaserval < 255)) {
 
-        int las = cmdlaserval / 4; //* (CLOCKCONSTANT / 8000000);
-        //zprintf(PSTR("int %d\n"), fi(las));
+        var las = cmdlaserval / 4; //* (CLOCKCONSTANT / 8000000);
+        //zprintf(PSTR("var %d\n"), fi(las));
         //delayMicroseconds(las);
         //LASER(!LASERON);
         //timer_set(cmdly-las*(CLOCKCONSTANT / 1000000));
@@ -1163,10 +1184,10 @@ static THEISR void decodecmd()
 }
 
 uint32_t mc, dmc, cmctr;
-int e_dir = 0;
+var e_dir = 0;
 int32_t e_ctr = 0;
 
-int mm_ctr = 0;
+var mm_ctr = 0;
 //int16_t zmmm = 0;
 void THEISR coreloopm()
 {
@@ -1288,10 +1309,7 @@ void THEISR coreloopm()
   merge a non move
 */
 
-// we must interpolate delay here, between 10 steps
-int ldelay = 0;
-
-
+var ldelay = 0;
 static void pushcmd()
 {
   // no more data if endstop hit
@@ -1316,7 +1334,7 @@ static void pushcmd()
 
 }
 
-void newdircommand(int laserval)
+void newdircommand(var laserval)
 {
   // change dir command
   //cmd0 = 0;//DIRDELAY << 6;
@@ -1352,7 +1370,7 @@ void dographics()
     return;
   }
   // this might be wrong because the last cmd maybe is from previous segment which have different step/mm
-  float f = lstepdiv / cmdly;
+  var f = lstepdiv / cmdly;
   lstepdiv = stepdiv;
   f = sqrt(ta);
   //f =  sqrt(ta)/stepdiv2;
@@ -1364,12 +1382,12 @@ void dographics()
   // color by speed
   //c = (f - 20) * 4;
 
-  //float cf = float(timescale) / dl;
+  //var cf = float(timescale) / dl;
 
 
 
   //pset (tick*tickscale+10,400-f*fscale),c
-#define realpos1(i) (xs[i] / stepmmx[i])
+var realpos1(i) (xs[i] / stepmmx[i])
   if (tick * tickscale / timescale > 600) {
     gx = 0;
     tick = 0;
@@ -1379,17 +1397,8 @@ void dographics()
   ly = gy;
   gx = tick * tickscale / timescale + 10;
   gy = 480 -  fscale * f * 0.1;
-
-  setcolor(1);
-  putpixel (gx - 1, 480, 1);
-  setcolor(2);
-  putpixel (gx - 1, 480 - 50 * fscale, 2);
-  setcolor(3);
-  putpixel (gx - 1, 480 - 100 * fscale, 3);
-
   setcolor(c);
   putpixel (gx, gy, c);
-
   setcolor(1);
   f = sqrt(ta);
   gy = 480 -  fscale * f * 0.1;
@@ -1404,9 +1413,9 @@ void dographics()
   line(0, gy, 200, gy);
 
 #ifdef NONLINEAR
-  float ex = realpos1(0) * graphscale;
-  float ey = realpos1(1) * graphscale;
-  float ez = realpos1(2) * graphscale;
+  var ex = realpos1(0) * graphscale;
+  var ey = realpos1(1) * graphscale;
+  var ez = realpos1(2) * graphscale;
 
 #if defined( DRIVE_DELTASIAN)
   circle  (150, 251 - ex + 0, 5);
@@ -1438,9 +1447,9 @@ void dographics()
 #endif
 
 #else
-  float ex = realpos1(0) * graphscale;
-  float ey = realpos1(1) * graphscale;
-  float ez = realpos1(2) * graphscale;
+  var ex = realpos1(0) * graphscale;
+  var ey = realpos1(1) * graphscale;
+  var ez = realpos1(2) * graphscale;
 
   //putpixel (ex + 320, ey + 150, c);
   putpixel (ex + ey * 0.3 + 320, ey * 0.3 - ez + 150, c);
@@ -1455,7 +1464,7 @@ void dographics()
 
 }
 #else
-#define graphstep(ix)
+var graphstep(ix)
 #endif
 
 /* ================================================================================================================
@@ -1467,7 +1476,7 @@ void dographics()
 
 
 
-#define bresenham(ix)\
+var bresenham(ix)\
   if ((mcx[ix] -= bsdx[ix]) < 0) {\
     cmd0 |=2<<ix;\
     mcx[ix] += totalstep;\
@@ -1475,16 +1484,16 @@ void dographics()
 
 
 #ifdef INTERPOLATEDELAY
-#define CALCDELAY dl = ((dl<<2)+(dlp-dl))>>2; // hack, linear interpolation of the delay
-//#define CALCDELAY dl = (dlp+dl)>>1; // hack, linear interpolation of the delay
+var CALCDELAY dl = ((dl<<2)+(dlp-dl))>>2; // hack, linear interpolation of the delay
+//var CALCDELAY dl = (dlp+dl)>>1; // hack, linear interpolation of the delay
 #else
-#define CALCDELAY dl = dlp;
+var CALCDELAY dl = dlp;
 #endif
 // ===============================
-float ia = 0;
+var ia = 0;
 long firstdown;
 
-int pixelon = 0;
+var pixelon = 0;
 static THEISR void readpixel2() {
 
   //e_ctr=e_ctr&8191;
@@ -1492,7 +1501,7 @@ static THEISR void readpixel2() {
   vv &= ~32;
   if (vv == 'A')pixelon = 0; else pixelon = 1;
 }
-int coreloop1()
+var coreloop1()
 {
 #ifdef output_enable
   if (mctr == 10)zprintf(PSTR("DLY:%d \n"), fi(cmdly));
@@ -1524,7 +1533,7 @@ int coreloop1()
     } else bresenham(3);
     // if rasterlen and e is change then read the new laser value
     // next speed
-#define accele(a) ia=(ia+a)*0.5;ta+=ia
+var accele(a) ia=(ia+a)*0.5;ta+=ia
     if ((rampup -= rampv) > 0) {
       accele(acup);
       goto UPDATEDELAY;
@@ -1605,7 +1614,7 @@ UPDATEDELAY:
           // need to calculate at least correct next start position based on
           // mctr
 #ifdef HARDSTOP
-          float p = mctr;
+          var p = mctr;
           p /= totalstep;
           //p=1-p;
           cx1 = m->dtx[0] - p * m->dx[0] / Cstepmmx(0);
@@ -1631,10 +1640,10 @@ UPDATEDELAY:
   return 0;
 }
 
-int busy = 0;
+var busy = 0;
 // ===============================================
-int cctr = 0;
-int motionloop()
+var cctr = 0;
+var motionloop()
 {
   if (cctr++ > 100000) {
     cctr = 0;
@@ -1646,7 +1655,7 @@ int motionloop()
   }
   busy = 1;
   CORELOOP
-  int  r;
+  var  r;
   if (!m ) r = startmove();
   else {
     r = coreloop1();
@@ -1658,7 +1667,7 @@ int motionloop()
   return r;
 }
 
-void otherloop(int r)
+void otherloop(var r)
 {
   user_input_loop();
   cm = micros();
@@ -1722,10 +1731,10 @@ void otherloop(int r)
   =================================================================================================================================================
   Mulai menjalankan 1 unit di buffer gerakan terakhir
 */
-int subp = 1, laxis;
+var subp = 1, laxis;
 
-//float ts;
-float xc[NUMAXIS];
+//var ts;
+var xc[NUMAXIS];
 int32_t estep;
 
 // this part must calculated in parts to prevent single long delay
@@ -1746,7 +1755,7 @@ void calculate_delta_steps()
 
   // STEP 2
   if (xtotalseg) {
-#define PSEGMENT(i) xc[i] -= xtotalseg * sgx[i];
+var PSEGMENT(i) xc[i] -= xtotalseg * sgx[i];
     PSEGMENT(0)
     PSEGMENT(1)
     PSEGMENT(2)
@@ -1757,7 +1766,7 @@ void calculate_delta_steps()
   // STEP 4
   // ready for movement
   totalstep = 0;
-  for (int i = 0; i < 4; i++) {
+  for (var i = 0; i < 4; i++) {
     int32_t d = x2[i] - x1[i];
     if (d < 0) {
       bsdx[i] = -d;
@@ -1784,7 +1793,7 @@ void calculate_delta_steps()
   //zprintf(PSTR("Segm:%d Step:%d rampv:%f\n"), fi(xtotalseg), fi(totalstep), ff(rampv));
 #endif
 #else // nonlinear
-  for (int i = 0; i < 4; i++) {
+  for (var i = 0; i < 4; i++) {
 
 
     if (m->dx[i] > 0) {
@@ -1803,7 +1812,7 @@ void calculate_delta_steps()
   // calculate the microseconds betwen step,
   xInvSqrt(dln, (m->fn ));
 #ifdef SUBPIXELMAX
-  int u;
+  var u;
   if (vSUBPIXELMAX > 1) {
     for (u = 2; u <= (vSUBPIXELMAX); u++) {
       if (LOWESTDELAY * u > dln) {
@@ -1851,7 +1860,7 @@ int32_t startmove()
     if (!sendwait && (cmdempty)) {
 
       // send one time, is buffer is emspy after running
-      if (Setpoint == 0) {
+      if (Setpovar == 0) {
         LASER( !LASERON);
         laserwason = 0;
       }
@@ -1870,7 +1879,7 @@ int32_t startmove()
   zprintf(PSTR("\nSTARTMOVE\n"));
 #endif
   // STEP 1
-  int t = nextbuff(tail);
+  var t = nextbuff(tail);
   // prepare ramp (for last move)
   prepareramp(t);
   m = &move[t];
@@ -1904,7 +1913,7 @@ int32_t startmove()
     xtotalseg = 1 + (( STEPSEGMENT ) / STEPPERSEGMENT);
   }
 
-  // if from halt, then need to transform first point, if not then next first point is previous point
+  // if from halt, then need to transform first point, if not then next first povar is previous point
   if (m->status & 128) {
     transformdelta(otx[0], otx[1], otx[2], otx[3]);
   }
@@ -1915,7 +1924,7 @@ int32_t startmove()
   rampseg = (float)(totalstep) * ts;
   ts *= IFIXED2;
 
-#define CSGX(i) sgx[i] = float(m->dx[i]) * ts;
+var CSGX(i) sgx[i] = float(m->dx[i]) * ts;
   CSGX(0)
   CSGX(1)
   CSGX(2)
@@ -1997,14 +2006,14 @@ int32_t startmove()
   =================================================================================================================================================
 */
 #ifdef INVERTENDSTOP
-#define ENDCHECK !
+var ENDCHECK !
 #else
-#define ENDCHECK
+var ENDCHECK
 #endif
 
-#define ENDPIN INPUT_PULLUP
+var ENDPIN INPUT_PULLUP
 
-void docheckendstop(int m)
+void docheckendstop(var m)
 {
 
   // AVR specific code here
@@ -2016,9 +2025,9 @@ void docheckendstop(int m)
   m = 1;
 #ifdef limit_pin
   if (m == 1) {
-    int nc = 0;
+    var nc = 0;
     endstopstatus = 0;
-    for (int d = 0; d < 3; d++) {
+    for (var d = 0; d < 3; d++) {
       if (ENDCHECK dread(limit_pin))nc++;
     }
     if (nc > 2)endstopstatus = -1;
@@ -2044,7 +2053,6 @@ void homing()
   close_user_input();
   init_home_input();
   // clear buffer
-  waitbufferempty();
   addmove(100, 0, 0, ax_home[2] < 1 ? 0 : ocz1, ce01);
   waitbufferempty();
   ishoming = 1;
@@ -2059,10 +2067,10 @@ void homing()
   //  stx[0] =  stx[1] = stx[2] = stx[3] = 0;
   int32_t tx[NUMAXIS];
   //  tx[0] =  tx[1] = tx[2] = tx[3] = 0;
-#define mmax HOMING_MOVE
-#define smmax ENDSTOP_MOVE
-  int vx[4] = { -1, -1, -1, -1};
-  for (int t = 0; t < NUMAXIS; t++) {
+var mmax HOMING_MOVE
+var smmax ENDSTOP_MOVE
+  var vx[4] = { -1, -1, -1, -1};
+  for (var t = 0; t < NUMAXIS; t++) {
     if (ax_home[t] > 1)vx[t] = 1;
     if (ax_home[t] < 1)vx[t] = 0;
     tx[t] = mmax * vx[t];
@@ -2096,8 +2104,8 @@ void homing()
 
   // now slow down and check endstop once again
   waitbufferempty();
-  float xx[NUMAXIS];
-#define moveaway(e,F) {\
+  var xx[NUMAXIS];
+var moveaway(e,F) {\
     if (vx[e]) {\
       xx[0]=xx[1]=xx[2]=xx[3]=0;\
       xx[e] =  - stx[e];\
@@ -2106,7 +2114,7 @@ void homing()
       waitbufferempty();\
     }\
   }
-#define xcheckendstop(e,F) {\
+var xcheckendstop(e,F) {\
     xx[0] = xx[1] = xx[2] = 0; \
     xx[e] = tx[e]; \
     checkendstop = 1; \
@@ -2116,10 +2124,10 @@ void homing()
     addmove(F, xx[0], xx[1], xx[2], xx[3], 1, 1); \
     waitbufferempty(); \
   }
-  for (int e = 0; e < NUMAXIS; e++) {
+  for (var e = 0; e < NUMAXIS; e++) {
     moveaway(e, homingspeed);
   }
-  for (int e = 0; e < NUMAXIS; e++) {
+  for (var e = 0; e < NUMAXIS; e++) {
     if (vx[e]) {
       // check endstop again fast
       xcheckendstop(e, 6);
@@ -2159,10 +2167,10 @@ void homing()
   =================================================================================================================================================
 */
 
-int XCount, YCount;
-int ZValues[10][10];
+var XCount, YCount;
+var ZValues[10][10];
 
-float pointProbing()
+var pointProbing()
 {
   close_user_input();
 
@@ -2170,8 +2178,8 @@ float pointProbing()
   waitbufferempty();
   mm_ctr = 0;
   int32_t tx;
-#define mmax HOMING_MOVE
-#define smmax ENDSTOP_MOVE
+var mmax HOMING_MOVE
+var smmax ENDSTOP_MOVE
   tx = -20;
 
   // fast check every 31 step
@@ -2179,14 +2187,14 @@ float pointProbing()
 
   // move away before endstop
   checkendstop = 1;
-  int o = zcheckevery;
+  var o = zcheckevery;
   zcheckevery = 1;
   addmove(homingspeed, 0, 0, tx, 0, 1, 1);
 
 
   // now slow down and check endstop once again
   waitbufferempty();
-  float zmm = mm_ctr;
+  var zmm = mm_ctr;
   //zprintf(PSTR("Probe %f,%f = %f\n"), ff(cx1), ff(cy1), ff(zmm));
   zmm /= stepmmx[2];
   checkendstop = 0;
@@ -2197,7 +2205,7 @@ float pointProbing()
   return zmm;
 }
 
-void meshprobe(float sx, float sy, float tx, float ty, int mc) {
+void meshprobe(var sx, var sy, var tx, var ty, var mc) {
 
 }
 /*
@@ -2209,11 +2217,11 @@ void meshprobe(float sx, float sy, float tx, float ty, int mc) {
 // need to extrapolate if outside area
 #ifdef MESHLEVEL
 // crude interpolizer resolution is mm for x and y and 0.1mm for z
-float Interpolizer(int zX, int zY) {
+var Interpolizer(var zX, var zY) {
 
   //Indexes
-  int X0i = 1;
-  int Y0i = 1;
+  var X0i = 1;
+  var Y0i = 1;
 
 
   //Interpolated values
@@ -2225,14 +2233,14 @@ float Interpolizer(int zX, int zY) {
   //if (zX < ZValues[1][0])zX = ZValues[1][0];
   //if (zY < ZValues[0][1])zY = ZValues[0][1];
   //Load the table data into the variables
-  for (int i = 2; i < XCount; i++) {
+  for (var i = 2; i < XCount; i++) {
 
     if (zX >= ZValues[i][0] && zX <= ZValues[i + 1][0]) {
       X0i = i;
     }
   }
 
-  for (int i = 2; i < YCount; i++) {
+  for (var i = 2; i < YCount; i++) {
 
     if (zY >= ZValues[0][i] && zY <= ZValues[0][i + 1]) {
       Y0i = i;
@@ -2240,26 +2248,26 @@ float Interpolizer(int zX, int zY) {
   }
 
 
-  int X0 = ZValues[X0i][0];
-  int X1 = ZValues[X0i + 1][0];
-  int Y0 = ZValues[0][Y0i];
-  int Y1 = ZValues[0][Y0i + 1];
+  var X0 = ZValues[X0i][0];
+  var X1 = ZValues[X0i + 1][0];
+  var Y0 = ZValues[0][Y0i];
+  var Y1 = ZValues[0][Y0i + 1];
 
-  int X0Y0 = ZValues[X0i][Y0i];
-  int X0Y1 = ZValues[X0i][Y0i + 1];
-  int X1Y0 = ZValues[X0i + 1][Y0i];
-  int X1Y1 = ZValues[X0i + 1][Y0i + 1];
+  var X0Y0 = ZValues[X0i][Y0i];
+  var X0Y1 = ZValues[X0i][Y0i + 1];
+  var X1Y0 = ZValues[X0i + 1][Y0i];
+  var X1Y1 = ZValues[X0i + 1][Y0i + 1];
 
   //Performs the calculations - no optimization to save space
 
-  int XMY0 = X0Y0 + (zX - X0) * (X1Y0 - X0Y0) / (X1 - X0);
-  int XMY1 = X0Y1 + (zX - X0) * (X1Y1 - X0Y1) / (X1 - X0);
+  var XMY0 = X0Y0 + (zX - X0) * (X1Y0 - X0Y0) / (X1 - X0);
+  var XMY1 = X0Y1 + (zX - X0) * (X1Y1 - X0Y1) / (X1 - X0);
 
   return (XMY0 + (zY - Y0) * (XMY1 - XMY0) / (Y1 - Y0)) * 0.1;
 
 }
 #else
-float Interpolizer(int  zX, int zY) {
+var Interpolizer(var  zX, var zY) {
   return 0;
 }
 
@@ -2291,7 +2299,7 @@ void waitbufferempty()
   }
 #ifdef laser_pin
 
-  if (Setpoint == 0)LASER( !LASERON);
+  if (Setpovar == 0)LASER( !LASERON);
 #endif
   LOOP_OUT(2)
 #ifdef output_enable
@@ -2311,7 +2319,7 @@ void needbuffer()
     zprintf(PSTR("Wait %d / %d \n"), fi(tail), fi(head));
 #endif
     //wait current move finish
-    int t = tail;
+    var t = tail;
     LOOP_IN(3)
     MEMORY_BARRIER()
     while (t == tail) {
@@ -2333,7 +2341,7 @@ void needbuffer()
 void faildetected()
 {
 #ifdef POWERFAILURE
-  // save the print last line only if printing using SDCARD
+  // save the prvar last line only if printing using SDCARD
   if (sdcardok == 2) {
     motor_0_OFF();
     motor_1_OFF();
@@ -2345,7 +2353,7 @@ void faildetected()
     eepromwrite(EE_lastline, fi(lineprocess));
     delay(1000);
     checkendstop = 31;
-    //void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0, int rel)
+    //void addmove(var cf, var cx2, var cy2, var cz2, var ce02, var g0, var rel)
     addmove(200, -2000, 0, 0, 0, 1, 1);
     waitbufferempty();
   }

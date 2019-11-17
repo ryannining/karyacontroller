@@ -46,7 +46,7 @@ int compressing = 0;
 int uncompress = 0;
 
 void checkuncompress() {
-  fsGcode = SPIFFS.open("/gcode", "r");
+  fsGcode = SPIFFS.open("/gcode.gcode", "r");
   if (!fsGcode) {
     zprintf(PSTR("File not found\n"));
     return;
@@ -56,9 +56,9 @@ void checkuncompress() {
 }
 
 #ifdef compression
-void begincompress() {
+void begincompress(String fn) {
   if (uncompress)return;
-  fsGcode = SPIFFS.open("/gcode", "w");
+  fsGcode = SPIFFS.open(fn, "w");
   if (!fsGcode) {
     zprintf(PSTR("Cant open file\n"));
   } else {

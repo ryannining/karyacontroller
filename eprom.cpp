@@ -132,10 +132,10 @@ void reload_eeprom() {
   eepromreadstring(470, wifi_dns, 30);
   //eepromreadstring(500, wifi_gcode, 30);
 #endif
+  extern float HEATINGSCALE;
 #if defined(heater_pin)
   myPID.SetTunings(eepromread(EE_pid_p) * 0.001, eepromread(EE_pid_i) * 0.001, eepromread(EE_pid_d) * 0.001);
   tbang = eepromread(EE_pid_bang) * 0.001;
-  extern float HEATINGSCALE;
   HEATINGSCALE= eepromread(EE_pid_HS) * 0.001;
 #endif
   tbang = eepromread(EE_pid_bang) * 0.001;

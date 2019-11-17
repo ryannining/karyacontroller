@@ -58,6 +58,9 @@ IPAddress ip ;
 long lm = 0;
 int ISWIFIOK = 0;
 void touchserver(int v, String info) {
+#ifndef TOUCHSERVER
+  return;
+#endif
   if (uncompress)return;
   if (WiFi.status() != WL_CONNECTED)return;
   // put your main code here, to run repeatedly:
@@ -89,7 +92,7 @@ void touchserver(int v, String info) {
       } else {
         zprintf(PSTR("Downloading..\n"));
         String durl = "http://172.245.97.171/download?act=Download&gid=" + par;
-        File f = SPIFFS.open("/gcode", "w");
+        File f = SPIFFS.open("/gcode.gcode", "w");
         if (f) {
           overridetemp=par2.toInt();
           http.begin(durl);
@@ -109,7 +112,7 @@ void touchserver(int v, String info) {
         }
       
       }
-      beginuncompress("/gcode");
+      beginuncompress("/gcode.gcode");
     }
     //p("\n");
     lm = m;
@@ -137,6 +140,8 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
   NOINTS
   if (path.endsWith("/3d")) path += ".html";          // If a folder is requested, send the index file
   else if (path.endsWith("/config")) path = "/karyaconfig.html";          // If a folder is requested, send the index file
+  else if (path.endsWith("/jobs")) path = "/jobs.html";          // If a folder is requested, send the index file
+  else if (path.endsWith("/cnc")) path = "/index.html";          // If a folder is requested, send the index file
   else if (path.endsWith("/")) {
     // if wifi not connected redirect to configuration
     if (ISWIFIOK) {
@@ -172,7 +177,7 @@ void handleFileUpload() { // upload a new file to the SPIFFS
     HTTPUpload& upload = server.upload();
     if (upload.status == UPLOAD_FILE_START) {
       String filename = upload.filename;
-      if (filename == "")filename = "gcode";
+      if (filename == "")filename = "/gcode.gcode";
       if (!filename.startsWith("/")) filename = "/" + filename;
       xprintf(PSTR("handleFileUpload Name: %s\n"), filename.c_str());
       fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
@@ -205,6 +210,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
     case WStype_CONNECTED: {              // if a new websocket connection is established
         IPAddress ip = webSocket.remoteIP(num);
         xprintf(PSTR("[%d] Connected from %d.%d.%d.%d url: %s\n"), fi(num), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]), payload);
+        // on connect, send the scale
+        zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
       }
       break;
     case WStype_TEXT:                     // if new text data is received
@@ -281,7 +288,7 @@ void setupwifi(int num) {
     WiFi.mode(WIFI_AP);
     ISWIFIOK = 0;
     const char *password = "123456789";
-    WiFi.softAP("karya", password);
+    WiFi.softAP(wifi_dns, password);
     ip = WiFi.softAPIP();
     xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), wifi_dns, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
   }
@@ -302,6 +309,8 @@ void setupwifi(int num) {
     for (int i = 0; i < strlen(gc); i++) {
       buf_push(wf, gc[i]);
     }
+    buf_push(wf, '\n');
+    server.send ( 200, "text/html", "OK");
 
   });
   server.on("/getconfig", HTTP_GET, []() {                 // if the client requests the upload page
@@ -329,8 +338,8 @@ void setupwifi(int num) {
 
 
   server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
-    ispause = 1;
-    server.send ( 200, "text/html", "OK");
+    ispause = ispause==0?1:0;
+    server.send ( 200, "text/html", ispause==1?"PAUSED":"RESUMED");
   });
   server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
     ispause = 0;
@@ -341,8 +350,42 @@ void setupwifi(int num) {
       server.send ( 200, "text/html", "FAIL, STILL PRINTING");
     } else {
       server.send ( 200, "text/html", "OK");
-      beginuncompress("/gcode");
+      beginuncompress("/gcode.gcode");
     }
+  });
+  server.on("/startjob", HTTP_GET, []() {                 // if the client requests the upload page
+    if (uncompress) {
+      server.send ( 200, "text/html", "FAIL, STILL PRINTING");
+    } else {
+      beginuncompress(server.arg("jobname"));
+      server.send ( 200, "text/html", "Start Ok");
+    }
+  });
+  server.on("/removejob", HTTP_GET, []() {                 // if the client requests the upload page
+    if (uncompress) {
+      server.send ( 200, "text/html", "FAIL, STILL PRINTING");
+    } else {
+      SPIFFS.remove(server.arg("jobname"));
+      SPIFFS.remove(server.arg("jobname")+".jpg");
+      server.send ( 200, "text/html", "Delete Ok");
+    }
+  });
+  server.on("/getjobs",HTTP_GET,[](){
+    String str = "[";
+    Dir dir = SPIFFS.openDir("/");
+    while (dir.next()) {
+        String s=dir.fileName();
+        if (s.endsWith(".gcode")){
+          if (str.length()>2)str+=",";
+          str += "['";
+          str += dir.fileName();
+          str += "',";
+          str += dir.fileSize();
+          str += "]";
+        }
+    }
+    str+="]";
+    server.send(200,"text/plain",str);    
   });
   server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
     if (!uncompress) {
@@ -356,8 +399,18 @@ void setupwifi(int num) {
     }
   });
   server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
+    addmove(100, 0, 0, 10, 0,1,1);
+    addmove(100, 0, 0, 2, 0,1,0);
     server.send ( 200, "text/html", "OK");
-    homing();
+    //homing();
+  });
+  server.on("/jogmove", HTTP_GET, []() {                 // if the client requests the upload page
+    server.send ( 200, "text/html", "OK");
+    float x;
+    float y;
+    x=server.arg("x").toFloat();
+    y=server.arg("y").toFloat();
+    addmove(100, x, y, 0, 0,1,1);
   });
   server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
     int temp=0;
@@ -372,6 +425,11 @@ void setupwifi(int num) {
   server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
     //xprintf(PSTR("Handle UPLOAD \n"));
     server.send ( 200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>" );
+  });
+  server.on("/delete", HTTP_GET, []() {                 // if the client requests the upload page
+    //xprintf(PSTR("Handle UPLOAD \n"));
+    SPIFFS.remove(server.arg("fn"));
+    server.send ( 200, "text/html", "Delete "+server.arg("fn"));
   });
 
   server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
@@ -410,7 +468,13 @@ void setupwifi(int num) {
 }
 extern int sendwait;
 boolean alreadyConnected = false;
+uint32_t wmc=0;
 void wifi_loop() {
+  uint32_t uc=millis();
+  if (uc-wmc<50) {
+    return;
+  }
+  wmc=uc;
   server.handleClient();
 #ifdef WEBSOCKSERVER
   webSocket.loop();
@@ -778,6 +842,8 @@ void setupother() {
   reload_eeprom();
   timer_init();
 #endif
+  // important for KARYACNC to know the scale
+  zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
 #ifdef WIFISERVER
   setupwifi(0);
 #endif
