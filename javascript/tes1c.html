@@ -3,16 +3,30 @@
 </head>
 <html>
 <body>
-  <table cellpadding=5><tr><td width=auto>	
-  <table id=t1></table>
+<table  cellpadding=5>
+<tr><td width=auto>	
+	<table style="font-size:9pt;font-family:arial" id=t0 width=100%>
+		<tr><td>Prev acc</td><td><input id=iprevac type=input value=1 size=2></td><td></td></tr>
+		<tr><td>Next acc</td><td><input id=inextac type=input value=-1 size=2></td><td></td></tr>
+		<tr><td colspan="4"><hr></td></tr>
+		<tr><td>Distance</td><td><input id=immdis type=input size=4 value=125></td><td></td></tr>
+		<tr><td>Vinitial</td><td><input id=ivi type=input size=4 value=0></td><td></td></tr>
+		<tr><td>Vcruise</td><td><input id=ivc type=input size=4 value=135></td><td></td></tr>
+		<tr><td>Vexit</td><td><input id=ive type=input size=4 value=0></td><td></td></tr>
+		<tr><td>Jerk</td><td><input id=ij type=input size=4 value=3000></td><td></td></tr>
+		<tr><td>Max Ac</td><td><input id=ia type=input size=4 value=400></td><td></td></tr>
+		<tr><td colspan="4"><button onclick="redraw()">Redraw</button><hr></td></tr>
+	</table>  
+	<table style="font-size:9pt;font-family:arial" id=t1></table>
 <td width=500 bgcolor=black>  
-  <canvas id=drw width="600" height="500"></canvas>
-  </table>
+  <canvas id=drw width="600" height="600"></canvas>
+</table>
 <script>
 
 function $(id) {
     return document.getElementById(id);
 }
+function getval(id){return parseFloat($(id).value);}
 function mround(x) {
     return parseFloat(x).toFixed(2);
 }
@@ -31,431 +45,717 @@ var cbrt=Math.cbrt;
 var sqrt=Math.sqrt;
 var fabs=Math.abs;
 function cube(x){return x*x*x;}
+function sqr(x){return x*x;}
 var cinv;
 function xInvSqrt(n) {return stepdiv2*(n>0.05?(cinv=InvSqrt(n)):(cinv=0.5));}
 function zInvSqrt(n) {return stepdiv2/n;}
 
+var stepBuff=[];
 
 /*
-
-  L = (Vf^2-Vi^2)/(2.a)
-  L = Vi.T + 1/2 a.t^2                      // constant acceleration
-  L = Vi.T + 1/2 a.t^2 + 1/6 j.T^3          // constant jerk
-
-
-  L = Vf.T                     // constant velocity
-  V = a.T                      // constant acceleration
-  V = ai.T + 1/2 j.T^2           // constant Jerk
-  
-  
-  L = 100
-  
-  7 segment
-  1. constant jerk from a = 0     ---- only if previous acc is 0
-  2. constant acceleration 
-  3. constant jerk decelerate
-  4. cruise constant V
-  5. like 3  
-  6. like 2  decelerate
-  7. like 1  
-  
-  
-    
-
+	abstrack function to handle bresenham machine mode
 */
+var mdis=0;
+var	StepMM= 100;
+var minVel=0.1;
 
-prevac = 1; // -1 0 +1 
-nextac = 0; // -1 0 +1
-mmdis = 20;
-vi = 10;  // v initial   
-vc = 20;  // v cruise
-ve = 0; // 
-j = 10;
-a = 10; // max ac
-tjerk = a/j;
-mvjerk = 1/2*j*tjerk*tjerk;
-
-mmtomuch=0;
-loop=1;
-st1="";
-
-st1+="<tr><td>Prev acc<td>"+(prevac)+"<td>";
-st1+="<tr><td>Next acc<td>"+(nextac)+"<td>";
-st1+="<tr><td colspan=4><hr>";
-st1+="<tr><td>Distance<td>"+mround(mmdis)+"<td>";
-st1+="<tr><td>Vinitial<td>"+mround(vi)+"<td>";
-st1+="<tr><td>Vcruise<td>"+mround(vc)+"<td>";
-st1+="<tr><td>Vexit<td>"+mround(ve)+"<td>";
-st1+="<tr><td>Jerk<td>"+mround(j)+"<td>";
-st1+="<tr><td>Max Ac<td>"+mround(a)+"<td>";
-st1+="<tr><td colspan=4><hr>";
-
-while (1){
-
-	// time each segment
-	// segment 1, constant jerk until v increase vjerk
-	// a = a0+ J.T
-	// T=a/J;
-
-	// Vt = Vi + ai.T  + 1/2JT^2
-	// Vt = Vi + 0 + 1/2JT^2   
-	// T=sqrt(2(Vt-Vi)/J)
-
-	//
-
-	has1=0;
-	vjerk1=mvjerk;
-	if ((prevac<=0) && (vc>vi)){ // if previous is not accelerate up, and vinitial less than vcruise
-		if ((vc-vi)<(2*vjerk1)){
-			vjerk1=(vc-vi)/2; // cannot accelerate maximum
-			t1=sqrt(2*vjerk1/j); // calc time to reac vjerk segment 1
-		} else {
-			t1=tjerk; // can use jerk to maximum acceleration value
-		}
-		vt1 = vi + vjerk1;
-		s1 = vi*t1 + 1/6*j*t1*t1*t1;
-		has1=1;
-	} else { // doesnot have segment 1
-		s1=0;
-		vt1=vi;
-		t1=0;
-		vjerk1=0;
-	}
-	v1=vt1;
-
-	// segment 2 constant acceleration until vcruise-vjerk
-	// Vt = Vt1 + a.T
-	// T = (Vt-Vt1)/a
+function machinemove(sg,dis,vel){
+	// for debugging
+	stepBuff.push([sg,dis,vel]);
 	
-	if (ve<vc)vt2 = vc-mvjerk;else vt2 = vc-vjerk1;
-	has2=0;
-	if (vt2>vt1){
-		t2 = (vt2-vt1)/a;
-		s2 = vt1*t2 + 1/2*a*t2*t2;
-		has2=1;
-	} else {
-		t2=0;
-		s2=0;
-		// if no room for acceleration and jerk, then we must change the segment1 later
+	var steps=(dis-mdis)*StepMM;
+	if (steps){
+		
+		// do bresenham this step longs
+		//
+		//
+		
+		var t=1/(fmax(vel,minVel)); // prevent zero speed
+		
+		mdis=dis; // save last step position
 	}
-	v2=vt2;
+}
 
-	// segment 3 decelerate is same as segment 1
-	has3=0;
-	if (ve<vc) { //we have cruise followed by deceleration 
-		// check if dV is enough for jerk deceleration
-		//if (vc-ve)>
-		t3  = tjerk;
-		s3 = vt2*t3 - 1/6*j*t3*t3*t3;
-		has3=1;
-	} else {
-		s3=0;
-		t3=0;
-	}
-	v3=vc;
+function redraw(){
 
-	// ===========================================================================================
-	// segment 5,6,7 is calculated inversed from ve to vc just like segment 1,2,3
-	// segment 7, constant jerk until v increase vjerk
+	/*
 
-	has7=0;
-	vjerk7=mvjerk;
-	v7=ve;
-	if ((nextac>=0) && (vc>ve)){ // if previous is not accelerate up, and vinitial less than vcruise
-		if ((vc-ve)<(2*vjerk7)){
-			vjerk7=(vc-ve)/2; // cannot accelerate maximum
-			t7=sqrt(2*vjerk7/j); // calc time to reac vjerk segment 1
-		} else {
-			t7=tjerk; // can use jerk to maximum acceleration value
+	  L = (Vf^2-Vi^2)/(2.a)
+	  L = Vi.T + 1/2 a.t^2                      // constant acceleration
+	  L = Vi.T + 1/2 a.T^2 + 1/6 j.T^3          // constant jerk
+
+
+	  L = Vf.T                     // constant velocity
+	  V = a.T                      // constant acceleration
+	  V = ai.T + 1/2 j.T^2           // constant Jerk
+	  
+	  
+	  L = 100
+	  
+	  7 segment
+	  1. constant jerk from a = 0     ---- only if previous acc is 0
+	  2. constant acceleration 
+	  3. constant jerk decelerate
+	  4. cruise constant V
+	  5. like 3  
+	  6. like 2  decelerate
+	  7. like 1  
+	  
+	  
+		
+
+	*/
+	stepBuff=[];
+	prevac = getval("iprevac"); // -1 0 +1 
+	nextac = getval("inextac"); // -1 0 +1
+	mmdis = getval("immdis");	
+	vi = getval("ivi");  // v initial   
+	vc = getval("ivc");  // v cruise
+	ve = getval("ive"); // 
+	j = getval("ij");
+	a = getval("ia"); // max ac
+	tjerk = a/j;
+	mvjerk = 1/2*j*tjerk*tjerk;
+
+	mmtomuch=0;
+	mdis=0;
+	loop=1;
+	st1="";
+
+	/*st1+="<tr><td>Prev acc<td>"+(prevac)+"<td>";
+	st1+="<tr><td>Next acc<td>"+(nextac)+"<td>";
+	st1+="<tr><td colspan=4><hr>";
+	st1+="<tr><td>Distance<td>"+mround(mmdis)+"<td>";
+	st1+="<tr><td>Vinitial<td>"+mround(vi)+"<td>";
+	st1+="<tr><td>Vcruise<td>"+mround(vc)+"<td>";
+	st1+="<tr><td>Vexit<td>"+mround(ve)+"<td>";
+	st1+="<tr><td>Jerk<td>"+mround(j)+"<td>";
+	st1+="<tr><td>Max Ac<td>"+mround(a)+"<td>";
+	st1+="<tr><td colspan=4><hr>";
+	*/
+	
+	while (1){
+
+		// time each segment
+		// segment 1, constant jerk until v increase vjerk
+		// a = a0+ J.T
+		// T=a/J;
+
+		// Vt = Vi + ai.T  + 1/2JT^2
+		// Vt = Vi + 0 + 1/2JT^2   
+		// T=sqrt(2(Vt-Vi)/J)
+
+		//
+
+		has1=0;
+		vjerk1=mvjerk;
+		if ((prevac<=0) && (vc>vi)){ // if previous is not accelerate up, and vinitial less than vcruise
+			if ((vc-vi)<(2*vjerk1)){
+				vjerk1=(vc-vi)/2; // cannot accelerate maximum
+				t1=sqrt(2*vjerk1/j); // calc time to reac vjerk segment 1
+			} else {
+				t1=tjerk; // can use jerk to maximum acceleration value
+			}
+			vt1 = vi + vjerk1;
+			s1 = vi*t1 + 1/6*j*t1*t1*t1;
+			has1=1;
+		} else { // doesnot have segment 1
+			s1=0;
+			vt1=vi;
+			t1=0;
+			vjerk1=0;
 		}
-		vt7 = ve + vjerk7;
-		s7 = ve*t1 + 1/6*j*t7*t7*t7;
-		has7=1;
-	} else { // doesnot have segment 1
-		s7=0;
-		vt7=ve;
-		t7=0;
-		vjerk7=0;
+		v1=vt1;
+
+		// segment 2 constant acceleration until vcruise-vjerk
+		// Vt = Vt1 + a.T
+		// T = (Vt-Vt1)/a
+		
+		if (ve<vc)vt2 = vc-mvjerk;else vt2 = vc-vjerk1;
+		has2=0;
+		if (vt2>vt1){
+			t2 = (vt2-vt1)/a;
+			s2 = vt1*t2 + 1/2*a*t2*t2;
+			has2=1;
+		} else {
+			t2=0;
+			s2=0;
+			// if no room for acceleration and jerk, then we must change the segment1 later
+		}
+		v2=vt2;
+
+		// segment 3 decelerate is same as segment 1
+		has3=0;
+		if ((ve<=vc) && (vi<vc)) { //we have cruise followed by deceleration 
+			// check if dV is enough for jerk deceleration
+			//if (vc-ve)>
+			t3  = t1?t1:tjerk;
+			s3 = vc*t3 - 1/6*j*t3*t3*t3;
+			has3=1;
+		} else {
+			s3=0;
+			t3=0;
+		}
+		v3=vc;
+
+		// ===========================================================================================
+		// segment 5,6,7 is calculated inversed from ve to vc just like segment 1,2,3
+		// segment 7, constant jerk until v increase vjerk
+
+		has7=0;
+		vjerk7=mvjerk;
+		v7=ve;
+		if ((nextac>=0) && (vc>ve)){ // if previous is not accelerate up, and vinitial less than vcruise
+			if ((vc-ve)<(2*vjerk7)){
+				vjerk7=(vc-ve)/2; // cannot accelerate maximum
+				t7=sqrt(2*vjerk7/j); // calc time to reac vjerk segment 1
+			} else {
+				t7=tjerk; // can use jerk to maximum acceleration value
+			}
+			vt7 = ve + vjerk7;
+			s7 = ve*t1 + 1/6*j*t7*t7*t7;
+			has7=1;
+		} else { // doesnot have segment 1
+			s7=0;
+			vt7=ve;
+			t7=0;
+			vjerk7=0;
+		}
+		// segment 6 constant acceleration until vcruise-vjerk
+		// Vt = Vt1 + a.T
+		// T = (Vt-Vt1)/a
+
+		has6=0;
+		v6=vt7;
+
+		if (nextac<0)vt6 = vc-mvjerk;else vt6 = vc-vjerk7;
+
+
+		if (vt6>vt7){
+			t6 = (vt6-vt7)/a;
+			s6 = vt7*t6 + 1/2*a*t6*t6;
+			has6=1;
+		} else {
+			t6=0;
+			s6=0;
+			// if no room for acceleration and jerk, then we must change the segment1 later
+		}
+
+		// segment 5 decelerate is same as segment 7
+		has5=0;
+		if (nextac<0)v5=vc-mvjerk;else v5=vc-vjerk7;
+		
+		if (ve<vc) { //if we have initial acceleration 
+			t5  = t7?t7:tjerk;
+			s5 = vc*t5 - 1/6*j*t5*t5*t5;
+			has5=1;
+		} else {
+			s5=0;
+			t5=0;
+		}
+
+
+		// cruise must be calculate last, we must know how much distance from jerk ramp up and jerk ramp down
+		// segment 4  = cruise
+		taccelerate = t1+t2+t3+t5+t6+t7;
+		saccelerate = s1+s2+s3+s5+s6+s7;
+		has4=0;
+		v4=vc;
+		if (mmdis>saccelerate){ // we have cruise
+			has4=1;
+			s4=mmdis-saccelerate;
+			t4=s4/vc;
+		} else {
+			s4=mmdis-saccelerate;
+			t4=0;
+		}
+		if (s4>=0)break;
+		if (vc==vi+mvjerk)break;
+		mmtomuch=s4;
+		// adjust vcruise to meet the formula
+		vc=fmax(vc*0.8,vi);
+		vc=fmax(vc,vi<vc?vi+mvjerk:0);
+		loop++;
+		if (loop>15)break;
 	}
-	// segment 6 constant acceleration until vcruise-vjerk
-	// Vt = Vt1 + a.T
-	// T = (Vt-Vt1)/a
+	if (!has4)s4=0;
 
-	has6=0;
-	v6=vt7;
+	st1+="<tr><td>New Vcruise<td>"+mround(vc)+"<td>";
+	st1+="<tr><td>Max Vjerk<td>"+mround(mvjerk)+"<td>";
+	st1+="<tr><td>Max Tjerk<td>"+mround(tjerk)+"<td>";
+	st1+="<tr><td colspan=4><hr>";
+	st1+="<tr><td>Segment<td>Distance<td>Time<td>Velocity";
+	ss=s1;
+	st1+="<tr><td>1<td>"+mround(ss)+"/"+mround(s1)+"<td>"+mround(t1)+"<td>"+mround(v1);ss+=s2;
+	st1+="<tr><td>2<td>"+mround(ss)+"/"+mround(s2)+"<td>"+mround(t2)+"<td>"+mround(v2);ss+=s3;
+	st1+="<tr><td>3<td>"+mround(ss)+"/"+mround(s3)+"<td>"+mround(t3)+"<td>"+mround(v3);ss+=s4;
+	st1+="<tr><td>4<td>"+mround(ss)+"/"+mround(s4)+"<td>"+mround(t4)+"<td>"+mround(v4);ss+=s5;
+	st1+="<tr><td>5<td>"+mround(ss)+"/"+mround(s5)+"<td>"+mround(t5)+"<td>"+mround(v5);ss+=s6;
+	st1+="<tr><td>6<td>"+mround(ss)+"/"+mround(s6)+"<td>"+mround(t6)+"<td>"+mround(v6);ss+=s7;
+	st1+="<tr><td>7<td>"+mround(ss)+"/"+mround(s7)+"<td>"+mround(t7)+"<td>"+mround(v7);
+	st1+="<tr><td colspan=4><hr>";
+	T=taccelerate+t4;
+	S=saccelerate+s4;
+	st1+="<tr><td> <td>"+mround(saccelerate+s4)+"<td>"+mround(taccelerate+t4)+"<td>";
+	st1+="<tr><td colspan=4><hr>";
 
-	if (nextac<0)vt6 = vc-mvjerk;else vt6 = vc-vjerk7;
-
-
-	if (vt6>vt7){
-		t6 = (vt6-vt7)/a;
-		s6 = vt7*t6 + 1/2*a*t6*t6;
-		has6=1;
-	} else {
-		t6=0;
-		s6=0;
-		// if no room for acceleration and jerk, then we must change the segment1 later
-	}
-
-	// segment 5 decelerate is same as segment 7
-	has5=0;
-	if (nextac<0)v5=vc-mvjerk;else v5=vc-vjerk7;
-	if (ve<vc) { //if we have initial acceleration 
-		t5  = tjerk;
-		s5 = vt6*t3 - 1/6*j*t5*t5*t5;
-		has5=1;
-	} else {
-		s5=0;
-		t5=0;
-	}
-
-
-	// cruise must be calculate last, we must know how much distance from jerk ramp up and jerk ramp down
-	// segment 4  = cruise
-	taccelerate = t1+t2+t3+t5+t6+t7;
-	saccelerate = s1+s2+s3+s5+s6+s7;
-	has4=0;
-	v4=vc;
-	if (mmdis>saccelerate){ // we have cruise
-		has4=1;
-		s4=mmdis-saccelerate;
-		t4=s4/vc;
-	} else {
-		s4=mmdis-saccelerate;
-		t4=0;
-	}
-	if (s4>=0)break;
-	if (vc==vi+mvjerk)break;
-	mmtomuch=s4;
-	// adjust vcruise to meet the formula
-	vc=fmax(vc*0.5,vi+mvjerk);
-	loop++;
-}
-
-st1+="<tr><td>New Vcruise<td>"+mround(vc)+"<td>";
-st1+="<tr><td>Max Vjerk<td>"+mround(mvjerk)+"<td>";
-st1+="<tr><td>Max Tjerk<td>"+mround(tjerk)+"<td>";
-st1+="<tr><td colspan=4><hr>";
-st1+="<tr><td>Segment<td>Distance<td>Time<td>Velocity";
-st1+="<tr><td>1<td>"+mround(s1)+"<td>"+mround(t1)+"<td>"+mround(v1);
-st1+="<tr><td>2<td>"+mround(s2)+"<td>"+mround(t2)+"<td>"+mround(v2);
-st1+="<tr><td>3<td>"+mround(s3)+"<td>"+mround(t3)+"<td>"+mround(v3);
-st1+="<tr><td>4<td>"+mround(s4)+"<td>"+mround(t4)+"<td>"+mround(v4);
-st1+="<tr><td>5<td>"+mround(s5)+"<td>"+mround(t5)+"<td>"+mround(v5);
-st1+="<tr><td>6<td>"+mround(s6)+"<td>"+mround(t6)+"<td>"+mround(v6);
-st1+="<tr><td>7<td>"+mround(s7)+"<td>"+mround(t7)+"<td>"+mround(v7);
-st1+="<tr><td colspan=4><hr>";
-T=taccelerate+t4;
-S=saccelerate+s4;
-st1+="<tr><td> <td>"+mround(saccelerate+s4)+"<td>"+mround(taccelerate+t4)+"<td>";
-st1+="<tr><td colspan=4><hr>";
-st1+="<tr><td>Loop<td>"+loop+"x";
-
- 
-// draw the graph
-XS=400/T;
-YS=300/vc;
-VS=vc/4;
-TS=T/10;
-
-GX=30;
-GY=450;
-ctx.beginPath();			
-ctx.strokeStyle="green";
-ctx.fillStyle="white";
-for (var Y=0;Y<10;Y++){
-	ctx.moveTo(GX,GY-Y*VS*YS);
-	ctx.lineTo(GX-4,GY-Y*VS*YS);
-	ctx.fillText(mround(Y*VS),0,GY-Y*VS*YS);
-}
-for (var X=0;X<11;X++){
-	ctx.moveTo(GX+X*TS*XS,GY);
-	ctx.lineTo(GX+X*TS*XS,GY+4);
-	ctx.fillText(mround(X*TS),GX+X*TS*XS,GY+15);
-}
-
-ctx.moveTo(GX,GY);
-ctx.lineTo(GX,GY-550);
-ctx.moveTo(GX,GY);
-ctx.lineTo(GX+500,GY);
-ctx.stroke();
-
-lx=GX;
-ly=GY;
-x=GX;
-y=GY;
-V=vi;
-Ti=0;
-StepMM= 100;
-Ts=T/(mmdis*StepMM*2);
-st1+="<tr><td>Loop<td>"+loop+"x";
-st1+="<tr><td>TimeStep<td>"+mround(T/Ts);
-$("t1").innerHTML=st1; 
-
-// draw the graph
-// Segment1
-if (t1){
-	ctx.beginPath();			
-	ctx.strokeStyle="white";
-
-	Ts1 = t1/Ts+1;
-	for (Ti=0;Ti<Ts1;Ti++){
-		t=Ti*Ts;
-		V=vi+1/2*j*t*t;
-		ctx.moveTo(lx,ly);
-		x=GX+t*XS;
-		y=GY-V*YS;
-		ctx.lineTo(x,y);
-		lx=x;
-		ly=y;
-		a2=j*t;
-	}
-	ctx.moveTo(lx,ly);
-	ctx.lineTo(lx,GY);
-	ctx.stroke();
-}
-
-
-// Segment2
-if (t2){
+	 
+	// draw the graph
+	XS=400/T;
+	YS=150/vc;
+	VS=vc/4;
+	TS=T/2;
+// =======================================================================================	
+// 	
+// Draw the graph using standard math
+// 	
+// =======================================================================================	
+	GX=30;
+	GY=250;
+	ctx.clearRect(0,0,600,600);			
 	ctx.beginPath();			
 	ctx.strokeStyle="green";
-	GX=lx;
-	Ts1 = t2/Ts+1;
-
-	Vs=V;
-	for (Ti=0;Ti<Ts1;Ti++){
-		t=(Ti)*Ts;
-		a2=a;
-		V=Vs+a2*t;
-		ctx.moveTo(lx,ly);
-		x=GX+t*XS;
-		y=GY-V*YS;
-		ctx.lineTo(x,y);
-		lx=x;
-		ly=y;
-		
+	ctx.fillStyle="white";
+	for (var Y=0;Y<10;Y++){
+		ctx.moveTo(GX,GY-Y*VS*YS);
+		ctx.lineTo(GX-4,GY-Y*VS*YS);
+		ctx.fillText(mround(Y*VS),0,GY-Y*VS*YS);
 	}
-	ctx.moveTo(lx,ly);
-	ctx.lineTo(lx,GY);
+
+	ctx.moveTo(GX,GY-vi*YS);
+	ctx.lineTo(GX-4,GY-vi*YS);
+	ctx.fillText(mround(vi),0,GY-vi*YS);
+
+	ctx.moveTo(500,GY-vc*YS);
+	ctx.lineTo(GX-4,GY-vc*YS);
+	ctx.fillText(mround(vc),0,GY-vc*YS);
+
+	ctx.moveTo(500,GY-ve*YS);
+	ctx.lineTo(GX-4,GY-ve*YS);
+	ctx.fillText(mround(ve),0,GY-ve*YS);
+
+
+	for (var X=0;X<11;X++){
+		ctx.moveTo(GX+X*TS*XS,GY);
+		ctx.lineTo(GX+X*TS*XS,GY+4);
+		ctx.fillText(mround(X*TS),GX+X*TS*XS,GY+15);
+	}
+
+	ctx.moveTo(GX,GY);
+	ctx.lineTo(GX,GY-550);
+	ctx.moveTo(GX,GY);
+	ctx.lineTo(GX+500,GY);
 	ctx.stroke();
-} else {
-	a2=a; // if we start from previous acceleration, then probably 
-}
 
-// Segment3
-if (t3){
-	ctx.beginPath();			
-	ctx.strokeStyle="red";
+	lx=GX;
+	ly=GY;
+	x=GX;
+	y=GY;
+	V=vi;
+	Ti=0;
+	Ts=T/(mmdis*StepMM);
+	st1+="<tr><td>Loop<td>"+loop+"x";
+	st1+="<tr><td>TimeStep<td>"+mround(T/Ts);
+	$("t1").innerHTML=st1; 
 
-	GX=lx;
-	Ts1 = t3/Ts+1;
-	Vs=V;
-	for (Ti=0;Ti<Ts1;Ti++){
-		t=(Ti)*Ts;
-		V=Vs+a2*t-1/2*j*t*t;
+///*
+	// draw the graph
+	// Segment1
+	a2=0;
+	if (has1){
+		ctx.beginPath();			
+		ctx.strokeStyle="white";
+
+		Ts1 = t1/Ts+1;
+		for (Ti=0;Ti<Ts1;Ti++){
+			t=Ti*Ts;
+			V=vi+1/2*j*t*t;
+			ctx.moveTo(lx,ly);
+			x=GX+t*XS;
+			y=GY-V*YS;
+			ctx.lineTo(x,y);
+			lx=x;
+			ly=y;
+			a2=j*t;
+		}
 		ctx.moveTo(lx,ly);
-		x=GX+t*XS;
-		y=GY-V*YS;
-		ctx.lineTo(x,y);
-		lx=x;
-		ly=y;	
+		ctx.lineTo(lx,GY);
+		ctx.stroke();
 	}
-	ctx.moveTo(lx,ly);
-	ctx.lineTo(lx,GY);
-	ctx.stroke();
-}
-// Segment4
 
-if (t4){
-	ctx.beginPath();			
-	ctx.strokeStyle="white";
-	GX=lx;
-	Ts1 = t4/Ts;
-	Vs=V;
-	for (Ti=0;Ti<Ts1;Ti++){
-		t=Ti*Ts;
-		V=Vs;
+
+	// Segment2
+	if (has2){
+		ctx.beginPath();			
+		ctx.strokeStyle="green";
+		GX=lx;
+		Ts1 = t2/Ts+1;
+
+		Vs=V;
+		for (Ti=0;Ti<Ts1;Ti++){
+			t=(Ti)*Ts;
+			a2=a;
+			V=Vs+a2*t;
+			ctx.moveTo(lx,ly);
+			x=GX+t*XS;
+			y=GY-V*YS;
+			ctx.lineTo(x,y);
+			lx=x;
+			ly=y;
+			
+		}
 		ctx.moveTo(lx,ly);
-		x=GX+t*XS;
-		y=GY-V*YS;
-		ctx.lineTo(x,y);
-		lx=x;
-		ly=y;	
+		ctx.lineTo(lx,GY);
+		ctx.stroke();
+	} else {
+		a2=a2?a2:a; // if we start from previous acceleration, then probably 
 	}
-	ctx.moveTo(lx,ly);
-	ctx.lineTo(lx,GY);
-	ctx.stroke(); 
-}
 
-// Segment5
-if (t5){
-	ctx.beginPath();			
-	ctx.strokeStyle="red";
+	// Segment3
+	if (has3){
+		ctx.beginPath();			
+		ctx.strokeStyle="red";
 
-	GX=lx;
-	Ts1 = t5/Ts+1;
-	Vs=V;
-	for (Ti=0;Ti<Ts1;Ti++){
-		t=(Ti)*Ts;
-		V=Vs-1/2*j*t*t;
+		GX=lx;
+		Ts1 = t3/Ts+1;
+		Vs=V;
+		for (Ti=0;Ti<Ts1;Ti++){
+			t=(Ti)*Ts;
+			V=Vs+a2*t-1/2*j*t*t;
+			ctx.moveTo(lx,ly);
+			x=GX+t*XS;
+			y=GY-V*YS;
+			ctx.lineTo(x,y);
+			lx=x;
+			ly=y;	
+		}
 		ctx.moveTo(lx,ly);
-		x=GX+t*XS;
-		y=GY-V*YS;
-		ctx.lineTo(x,y);
-		lx=x;
-		ly=y;	
-		a5=j*t;
+		ctx.lineTo(lx,GY);
+		ctx.stroke();
 	}
-	ctx.moveTo(lx,ly);
-	ctx.lineTo(lx,GY);
-	ctx.stroke();
-}
-// Segment 6
-if (t6){
+	// Segment4
+
+	if (has4){
+		ctx.beginPath();			
+		ctx.strokeStyle="white";
+		GX=lx;
+		Ts1 = t4/Ts;
+		Vs=V;
+		for (Ti=0;Ti<Ts1;Ti++){
+			t=Ti*Ts;
+			V=Vs;
+			ctx.moveTo(lx,ly);
+			x=GX+t*XS;
+			y=GY-V*YS;
+			ctx.lineTo(x,y);
+			lx=x;
+			ly=y;	
+		}
+		ctx.moveTo(lx,ly);
+		ctx.lineTo(lx,GY);
+		ctx.stroke(); 
+	}
+
+	// Segment5
+	if (has5){
+		ctx.beginPath();			
+		ctx.strokeStyle="red";
+
+		GX=lx;
+		Ts1 = t5/Ts+1;
+		Vs=V;
+		for (Ti=0;Ti<Ts1;Ti++){
+			t=(Ti)*Ts;
+			V=Vs-1/2*j*t*t;
+			ctx.moveTo(lx,ly);
+			x=GX+t*XS;
+			y=GY-V*YS;
+			ctx.lineTo(x,y);
+			lx=x;
+			ly=y;	
+			a5=j*t;
+		}
+		ctx.moveTo(lx,ly);
+		ctx.lineTo(lx,GY);
+		ctx.stroke();
+	}
+	// Segment 6
+	if (has6){
+		ctx.beginPath();			
+		ctx.strokeStyle="green";
+		GX=lx;
+		Ts1 = t6/Ts+1;
+
+		Vs=V;
+		for (Ti=0;Ti<Ts1;Ti++){
+			t=(Ti)*Ts;
+			V=Vs-a5*t;
+			ctx.moveTo(lx,ly);
+			x=GX+t*XS;
+			y=GY-V*YS;
+			ctx.lineTo(x,y);
+			lx=x;
+			ly=y;
+			
+		}
+		ctx.moveTo(lx,ly);
+		ctx.lineTo(lx,GY);
+		ctx.stroke();
+	}
+	// Segment7
+	if (has7){
+		ctx.beginPath();			
+		ctx.strokeStyle="white";
+		Vs=V;
+		GX=lx;
+		Ts1 = t7/Ts+1;
+		for (Ti=0;Ti<Ts1;Ti++){
+			t=Ti*Ts;
+			V=Vs-a5*t+1/2*j*t*t;
+			ctx.moveTo(lx,ly);
+			x=GX+t*XS;
+			y=GY-V*YS;
+			ctx.lineTo(x,y);
+			lx=x;
+			ly=y;
+			a2=j*t;
+		}
+		ctx.moveTo(lx,ly);
+		ctx.lineTo(lx,GY);
+		ctx.stroke();
+	}
+//*/
+
+// =======================================================================================	
+// Optimized step generator using as minimum loop possible
+// =======================================================================================
+	GY=550;
+	GX=30;
+	// draw the graph
+
 	ctx.beginPath();			
 	ctx.strokeStyle="green";
-	GX=lx;
-	Ts1 = t6/Ts+1;
-
-	Vs=V;
-	for (Ti=0;Ti<Ts1;Ti++){
-		t=(Ti)*Ts;
-		V=Vs-a5*t;
-		ctx.moveTo(lx,ly);
-		x=GX+t*XS;
-		y=GY-V*YS;
-		ctx.lineTo(x,y);
-		lx=x;
-		ly=y;
-		
+	ctx.fillStyle="white";
+	for (var Y=0;Y<3;Y++){
+		ctx.moveTo(GX,GY-Y*VS*YS);
+		ctx.lineTo(GX-4,GY-Y*VS*YS);
+		ctx.fillText(mround(Y*VS),0,GY-Y*VS*YS);
 	}
-	ctx.moveTo(lx,ly);
-	ctx.lineTo(lx,GY);
+
+	ctx.moveTo(GX,GY-vi*YS);
+	ctx.lineTo(GX-4,GY-vi*YS);
+	ctx.fillText(mround(vi),0,GY-vi*YS);
+
+	ctx.moveTo(500,GY-vc*YS);
+	ctx.lineTo(GX-4,GY-vc*YS);
+	ctx.fillText(mround(vc),0,GY-vc*YS);
+
+	ctx.moveTo(500,GY-ve*YS);
+	ctx.lineTo(GX-4,GY-ve*YS);
+	ctx.fillText(mround(ve),0,GY-ve*YS);
+
+
+
+	ctx.moveTo(GX,GY);
+	ctx.lineTo(GX,GY-250);
+	ctx.moveTo(GX,GY);
+	ctx.lineTo(GX+500,GY);
 	ctx.stroke();
-}
-// Segment7
-if (t7){
+	lx=GX;
+	ly=GY;
+	
+	// draw the graph
+	// Segment1, constant jerk need most calculation
+	a2=0;
+	S=0;
+	LS=0;
+	cs=1/StepMM;
+	cs2=0.2/StepMM;
+	color="red";
+	tmax=0.1*cs;
+	S0=0;
+	V=vi;
+	a1=a;
+	if (has1){
+		t=0;
+		// this 0.5 need to adjusted depends on real mm step per machine step
+		// for debugging
+		Vi=vi+0.05; // just to prevent division by zero
+		while (t<=t1){
+		    // main code
+			a1=j*t;
+			at=1/2*a1*t;			
+			V=Vi+at;
+			S=(Vi+1/3*at)*t;
+			if (S>s1)break;
+			machinemove(1,S,V);
+			t+=fmax(tmax,cs2/V);
+		}
+	}	
+	S0=s1;
+	/* segment 2 is simple constant acceleration
+	
+	Vf^2 = Vi^2 + 2aS
+	so each step we only need to add 2a
+	*/
+	
+	if (has2){
+
+	// this 0.5 need to adjusted depends on real mm step per machine step
+		as=2*a/StepMM;
+		V2=sqr(V); // just to prevent division by zero
+		T2=s2*StepMM;
+		st=s2/Math.floor(T2);
+		T2=Math.floor(T2)+1;
+		for (Ti=0;Ti<T2;Ti++){
+		    // main code 
+			V=sqrt(V2+as*Ti);
+			machinemove(2,S,V);
+			S+=st;
+			// drawing code
+		}
+	}
+	S0=s1+s2;
+	
+	// segment 3 look like segment 1 but have starting acceleration
+	
+	if (has3){
+		t=0;
+		// this 0.5 need to adjusted depends on real mm step per machine step
+		Vi=V; // just to prevent division by zero
+		ss=s1+s2+s3;
+		while (t<=t3){
+		    // main code
+			tc=t3-t;
+			jc=1/2*j*tc*tc;			
+			V=(vc-jc)+0.05;
+			S=ss-vc*tc+1/3*jc*tc;
+			//if (S>s3)break;
+			machinemove(3,S,V);
+			t+=fmax(tmax,cs2/V);
+		}
+	}
+	S0=S0+s3;
+	// segment 4 is so simple its constant velocity
+	if (has4) {
+		t=0;
+		T2=s4*StepMM;
+		V=vc;
+		tc=cs/V;
+		S=0;
+		st=s4/T2;
+		for (Ti=0;Ti<T2;Ti++){
+		    // main code 
+			t+=tc;
+			S+=st;
+			machinemove(4,S0+S,V);
+		}
+	}	
+	S0=S0+s4;
+	
+	// segment 5 look like segment 1 but decelerating
+	a5=a;
+	if (has5){
+		t=0;
+		Vi=vc; // just to prevent division by zero
+		a5=0;
+		while (t<=t5){
+		    // main code
+			jc=1/2*a5*t;			
+			V=Vi-jc;
+			S=Vi*t - 1/3*jc*t;
+			t+=fmax(tmax,cs2/V);
+			a5=j*t;
+			//if (S>s5)break;
+			machinemove(5,S0+S,V);
+		}
+	}
+	S0=S0+s5;
+
+	/* segment 6 is simple constant acceleration
+	
+	Vf^2 = Vi^2 - 2aS
+	so each step we only need to add 2a
+	*/
+	if (has6){
+		t=0;
+		as=2*a5/StepMM;
+		V2=sqr(V); // just to prevent division by zero
+		T6=s6*StepMM;
+		st=s6/Math.floor(T6);
+		T6=Math.floor(T6)+1;
+		S=S0;
+		for (Ti=0;Ti<T6;Ti++){
+		    // main code 
+			V=sqrt(V2-as*Ti);
+			S+=st;
+			machinemove(6,S,V);
+		}
+	}
+	S0=S0+s6;
+	
+	// segment 7 look like segment 3 but have starting acceleration
+	
+	if (has7){
+		t=0;
+		S=0;
+		Vi=V;
+		while (t<=t7){
+			t+=fmax(tmax,cs2/V);
+			tc=t7-t;
+			if (tc<=0)break;
+			jc=1/2*j*tc*tc;			
+			V=ve+jc;
+			S=mmdis-1/3*jc*tc;
+			machinemove(7,S,V);
+		}
+	}
+	S0=S0+s7;
+	
+	
+	// draw the stepbuffer
 	ctx.beginPath();			
 	ctx.strokeStyle="white";
-	Vs=V;
-	GX=lx;
-	Ts1 = t7/Ts+1;
-	for (Ti=0;Ti<Ts1;Ti++){
-		t=Ti*Ts;
-		V=Vs-a5*t+1/2*j*t*t;
-		ctx.moveTo(lx,ly);
-		x=GX+t*XS;
+	ctx.fillText("Step Buff:"+mround(stepBuff.length),GX,GY-250);
+	ctx.fillText("Machine step:"+mround(StepMM*mmdis),GX,GY-240);
+	t=0;
+	GY=550;
+	GX=30;
+	lx=GX;
+	ly=GY;
+	li=0;
+	ls=0;
+	lv=0;
+	for (var i=0;i<stepBuff.length;i++){
+		sb=stepBuff[i];
+		if (sb[0]!=li){
+			ctx.moveTo(lx,ly);
+			ctx.lineTo(lx,GY);
+			//if (li==6)
+			{
+				ctx.fillText(mround(ls),lx,GY+10);
+				ctx.fillText(mround(lv),lx,GY+20);
+				ctx.fillText(mround(t),lx,GY+30);
+			}
+			li=sb[0];
+		}
+		V=sb[2];
 		y=GY-V*YS;
+		x=GX+t*XS;
+		ctx.moveTo(lx,ly);
 		ctx.lineTo(x,y);
+		t+=(sb[1]-ls)/(V+0.1);
 		lx=x;
 		ly=y;
-		a2=j*t;
+		ls=sb[1];
+		lv=sb[2];
 	}
-	ctx.moveTo(lx,ly);
-	ctx.lineTo(lx,GY);
+	ctx.fillText(mround(ls),lx,GY+10);
+	ctx.fillText(mround(lv),lx,GY+20);
+	ctx.fillText(mround(t),lx,GY+30);
 	ctx.stroke();
 }
+redraw();
 
 </script>
 </body>

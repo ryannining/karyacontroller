@@ -88,8 +88,8 @@
 
 
 //#define BOARD_NANONANO_WEMOS
-//#define BOARD_WEMOS3D
-#define BOARD_WEMOS3D_COREXY
+#define BOARD_WEMOS3D
+//#define BOARD_WEMOS3D_COREXY
 //#define BOARD_ESPUNO_COREXY
 //#define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
@@ -158,6 +158,9 @@
 #define LASERON LOW
 #define NUMBUFFER 50
 #endif
+
+#define LASERON LOW
+#define NUMBUFFER 50
 
 //#define USE_EEPROM
 

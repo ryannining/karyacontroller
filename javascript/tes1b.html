@@ -452,16 +452,30 @@ function speedatJ(Vi_squared, L, jerk)
 	return estimate*estimate;
 }
 
-function ramplenJ2(Vi, Vf, jerk)
+function ramplenA(Vi,Vf,a) {
+  return fabs(sqr(Vi)-sqr(Vf))*0.5/a;
+}
+
+function ramplenJ1(Vi, amax, jerk) 
+{
+		// my own version
+		var t=fabs(amax/jerk);
+		return Vi*t+jerk*t*t*t/6;
+}
+
+
+function ramplenJ(Vi,Vf,jerk){
+	//return (Vi + Vf) * sqrt(fabs((Vf - Vi) *2/jerk));		// new formula
+	return fabs(Vi-Vf) * sqrt(fabs((Vi-Vf) / jerk));		// old formula
+}
+
+function ramplenJ(Vi, Vf, jerk) 
 {
 		// my own version
 		var t=sqrt(2*fabs((Vf-Vi)/jerk));
 		return Vi*t+jerk*t*t*t/6;
 }
-function ramplenJ(Vi,Vf,jerk){
-	return (Vi + Vf) * sqrt(fabs((Vf - Vi) *2/jerk));		// new formula
-	//return fabs(Vi-Vf) * sqrt(fabs((Vi-Vf) / jerk));		// old formula
-}
+
 function calc_jerk(deltaV,L){
 	return(cube(deltaV / (Math.pow(L, 0.66666666))));
 }
