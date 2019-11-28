@@ -3,7 +3,7 @@
 </head>
 <html>
 <body>
-  <canvas id=drw width="1200" height="600"></canvas>
+  <canvas style="background:black" id=drw width="1200" height="600"></canvas>
 <script>
 
 var micros=Date.now;
@@ -38,7 +38,7 @@ var z1=0;
 var e1=0;
 var maxf=[100,100,100,100];
 var stepmm=10;
-var accel=50;
+var accel=20;
 var zaccel=accel;
 var mvaccel=accel;
 var xyjerk=5;
@@ -522,7 +522,7 @@ function coreloop1(){
 // MAIN CODE
 // ===================================================================================
 
-var demo="box";
+var demo="circle";
 
 if (demo=="box"){
 
@@ -537,11 +537,12 @@ if (demo=="line"){
 if (demo=="circle"){
   for(var x=0;x<13;x++){
 	var d=x/14.0*44/7;
-    addmove(35, +Math.sin(d)*30, Math.cos(d)*30, 0, 0);
+    addmove(15, +Math.sin(d)*30, Math.cos(d)*30, 0, 0);
   }
 //addmove(10, 0, 0, 0, 0);
 }
 ctx.beginPath();
+ctx.strokeStyle="white";
 ss=4.0/stepmm;
 while (startmove()){
 	// bresenham motion loop
@@ -611,14 +612,16 @@ var GS=10;
 var GY=500;
 var GX=400;
 ctx.beginPath();
-ctx.strokeStyle="red";
+
+ctx.strokeStyle="gray";
+ctx.fillStyle="white";
 for (var Y=0;Y<8;Y++){
 	ctx.moveTo(GX,GY-Y*5*GS);
 	ctx.lineTo(1600,GY-Y*5*GS);
 	ctx.fillText(Y*5,GX-30,GY-Y*5*GS);
 }
 ctx.stroke();
-function drawF(intp,c,mask){
+function drawF(intp,c,mask,ZY){
 	ctx.beginPath();
 	ctx.strokeStyle=c;
 	x=GX;
@@ -633,16 +636,16 @@ function drawF(intp,c,mask){
 			if (intp)f=getf(ni++)*GS; else f=vv[ni++]*GS;
 			//f=stepd*GS/getf2(ni++);
 			tm+=cmdly;
-			ctx.lineTo(x, GY-f);
-			x+=cmdly/10000;
+			ctx.lineTo(x, GY-f+ZY);
+			x+=cmdly/20000;
 		}// else 	ldly+=cmdly;
 	}
 	ctx.stroke();
 }
 
 
-drawF(0,"green",2);
-drawF(1,"red",2);
+drawF(0,"green",2,-100);
+drawF(1,"red",2,0);
 
 console.log("Total time:%f:",tm/CLOCKCONSTANT);
 console.log(ddd);
