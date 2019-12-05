@@ -35,17 +35,17 @@ typedef struct {
   float dis; // max start speed, maxcorner
 #ifdef __AVR__
   int16_t ac; // needed for backplanner
-  uint16_t fs, fn, maxs; // all are in square ! needed to calc real accell
+  uint16_t fs, fn, fe, delta, maxs; // all are in square ! needed to calc real accell
 #else
-  float ac; // needed for backplanner
-  float fs, fn, maxs; // all are in square ! needed to calc real accell
+  float ac,delta, maxs; // needed for backplanner
+  float fs, fn, fe; // all are in square ! needed to calc real accell
 #endif
-  //#ifdef NONLINEAR
-  //float otx[3]; // keep the original coordinate before transform
-  float dtx[NUMAXIS]; // keep the original coordinate before transform
-  //#endif
   int32_t dx[NUMAXIS]; //original delta before transform
-  //  float mm[NUMAXIS]; // needed for backplanner
+
+#ifdef HARDSTOP  
+  float dtx[NUMAXIS]; // keep the original coordinate before transform
+#endif
+
 #ifdef ISPC
   // for graphics
   int col;
@@ -74,10 +74,10 @@ extern int mm_ctr;
 extern int xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
-extern int xyjerk, zjerk, accel;
-extern int mvaccel, zaccel;
+extern int xyjerk,zjerk,xycorner, zcorner, accel;
+extern int zaccel;
 extern int  maxf[4];
-extern int32_t dlp, dl;
+extern int32_t dlp;
 extern float stepmmx[4], xyscale;
 extern float retract_in, retract_out;
 extern float retract_in_f, retract_out_f;

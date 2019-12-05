@@ -1183,11 +1183,11 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
               eprom_wr(27, EE_max_e_feedrate, S_I);
 
 
-              eprom_wr(51, EE_accelx, S_I);
+              eprom_wr(51, EE_accel, S_I);
 
-              eprom_wr(67, EE_mvaccelx, S_I);
+              eprom_wr(67, EE_jerk, S_I);
               eprom_wr(177, EE_homing, S_I);
-              eprom_wr(181, EE_jerk, S_I);
+              eprom_wr(181, EE_corner, S_I);
               eprom_wr(185, EE_xyscale, S_F);
 #ifdef NONLINEAR
               eprom_wr(157, EE_rod_length, S_F);
@@ -1256,9 +1256,9 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         zprintf(PSTR("EPR:2 27 %d E\n"), fi(maxf[3]));
 
 
-        zprintf(PSTR("EPR:3 181 %d Jrk\n"), fi(xyjerk));
+        zprintf(PSTR("EPR:3 181 %d Corner\n"), fi(xycorner));
         zprintf(PSTR("EPR:3 51 %d Acl\n"), fi(accel));
-        zprintf(PSTR("EPR:3 67 %d TvAcl\n"), fi(mvaccel));
+        zprintf(PSTR("EPR:3 67 %d Jerk\n"), fi(xyjerk));
         zprintf(PSTR("EPR:3 177 %d HomeF\n"), fi(homingspeed));
         zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
 #ifdef NONLINEAR

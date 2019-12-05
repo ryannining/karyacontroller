@@ -96,7 +96,7 @@ static void eepromwrite(int p, int32_t val)
   #define EE_home 145
   #define EE_home 149
   #define EE_home 153
-  #define EE_accelx 51
+  #define EE_accel 51
   #define EE_accely 55
   #define EE_accelz 59
   #define EE_accele 63
@@ -121,13 +121,14 @@ static void eepromwrite(int p, int32_t val)
 #define EE_xhome 0
 #define EE_yhome 5
 #define EE_zhome 10
-#define EE_accelx 15
-#define EE_accely 20
-#define EE_accelz 25
-#define EE_accele 35
-#define EE_mvaccelx 40
-#define EE_mvaccely 45
-#define EE_mvaccelz 50
+#define EE_accel 15
+#define EE_corner 20
+//#define EE_accely 20
+//#define EE_accelz 25
+//#define EE_accele 35
+#define EE_jerk 40
+//#define EE_mvaccely 45
+//#define EE_mvaccelz 50
 #define EE_max_x_feedrate 55
 #define EE_max_y_feedrate 60
 #define EE_max_z_feedrate 65
@@ -151,7 +152,7 @@ static void eepromwrite(int p, int32_t val)
 #define EE_rod_length 160
 #endif
 
-#define EE_jerk 165
+#define EE_corner 165
 #define EE_xyscale 170
 
 #ifdef POWERFAILURE
@@ -183,12 +184,12 @@ extern float EEMEM EE_xhome;
 extern float EEMEM EE_yhome;
 extern float EEMEM EE_zhome;
 extern int32_t EEMEM EE_homing;
-extern int32_t EEMEM EE_jerk;
+extern int32_t EEMEM EE_corner;
 extern float EEMEM EE_xyscale;
 
-extern int32_t EEMEM EE_accelx;
+extern int32_t EEMEM EE_accel;
 
-extern int32_t EEMEM EE_mvaccelx;
+extern int32_t EEMEM EE_jerk;
 
 extern int32_t EEMEM EE_max_x_feedrate;
 extern int32_t EEMEM EE_max_y_feedrate;

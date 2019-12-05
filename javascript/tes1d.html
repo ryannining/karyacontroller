@@ -1,10 +1,52 @@
 
 <head>
+<script>
+  (function (w,d,s,o,f,js,fjs) {
+  w[o] = w[o] || function () { (w[o].q = w[o].q || []).push(arguments) };
+  js = d.createElement(s), fjs = d.getElementsByTagName(s)[0];
+  js.id = o; js.src = f; js.async = 1; fjs.parentNode.insertBefore(js, fjs);
+  }(window, document, 'script', 'plausible', 'https://plausible.io/js/p.js'));
+
+  plausible('page')
+</script>
 </head>
 <html>
 <body>
-  <canvas style="background:black" id=drw width="1200" height="600"></canvas>
-<script>
+<table cellpadding=10><tr valign=top><td>
+  <table>
+  <tr><td>Test Feedrate<td><input id=ifeed size=4 value=120>
+  <tr><td>Max Accel<td><input id=iacc size=4 value=300>
+  <tr><td>Jerk<td><input id=ijerk size=4 value=1500>
+  <tr><td>Corner<td><input id=icorner size=4 value=30>
+  <tr><td colspan=2>GRAPHICS
+  <tr><td>X SCALE<td><input id=igsx size=4 value=200>
+  <tr><td>Y SCALE<td><input id=igs size=4 value=3>
+  <tr><td>Demo<td><select id=idemo>
+	<option value="line">Line</option>
+	<option value="box">Box</option>
+	<option value="circle"  selected>Circle</option>
+	</select>
+  <tr><td colspan=2><button onclick="dodemo()">Run demo</button>
+  
+  </table>	
+<td>  
+  <canvas style="background:black" id=drw width="900" height="500"></canvas>
+</table>
+  <script>
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function mround(x) {
+	return Math.round(x * 100.0) / 100.0;
+}
+
+function getvalue(el) {
+	if ($(el)==undefined)return "";
+	if (el=="gcode")return editorgcode.getValue();
+    else return $(el).value;
+}
 
 var micros=Date.now;
 var c = document.getElementById("drw");
@@ -19,31 +61,35 @@ function InvSqrt(f) {return 1.0/Math.sqrt(f);}
 function xInvSqrt(n) {return stepdiv2*(n>0.0625?InvSqrt(n):4);}
 function zInvSqrt(n) {return stepdiv2/n;}
 //function xInvSqrt(n) {return Math.round(Math.sqrt(n));}
-
+function sqr(n) {return n*n;}
 var vv=[];
 var ddd=[];
-var CLOCKCONSTANT=1000000;
+var CLOCKCONSTANT=80000000;
 var STEPFREQ=50000;
 var STEPCLOCK=Math.round(CLOCKCONSTANT/STEPFREQ);
 var rampv=1;
+var minVel=1;
 var head=0;
 var tail=0;
-var NUMBUFFER=40;
+var NUMBUFFER=100;
 var move=[];
+var moves=[];
 var isG0;
-var m;
+var m,nm;
 var f=0;
 var x1=0;
 var y1=0;
 var z1=0;
 var e1=0;
-var maxf=[100,100,100,100];
-var stepmm=10;
-var accel=50;
-var jerk=200;
+
+var maxf=[100,100,100,100,0];
+maxf[4]=max(maxf[0],max(max(maxf[1],maxf[2]),maxf[3]));
+var stepmm=100;
+var accel=40;
+var jerk=5*accel;
 var zaccel=accel;
 var mvaccel=accel;
-var xycorner=5;
+var xycorner=35;
 var zcorner=xycorner;
 var labs=Math.abs;
 var fabs=Math.abs;
@@ -56,7 +102,6 @@ var oacdn,acdn;
 var ta;
 var stepdiv,stepdiv2;
 var nextmicros;
-var rampup,rampdown;
 var mctr2;
 var nextdly;
 var ldelay=0;
@@ -75,6 +120,7 @@ var sx=[0,0,0,0];
 
 /// command buffer
 var NUMCMDBUF=100000;
+function prevbuffm(x) {return ((x) > 0 ? (x) - 1 : NUMCMDBUF-1);}
 function nextbuffm(x) {return ((x) < NUMCMDBUF-1 ? (x) + 1 : 0);}
 for (var i=0;i<NUMBUFFER;i++){move.push({});}
 //for (var i=0;i<NUMCMDBUF;i++){cmddelay.push(0);}
@@ -102,17 +148,23 @@ function pushcmd()
 
 
   // if move cmd, and no motor move, save the delay
-  if ( (cmd0 & 1) && !(cmd0 & (15 << 1))) {
+//  if ( (cmd0 & 1) && !(cmd0 & (15 << 1))) {
+//    ldelay += cmd0 >> 5;
+//  } else {
+  if ( (cmd0 & 1)) {
     ldelay += cmd0 >> 5;
-  } else {
     cmhead = nextbuffm(cmhead);
     if (cmd0 & 1)cmd0 += (ldelay << 5);
     //cmddelay[cmhead] = cmd0;
     cmddelay.push(cmd0);
-	ddd.push(cmd0 >> 5);
     ldelay = 0;
   }
 
+}
+
+function pullcmd()
+{
+	cmhead = prevbuffm(cmhead);
 }
 
 function newdircommand(laserval)
@@ -156,406 +208,268 @@ function sqr2(x){return x*x;}
 
 
 
-var MINCORNERSPEED=1;
+var MINCORNERSPEED=0.3;
 var lastf=0;
 var curru=[0,0,0,0,0];
 var prevu=[0,0,0,0,0];
 var tailok=0;
-var rampup=0;
-var rampdown=0;
 
 
 function FASTAXIS(m){
 	return (m.status >> 4)&3;
 }
 
-function ramplenq(v0,v1,stepa) {
-  if (v1>v0)return (v1-v0)*stepa;
-  return 0;
-}
-function speedat(v0,a,s) {
-    return (a * s  + v0);
-}
-
-
-var prevacc=0;
-var nextacc=0;
+// float
 var has1,has2,has3,has4,has5,has6,has7;
 var s1,s2,s3,s4,s5,s6,s7;
-var t1,t2,t3,t4,t5,t6,t7;
-var tjerk,mvjerk,vjerk1,vjerk7;
+var vjerk1,vjerk7,vi,vc,ve;
+var a1x,a1,a2,as3,as7,ja,T,V,S,Sdest,tstep,tstepS;
+// int
+var sg,ok;
+var prevacc=0;
+var nextacc=0;
+var curracc=0;
 
-function preparejerk(vi,vc,ve,j,a){
+function preparejerk(dis){
 	// initial
-	totalstep=Math.floor(mmdis*StepMM);
-	workstep=0;	
-	mmtomuch=0;
-	mdis=0;
-	loop=1;
-	st1="";
-	tjerk = a/j;
-	mvjerk = 1/2*j*tjerk*tjerk;
-	while (1){
+	/*
+	if ((vc>vi) && (vc>ve)){
+		aa=0.4*a; // 0.5 should be derived from jerk, its
+		d=-(ve*ve-vi*vi-2*aa*dis)/(4*aa);
+		vc=sqrt(2*aa*d+vi*vi);
+	}
+	*/
+	var t1,t2,t3,t4,t5,t6,t7;
+	var v1,v2,v3,v4,v5,v6,v7;
+	ja=accel;
+	jerk6=0.16667*jerk;
+	zprintf("------------");
+	zprintf("Ask VC:"+vc);
+	
+	if (has1 || has3){
+		vjerk1=min(vjerk1,Math.abs(vc-vi));
+		if (has1 && has3)vjerk1=vjerk1*0.5;
+		t1=sqrt(2*vjerk1/jerk); // calc time to reac vjerk segment 1
+		delta1=jerk6*t1*t1*t1;
+	}
+	
+	if (has1){ // if previous is not accelerate up, and vinitial less than vcruise
+		v1 = vi + vjerk1;
+		s1 = vi*t1 + delta1;
+	} else { // doesnot have segment 1
+		s1=0;
+		v1=vi;
+	}
 
-		// time each segment
-		// segment 1, constant jerk until v increase vjerk
-		// a = a0+ J.T
-		// T=a/J;
+	// segment 2 constant acceleration until vcruise-vjerk
+	// Vt = Vt1 + a.T
+	// T = (Vt-Vt1)/a
+	v2=vc;
+	if (has3)v2 = vc-vjerk1;
+	if (v2-v1==0)has2=0;
+	if (has2){
+		t2 = (v2-v1)/ja;
+		s2 = v1*t2 + 0.5*ja*t2*t2;
+	} else {
+		t2=0;
+		s2=0;
+		// if no room for acceleration and jerk, then we must change the segment1 later
+	}
 
-		// Vt = Vi + ai.T  + 1/2JT^2
-		// Vt = Vi + 0 + 1/2JT^2   
-		// T=sqrt(2(Vt-Vi)/J)
+	// segment 3 decelerate is same as segment 1
+	if (has3)
+	 { //we have cruise followed by deceleration 
+		// check if dV is enough for jerk deceleration
+		//if (vc-ve)>
+		s3 = vc*t1 - delta1;
+		t3=t1;
+	} else {
+		s3=0;
+		t3=0;
+	}
 
-		//
+	if (has1 || has3)as3=t1*jerk;else as3=accel;
 
-		has1=0;
-		vjerk1=mvjerk;
-		if ((prevac<=0) && (vc>vi)){ // if previous is not accelerate up, and vinitial less than vcruise
-			if ((vc-vi)<(2*vjerk1)){
-				vjerk1=(vc-vi)/2; // cannot accelerate maximum
-				t1=sqrt(2*vjerk1/j); // calc time to reac vjerk segment 1
-			} else {
-				t1=tjerk; // can use jerk to maximum acceleration value
-			}
-			vt1 = vi + vjerk1;
-			s1 = vi*t1 + 1/6*j*t1*t1*t1;
-			has1=1;
-		} else { // doesnot have segment 1
-			s1=0;
-			vt1=vi;
-			t1=0;
-			vjerk1=0;
-		}
-		v1=vt1;
+	v3=vc;
 
-		// segment 2 constant acceleration until vcruise-vjerk
-		// Vt = Vt1 + a.T
-		// T = (Vt-Vt1)/a
-		
-		if (ve<=vc)vt2 = vc-mvjerk;else vt2 = vc-vjerk1;
-		has2=0;
-		if (vt2>vt1){
-			t2 = (vt2-vt1)/a;
-			s2 = vt1*t2 + 1/2*a*t2*t2;
-			has2=1;
-		} else {
-			t2=0;
-			s2=0;
-			// if no room for acceleration and jerk, then we must change the segment1 later
-		}
-		v2=vt2;
+	// ===========================================================================================
+	// segment 5,6,7 is calculated inversed from ve to vc just like segment 1,2,3
+	// segment 7, constant jerk until v increase vjerk
+	if (has5 || has7){
+		vjerk7 = min(vjerk7,Math.abs(vc-ve));
+		if (has5 && has7)vjerk7=vjerk7*0.5;
+		t7 = sqrt(2*vjerk7/jerk); // calc time to reac vjerk segment 1
+		delta7=jerk6*t7*t7*t7;
+	}
+	
+	if (has7){ // if previous is not accelerate up, and vinitial less than vcruise
+		v6 = ve + vjerk7;
+		s7 = ve*t7 + delta7;
+	} else { // doesnot have segment 1
+		s7=0;
+		v6=ve;
+	}
+	// segment 6 constant acceleration until vcruise-vjerk
+	// Vt = Vt1 + a.T
+	// T = (Vt-Vt1)/a
 
-		// segment 3 decelerate is same as segment 1
-		has3=0;
-		if ((ve<=vc) && (vi<vc)) { //we have cruise followed by deceleration 
-			// check if dV is enough for jerk deceleration
-			//if (vc-ve)>
-			t3  = t1?t1:tjerk;
-			s3 = vc*t3 - 1/6*j*t3*t3*t3;
-			has3=1;
-		} else {
-			s3=0;
-			t3=0;
-		}
-		v3=vc;
+	if (has5)v5 = vc-vjerk7;else v5=vc;
+	if (v5-v6==0)has6=0;
+	if (has6){
+		t6 = (v5-v6)/ja;
+		s6 = v6*t6 + 0.5*ja*t6*t6;
+	} else {
+		t6=0;
+		s6=0;
+		// if no room for acceleration and jerk, then we must change the segment1 later
+	}
 
-		// ===========================================================================================
-		// segment 5,6,7 is calculated inversed from ve to vc just like segment 1,2,3
-		// segment 7, constant jerk until v increase vjerk
-
-		has7=0;
-		vjerk7=mvjerk;
-		v7=ve;
-		if ((nextac>=0) && (vc>ve)){ // if previous is not accelerate up, and vinitial less than vcruise
-			if ((vc-ve)<(2*vjerk7)){
-				vjerk7=(vc-ve)/2; // cannot accelerate maximum
-				t7=sqrt(2*vjerk7/j); // calc time to reac vjerk segment 1
-			} else {
-				t7=tjerk; // can use jerk to maximum acceleration value
-			}
-			vt7 = ve + vjerk7;
-			s7 = ve*t7 + 1/6*j*t7*t7*t7;
-			has7=1;
-		} else { // doesnot have segment 1
-			s7=0;
-			vt7=ve;
-			t7=0;
-			vjerk7=0;
-		}
-		// segment 6 constant acceleration until vcruise-vjerk
-		// Vt = Vt1 + a.T
-		// T = (Vt-Vt1)/a
-
-		has6=0;
-		v6=vt7;
-
-		if (nextac<0)vt6 = vc-mvjerk;else vt6 = vc-vjerk7;
-
-
-		if (vt6>vt7){
-			t6 = (vt6-vt7)/a;
-			s6 = vt7*t6 + 1/2*a*t6*t6;
-			has6=1;
-		} else {
-			t6=0;
-			s6=0;
-			// if no room for acceleration and jerk, then we must change the segment1 later
-		}
-
-		// segment 5 decelerate is same as segment 7
-		has5=0;
-		if (nextac<0)v5=vc-mvjerk;else v5=vc-vjerk7;
-		
-		if (ve<vc) { //if we have initial acceleration 
-			t5  = t7?t7:tjerk;
-			s5 = vc*t5 - 1/6*j*t5*t5*t5;
-			has5=1;
-		} else {
-			s5=0;
-			t5=0;
-		}
+	// segment 5 decelerate is same as segment 7
+	
+	if (has5) { //if we have initial acceleration 
+		s5 = vc*t7 - delta7;
+		t5 = t7;
+	} else {
+		s5=0;
+		t5=0;
+	}
+	if (has5)as7=t7*jerk;else as7=accel;
 
 
-		// cruise must be calculate last, we must know how much distance from jerk ramp up and jerk ramp down
-		// segment 4  = cruise
-		taccelerate = t1+t2+t3+t5+t6+t7;
-		saccelerate = s1+s2+s3+s5+s6+s7;
-		has4=0;
-		v4=vc;
-		if (mmdis>saccelerate){ // we have cruise
+	// cruise must be calculate last, we must know how much distance from jerk ramp up and jerk ramp down
+	// segment 4  = cruise
+	taccelerate = t1+t2+t3+t5+t6+t7;
+	saccelerate = s1+s2+s3+s5+s6+s7;
+	if (has4){
+		if (dis>saccelerate){ // we have cruise
 			has4=1;
-			s4=mmdis-saccelerate;
+			s4=dis-saccelerate;
 			t4=s4/vc;
 		} else {
-			s4=mmdis-saccelerate;
+			s4=0;
 			t4=0;
+			has4=0;
 		}
-		if (s4>=0)break;
-		if (vc==vi+mvjerk)break;
-		mmtomuch=s4;
-		// adjust vcruise to meet the formula
-		vc=fmax(vc*0.8,vi);
-		vc=fmax(vc,vi<vc?vi+mvjerk:0);
-		loop++;
-		if (loop>15)break;
-	}
-	if (!has4)s4=0;
-	T=taccelerate+t4;
-	S=saccelerate+s4;
+	} else s4=0;
 
-	 
-// =======================================================================================	
-// Optimized step generator using as minimum loop possible
-// =======================================================================================
+
+	zprintf("VI:"+mround(vi));
+	zprintf("VC:"+mround(vc));
+	zprintf("VE:"+mround(ve));
+	zprintf("A:"+mround(ja));
+
+	S=(s4+saccelerate);
+	zprintf("S:"+mround(S));
+	zprintf("mS:"+mround(dis));
 	
-	// draw the graph
-	// Segment1, constant jerk need most calculation
-	a2=0;
-	S=0;
-	LS=0;
-	tstep=0.1/StepMM;
-	S0=0;
+	tstep=0.001;// 1ms is good value //T/(Math.ceil(T)*1000);// 0.5ms //0.1/StepMM;
+	//S=0;
 	V=vi;
-	a1=a;
-	if (has1){
-		t=0;
-		// this 0.5 need to adjusted depends on real mm step per machine step
-		// for debugging
-		Vi=vi+0.05; // just to prevent division by zero
-		while (t<=t1){
-		    // main code
-			a1=j*t; // keep for next segment , or known from planner pass
-			at=0.5*a1*t;			
-			V=Vi+at;
-			S=(Vi+0.3333*at)*t;
-			if (S>s1)break;
-			machinemove(1,S,V); // division in on machine move when determine inverse square
-			t+=tstep;
-		}
-	}	
-	S0=s1;
-	/* segment 2 is simple constant acceleration
+	a1=jerk*tstep*tstep;
 	
-	Vf^2 = Vi^2 + 2aS
-	so each step we only need to add 2a
-	*/
+	lsteps=0;	
+	Sdest=0;
+	sg=0;
+	ok=0;
+	mm={};
+	mm.dis0=dis;
+	mm.dis1=S;
+	mm.acpre=prevacc;
+	mm.accur=curracc;
+	mm.acnex=nextacc;
+	mm.vi=mround(vi);
+	mm.vc=mround(vc);
+	mm.ve=mround(ve);
 	
-	if (has2){
-
-	// this 0.5 need to adjusted depends on real mm step per machine step
-		as=2*a/StepMM;
-		V2=sqr(V); // just to prevent division by zero
-		T2=s2*StepMM;
-		st=s2/Math.floor(T2);
-		T2=Math.floor(T2)+1;
-		for (Ti=0;Ti<T2;Ti++){
-		    // main code 
-			V=(V2+as*Ti);
-			machinemove(2,S,V); // we keep the value quadratic and only square when needed
-			S+=st;
-			// drawing code
-		}
-		V=sqrt(V); // for next segment
-	}
-	S0=s1+s2;
-	
-	// segment 3 look like segment 1 but have starting acceleration
-	
-	if (has3){
-		t=0;
-		// this 0.5 need to adjusted depends on real mm step per machine step
-		Vi=V; // just to prevent division by zero
-		ss=s1+s2+s3;
-		while (t<=t3){
-		    // main code
-			tc=t3-t;
-			jc=0.5*j*tc*tc;			
-			V=(vc-jc)+0.05;
-			S=ss-vc*tc+0.3334*jc*tc;
-			//if (S>s3)break;
-			machinemove(3,S,V);
-			t+=tstep;//fmax(tmax,cs2/V);
-		}
-	}
-	S0=S0+s3;
-	// segment 4 is so simple its constant velocity
-	if (has4) {
-		T2=s4*StepMM;
-		S=0;
-		st=s4/T2;
-		for (Ti=0;Ti<T2;Ti++){
-		    // main code 
-			S+=st;
-			machinemove(4,S0+S,vc);
-		}
-	}	
-	S0=S0+s4;
-	
-	// segment 5 look like segment 1 but decelerating
-	a5=a;
-	if (has5){
-		t=0;
-		Vi=vc; // just to prevent division by zero
-		a5=0;
-		while (t<=t5){
-		    // main code
-			t+=tstep;//fmax(tmax,cs2/V);
-			jc=0.5*a5*t;			
-			V=Vi-jc;
-			S=Vi*t - 0.3334*jc*t;
-			a5=j*t;
-			//if (S>s5)break;
-			machinemove(5,S0+S,V);
-		}
-	}
-	S0=S0+s5;
-
-	/* segment 6 is simple constant acceleration
-	
-	Vf^2 = Vi^2 - 2aS
-	so each step we only need to add 2a
-	*/
-	if (has6){
-		t=0;
-		as=2*a5/StepMM;
-		V2=sqr(V); // just to prevent division by zero
-		T6=s6*StepMM;
-		st=s6/Math.floor(T6);
-		T6=Math.floor(T6)+1;
-		S=S0;
-		for (Ti=0;Ti<T6;Ti++){
-		    // main code 
-			V=(V2-as*Ti);
-			S+=st;
-			machinemove(6,S,V); // just like seg 2, keep it squared
-		}
-		V=sqrt(V);
-	}
-	S0=S0+s6;
-	
-	// segment 7 look like segment 3 but have starting acceleration
-	
-	if (has7){
-		t=0;
-		S=0;
-		Vi=V;
-		/*
-		while (t<=t7){
-			t+=tstep;//fmax(tmax,cs2/V);
-			jc=(a5-0.5*j*t)*t;			
-			V=Vi-jc;
-			S=(Vi-jc*0.3334)*t;
-			if (S>s7)break;
-			machinemove(7,S0+S,V);
-		}
-		*/
-		///*
-		while (t<=t7){
-			tc=t7-t;
-			//if (tc<0)break;
-			jc=0.5*j*tc*tc;			
-			V=ve+jc;
-			S=mmdis-ve*tc-1/6*j*tc*tc*tc;
-			machinemove(7,S,V);
-			t+=tstep;//fmax(tmax,cs2/V);
-		}
-		//*/
-	}
-	S0=S0+s7;
-	
-	
+	moves.push(mm);
+	return S;
 }
-var mdis,workstepl;
-function machinemove(sg,dis,vel){
-	// for debugging
-	// 
-	
-	var steps=Math.floor(dis*StepMM)-Math.floor(mdis*StepMM);
-	if (steps>0){ // sometimes the calculation emit negative delta steps ... prevent it
-		//
-		
-		if (sg==2 || sg==6)vel=sqrt(vel);
-		var t=clockrate/(fmax(vel,minVel)); // prevent zero speed
-		if (workstep<=totalstep)	
-		//stepBuff.push([sg,dis,vel]);
-
-		for (var i=0;i<steps;i++){
-			if (workstep<totalstep){
-				// do bresenham this step longs
-			}
-			workstep++;
-		}
-		// send the t with other things needed to timerbufer
-		mdis=dis; // save last step position
-	}
-}
-
-
 function prepareramp(bpos)
 {
 	// local m
     var m = move[bpos];
 
-    faxis = FASTAXIS(m);
-    ytotalstep = abs(m.dx[faxis]);
-
-    stepa = 1.0 / (m.ac);
-	prevacc=nextacc;
-	
+	if (m.fs-m.fe>=m.delta) m.fn=m.fs;
+	prevacc=curracc;
     if (bpos!=(head)) {
         next=move[nextbuff(bpos)];
-        fe=next.fs;
-		if (next.fn<next.fs)nextacc=-1;
-		if (next.fn==next.fs)nextacc=0;
-		if (next.fn<next.fs)nextacc=+1;		
+		if (next.fs-next.fe>=next.delta) next.fn=next.fs;
+
+        if (next.fs==next.fn && next.fe<next.fn) {   // all down
+			nextacc=-1;
+		} else
+        if (next.fe==next.fn && next.fs<next.fn) {   // all up
+			nextacc=1;
+        } else
+		if ((next.fe==next.fn) && (next.fs==next.fn)) {   // all up
+			nextacc=0;
+		} else {
+			nextacc=1; 
+		}
     } else {
-		fe=0;
+		//fe=0;
 		nextacc=0;
 	}
-    m.totalstep=ytotalstep;
+
+	has4=m.delta>Math.abs(m.fe-m.fs);
+
+	if (m.fs==m.fn && m.fe<m.fn) {   // all down
+		curracc=-1;
+	} else
+	if (m.fe==m.fn && m.fs<m.fn && !has4) {   // all up
+		curracc=1;
+	} else
+	if (m.fe==m.fn && m.fs==m.fn) {   // all up
+		curracc=0;
+	} else {
+		if (m.fn>m.fe) curracc=-1; else curracc=0; 
+	}
+
+	// lets check 1 by 1 
+	//
+	mvjerk = 0.5*accel*accel/jerk;
+
+	vjerk1=0;
+	// if 
+	// segment 1, prevacc <=0 and fs<fn
+	has1=(prevacc<=0) && (m.fs<m.fn);
+	// segment 3, curracc <=0 and fs<fn
+	has3=(has4) && (m.fs<m.fn);
+
+	if (has1)vjerk1+=mvjerk;
+	if (has3)vjerk1+=mvjerk;
+	// segment 2, constant acceleration prevacc <=0 and fs<fn
+	has2=(m.fn-m.fs>vjerk1);	
+	
+	vjerk7=0;
+	//
+	// segment 1, prevacc <=0 and fs<fn
+	has7=(nextacc>=0) && (m.fe<m.fn);
+	// segment 3, curracc <=0 and fs<fn
+	has5=(curracc<=0 && has4) && (m.fe<m.fn);
+	if (!has4 && prevacc==-1 && curracc==-1)has5=0;
+
+	
+
+	if (has7)vjerk7+=mvjerk;
+	if (has5)vjerk7+=mvjerk;
+	// segment 2, constant acceleration prevacc <=0 and fs<fn
+	has6=(m.fn-m.fe>vjerk7);	
+	
+	
+	
     m.status |= 4;
+	vi=sqrt(m.fs);
+	vc=sqrt(m.fn);
+	ve=sqrt(m.fe);
+	m.dis=preparejerk(m.dis);
+	tstepS=totalstep/m.dis;
+	S=0;
 }
 
+function deltaV2(s){
+    return 1.8*accel*s;
+}
 
 function backforward()
 {
@@ -567,29 +481,20 @@ function backforward()
     }
 
     var next;
-    curr = move[h];
-    curr.fs=min(curr.maxs,(curr.ac*curr.dis));
-    h=prevbuff(h);
-
-    while (h!=tailok) {
+    var curr = 0;
+    while (1) {
         next=curr;
+		fs=next?next.fs:MINCORNERSPEED;
         curr=move[h];
+		curr.fe=fs;
         if (curr.fs!=curr.maxs) {
-            fs=next.fs+(curr.ac*curr.dis);
-            if (fs<curr.maxs) {
-                curr.fs=fs;
-            } else {
-                curr.fs=curr.maxs;
-            }
+			curr.fs=min(fs+curr.delta,curr.maxs); // maximum speed from next start 
         }
         h=prevbuff(h);
+		if (h==tailok)break;
     }
 
 // forward
-    //h=nextbuff(tailok);
-    //if (h==head) {
-     //   return 0;
-    //}
     h=tailok;
 	
 	next=move[h];
@@ -597,13 +502,16 @@ function backforward()
     while (h!=head) {
         curr=next;
         next=move[h];
-        if (curr.fs<next.fs) {
-            fs=curr.fs+(curr.ac*curr.dis);
-            if (fs<next.fs) {
+		curr.fe=next.fs;
+        if (curr.fs<next.fs) { // if this start speed is less then next start /
+            fs=curr.fs+curr.delta; // maximum speed at end
+            if (fs<next.fs) { // if next start is less than this maximum speed , then its final
                 next.fs=fs;
+				curr.fe=fs;
+				//curr.fn=fs;
                 tailok=prevbuff(h);
             }
-            curr.fn=min(fs,curr.fn);
+            curr.fn=max(curr.fe,min(fs,curr.fn));
         }
         if (next.fs==next.maxs) tailok=prevbuff(h);
         h=nextbuff(h);
@@ -618,6 +526,7 @@ function planner(h){
   xtotalstep=abs(curr.dx[curr.faxis]);
   copy(prevu,curru);
   curru[4] = 1;
+//  m.accel=accel;
   for (var i=0;i<4;i++){
     curru[i]=0;
     if (curr.dx[i]!=0){
@@ -628,27 +537,27 @@ function planner(h){
       }
       // if Z then need to scale the acceleration too
       if (i == 2) {
-        scalea = zaccel * curr.dis / fabs(curr.ac * mmdis[i]);
-        if (scalea < 1)curr.ac *= scalea;
+        //scalea = zaccel * curr.dis / fabs(accel * mmdis[i]);
+        //if (scalea < 1)m.accel *= scalea;
       }
       curru[i] = mmdis[i] / curr.dis;
     }
   }
-  var ucorner = xycorner * scale;
-  scale *= curr.fn;
-  curr.fn = (scale * scale);
+  var ucorner = xycorner;//* scale;
+  curr.fn*=scale;
+  curr.fn*=curr.fn;
 
-  max_f = MINCORNERSPEED * MINCORNERSPEED;
+  max_f = MINCORNERSPEED;
   if (bufflen()>1) {
 
      var junc_cos = -prevu[0] * curru[0] - prevu[1] * curru[1] - prevu[2] * curru[2];
     if (junc_cos > 0.999999) {
-      max_f = MINCORNERSPEED * MINCORNERSPEED;
+      max_f = MINCORNERSPEED;
     } else if (junc_cos < -0.999999) {
-      max_f = 40000;
+      max_f = 400;
     } else {
       var sin_theta_d2 = sqrt(0.5 * (1.0 - junc_cos)); // Trig half angle identity. Always positive.
-      max_f = fmax( 1, (ucorner * sin_theta_d2) / (1.0 - sin_theta_d2) );
+      max_f = fmax( MINCORNERSPEED, (ucorner * ucorner* sin_theta_d2 / (1.0 - sin_theta_d2) ));
     }
 
 
@@ -662,8 +571,8 @@ function planner(h){
 var lastx=0;
 var lasty=0;
 
-function addmove(fs,x2,y2,z2,e2,g0,rel) {
-  
+function addmove(fn,x2,y2,z2,e2,g0,rel) {
+  fn=min(fn,maxf[4]);
   var curr=move[nextbuff(head)];
   if (rel) {
     x2+=x1;
@@ -697,92 +606,24 @@ function addmove(fs,x2,y2,z2,e2,g0,rel) {
   }
 
   head=nextbuff(head);
-  curr.fn=fs;
-  curr.fs=0;
+  curr.fdis=mmdis[faxis];
+  curr.fn=fn;
+  curr.fs=MINCORNERSPEED;
+  curr.fe=MINCORNERSPEED;
   curr.status=g0?8:0;
   curr.x1=x1;
   curr.y1=y1;
   curr.z1=z1;
   curr.faxis=faxis;
+  curr.delta=deltaV2(curr.dis)-0.005;
   curr.status |= faxis << 4;
   curr.status|=1;
-  curr.ac = 2 * (g0 ? mvaccel : accel);
   planner(head);
   x1=x2;
   y1=y2;
   z1=z2;
   e1=e2;
 
-
-}
-function calculate_delta_steps(){
-  for (var i = 0; i < 4; i++) {
-
-
-    if (m.dx[i] > 0) {
-      bsdx[i] = (m.dx[i]);
-      sx[i] = 1;
-    } else {
-      bsdx[i] = -(m.dx[i]);
-      sx[i] = -1;
-    }
-  }
-  var ff=max(m.fe,max(m.fs,m.fn)); // get fastest speed
-  /*var u=xInvSqrt(ff)/STEPCLOCK;
-  u=1.1;
-  mctr = Math.round(totalstep*u) ;
-  totalstep = mctr;
-  acup /= u;
-  acdn /= u;
-  stepdiv2 /= u;
-  stepdiv /= u;
-  */
-  mctr =totalstep; 
-  newdircommand(!isG0 ? 255 : 0);
-}
-
-function startmove()
-{
-
-    if ((head == tail)) {
-        return 0;
-    }
-    t = nextbuff(tail);
-    prepareramp(t);
-	preparejerk(m.ac/2,jerk,sqrt(fs),sqrt(fn),sqrt(fe));
-	// global m
-	m=move[t];
-	isG0 = m.status & 8;
-
-	laxis = fastaxis;
-	fastaxis = FASTAXIS(m);
-	totalstep = labs(m.dx[fastaxis]);
-
-
-	
-	stepdiv = CLOCKCONSTANT* m.dis / totalstep;
-	stepdiv2 = wstepdiv2 = stepdiv;
-	m.status &= ~3;
-	m.status |= 2;
-
-
-	if (f == 0)
-		nextmicros = micros();// if from stop
-
-	mctr2 = mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0; //mctr >> 1;
-	tail = t;
-
-
-	//zprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
-	//zprintf(PSTR("sx %d %d %d \n"), fi(sx[0]), fi(sx[1]), fi(sx[2]));
-	//zprintf(PSTR("Status:%d \n"), fi(m.status));
-
-	calculate_delta_steps();
-	dlp=xInvSqrt(ta);
-
-	
-	// laser
-	return 1;
 }
 
 var GX=[0,0,0,0];
@@ -796,181 +637,369 @@ function bresenham(ix){
   }
 }
 
+var lsteps=0;
+var mi=0;
+function machinemove(sg,dis,vel){
+	// current position in motor stepper steps
+	// tstepS is a constant to get motor stepper steps from distance (mm)
+	var steps=Math.floor(dis*tstepS);	
+	if (steps>lsteps){ // >0 mean motor stepper need to move
+		dlp=Math.floor(stepdiv2/vel); // T = CPU_CLOCK/Vel
+
+		for (var i=lsteps;i<steps;i++){
+				// do bresenham this step longs
+				mctr--;
+				if (mctr){
+					cmd0 = 1; //step command
+					// bresenham movement on all laxis and set motor motion bit to cmd0
+					bresenham(0); //
+					bresenham(1);
+					//bresenham(2);
+					//bresenham(3);
+
+					// push T=CLOCK/V to timer command buffer
+					cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
+					pushcmd();
+					
+					// lets save the data for display too
+					vv.push([(stepdiv2/dlp),mi]);
+				}
+		}
+		// send the t with other things needed to timerbufer
+		lsteps=steps; // save last step position
+	} else if (steps<lsteps){
+		// we need to delete some of the steps
+		for (var i=steps;i<lsteps;i++){
+			//pullcmd();
+			//mctr++;
+		}
+		//lsteps=steps; // save last step position
+	}
+}
+
+// curveloop is iterating each timestep (i set 0.001 sec) for changing velocity from constant jerk
+// by change the initial a1x,a2 we can use this function for all 7 segment
+// this mean the velocity only will change each 0.001 sec
+// then in this timestep it check the lastS versus currentS in motor stepper steps
+// it will move the motor (currentS - lastS) steps with current velocity
+
+function curveloop(){
+	a2+=a1x; // jerk add to acceleration
+	V+=a2;   // acceleration add to velocity
+	//if (V<MINCORNERSPEED)V=MINCORNERSPEED;
+	va=(V<0.01)?0.01:V;
+	//va=((va>vc)?vc:va);
+	S+=va*tstep; // velocity add to Distance
+	//S+=V*tstep; // velocity add to Distance
+	machinemove(sg,S,va); // run bresenham for machine for segment sg
+	return S<Sdest; // continue until reach each segment distance , if reached, then need to initialize next segment
+}
+
 function coreloop1(){
-  if (!m || (mctr <= 0)) {
-    return 0;
-  }
+  //if (!m || (mctr <= 0)) {
+    //zprintf(PSTR("R\n"));
+    //return 0;
+  //}
 
 
   if (cmdfull()) {
-    //zprintf(PSTR("F\n"));
+    zprintf(PSTR("F\n"));
   } else   {
-    cmd0 = 1; //step command
 
-    bresenham(0);
-    bresenham(1);
-    bresenham(2);
-    bresenham(3);
-    // next speed
-    cmd0 |= Math.round(dlp) << 5;
-	vv.push(stepdiv2/dlp);
-    pushcmd();
+	if (!ok){
+		sg++;
+		// initialize each segment 
+		if (sg==1){ // constant jerk segment
+			if (has1){
+				a2=0;
+				a1x=a1;
+				S=0;
+				Sdest=s1;
+			} else sg++; // next segment
+		}
+		if (sg==2) {// constant acc segment
+			if (has2){
+				a2=as3*tstep;
+				V=vi+(has1?vjerk1:0);
+				a1x=0;
+				S=Sdest;
+				Sdest=Sdest+s2;
+			} else sg++;
+		}
+		if (sg==3) {// constant jerk deceleration segment
+			if (has3){
+				a2=as3*tstep;
+				V=vc-vjerk1;
+				a1x=-a1;
+				S=Sdest;
+				Sdest=Sdest+s3;
+			} else sg++;
+		}
+		if (sg==4) {// constant velocity segment
+			if (has4){
+				V=vc;
+				a2=0;
+				a1x=0;
+				S=Sdest;
+				Sdest=Sdest+s4;
+			} else sg++;
+		}
+		if (sg==5) {
+			if (has5){
+				a2=0;
+				a1x=-a1;
+				V=vc;
+				S=Sdest;
+				Sdest=Sdest+s5;
+			} else sg++;
+		}
+		if (sg==6) {
+			if (has6){
+				a2=-as7*tstep;
+				a1x=0;
+				S=Sdest;
+				V=vc-(has5?vjerk7:0);
+				Sdest=Sdest+s6;
+			} else sg++;
+		}
+		if (sg==7) {
+			if (has7){
+				a1x=a1;
+				a2=-as7*tstep;
+				V=ve+vjerk7;//+a2*0.5; // needed to make sure we reach accurate exit velocity
+				S=Sdest;
+				Sdest=Sdest+s7;
+			} else sg++;
+		}
+		if (sg==8) return 0; // if happen, need to start new move
+		
+	}
+	ok=curveloop();
 
-    if (--mctr >0){
-		var cf=0;
-		if ((rampup -= rampv) > 0) {
-		  accele(acup);
-		  cf=1;
-		} else if ((rampdown -= rampv) < 0) {
-		  accele(acdn);
-		  // de-advance of the extruder
-		  cf=1;
-		}
-		if (cf){
-		  if (ta < 0.1)ta = 0.1;
-		  //zprintf(PSTR("%d\n"),fi(ta));
-		  // if G0 update delay not every step to make the motor move faster
-		  //if (m->status & 8) {
-		}
-		dlp=xInvSqrt(ta); //*F_SCALE;
-		return 1;
-	} return 0;
   }
   return 1;
 }
 
 
+
+function startmove()
+{
+
+    if ((head == tail)) {
+        return 0;
+    }
+    t = nextbuff(tail);
+	m=move[t];
+	laxis = fastaxis;
+	fastaxis = FASTAXIS(m);
+	totalstep = labs(m.dx[fastaxis]); // totalstep needed in bresenham
+
+    prepareramp(t);
+	if (m.dis==0)return 0;
+	// global m
+	isG0 = m.status & 8;
+
+
+
+	
+	stepdiv = Math.floor(CLOCKCONSTANT* m.dis / totalstep);
+	stepdiv2 = wstepdiv2 = stepdiv;
+	m.status &= ~3;
+	m.status |= 2;
+
+
+	if (f == 0)
+		nextmicros = micros();// if from stop
+
+	mctr2 = mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0; //mctr >> 1;
+	tail = t;
+
+
+	for (var i = 0; i < 4; i++) {
+
+
+	if (m.dx[i] > 0) {
+	  bsdx[i] = (m.dx[i]);
+	  sx[i] = 1;
+	} else {
+	  bsdx[i] = -(m.dx[i]);
+	  sx[i] = -1;
+	}
+	}
+	var ff=max(m.fe,max(m.fs,m.fn)); // get fastest speed
+	mctr =totalstep; 
+	newdircommand(!isG0 ? 255 : 0);
+	// laser
+	mi++;
+	return 1;
+}
 // ===================================================================================
 // MAIN CODE
 // ===================================================================================
 
-var demo="circle";
-
-if (demo=="box"){
-
-	addmove(30,20,10,0,0);
-	addmove(13,20,30,0,0);
-	addmove(12,0,20,0,0);
-	addmove(8,0,0,0,0);
-}
-if (demo=="line"){
-	addmove(30,20,10,0,0);
-}
-if (demo=="circle"){
-  for(var x=0;x<13;x++){
-	var d=x/14.0*44/7;
-    addmove(15, +Math.sin(d)*30, Math.cos(d)*30, 0, 0);
-  }
-//addmove(10, 0, 0, 0, 0);
-}
-ctx.beginPath();
-ctx.strokeStyle="white";
-ss=4.0/stepmm;
-while (startmove()){
-	// bresenham motion loop
-	while (coreloop1()){
-		x=200+GX[0]*ss;
-		y=300+GX[1]*ss;
-		
-		ctx.lineTo(x,y);
-		
-	};
-}
-ctx.stroke();
-
-var cmdly,cmcmd;
-function decodecmd()
-{
-  if (cmdempty()) {
-
-    return 0;
-
-  }
-  cmtail = nextbuffm(cmtail);
-  var cmd = cmddelay[cmtail];
-  cmcmd = cmd & 1;
-  if (cmcmd) {
-    cmbit = (cmd >> 1) & 15;
-    cmdly = (cmd >> 5);
-  } else {
-    cmbit = (cmd >> 1) & 255;
-    cmdly = 20;
-  }
-  return 1;
-}
-
-	
-ff=0;
 var tm=0;
-function getf(i){
-	var tm=0;
-	var tv=0;
-	var T=5;
-	for (var j=-T;j<T;j++){
-		var n=i+j;
-		var v=-5;
-		if (n>0 && n<vv.length)v=vv[n];
-		tv+=v;
-		tm++;
-	}
-	return max(0.2,tv/tm);
-}
-function getf2(i){
-	var tm=0;
-	var tv=0;
-	var T=5;
-	for (var j=-T;j<T;j++){
-		var n=i+j;
-		var v;
-		if (n<0)v=1500000;
-		else if (n>=ddd.length)v=1500000;
-		else v=ddd[n];		
-		tv+=v;
-		tm++;
-	}
-	return tv/tm;
-}
-var GS=10;
-var GY=500;
-var GX=400;
-ctx.beginPath();
-
-ctx.strokeStyle="gray";
-ctx.fillStyle="white";
-for (var Y=0;Y<8;Y++){
-	ctx.moveTo(GX,GY-Y*5*GS);
-	ctx.lineTo(1600,GY-Y*5*GS);
-	ctx.fillText(Y*5,GX-30,GY-Y*5*GS);
-}
-ctx.stroke();
-function drawF(intp,c,mask,ZY){
-	ctx.beginPath();
-	ctx.strokeStyle=c;
-	x=GX;
-	var ni=0;
+var GS=12;
+var GSX=100;
+var GrY=c.height;
+var GrX=40;
+function dodemo(){
+	// reset simulation
+	GS=getvalue("igs")*1;
+	GSX=getvalue("igsx")*1;
+	
+	head=0;
+	tail=0;
+	tailok=0;
+	cmhead=0;
 	cmtail=0;
-	var stepd=CLOCKCONSTANT/stepmm;
-	var ldly=0;
-	while (decodecmd()){
-		if (cmcmd){
-			ldly+=cmdly;
-			f=8*CLOCKCONSTANT/(cmdly*stepmm);
-			if (intp)f=getf(ni++)*GS; else f=vv[ni++]*GS;
-			//f=stepd*GS/getf2(ni++);
-			tm+=cmdly;
-			ctx.lineTo(x, GY-f+ZY);
-			x+=cmdly/20000;
-		}// else 	ldly+=cmdly;
+	vv=[];
+	GX=[0,0,0,0];
+	nextacc=0;
+	curracc=0;
+	prevacc=0;
+	cmddelay=[];
+	ddd=[];
+	f=0;
+	x1=0;
+	y1=0;
+	z1=0;
+	e1=0;
+	mi=0;
+	moves=[];
+	lastf=MINCORNERSPEED;
+
+	ctx.clearRect(0,0,1000,1000);
+	demo=getvalue("idemo");
+	feed=getvalue("ifeed")*1;
+	accel=getvalue("iacc")*1;
+	jerk=getvalue("ijerk")*1;
+	zaccel=accel;
+	mvaccel=accel;
+	xycorner=getvalue("icorner")*1;
+	zcorner=xycorner;
+	
+	if (demo=="box"){
+
+		addmove(feed,20,10,0,0);
+		addmove(feed,20,30,0,0);
+		addmove(feed,0,20,0,0);
+		addmove(feed,0,0,0,0);
+	}
+	if (demo=="line"){
+		addmove(feed,20,10,0,0);
+		addmove(feed,20,40,0,0);
+	}
+	if (demo=="circle"){
+	  for(var x=0;x<6;x++){
+		var d=x*3.14/10;
+		var r=30;
+		//addmove(feed, +Math.sin(d)*r, Math.cos(d)*r, 0, 0);
+	  }
+	for (var x = 1; x < 36; x++) {
+      addmove(100, Math.sin(x/5.70)*30, Math.cos(x/5.70)*30, 0*Math.cos(x/5.70)*30, 0*Math.sin(x/5.70)*30,0);
+  }
+  
+	//addmove(10, 0, 0, 0, 0);
+	}
+	ss=2.0/stepmm;
+	var ox=0;oy=0;
+	var xi=0;
+	var colors=["red","white","blue","green"];
+	//return;
+	while (startmove()){
+		// bresenham motion loop
+		xi++;
+		while (coreloop1()){
+			x=350+GX[0]*ss;
+			y=80+GX[1]*ss;
+			if (ox>0){
+				
+				ctx.beginPath();
+				ctx.strokeStyle=colors[xi & 3];
+				ctx.moveTo(ox,oy);
+				ctx.lineTo(x,y);
+				ctx.stroke();
+				
+			}
+			ox=x;
+			oy=y;
+		};
+	}
+
+	var cmdly,cmcmd;
+	function decodecmd()
+	{
+	  if (cmdempty()) {
+
+		return 0;
+
+	  }
+	  cmtail = nextbuffm(cmtail);
+	  var cmd = cmddelay[cmtail];
+	  cmcmd = cmd & 1;
+	  if (cmcmd) {
+		cmbit = (cmd >> 1) & 15;
+		cmdly = (cmd >> 5);
+	  } else {
+		cmbit = (cmd >> 1) & 255;
+		cmdly = 20;
+	  }
+	  return 1;
+	}
+
+		
+	ff=0;
+	ctx.beginPath();
+
+	ctx.strokeStyle="#77cccc11";
+	ctx.fillStyle="green";
+	for (var Y=0;Y<feed/5;Y++){
+		ctx.moveTo(GrX,GrY-Y*5*GS);
+		ctx.lineTo(1600,GrY-Y*5*GS);
+		ctx.fillText(Y*5,GrX-30,GrY-Y*5*GS);
 	}
 	ctx.stroke();
+
+	function drawF(intp,c,mask,ZY){
+		x=GrX;
+		var ni=0;
+		cmtail=0;
+		var stepd=CLOCKCONSTANT/stepmm;
+		var ldly=0;
+		var ox=x;
+		var oy=GrY-ZY;
+		var oi=-1;
+		while (decodecmd()){
+			if (cmcmd){
+				ldly+=cmdly;
+				f=8*CLOCKCONSTANT/(cmdly*stepmm); // we can get from here sinve stepdiv2 is different on each path, and we dont keep the value of stepdiv2
+				v=vv[ni++];
+				f=v[0]*GS;
+				//f=stepd*GS/getf2(ni++);
+				tm+=cmdly;
+				y=GrY-f+ZY;
+				if (oi!=v[1]){
+					ctx.stroke();
+					ctx.beginPath();
+					oi=v[1];
+					ctx.strokeStyle=colors[oi & 3];
+					ctx.moveTo(ox,oy);
+				}
+				if (oi>=0)ctx.lineTo(x, y);
+				ox=x;
+				oy=y;
+				x+=cmdly*GSX/(CLOCKCONSTANT);
+			}// else 	ldly+=cmdly;
+		}
+		ctx.stroke();
+	}
+
+
+	drawF(0,"green",2,0);
+	//drawF(1,"red",2,0);
+
 }
-
-
-drawF(0,"green",2,-100);
-drawF(1,"red",2,0);
-
-console.log("Total time:%f:",tm/CLOCKCONSTANT);
-console.log(ddd);
+dodemo();
 
 </script>
 </body>

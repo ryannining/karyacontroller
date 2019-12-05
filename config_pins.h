@@ -84,7 +84,7 @@
 #define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
 #define THEISR ICACHE_RAM_ATTR
 #define ANALOGSHIFT 0 // 10bit adc ??
-#define BAUDRATE 115200*1
+#define BAUDRATE 115200*2
 
 
 //#define BOARD_NANONANO_WEMOS
@@ -133,7 +133,6 @@
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 #define WIFISERVER
 //#define TOUCHSERVER
-#define INTERPOLATEDELAY  // slower 4-8us
 #endif
 // ==========================================================
 
@@ -160,7 +159,7 @@
 #endif
 
 #define LASERON LOW
-#define NUMBUFFER 50
+//#define NUMBUFFER 50
 
 //#define USE_EEPROM
 
@@ -180,9 +179,8 @@
 #endif
 
 
-#define UPDATE_F_EVERY 1000 //us = 250 tick/sec acceleration change
 #ifndef ISPC
-//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
 #else
 //#define SUBPIXELMAX 4
 #endif
@@ -254,20 +252,21 @@
 
 // Motion configuration
 #define CHECKENDSTOP_EVERY 0.05  // mm this translate to 200step if step/mm is 4000, must lower than 255 (byte size)
-#define HOMINGSPEED 60
+#define HOMINGSPEED 30
 #define XOFFSET 0
 #define YOFFSET 0
 #define ZOFFSET 0
 #define EOFFSET 0
 
+
 #ifdef BOARD_WEMOS3D_COREXY
-  #define XYJERK 25
+  #define XYJERK 600
+  #define XYCORNER 45
   #define XACCELL 1600
-  #define XMOVEACCELL 1600
 #else
-  #define XYJERK 15
-  #define XACCELL 150
-  #define XMOVEACCELL 550
+  #define XYJERK 15000
+  #define XYCORNER 35
+  #define XACCELL 1000
 #endif
 
 #ifdef BOARD_WEMOS3D_COREXY
@@ -278,7 +277,7 @@
 #else
   #define XMAXFEEDRATE 100
   #define YMAXFEEDRATE 100
-  #define ZMAXFEEDRATE 12
+  #define ZMAXFEEDRATE 100
   #define E0MAXFEEDRATE 100
 #endif
 
@@ -288,9 +287,9 @@
   #define ZSTEPPERMM 243.75//2300//80//1020//1020 //420
   #define E0STEPPERMM 152//92//340//380
 #else
-  #define XSTEPPERMM 100//50//105.090//50//131//178
-  #define YSTEPPERMM 100////105.090//50//175//125
-  #define ZSTEPPERMM 400//2300//80//1020//1020 //420
+  #define XSTEPPERMM 50//50//105.090//50//131//178
+  #define YSTEPPERMM 50////105.090//50//175//125
+  #define ZSTEPPERMM 50//2300//80//1020//1020 //420
   #define E0STEPPERMM 100//92//340//380
 #endif
 

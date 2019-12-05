@@ -19,11 +19,11 @@ float EEMEM EE_xhome;
 float EEMEM EE_yhome;
 float EEMEM EE_zhome;
 int32_t EEMEM EE_homing;
+int32_t EEMEM EE_corner;
+
+
+int32_t EEMEM EE_accel;
 int32_t EEMEM EE_jerk;
-
-
-int32_t EEMEM EE_accelx;
-int32_t EEMEM EE_mvaccelx;
 
 
 int32_t EEMEM EE_max_x_feedrate;
@@ -82,9 +82,8 @@ void reload_eeprom() {
   ax_home[0] = ((float)eepromread(EE_xhome)) * 0.001;
   ax_home[1] = ((float)eepromread(EE_yhome)) * 0.001;
   ax_home[2] = ((float)eepromread(EE_zhome)) * 0.001;
-  accel = eepromread(EE_accelx);
+  accel = eepromread(EE_accel);
 
-  mvaccel = eepromread(EE_mvaccelx);
 
   maxf[0] = eepromread(EE_max_x_feedrate);
   maxf[1] = eepromread(EE_max_y_feedrate);
@@ -97,11 +96,13 @@ void reload_eeprom() {
   stepmmx[2] = (float)eepromread(EE_zstepmm)   * 0.001;
   stepmmx[3] = (float)eepromread(EE_estepmm)   * 0.001;
 
+  xycorner = eepromread(EE_corner);
   xyjerk = eepromread(EE_jerk);
   homingspeed = eepromread(EE_homing);
-  zjerk = fmin(homingspeed / 3, xyjerk);
-
-  CNCMODE = ((ax_home[0] + ax_home[1] + ax_home[2] == 0) && (xyjerk <= 15));
+  zcorner = fmin(homingspeed / 3, xycorner);
+  zjerk = xyjerk*zcorner/xycorner;
+  
+  CNCMODE = ((ax_home[0] + ax_home[1] + ax_home[2] == 0) && (xycorner <= 15));
   if (CNCMODE)zprintf(PSTR("CNCMODE\n"));
   xyscale = (float)eepromread(EE_xyscale) * 0.001;
 #ifdef NONLINEAR
@@ -156,9 +157,9 @@ void reset_eeprom() {
   eepromwrite(EE_yhome, ff(ax_home[1]));
   eepromwrite(EE_zhome, ff(ax_home[2]));
 
-  eepromwrite(EE_accelx, fi(accel));
+  eepromwrite(EE_accel, fi(accel));
 
-  eepromwrite(EE_mvaccelx, fi(mvaccel));
+  eepromwrite(EE_jerk, fi(xyjerk));
 
   eepromwrite(EE_max_x_feedrate, fi(maxf[0]));
   eepromwrite(EE_max_y_feedrate, fi(maxf[1]));
@@ -171,7 +172,7 @@ void reset_eeprom() {
   eepromwrite(EE_estepmm, ff(stepmmx[3]));
 
   eepromwrite(EE_homing, homingspeed);
-  eepromwrite(EE_jerk, xyjerk);
+  eepromwrite(EE_corner, xycorner);
   eepromwrite(EE_xyscale, ff(xyscale));
 #ifdef NONLINEAR
   eepromwrite(EE_hor_radius, ff(delta_radius));

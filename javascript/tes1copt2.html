@@ -1,20 +1,29 @@
 
 <head>
+<script>
+  (function (w,d,s,o,f,js,fjs) {
+  w[o] = w[o] || function () { (w[o].q = w[o].q || []).push(arguments) };
+  js = d.createElement(s), fjs = d.getElementsByTagName(s)[0];
+  js.id = o; js.src = f; js.async = 1; fjs.parentNode.insertBefore(js, fjs);
+  }(window, document, 'script', 'plausible', 'https://plausible.io/js/p.js'));
+
+  plausible('page')
+</script>
 </head>
 <html>
 <body>
 <table  cellpadding=5>
 <tr><td width=auto>	
 	<table style="font-size:9pt;font-family:arial" id=t0 width=100%>
-		<tr><td>Prev acc</td><td><input id=iprevac type=input value=0 size=2>-1 0 1</td></tr>
-		<tr><td>Next acc</td><td><input id=inextac type=input value=0 size=2>-1 0 1</td></tr>
+		<tr><td>Prev acc</td><td><input id=iprevac type=input value=-1 size=2>-1 0 1</td></tr>
+		<tr><td>Next acc</td><td><input id=inextac type=input value=-1 size=2>-1 0 1</td></tr>
 		<tr><td colspan="2"><hr></td></tr>
-		<tr><td>Distance</td><td><input id=immdis type=input size=4 value=30></td></tr>
-		<tr><td>Vinitial</td><td><input id=ivi type=input size=4 value=0></td></tr>
-		<tr><td>Vcruise</td><td><input id=ivc type=input size=4 value=130></td></tr>
-		<tr><td>Vexit</td><td><input id=ive type=input size=4 value=0></td></tr>
-		<tr><td>Jerk</td><td><input id=ij type=input size=4 value=12000></td></tr>
-		<tr><td>Max Ac</td><td><input id=ia type=input size=4 value=400></td></tr>
+		<tr><td>Distance</td><td><input id=immdis type=input size=4 value=20></td></tr>
+		<tr><td>Vinitial</td><td><input id=ivi type=input size=4 value=7></td></tr>
+		<tr><td>Vcruise</td><td><input id=ivc type=input size=4 value=24></td></tr>
+		<tr><td>Vexit</td><td><input id=ive type=input size=4 value=7></td></tr>
+		<tr><td>Jerk</td><td><input id=ij type=input size=4 value=100></td></tr>
+		<tr><td>Max Ac</td><td><input id=ia type=input size=4 value=50></td></tr>
 		<tr><td colspan="2"><button onclick="redraw()">Redraw</button><hr></td></tr>
 	</table>  
 	<table style="font-size:9pt;font-family:arial" id=t1></table>
@@ -99,12 +108,15 @@ function redraw(){
 	ve = getval("ive"); // 
 	j = getval("ij");
 	a = getval("ia"); // max ac
-	
+	if (vc<ve)vc=ve;
 	
 	// calculate new vc, to reduce loop to check
-	aa=0.5*a; // 0.5 should be derived from jerk, its
-	d=-(ve*ve-vi*vi-2*aa*mmdis)/(4*aa);
-	vc=sqrt(2*aa*d+vi*vi);
+	/*if ((vc>vi) && (vc>ve)){
+		aa=0.5*a; // 0.5 should be derived from jerk, its
+		d=-(ve*ve-vi*vi-2*aa*mmdis)/(4*aa);
+		vc=sqrt(2*aa*d+vi*vi);
+	}
+	*/
 	// initial
 	totalstep=Math.floor(mmdis*StepMM);
 	workstep=0;	
@@ -114,7 +126,8 @@ function redraw(){
 	st1="";
 	tjerk = a/j;
 	mvjerk = 1/2*j*tjerk*tjerk;
-	while (1){
+	while (1)
+	{
 
 		// time each segment
 		// segment 1, constant jerk until v increase vjerk
@@ -126,7 +139,21 @@ function redraw(){
 		// T=sqrt(2(Vt-Vi)/J)
 
 		//
-
+		acc1only=(nextac==1) && (prevac==1);
+		acc2only=(nextac==-1) && (prevac==-1);
+		
+		// new vcruise must be calculated
+		if (acc1only) {
+			vc=sqrt(sqr(vi)+mmdis*2*a);
+			loop=15;
+			ve=vc;
+		}
+		if (acc2only) {
+			vc=sqrt(sqr(ve)+mmdis*2*a);
+			loop=15;
+			vi=vc;
+		}
+		
 		has1=0;
 		vjerk1=mvjerk;
 		if ((prevac<=0) && (vc>vi)){ // if previous is not accelerate up, and vinitial less than vcruise
@@ -136,37 +163,36 @@ function redraw(){
 			} else {
 				t1=tjerk; // can use jerk to maximum acceleration value
 			}
-			vt1 = vi + vjerk1;
+			v1 = vi + vjerk1;
 			s1 = vi*t1 + 1/6*j*t1*t1*t1;
 			has1=1;
 		} else { // doesnot have segment 1
 			s1=0;
-			vt1=vi;
+			v1=vi;
 			t1=0;
 			vjerk1=0;
 		}
-		v1=vt1;
 
 		// segment 2 constant acceleration until vcruise-vjerk
 		// Vt = Vt1 + a.T
 		// T = (Vt-Vt1)/a
 		
-		if (ve<=vc)vt2 = vc-mvjerk;else vt2 = vc-vjerk1;
+		if (ve<=vc)v2 = vc-mvjerk;else v2 = vc-vjerk1;
+		if (acc1only)v2=vc;
 		has2=0;
-		if (vt2>vt1){
-			t2 = (vt2-vt1)/a;
-			s2 = vt1*t2 + 1/2*a*t2*t2;
+		if (v2>v1){
+			t2 = (v2-v1)/a;
+			s2 = v1*t2 + 1/2*a*t2*t2;
 			has2=1;
 		} else {
 			t2=0;
 			s2=0;
 			// if no room for acceleration and jerk, then we must change the segment1 later
 		}
-		v2=vt2;
 
 		// segment 3 decelerate is same as segment 1
 		has3=0;
-		if ((ve<=vc) && (vi<vc)) { //we have cruise followed by deceleration 
+		if (!acc1only && (ve<=vc) && (vi<vc)) { //we have cruise followed by deceleration 
 			// check if dV is enough for jerk deceleration
 			//if (vc-ve)>
 			t3  = t1?t1:tjerk;
@@ -192,12 +218,12 @@ function redraw(){
 			} else {
 				t7=tjerk; // can use jerk to maximum acceleration value
 			}
-			vt7 = ve + vjerk7;
+			v6 = ve + vjerk7;
 			s7 = ve*t7 + 1/6*j*t7*t7*t7;
 			has7=1;
 		} else { // doesnot have segment 1
 			s7=0;
-			vt7=ve;
+			v6=ve;
 			t7=0;
 			vjerk7=0;
 		}
@@ -206,14 +232,14 @@ function redraw(){
 		// T = (Vt-Vt1)/a
 
 		has6=0;
-		v6=vt7;
 
-		if (nextac<0)vt6 = vc-mvjerk;else vt6 = vc-vjerk7;
+		if (nextac<0)v5 = vc-mvjerk;else v5 = vc-vjerk7;
+		if (acc2only)v5=vc;
 
 
-		if (vt6>vt7){
-			t6 = (vt6-vt7)/a;
-			s6 = vt7*t6 + 1/2*a*t6*t6;
+		if ((v5>v6)){
+			t6 = (v5-v6)/a;
+			s6 = v6*t6 + 1/2*a*t6*t6;
 			has6=1;
 		} else {
 			t6=0;
@@ -223,9 +249,8 @@ function redraw(){
 
 		// segment 5 decelerate is same as segment 7
 		has5=0;
-		if (nextac<0)v5=vc-mvjerk;else v5=vc-vjerk7;
 		
-		if (ve<vc) { //if we have initial acceleration 
+		if (!acc2only && (ve<vc)) { //if we have initial acceleration 
 			t5  = t7?t7:tjerk;
 			s5 = vc*t5 - 1/6*j*t5*t5*t5;
 			has5=1;
@@ -249,14 +274,17 @@ function redraw(){
 			s4=mmdis-saccelerate;
 			t4=0;
 		}
+		loop++;
+		if (loop>15)break;
+		///*
+		// re loop until new vc can be reached
 		if (s4>=0)break;
 		if (vc==vi+mvjerk)break;
 		mmtomuch=s4;
 		// adjust vcruise to meet the formula
 		vc=fmax(vc*0.8,vi);
 		vc=fmax(vc,vi<vc?vi+mvjerk:0);
-		loop++;
-		if (loop>15)break;
+		//*/
 	}
 	if (!has4)s4=0;
 
@@ -277,6 +305,7 @@ function redraw(){
 	st1+="<tr><td colspan=4><hr>";
 	T=taccelerate+t4;
 	S=saccelerate+s4;
+	mmdis=S;
 	st1+="<tr><td> <td>"+mround(saccelerate+s4)+"<td>"+mround(taccelerate+t4)+"<td>";
 	st1+="<tr><td colspan=4><hr>";
 
@@ -459,7 +488,7 @@ function redraw(){
 		ctx.moveTo(lx,ly);
 		ctx.lineTo(lx,GY);
 		ctx.stroke();
-	}
+	} else a5=a;
 	// Segment 6
 	if (has6){
 		ctx.beginPath();			
@@ -550,43 +579,44 @@ function redraw(){
 // optimized time steps generator for bresenham machine movement
 // ====================================================================================================================
  	
-	tstep=1.0/2000;// 0.5ms //0.1/StepMM;
+	tstep=0.001;//T/(Math.ceil(T)*1000);// 0.5ms //0.1/StepMM;
 	var S=0;
 	V=vi;
 	a1=j*tstep*tstep;
 	var a1x;
 	var Sdest=0;
-
+	var lsteps=0;
 	function machinemove(sg,dis,vel){
 		// for debugging
 		// 
 		
-		var steps=Math.floor(dis*StepMM)-Math.floor(mdis*StepMM);
-		if (steps>0){ // sometimes the calculation emit negative delta steps ... prevent it
+		var steps=Math.ceil(dis*StepMM);
+		if (steps-lsteps>0){ // sometimes the calculation emit negative delta steps ... prevent it
 			//
 			
 			//if (sg==2 || sg==6)vel=sqrt(vel);
 			var t=clockrate/(fmax(vel,minVel)); // prevent zero speed
-			if (workstep<=totalstep)	
+			//if (workstep<=totalstep) 
 			stepBuff.push([sg,dis,vel]);
 
-			for (var i=0;i<steps;i++){
+			for (var i=lsteps;i<steps;i++){
 				if (workstep<totalstep){
 					// do bresenham this step longs
+					
 				}
 				workstep++;
 			}
 			// send the t with other things needed to timerbufer
-			mdis=dis; // save last step position
+			lsteps=steps; // save last step position
 		}
 	}
 
 
 	function curveloop(){
-		a2+=a1x;
 		V+=a2;			
+		a2+=a1x;
 		S+=V*tstep;
-		machinemove(sg,S,V); // run bresenham for machine 
+		machinemove(sg,S,V); // run bresenham for machine
 		return S<Sdest;
 	}
 	sg=0;
@@ -607,12 +637,15 @@ function redraw(){
 				if (has2){
 					a2=a*tstep;
 					a1x=0;
+					V=vi+vjerk1+a2*0.5;
 					Sdest=Sdest+s2;
 				} else continue;
 			}
 			if (sg==3) {
 				if (has3){
 					a1x=-a1;
+					V=vc-vjerk1-a2*0.5;
+					S=Sdest;
 					Sdest=Sdest+s3;
 				} else continue;
 			}
@@ -620,6 +653,8 @@ function redraw(){
 				if (has4){
 					a2=0;
 					a1x=0;
+					V=vc;
+					S=Sdest;
 					Sdest=Sdest+s4;
 				} else continue;
 			}
@@ -627,6 +662,8 @@ function redraw(){
 				if (has5){
 					a2=0;
 					a1x=-a1;
+					V=vc;
+					S=Sdest;
 					Sdest=Sdest+s5;
 				} else continue;
 			}
@@ -634,6 +671,8 @@ function redraw(){
 				if (has6){
 					a2=-a*tstep;
 					a1x=0;
+					S=Sdest;
+					V=vc-vjerk7-a2*0.5;
 					Sdest=Sdest+s6;
 				} else continue;
 			}
@@ -641,10 +680,11 @@ function redraw(){
 				if (has7){
 					V=ve+vjerk7; // needed to make sure we reach accurate exit velocity
 					a1x=a1;
+					S=Sdest;
 					Sdest=mmdis;
 				} else continue;
 			}
-			if (sg==8) break;
+			if (sg==8) break; // if happen, need to start new move
 			
 		}
 		ok=curveloop();
@@ -670,7 +710,7 @@ function redraw(){
 		if (sb[0]!=li){
 			ctx.moveTo(lx,ly);
 			ctx.lineTo(lx,GY);
-			if (li==-6)
+			//if (li==-6)
 			{
 				ctx.fillText(mround(ls),lx,GY+10);
 				ctx.fillText(mround(lv),lx,GY+20);
