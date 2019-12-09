@@ -85,11 +85,12 @@
 #define THEISR ICACHE_RAM_ATTR
 #define ANALOGSHIFT 0 // 10bit adc ??
 #define BAUDRATE 115200*2
+#define NUMBUFFER 35
 
 
 //#define BOARD_NANONANO_WEMOS
-#define BOARD_WEMOS3D
-//#define BOARD_WEMOS3D_COREXY
+//#define BOARD_WEMOS3D
+#define BOARD_WEMOS3D_COREXY
 //#define BOARD_ESPUNO_COREXY
 //#define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
@@ -180,9 +181,9 @@
 
 
 #ifndef ISPC
-#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
+#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
 #else
-//#define SUBPIXELMAX 4
+#define SUBPIXELMAX 4
 #endif
 
 
@@ -264,9 +265,9 @@
   #define XYCORNER 45
   #define XACCELL 1600
 #else
-  #define XYJERK 15000
-  #define XYCORNER 35
-  #define XACCELL 1000
+  #define XYJERK 800
+  #define XYCORNER 235
+  #define XACCELL 1200
 #endif
 
 #ifdef BOARD_WEMOS3D_COREXY
@@ -287,9 +288,9 @@
   #define ZSTEPPERMM 243.75//2300//80//1020//1020 //420
   #define E0STEPPERMM 152//92//340//380
 #else
-  #define XSTEPPERMM 50//50//105.090//50//131//178
-  #define YSTEPPERMM 50////105.090//50//175//125
-  #define ZSTEPPERMM 50//2300//80//1020//1020 //420
+  #define XSTEPPERMM 150//50//105.090//50//131//178
+  #define YSTEPPERMM 150////105.090//50//175//125
+  #define ZSTEPPERMM 150//2300//80//1020//1020 //420
   #define E0STEPPERMM 100//92//340//380
 #endif
 

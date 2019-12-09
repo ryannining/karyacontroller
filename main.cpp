@@ -48,8 +48,8 @@ int main(void)
   //int8_t z=100;
   float v = 10.1234;
   zprintf (PSTR("F %f D %d\n"), ff(v), (int32_t)200);
-  //demofile();
-  demo();
+  demofile();
+  //demo();
   zprintf (PSTR("WAIT\n"));
   waitbufferempty();
   zprintf (PSTR("Time:%f\n"), ff(tick / timescale));
@@ -82,9 +82,9 @@ void demofile() {
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 1;
-  tickscale = 200;
-  fscale = 100;
+  graphscale = 3;
+  tickscale = 290;
+  fscale = 300;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l = 0;

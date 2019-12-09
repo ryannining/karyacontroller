@@ -36,8 +36,9 @@
 
 
 // Corner deviation Setting
-#define MINCORNERSPEED 0.2 // minimum cornering speed
+#define MINCORNERSPEED 1 // minimum cornering speed
 #define MINSTEP 0
+#define TSTEP 0.0003 // time stepping to get the velocity
 // Centripetal
 
 
@@ -66,7 +67,7 @@
 #define CLOCKCONSTANT 1000000.f        // tick/seconds
 
 #define DSCALE 0  // 1mhz use micros shift 3bit
-#define DIRDELAY 20
+#define DIRDELAY 10
 #endif // usetimer
 
 #define X 0
@@ -85,7 +86,7 @@ int xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
 float xyscale, f_multiplier, e_multiplier;
-int xycorner, zcorner, accel, zaccel, xyjerk, zjerk;
+int32_t xycorner, zcorner, accel, zaccel, xyjerk, zjerk;
 int i;
 float ax_home[NUMAXIS];
 float stepdiv, stepdiv2;
@@ -365,177 +366,176 @@ float rampseg, rampup, rampdown;
 int32_t rampseg, rampup, rampdown;
 #define rampv 1
 #endif
-#define sqr(x) x*x
+#define sqr(x) (x)*(x)
 
-/* ramplen is basically
-  dV / 2*ac
 
-  S = V0t * 1/2at^2
+/* ================================================================================================================
+  BRESENHAM CORE
+
+  this need to move to interrupt for smooth movement
+  ================================================================================================================
 */
 
-#define ramplenq(oo,v0,v1,stepa) if (v1>v0)oo=(v1-v0)*stepa;
-//#define speedat(v0,a,s,stp) (a * s / stp + v0)
-#define speedat(v0,a,s) (a * s  + v0)
+/*
+  =================================================================================================================================================
+  COMMAND BUFFER
+  =================================================================================================================================================
+*/
+#ifdef __AVR__
+#define NUMCMDBUF 100
+#else
+#define NUMCMDBUF 40
+#endif
+
+
+#define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
+
+static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
+static volatile uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit = 0;
+static volatile uint32_t cmdlaserval = 0;
+
+static int8_t mo = 0;
+#define cmdfull (nextbuffm(cmhead)==cmtail)
+#define cmdnotfull (nextbuffm(cmhead)!=cmtail)
+#define cmdempty (cmhead==cmtail)
+static volatile int nextok = 0, laserwason = 0;
+
+int sendwait = 0;
+
+// we must interpolate delay here, between 10 steps
+int ldelay = 0;
+
+
+static void pushcmd()
+{
+  // no more data if endstop hit
+  if (checkendstop && (endstopstatus < 0))return;
+  // wait until a buffer freed
+
+  while (cmdfull) {
+#ifdef USETIMER1
+    MEMORY_BARRIER();
+#else
+    CORELOOP
+#endif
+  }
+
+  // if move cmd, and no motor move, save the delay
+  if ( (cmd0 & 1) && !(cmd0 & (15 << 1))) {
+    ldelay += cmd0 >> 5;
+  } else {
+    cmhead = nextbuffm(cmhead);
+    //if (cmd0 & 1)cmd0 += (ldelay << 5);
+    cmddelay[cmhead] = cmd0;
+    //ldelay = 0;
+  }
+
+}
+
+void newdircommand(int laserval)
+{
+  // change dir command
+  //cmd0 = 0;//DIRDELAY << 6;
+  cmd0 = (laserval << 9);
+  if (sx[0] > 0)cmd0 |= 2;
+  if (sx[1] > 0)cmd0 |= 8;
+  if (sx[2] > 0)cmd0 |= 32;
+  if (sx[3] > 0)cmd0 |= 128;
+  // TO know whether axis is moving
+  if (bsdx[0] > 0)cmd0 |= 4;
+  if (bsdx[1] > 0)cmd0 |= 16;
+  if (bsdx[2] > 0)cmd0 |= 64;
+  if (bsdx[3] > 0)cmd0 |= 256;
+  ldelay = 0;
+  pushcmd();
+
+}
+
+
+
+#define bresenham(ix)\
+  if ((mcx[ix] -= bsdx[ix]) < 0) {\
+    cmd0 |=2<<ix;\
+    mcx[ix] += totalstep;\
+  }
+
+
+// ===============================
+
+
+
+/*
+	-------------------------------------------- BEGIN OF SCURVE IMPLEMENTATION ----------------------------------------------
+*/
 
 
 int prevacc = 0;
 int nextacc = 0;
 int curracc = 0;
-int has1, has2, has3, has4, has5, has6, has7;
+int scurve,has1, has2, has3, has4, has5, has6, has7;
 int sg, ok;
 int lsteps;
 
 
 float s1, s2, s3, s4, s5, s6, s7;
-float vi, vc, ve, vjerk1, vjerk7;
-float ja, a1x, a1, a2, as3, as7, T, V, S, Sdest, tstep, tstepS;
+float vi, vc, ve, vjerk1, vjerk7,mvjerk;
+float acup,acdn,ja, a1x, a1, a2, as3, as7, T, V;
+int Sdest;
 
-#define jerk XYJERK
+#define jerk xyjerk
 
+#define ramplenq(v0,v1,stepa) (v1-v0)*stepa
+#define ramplenq2(v0,v1,stepj) ((v1-v0))*stepj
 
-float preparejerk(float dis) {
-  float v1, v2, v3, v4, v5, v6, v7;
-  float t1, t2, t3, t4, t5, t6, t7;
-
-
-  float delta1, delta7, saccelerate;
-  float jerk6 = 0.16667 * jerk;
-  //while (1)
-  //{
-  if (has1 || has3) {
-    vjerk1 = fmin(vjerk1, fabs(vc - vi));
-    if (has1 && has3)vjerk1 = vjerk1 * 0.5;
-    t1 = sqrt(2.0 * vjerk1 / jerk); // calc time to reac vjerk segment 1
-    delta1 = jerk6 * t1 * t1 * t1;
-  }
-
-  if (has1) { // if previous is not accelerate up, and vinitial less than vcruise
-    v1 = vi + vjerk1;
-    s1 = vi * t1 + delta1;
-  } else { // doesnot have segment 1
-    s1 = 0;
-    v1 = vi;
-  }
-
-  // segment 2 constant acceleration until vcruise-vjerk
-  // Vt = Vt1 + a.T
-  // T = (Vt-Vt1)/a
-  v2 = vc;
-  if (has3)v2 = vc - vjerk1;
-  if (v2 - v1 == 0)has2 = 0;
-  if (has2) {
-    t2 = (v2 - v1) / ja;
-    s2 = v1 * t2 + 0.5 * ja * t2 * t2;
-  } else {
-    t2 = 0;
-    s2 = 0;
-    // if no room for acceleration and jerk, then we must change the segment1 later
-  }
-
-
-
-  // segment 3 decelerate is same as segment 1
-  if (has3)
-  { //we have cruise followed by deceleration
-    // check if dV is enough for jerk deceleration
-    //if (vc-ve)>
-    s3 = vc * t1 - delta1;
-    t3 = t1;
-  } else {
-    s3 = 0;
-    t3 = 0;
-  }
-
-  if (has1 || has3)as3 = t1 * jerk; else as3 = ja;
-
-  v3 = vc;
-
-
-  // ===========================================================================================
-  // segment 5,6,7 is calculated inversed from ve to vc just like segment 1,2,3
-  // segment 7, constant jerk until v increase vjerk
-
-  if (has5 || has7) {
-    vjerk7 = fmin(vjerk7, fabs(vc - ve));
-    if (has5 && has7)vjerk7 = vjerk7 * 0.5;
-    t7 = sqrt(2.0 * vjerk7 / jerk); // calc time to reac vjerk segment 1
-    delta7 = jerk6 * t7 * t7 * t7;
-  }
-
-  if (has7) { // if previous is not accelerate up, and vinitial less than vcruise
-    v6 = ve + vjerk7;
-    s7 = ve * t7 + delta7;
-  } else { // doesnot have segment 1
-    s7 = 0;
-    v6 = ve;
-  }
-  // segment 6 constant acceleration until vcruise-vjerk
-  // Vt = Vt1 + a.T
-  // T = (Vt-Vt1)/a
-
-  if (has5)v5 = vc - vjerk7; else v5 = vc;
-  if (v5 - v6 == 0)has6 = 0;
-  if (has6) {
-    t6 = (v5 - v6) / ja;
-    s6 = v6 * t6 + 0.5 * ja * t6 * t6;
-  } else {
-    t6 = 0;
-    s6 = 0;
-    // if no room for acceleration and jerk, then we must change the segment1 later
-  }
-
-  // segment 5 decelerate is same as segment 7
-
-  if (has5) { //if we have initial acceleration
-    s5 = vc * t7 - delta7;
-    t5 = t7;
-  } else {
-    s5 = 0;
-    t5 = 0;
-  }
-  if (has5)as7 = t7 * jerk; else as7 = ja;
-
-
-  // cruise must be calculate last, we must know how much distance from jerk ramp up and jerk ramp down
-  // segment 4  = cruise
-  saccelerate = s1 + s2 + s3 + s5 + s6 + s7;
-  if (has4) {
-    if (dis > saccelerate) { // we have cruise
-      has4 = 1;
-      s4 = dis - saccelerate;
-    } else {
-      s4 = 0;
-      t4 = 0;
-      has4 = 0;
-    }
-  } else s4 = 0;
-
-  S = (s4 + saccelerate);
-  tstep = 0.001; // 1ms is good value //T/(Math.ceil(T)*1000);// 0.5ms //0.1/StepMM;
-  V = vi;
-  a1 = jerk * tstep * tstep;
-
-  lsteps = 0;
-  Sdest = 0;
-  sg = 0;
-  ok = 0;
-  return S;
-}
-
+//#define speedat(v0,a,s,stp) (a * s / stp + v0)
+#define speedat(v0,a,s) (a * s  + v0)
 
 void prepareramp(int32_t bpos)
 {
 
   tmove *m, *next;
   m = &move[bpos];
-
+  scurve= (xyjerk>0);// && (m->dis>5);	
   // local m
+	int faxis = FASTAXIS(m);
+	// trapezoid ramps up /down
+	float ru, rd;
+	ru = rd = 0;
+    ja = m->ac*0.5;
+	float accel2=m->ac;
+	float stepa = 1.0 / (accel2);
+	float stepj;
 
-  if (m->fs - m->fe >= m->delta) m->fn = m->fs;
+	ru=ramplenq(m->fs, m->fn, stepa);
+	rd=ramplenq(m->fe, m->fn, stepa);
+
+
+
+	if (ru + rd > m->dis) {
+		// if crossing and have rampup
+		float r = ((ru + rd) - m->dis) *0.5;
+		ru -= r;
+		rd -= r;
+		if (ru < 0)ru = 0;
+		if (rd < 0)rd = 0;
+		if (rd > m->dis)rd = m->dis;
+		if (ru > m->dis)ru = m->dis;
+		m->fn = speedat(m->fs, accel2, ru);
+
+		//    if (rd== 0)next->fs = m->fn;
+	}
+
+	// convert to steps
+	float tosteps=totalstep / m->dis;
+	ru = int(ru * tosteps);
+	rd = int(rd * tosteps);
+	if (scurve)stepj= tosteps / (m->ac);
+
+  //if (m->fs - m->fe >= m->delta) m->fn = m->fs;
   prevacc = curracc;
   if (bpos != (head)) {
     next = &move[nextbuff(bpos)];
-    if (next->fs - next->fe >= next->delta) next->fn = next->fs;
+    if (int(next->fs - next->fe) >= int(next->delta)) next->fn = next->fs;
 
     if ((next->fs == next->fn) && (next->fe < next->fn)) { // all down
       nextacc = -1;
@@ -551,7 +551,7 @@ void prepareramp(int32_t bpos)
     nextacc = 0;
   }
 
-  has4 = m->delta > fabs(m->fe - m->fs);
+  has4 = int(m->delta) > int(fabs(m->fe - m->fs));
 
   if ((m->fs == m->fn) && (m->fe < m->fn)) { // all down
     curracc = -1;
@@ -565,47 +565,249 @@ void prepareramp(int32_t bpos)
 
   // lets check 1 by 1
   //
-  ja = m->ac*0.5;
-  float mvjerk = 0.5 * ja * ja / jerk;
+    // identify which segment is available
+	// 
+	// lets check 1 by 1 
+	//
+	mvjerk = scurve?(0.5*ja*ja/jerk):0;
 
-  vjerk1 = 0;
-  // if
-  // segment 1, prevacc <=0 and fs<fn
-  has1 = (prevacc <= 0) && (m->fs < m->fn);
-  // segment 3, curracc <=0 and fs<fn
-  has3 = (has4) && (m->fs < m->fn);
+	vjerk1=0;
+	// if 
+	// segment 1, prevacc <=0 and fs<fn
+	has1=scurve && (prevacc<=0) && (m->fs<m->fn);
+	// segment 3, curracc <=0 and fs<fn
+	has3=scurve && (has4) && (m->fs<m->fn);
 
-  if (has1)vjerk1 += mvjerk;
-  if (has3)vjerk1 += mvjerk;
-  // segment 2, constant acceleration prevacc <=0 and fs<fn
-  has2 = ((m->fn - m->fs) > vjerk1);
+	if (has1)vjerk1+=mvjerk;
+	if (has3)vjerk1+=mvjerk;
+	// segment 2, constant acceleration prevacc <=0 and fs<fn
+	//has2=(m->fn-m->fs>vjerk1*vjerk1);	
+	
+	vjerk7=0;
+	//
+	// segment 1, prevacc <=0 and fs<fn
+	has7=scurve && (nextacc>=0) && (m->fe<m->fn);
+	// segment 3, curracc <=0 and fs<fn
+	has5=scurve && (curracc<=0 && has4) && (m->fe<m->fn);
+	if (!has4 && prevacc==-1 && curracc==-1)has5=0;
 
-  vjerk7 = 0;
-  //
-  // segment 1, prevacc <=0 and fs<fn
-  has7 = (nextacc >= 0) && (m->fe < m->fn);
-  // segment 3, curracc <=0 and fs<fn
-  has5 = (curracc <= 0 && has4) && (m->fe < m->fn);
-  if (!has4 && (prevacc == -1) && (curracc == -1))has5 = 0;
+	
+
+	if (has7)vjerk7+=mvjerk;
+	if (has5)vjerk7+=mvjerk;
+	// segment 2, constant acceleration prevacc <=0 and fs<fn
+	has6=(m->fn-m->fe>vjerk7*vjerk7);	
+	
+	
+	
+	vi=m->fs;
+	vc=m->fn;
+	ve=m->fe;
+	float vi1=sqrt(m->fs);
+	float vc1=sqrt(m->fn);
+	float ve1=sqrt(m->fe);
+	
+	//preparejerk(m->dis);
+	float delta1, delta7;
+	float jerk6 = 0.16667 * jerk;
+	if (has1 || has3){
+		vjerk1=fmin(vjerk1,fabs(vc1-vi1));
+		if (has1 && has3)vjerk1=vjerk1*0.5;
+		//zprintf(PSTR("Vj1:%f\n"),ff(vjerk1));
+	}
+	
+	if (has1){
+		s1=floor(ramplenq2(vi,sqr(vi1+vjerk1),stepj));
+	} else {
+		s1=0;
+	}
+	if (has3){
+		s3=floor(ramplenq2(sqr(vc1-vjerk1),vc,stepj));
+	} else {
+		s3=0;
+	}
+	
+	s2=ru-s1-s3;
+	has2=s2>0;
+	if (!has2){
+		if (s2<0){
+			s2=s1+s3;
+			s1=floor(s1*ru/s2);
+			s3=floor(s3*ru/s2);
+		}
+		s2=0;
+	}
+	
+	// calc new rate for up
+	accel2=accel2/tosteps;
+	
+
+	if (ru){
+		acup=accel2*(ru/(ru-0.5*(s1+s3)));
+	} else acup=accel2;
+	
+	// ===============================
+	if (has5 || has7){
+		vjerk7 = fmin(vjerk7, fabs(vc1 - ve1));
+		if (has5 && has7)vjerk7 = vjerk7 * 0.5;
+	}
+	
+	if (has7){
+		s7=floor(ramplenq2(ve,sqr(ve1+vjerk7),stepj));
+	} else {
+		s7=0;
+	}
+	if (has5){
+		s5=floor(ramplenq2(sqr(vc1-vjerk7),vc,stepj));
+
+	} else {
+		s5=0;
+	}
+	s6=rd-s5-s7;
+	has6=s6>0;
+	if (!has6){
+		if (s6<0){
+			s6=s5+s7;
+			s5=floor(s5*ru/s6);
+			s7=floor(s7*ru/s6);
+		}
+		s6=0;
+	}// calc new rate for down
+	if (rd){
+		acdn=accel2*(rd/(rd-0.5*(s5+s7)));
+	} else acdn=accel2;
+	
+	s4=totalstep-s1-s2-s3-s5-s6-s7;
+	has4=s4>0;
+	if (!has4) s4=0;
 
 
-
-  if (has7)vjerk7 += mvjerk;
-  if (has5)vjerk7 += mvjerk;
-  // segment 2, constant acceleration prevacc <=0 and fs<fn
-  has6 = (m->fn - m->fe > vjerk7);
-
-
-
-  m->status |= 4;
-  vi = sqrt(m->fs);
-  vc = sqrt(m->fn);
-  ve = sqrt(m->fe);
-  m->dis = preparejerk(m->dis);
-  tstepS = float(totalstep) / m->dis;
-  S = 0;
+	sg=0;
+	ok=0;
+	Sdest=0;
+	V=vi;
+	has1=s1>0;
+	has3=s3>0;
+	has5=s5>0;
+	has7=s7>0;
+	
+    m->status |= 4;
   CORELOOP
 }
+
+
+// curveloop is iterating each timestep (i set 0.001 sec) for changing velocity from constant jerk
+// by change the initial a1x,a2 we can use this function for all 7 segment
+// this mean the velocity only will change each 0.001 sec
+// then in this timestep it check the lastS versus currentS in motor stepper steps
+// it will move the motor (currentS - lastS) steps with current velocity
+
+int curveloop() {
+	//dlp=(stepdiv2/sqrt(V)); // T = CPU_CLOCK/Vel
+	xInvSqrt(dlp,V);
+	a2+=a1x; // jerk add to acceleration
+	V+=a2;   // acceleration add to velocity
+	// do bresenham this step longs
+	//if (--mctr){
+		cmd0 = 1; //step command
+		// bresenham movement on all laxis and set motor motion bit to cmd0
+		bresenham(0); //
+		bresenham(1);
+		bresenham(2);
+		bresenham(3);
+
+		// push T=CLOCK/V to timer command buffer
+		cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
+		pushcmd();
+		
+		// lets save the data for display too
+		//vv.push([sqrt(V),mi]);
+	//}
+	return --Sdest>0; // continue until reach each segment distance , if reached, then need to initialize next segment
+}
+
+int coreloopscurve(){
+  float lV = V;
+	if (!ok){
+	#ifdef output_enable
+		if (sg==0){
+		  zprintf(PSTR("S1:%f  S2:%f S3:%f  S4:%f\n"), ff(s1),  ff(s2),  ff(s3),  ff(s4));
+		  zprintf(PSTR("S5:%f  S6:%f S7:%f\n"), ff(s5),  ff(s6),  ff(s7));
+		  zprintf(PSTR("V:%f A:%f J:%f\n"), ff(V), ff(a2), ff(a1x));
+		}
+	#endif
+		sg++;
+		// initialize each segment 
+		if (sg==1){ // constant jerk segment
+			if (has1){
+				a2=0;
+				a1x=acup/s1;
+				Sdest=s1;
+			} else sg++; // next segment
+		}
+		if (sg==2) {// constant acc segment
+			if (has2){
+				a2=acup;
+				//V=vi+(has1?vjerk1:0);
+				a1x=0;
+				Sdest=s2;
+			} else sg++;
+		}
+		if (sg==3) {// constant jerk deceleration segment
+			if (has3){
+				a2=acup;
+				//V=vc-vjerk1;
+				a1x=-acup/s3;
+				Sdest=s3;
+			} else sg++;
+		}
+		if (sg==4) {// constant velocity segment
+			if (has4){
+				//V=vc;
+				a2=0;
+				a1x=0;
+				Sdest=s4;
+			} else sg++;
+		}
+		if (sg==5) {
+			if (has5){
+				a2=0;
+				a1x=-acdn/s5;
+				//V=vc-acdn*s5*0.5;
+				Sdest=s5;
+			} else sg++;
+		}
+		if (sg==6) {
+			if (has6){
+				a2=-acdn;
+				a1x=0;
+				//V=vc-(has5?acdn*s5*0.5:0);
+				Sdest=s6;
+			} else sg++;
+		}
+		if (sg==7) {
+			if (has7){
+				a1x=acdn/s7;
+				a2=-acdn;
+				//V=ve+acdn*s7*0.5;//+a2*0.5; // needed to make sure we reach accurate exit velocity
+				Sdest=s7;
+			} else sg++;
+		}
+	  if (sg == 8) {
+		zprintf(PSTR("End segment\n"));
+		m = 0;
+		return 0;
+	  }
+	}
+	ok = curveloop();
+	mctr--;
+	return 1;
+}
+
+/*
+	-------------------------------------------- END OF SCURVE IMPLEMENTATION ----------------------------------------------
+*/
+
 
 /*
   =================================================================================================================================================
@@ -708,10 +910,11 @@ void planner(int32_t h)
       }
       // if Z then need to scale the acceleration too
       if (i == MZ) {
-        float scalea = zaccel * curr->dis / fabs(curr->ac * mmdis[i]);
+		  //  ac=100    zac = 20 * 10/(100*1)         
+        float scalea = 2*zaccel * curr->dis / fabs(curr->ac * mmdis[i]);
         if (scalea < 1) {
-          //curr->ac *= scalea;
-          //ucorner = zcorner;
+          curr->ac *= scalea;
+          ucorner = zcorner;
         }
 #ifdef output_enable
         zprintf (PSTR("NEW AC :%f\n"), ff(curr->ac));
@@ -722,7 +925,7 @@ void planner(int32_t h)
     }
   }
   //ucorner *= scale;
-  ucorner *= ucorner;
+  ucorner *= curr->ac*0.001;;
   curr->delta = curr->ac * curr->dis;
   // update all speed and square it up, after this all m->f are squared !
   //zprintf (PSTR("Fratio :%f\n"), ff(scale));
@@ -746,10 +949,10 @@ void planner(int32_t h)
     float corner = 0;
     float factor = 1;
     float junc_cos = -prevu[MX] * curru[MX] - prevu[MY] * curru[MY] - prevu[MZ] * curru[MZ];
-    if (junc_cos > 0.999999) {
+    if (junc_cos > 0.99) {
       max_f = MINCORNERSPEED;
-    } else if (junc_cos < -0.999999) {
-      max_f = 40000;
+    } else if (junc_cos < -0.99) {
+      max_f = 250000;
     } else {
       float sin_theta_d2 = sqrt(0.5 * (1.0 - junc_cos)); // Trig half angle identity. Always positive.
       max_f = fmax( MINCORNERSPEED, (ucorner * sin_theta_d2) / (1.0 - sin_theta_d2) );
@@ -792,7 +995,7 @@ float tickscale, fscale, graphscale;
 #endif
 
 int32_t  f;
-float ta, acup, acdn, oacup, oacdn;
+float ta, oacup, oacdn;
 int32_t mctr, xtotalseg;
 uint8_t fastaxis;
 uint32_t nextmicros;
@@ -1018,7 +1221,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     zprintf(PSTR("Totalstep AX%d %d\n"), (int32_t)faxis, (int32_t)curr->dx[faxis]);
 #endif
     curr->status |= faxis << 4;
-    curr->ac = 1.8 * accel;
+    curr->ac = 2 * accel;
     //zprintf(PSTR("F:%f A:%d\n"), ff(cf), fi(curr->ac));
     if (head == tail) {
       otx[0] = cx1;
@@ -1221,32 +1424,7 @@ uint32_t cm, ocm,  mctr2, dlmin, dlmax;
 int32_t timing = 0;
 
 
-/*
-  =================================================================================================================================================
-  COMMAND BUFFER
-  =================================================================================================================================================
-*/
-#ifdef __AVR__
-#define NUMCMDBUF 100
-#else
-#define NUMCMDBUF 100
-#endif
-
-
-#define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
-
-static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
-static volatile uint8_t cmhead = 0, cmtail = 0, cmcmd, cmbit = 0;
-static volatile uint32_t cmdlaserval = 0;
-
-static int8_t mo = 0;
-#define cmdfull (nextbuffm(cmhead)==cmtail)
-#define cmdnotfull (nextbuffm(cmhead)!=cmtail)
-#define cmdempty (cmhead==cmtail)
-static volatile int nextok = 0, laserwason = 0;
-
-int sendwait = 0;
-
+// ======================================= COMMAND BUFFER ===========================================
 int maincmdlaserval = 0;
 static THEISR void decodecmd()
 {
@@ -1448,55 +1626,6 @@ void THEISR coreloopm()
   merge a non move
 */
 
-// we must interpolate delay here, between 10 steps
-int ldelay = 0;
-
-
-static void pushcmd()
-{
-  // no more data if endstop hit
-  if (checkendstop && (endstopstatus < 0))return;
-  // wait until a buffer freed
-
-  while (cmdfull) {
-#ifdef USETIMER1
-    MEMORY_BARRIER();
-#else
-    CORELOOP
-#endif
-  }
-
-  // if move cmd, and no motor move, save the delay
-  if ( (cmd0 & 1) && !(cmd0 & (15 << 1))) {
-    ldelay += cmd0 >> 5;
-  } else {
-    cmhead = nextbuffm(cmhead);
-    //if (cmd0 & 1)cmd0 += (ldelay << 5);
-    cmddelay[cmhead] = cmd0;
-    //ldelay = 0;
-  }
-
-}
-
-void newdircommand(int laserval)
-{
-  // change dir command
-  //cmd0 = 0;//DIRDELAY << 6;
-  cmd0 = (laserval << 9);
-  if (sx[0] > 0)cmd0 |= 2;
-  if (sx[1] > 0)cmd0 |= 8;
-  if (sx[2] > 0)cmd0 |= 32;
-  if (sx[3] > 0)cmd0 |= 128;
-  // TO know whether axis is moving
-  if (bsdx[0] > 0)cmd0 |= 4;
-  if (bsdx[1] > 0)cmd0 |= 16;
-  if (bsdx[2] > 0)cmd0 |= 64;
-  if (bsdx[3] > 0)cmd0 |= 256;
-  ldelay = 0;
-  pushcmd();
-
-}
-
 
 
 /* ================================================================================================================
@@ -1516,7 +1645,7 @@ void dographics()
   // this might be wrong because the last cmd maybe is from previous segment which have different step/mm
   float f = lstepdiv / cmdly;
   lstepdiv = stepdiv;
-  f = V;//sqrt(ta);
+  f = sqrt(V);//sqrt(ta);
   //f =  sqrt(ta)/stepdiv2;
   tick = tick + cmdly; //1.0/timescale;
   int32_t c;
@@ -1620,23 +1749,6 @@ void dographics()
 #define graphstep(ix)
 #endif
 
-/* ================================================================================================================
-  BRESENHAM CORE
-
-  this need to move to interrupt for smooth movement
-  ================================================================================================================
-*/
-
-
-
-#define bresenham(ix)\
-  if ((mcx[ix] -= bsdx[ix]) < 0) {\
-    cmd0 |=2<<ix;\
-    mcx[ix] += totalstep;\
-  }
-
-
-// ===============================
 float ia = 0;
 long firstdown;
 
@@ -1649,63 +1761,6 @@ static THEISR void readpixel2() {
   if (vv == 'A')pixelon = 0; else pixelon = 1;
 }
 
-void machinemove(float dis, float vel) {
-  // current position in motor stepper steps
-  // tstepS is a constant to get motor stepper steps from distance (mm)
-  int steps = (dis * tstepS);
-  int ds = steps - lsteps;
-  if (ds > 0) { // >0 mean motor stepper need to move
-	  //if (sg < 3)zprintf(PSTR("%dxV%f "), fi(ds),ff(vel));
-	  //else zprintf(PSTR("."));
-    lsteps = steps; // save last step position
-    xInvVel(dlp, vel); // T = CPU_CLOCK/Vel
-    for (int i = 0; i < ds; i++) {
-      // do bresenham this step longs
-      while (cmdfull) {
-        CORELOOP
-        feedthedog();
-      }
-      //mctr--;
-      //if (mctr) {
-        cmd0 = 1; //step command
-        // bresenham movement on all laxis and set motor motion bit to cmd0
-        bresenham(0); //
-        bresenham(1);
-        //bresenham(2);
-        //bresenham(3);
-
-        // push T=CLOCK/V to timer command buffer
-        cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
-        pushcmd();
-      //} else return;
-    }
-    //zprintf(PSTR("<-%d\n"),fi(mctr));
-    // send the t with other things needed to timerbufer
-  } else if (ds < 0) {
-    //zprintf(PSTR("Step back %d ??\n"),fi(ds));
-  }
-}
-
-// curveloop is iterating each timestep (i set 0.001 sec) for changing velocity from constant jerk
-// by change the initial a1x,a2 we can use this function for all 7 segment
-// this mean the velocity only will change each 0.001 sec
-// then in this timestep it check the lastS versus currentS in motor stepper steps
-// it will move the motor (currentS - lastS) steps with current velocity
-
-int curveloop() {
-  a2 += a1x; // jerk add to acceleration
-  V += a2; // acceleration add to velocity
-  #define va V
-  //if (V<MINCORNERSPEED)V=MINCORNERSPEED;
-  //float va = (V < 0.01) ? 0.01 : V;
-  //va = ((va > vc) ? vc : va);
-  S += va * tstep; // velocity add to Distance
-  //S+=V*tstep; // velocity add to Distance
-  
-  
-  machinemove(S, va); // run bresenham for machine for segment sg
-  return S < Sdest; // continue until reach each segment distance , if reached, then need to initialize next segment
-}
 
 int coreloop1()
 {
@@ -1718,88 +1773,10 @@ int coreloop1()
   if (!m || (mctr <= 0)) {
     //zprintf(PSTR("R\n"));
     //m = 0;
-    //return 0;
+    return 0;
   }
 
-
-if (!ok) {
-  sg++;
-  float lV = V;
-  float lS = S;
-  // initialize each segment
-  if (sg == 1) { // constant jerk segment
-	if (has1) {
-	  a2 = 0;
-	  a1x = a1;
-	  S = 0;
-	  Sdest = s1;
-	} else sg++; // next segment
-  }
-  if (sg == 2) { // constant acc segment
-	if (has2) {
-	  a2 = as3 * tstep;
-	  V = vi + (has1 ? vjerk1 : 0);
-	  a1x = 0;
-	  S = Sdest;
-	  Sdest = Sdest + s2;
-	} else sg++;
-  }
-  if (sg == 3) { // constant jerk deceleration segment
-	if (has3) {
-	  a2 = as3 * tstep;
-	  V = vc - vjerk1;
-	  a1x = -a1;
-	  S = Sdest;
-	  Sdest = Sdest + s3;
-	} else sg++;
-  }
-  if (sg == 4) { // constant velocity segment
-	if (has4) {
-	  V = vc;
-	  a2 = 0;
-	  a1x = 0;
-	  S = Sdest;
-	  Sdest = Sdest + s4;
-	} else sg++;
-  }
-  if (sg == 5) {
-	if (has5) {
-	  a2 = 0;
-	  a1x = -a1;
-	  V = vc;
-	  S = Sdest;
-	  Sdest = Sdest + s5;
-	} else sg++;
-  }
-  if (sg == 6) {
-	if (has6) {
-	  a2 = -as7 * tstep;
-	  a1x = 0;
-	  S = Sdest;
-	  V = vc - (has5 ? vjerk7 : 0);
-	  Sdest = Sdest + s6;
-	} else sg++;
-  }
-  if (sg == 7) {
-	if (has7) {
-	  a1x = a1;
-	  a2 = -as7 * tstep;
-	  V = ve + vjerk7; //+a2*0.5; // needed to make sure we reach accurate exit velocity
-	  S = Sdest;
-	  Sdest = Sdest + s7;
-	} else sg++;
-  }
-  if (sg == 8) {
-	m = 0;
-	return 0;
-  }
-#ifdef output_enable
-  zprintf(PSTR("\nSG:%d lS:%f lV:%f S:%f -> %f\n"), fi(sg), ff(lS), ff(lV), ff(S), ff(Sdest));
-  zprintf(PSTR("V:%f A:%f J:%f\n"), ff(V), ff(a2), ff(a1x));
-  zprintf(PSTR("T:%f TS:%f\n"), ff(tstep), ff(tstepS));
-#endif
-}
-ok = curveloop();
+if (!coreloopscurve())return 0;
 
 CORELOOP
 #ifndef ISPC
@@ -2057,8 +2034,9 @@ void calculate_delta_steps()
 
 int32_t startmove()
 {
+  if (!RUNNING)return 0;	
 
-  if (cmdfull)return 0;
+  //if (cmdfull)return 0;
   if ((head == tail)) { // if empty buffer then wait a little bit and send "wait"
     //Serial.println("?");
     //m = 0; wm = 0; mctr = 0; // thi cause bug on homing delta
