@@ -16,7 +16,7 @@
   <table>
   <tr><td>Test Feedrate<td><input id=ifeed size=4 value=120>
   <tr><td>Max Accel<td><input id=iacc size=4 value=300>
-  <tr><td>Jerk<td><input id=ijerk size=4 value=0>
+  <tr><td>Jerk<td><input id=ijerk size=4 value=3000>
   <tr><td>Corner<td><input id=icorner size=4 value=30>
   <tr><td colspan=2>GRAPHICS
   <tr><td>X SCALE<td><input id=igsx size=4 value=150>
@@ -226,7 +226,7 @@ var SCURVE=0;
 var has1,has2,has3,has4,has5,has6,has7;
 var s1,s2,s3,s4,s5,s6,s7;
 var vjerk1,vjerk7,vi,vc,ve;
-var a1x,a1,a2,as3,as7,ja,T,V,S,Sdest,tstep,tstepS;
+var ac,a1x,a1,a2,as3,as7,ja,T,V,S,Sdest,tstep,tstepS;
 // int
 var sg,ok;
 var prevacc=0;
@@ -244,7 +244,7 @@ function preparejerk(dis){
 	*/
 	var t1,t2,t3,t4,t5,t6,t7;
 	var v1,v2,v3,v4,v5,v6,v7;
-	ja=accel;
+	ja=ac;
 	jerk6=0.16667*jerk;
 	zprintf("------------");
 	zprintf("Ask VC:"+vc);
@@ -390,9 +390,9 @@ function preparejerk(dis){
 function prepareramp(bpos)
 {
 	// local m
-	SCURVE=jerk>0;
     var m = move[bpos];
-
+	SCURVE=(jerk>0) && (m.dis>5);//;
+	//if (3*m.dis*m.dis/(m.fn+m.fs+m.fe)<0.02)m.fn=m.fs;
 	if (m.fs-m.fe>=m.delta) m.fn=m.fs;
 	prevacc=curracc;
     if (bpos!=(head)) {
@@ -431,7 +431,8 @@ function prepareramp(bpos)
 
 	// lets check 1 by 1 
 	//
-	mvjerk = SCURVE?0.5*accel*accel/jerk:0;
+	ac=m.ac;
+	mvjerk = SCURVE?0.5*ac*ac/jerk:0;
 
 	vjerk1=0;
 	// if 
@@ -469,6 +470,7 @@ function prepareramp(bpos)
 	m.dis=preparejerk(m.dis);
 	tstepS=totalstep/m.dis;
 	S=0;
+	
 }
 
 function deltaV2(s){
@@ -541,13 +543,13 @@ function planner(h){
       }
       // if Z then need to scale the acceleration too
       if (i == 2) {
-        //scalea = zaccel * curr.dis / fabs(accel * mmdis[i]);
-        //if (scalea < 1)m.accel *= scalea;
+        scalea = 2*zaccel * curr.dis / fabs(accel * mmdis[i]);
+        if (scalea < 1)m.accel *= scalea;
       }
       curru[i] = mmdis[i] / curr.dis;
     }
   }
-  var ucorner = xycorner;//* scale;
+  var ucorner = xycorner* 55*curr.ac;
   curr.fn*=scale;
   curr.fn*=curr.fn;
 
@@ -561,7 +563,7 @@ function planner(h){
       max_f = 400;
     } else {
       var sin_theta_d2 = sqrt(0.5 * (1.0 - junc_cos)); // Trig half angle identity. Always positive.
-      max_f = fmax( MINCORNERSPEED, (ucorner * ucorner* sin_theta_d2 / (1.0 - sin_theta_d2) ));
+      max_f = fmax( MINCORNERSPEED, sqrt( ucorner* sin_theta_d2 / (1.0 - sin_theta_d2) ));
     }
 
 
@@ -612,6 +614,7 @@ function addmove(fn,x2,y2,z2,e2,g0,rel) {
   head=nextbuff(head);
   curr.fdis=mmdis[faxis];
   curr.fn=fn;
+  curr.ac=accel;
   curr.fs=MINCORNERSPEED;
   curr.fe=MINCORNERSPEED;
   curr.status=g0?8:0;
@@ -900,7 +903,7 @@ function dodemo(){
 		//addmove(feed, +Math.sin(d)*r, Math.cos(d)*r, 0, 0);
 	  }
 	for (var x = 1; x < 36; x++) {
-      addmove(100, Math.sin(x/5.70)*30, Math.cos(x/5.70)*30, 0*Math.cos(x/5.70)*30, 0*Math.sin(x/5.70)*30,0);
+      addmove(feed, Math.sin(x/5.70)*30, Math.cos(x/5.70)*30, 0*Math.cos(x/5.70)*30, 0*Math.sin(x/5.70)*30,0);
   }
   
 	addmove(50, 0, 0, 0, 0);

@@ -668,8 +668,8 @@ void prepareramp(int32_t bpos)
 	if (!has6){
 		if (s6<0){
 			s6=s5+s7;
-			s5=floor(s5*ru/s6);
-			s7=floor(s7*ru/s6);
+			s5=floor(s5*rd/s6);
+			s7=floor(s7*rd/s6);
 		}
 		s6=0;
 	}// calc new rate for down
@@ -709,19 +709,19 @@ int curveloop() {
 	V+=a2;   // acceleration add to velocity
 	// do bresenham this step longs
 	//if (--mctr){
-		cmd0 = 1; //step command
-		// bresenham movement on all laxis and set motor motion bit to cmd0
-		bresenham(0); //
-		bresenham(1);
-		bresenham(2);
-		bresenham(3);
+	cmd0 = 1; //step command
+	// bresenham movement on all laxis and set motor motion bit to cmd0
+	bresenham(0); //
+	bresenham(1);
+	bresenham(2);
+	bresenham(3);
 
-		// push T=CLOCK/V to timer command buffer
-		cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
-		pushcmd();
+	// push T=CLOCK/V to timer command buffer
+	cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
+	pushcmd();
 		
-		// lets save the data for display too
-		//vv.push([sqrt(V),mi]);
+	// lets save the data for display too
+	//vv.push([sqrt(V),mi]);
 	//}
 	return --Sdest>0; // continue until reach each segment distance , if reached, then need to initialize next segment
 }
@@ -925,7 +925,7 @@ void planner(int32_t h)
     }
   }
   //ucorner *= scale;
-  ucorner *= curr->ac*0.001;;
+  ucorner *= curr->ac*0.03;
   curr->delta = curr->ac * curr->dis;
   // update all speed and square it up, after this all m->f are squared !
   //zprintf (PSTR("Fratio :%f\n"), ff(scale));

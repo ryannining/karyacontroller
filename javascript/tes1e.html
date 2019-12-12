@@ -15,9 +15,9 @@
 <table cellpadding=10><tr valign=top><td>
   <table>
   <tr><td>Test Feedrate<td><input id=ifeed size=4 value=120>
-  <tr><td>Max Accel<td><input id=iacc size=4 value=1200>
-  <tr><td>Jerk<td><input id=ijerk size=4 value=00>
-  <tr><td>Corner<td><input id=icorner size=4 value=30>
+  <tr><td>Max Accel<td><input id=iacc size=4 value=200>
+  <tr><td>Jerk<td><input id=ijerk size=4 value=1500>
+  <tr><td>Corner<td><input id=icorner size=4 value=6>
   <tr><td colspan=2>GRAPHICS
   <tr><td>X SCALE<td><input id=igsx size=4 value=150>
   <tr><td>Y SCALE<td><input id=igs size=4 value=3>
@@ -82,7 +82,7 @@ var y1=0;
 var z1=0;
 var e1=0;
 
-var maxf=[100,100,100,100,0];
+var maxf=[400,400,400,400,0];
 maxf[4]=max(maxf[0],max(max(maxf[1],maxf[2]),maxf[3]));
 var stepmm=100;
 var accel=40;
@@ -102,7 +102,7 @@ var oacdn,acdn;
 var ta;
 var stepdiv,stepdiv2;
 var nextmicros;
-var mctr2;
+var mctr2,mctr;
 var nextdly;
 var ldelay=0;
 
@@ -148,10 +148,9 @@ function pushcmd()
 
 
   // if move cmd, and no motor move, save the delay
-//  if ( (cmd0 & 1) && !(cmd0 & (15 << 1))) {
-//    ldelay += cmd0 >> 5;
-//  } else {
-  if ( (cmd0 & 1)) {
+  if ( (cmd0 & 1) && !(cmd0 & (15 << 1))) {
+    ldelay += cmd0 >> 5;
+  } else if ( (cmd0 & 1)) {
     ldelay += cmd0 >> 5;
     cmhead = nextbuffm(cmhead);
     if (cmd0 & 1)cmd0 += (ldelay << 5);
@@ -204,7 +203,8 @@ function max(a,b){return (a>=b)?a:b;}
 function min(a,b){return (a<=b)?a:b;}
 function abs(a){return Math.abs(a);}
 var sqrt=Math.sqrt;
-function sqr2(x){return x*x;}
+var floor=Math.floor;
+function sqr2(x){return (x)*(x);}
 
 
 
@@ -238,8 +238,8 @@ function ramplenq(v0,v1,stepa) {
 	return (v1-v0)*stepa;
 }	
 
-function ramplenq2(v0,v1,stepa) {
-	return 0.5*tosteps*(v1-v0)*stepa;
+function ramplenq2(v0,v1,stepj) {
+	return (v1-v0)*sqrt(v1-v0)*stepj;
 }	
 
 function speedat(v0,a,s) {
@@ -249,9 +249,25 @@ function speedat(v0,a,s) {
 
 var rampup,rampdown,tosteps;
 var stepa,acdn,acup;
+var subpixel=1;
+
+function smoothing(mv){
+	mv.ofs=sqrt(mv.fs);
+	mv.ofn=sqrt(mv.fn);
+	mv.ofe=sqrt(mv.fe);
+	return;
+	if (mv.ofn-mv.ofe<20){
+		mv.fn=fmax(mv.fe,mv.fs);
+		mv.ofn=fmax(mv.ofe,mv.ofs);
+		//mv.fe=m.fn;
+	}
+}
+
 function prepareramp(bpos)
 {
 	// local m
+	// get the squared V
+	
 	scurve=jerk>0;
     var m = move[bpos];
 	faxis = FASTAXIS(m);
@@ -271,25 +287,31 @@ function prepareramp(bpos)
 		// if crossing and have rampup
 		var r = ((ru + rd) - m.dis) / 2;
 		ru -= r;
-		rd -= r;
+		//rd -= r;
 		if (ru < 0)ru = 0;
-		if (rd < 0)rd = 0;
-		if (rd > m.dis)rd = m.dis;
 		if (ru > m.dis)ru = m.dis;
-		m.fn = speedat(m.fs, accel2, ru);
+		//if (rd < 0)rd = 0;
+		//if (rd > m.dis)rd = m.dis;
+		if (m.delta/2<1000) m.fn=fmax(m.fs,m.fe);
+		else m.fn = speedat(m.fs, accel2, ru);
 
 		//    if (rd== 0)next->fs = m.fn;
 	}
+	smoothing(m);
+	ru=ramplenq(m.fs, m.fn, stepa);
+	rd=ramplenq(m.fe, m.fn, stepa);
 
 	// convert to steps
 	tosteps=ytotalstep / m.dis;
 	ru = toInt(ru * tosteps);
 	rd = toInt(rd * tosteps);
+	var stepj=scurve?stepj=tosteps/jerk:0;
 
 	//if (m.fs-m.fe>=m.delta) m.fn=m.fs;
 	prevacc=curracc;
     if (bpos!=(head)) {
         next=move[nextbuff(bpos)];
+		//smoothing(next);
 		if (next.fs-next.fe>=next.delta-0.001) next.fn=next.fs;
 
         if (next.fs==next.fn && next.fe<next.fn) {   // all down
@@ -308,18 +330,24 @@ function prepareramp(bpos)
 		nextacc=0;
 	}
 
-	has4=toInt(m.delta)>toInt(Math.abs(m.fe-m.fs));
+	vi=m.fs;
+	vc=m.fn;
+	ve=m.fe;
+	vi1=m.ofs;
+	vc1=m.ofn;
+	ve1=m.ofe;
+	has4=toInt(m.delta)>toInt(Math.abs(ve-vi));
 
-	if (m.fs==m.fn && m.fe<m.fn) {   // all down
+	if (vi==vc && ve<vc) {   // all down
 		curracc=-1;
 	} else
-	if (m.fe==m.fn && m.fs<m.fn && !has4) {   // all up
+	if (ve==vc && vi<vc && !has4) {   // all up
 		curracc=1;
 	} else
-	if (m.fe==m.fn && m.fs==m.fn) {   // all up
+	if (ve==vc && vi==vc) {   // all up
 		curracc=0;
 	} else {
-		if (m.fn>m.fe) curracc=-1; else curracc=0; 
+		if (vc>ve) curracc=-1; else curracc=0; 
 	}
 
 	
@@ -332,9 +360,9 @@ function prepareramp(bpos)
 	vjerk1=0;
 	// if 
 	// segment 1, prevacc <=0 and fs<fn
-	has1=scurve && (prevacc<=0) && (m.fs<m.fn);
+	has1=scurve && (prevacc<=0) && (vi<vc);
 	// segment 3, curracc <=0 and fs<fn
-	has3=scurve && (has4) && (m.fs<m.fn);
+	has3=scurve && (has4) && (vi<vc);
 
 	if (has1)vjerk1+=mvjerk;
 	if (has3)vjerk1+=mvjerk;
@@ -344,26 +372,20 @@ function prepareramp(bpos)
 	vjerk7=0;
 	//
 	// segment 1, prevacc <=0 and fs<fn
-	has7=scurve && (nextacc>=0) && (m.fe<m.fn);
+	has7=scurve && (nextacc>=0) && (ve<vc);
 	// segment 3, curracc <=0 and fs<fn
-	has5=scurve && (curracc<=0 && has4) && (m.fe<m.fn);
 	if (!has4 && prevacc==-1 && curracc==-1)has5=0;
+	else has5=scurve && (curracc<=0 && has4) && (ve<vc);
 
 	
 
 	if (has7)vjerk7+=mvjerk;
 	if (has5)vjerk7+=mvjerk;
 	// segment 2, constant acceleration prevacc <=0 and fs<fn
-	has6=(m.fn-m.fe>vjerk7*vjerk7);	
+	has6=(vc-ve>vjerk7*vjerk7);	
 	
 	
 	
-	vi=m.fs;
-	vc=m.fn;
-	ve=m.fe;
-	vi1=sqrt(m.fs);
-	vc1=sqrt(m.fn);
-	ve1=sqrt(m.fe);
 	
 	//preparejerk(m.dis);
 	var delta1, delta7, saccelerate;
@@ -375,18 +397,31 @@ function prepareramp(bpos)
 	};
 	
 	if (has1){
-		s1=toInt(ramplenq2(vi,sqr(vi1+vjerk1),stepa));
+		s1=toInt(ramplenq2(vi,sqr(vi1+vjerk1),stepj));
 	} else {
 		s1=0;
 	}
 	if (has3){
-		s3=toInt(ramplenq2(sqr(vc1-vjerk1),vc,stepa));
+		s3=toInt(ramplenq2(sqr(vc1-vjerk1),vc,stepj));
 	} else {
 		s3=0;
 	}
+	halfs4=0;
 	s2=ru-s1-s3;
+	if (s2<0 && halfs4){
+		sa=fmin(halfs4,-s2);
+		ru+=sa;
+		s2=ru-s1-s3;
+	}
 	has2=s2>0;
-	if (!has2)s2=0;
+	if (!has2){
+		if (s2<0){
+			s2=s1+s3;
+			s1=floor(s1*ru/s2);
+			s3=floor(s3*ru/s2);
+		}
+		s2=0;
+	}
 	
 	// calc new rate for up
 	accel2=accel2/tosteps;
@@ -402,19 +437,32 @@ function prepareramp(bpos)
 	}
 	
 	if (has7){
-		s7=toInt(ramplenq2(ve,sqr(ve1+vjerk7),stepa));
+		s7=toInt(ramplenq2(ve,sqr(ve1+vjerk7),stepj));
 	} else {
 		s7=0;
 	}
 	if (has5){
-		s5=toInt(ramplenq2(sqr(vc1-vjerk7),vc,stepa));
+		s5=toInt(ramplenq2(sqr(vc1-vjerk7),vc,stepj));
 
 	} else {
 		s5=0;
 	}
 	s6=rd-s5-s7;
+	if (s6<0 && halfs4){
+		sa=fmin(halfs4,-s6);
+		rd+=sa;
+		s6=rd-s5-s7;
+	}
 	has6=s6>0;
-	if (!has6)s6=0;
+	if (!has6){
+		if (s6<0){
+			s6=s5+s7;
+			s5=floor(s5*rd/s6);
+			s7=floor(s7*rd/s6);
+		}
+		s6=0;
+	}
+	
 	// calc new rate for down
 	if (rd){
 		acdn=accel2*(rd/(rd-0.5*(s5+s7)));
@@ -434,6 +482,7 @@ function prepareramp(bpos)
 	has3=s3>0;
 	has5=s5>0;
 	has7=s7>0;
+	
 	
     m.status |= 4;
 }
@@ -508,13 +557,13 @@ function planner(h){
       }
       // if Z then need to scale the acceleration too
       if (i == 2) {
-        //scalea = zaccel * curr.dis / fabs(accel * mmdis[i]);
-        //if (scalea < 1)m.accel *= scalea;
+        scalea = 2*zaccel * curr.dis / fabs(accel * mmdis[i]);
+        if (scalea < 1)m.accel *= scalea;
       }
       curru[i] = mmdis[i] / curr.dis;
     }
   }
-  var ucorner = xycorner;//* scale;
+  var ucorner = xycorner* 0.03*accel;
   curr.fn*=scale;
   curr.fn*=curr.fn;
 
@@ -522,13 +571,13 @@ function planner(h){
   if (bufflen()>1) {
 
      var junc_cos = -prevu[0] * curru[0] - prevu[1] * curru[1] - prevu[2] * curru[2];
-    if (junc_cos > 0.999999) {
+    if (junc_cos > 0.99) {
       max_f = MINCORNERSPEED;
-    } else if (junc_cos < -0.999999) {
-      max_f = 400;
+    } else if (junc_cos < -0.99) {
+      max_f = 250000;
     } else {
       var sin_theta_d2 = sqrt(0.5 * (1.0 - junc_cos)); // Trig half angle identity. Always positive.
-      max_f = fmax( MINCORNERSPEED, (ucorner * ucorner* sin_theta_d2 / (1.0 - sin_theta_d2) ));
+      max_f = fmax( MINCORNERSPEED, (ucorner * sin_theta_d2 / (1.0 - sin_theta_d2) ));
     }
 
 
@@ -624,7 +673,8 @@ function curveloop(){
 	a2+=a1x; // jerk add to acceleration
 	V+=a2;   // acceleration add to velocity
 	// do bresenham this step longs
-	if (--mctr){
+	mctr--;
+	//if (--){
 		cmd0 = 1; //step command
 		// bresenham movement on all laxis and set motor motion bit to cmd0
 		bresenham(0); //
@@ -638,7 +688,7 @@ function curveloop(){
 		
 		// lets save the data for display too
 		vv.push([sqrt(V),mi]);
-	}
+	//}
 	return --Sdest>0; // continue until reach each segment distance , if reached, then need to initialize next segment
 }
 
@@ -660,7 +710,7 @@ function coreloop1(){
 			if (has1){
 				a2=0;
 				a1x=acup/s1;
-				Sdest=s1;
+				Sdest=s1*subpixel;
 			} else sg++; // next segment
 		}
 		if (sg==2) {// constant acc segment
@@ -668,7 +718,7 @@ function coreloop1(){
 				a2=acup;
 				//V=vi+(has1?vjerk1:0);
 				a1x=0;
-				Sdest=s2;
+				Sdest=s2*subpixel;
 			} else sg++;
 		}
 		if (sg==3) {// constant jerk deceleration segment
@@ -676,7 +726,7 @@ function coreloop1(){
 				a2=acup;
 				//V=vc-vjerk1;
 				a1x=-acup/s3;
-				Sdest=s3;
+				Sdest=s3*subpixel;
 			} else sg++;
 		}
 		if (sg==4) {// constant velocity segment
@@ -684,7 +734,7 @@ function coreloop1(){
 				//V=vc;
 				a2=0;
 				a1x=0;
-				Sdest=s4;
+				Sdest=s4*subpixel;
 			} else sg++;
 		}
 		if (sg==5) {
@@ -692,7 +742,7 @@ function coreloop1(){
 				a2=0;
 				a1x=-acdn/s5;
 				//V=vc-acdn*s5*0.5;
-				Sdest=s5;
+				Sdest=s5*subpixel;
 			} else sg++;
 		}
 		if (sg==6) {
@@ -700,7 +750,7 @@ function coreloop1(){
 				a2=-acdn;
 				a1x=0;
 				//V=vc-(has5?acdn*s5*0.5:0);
-				Sdest=s6;
+				Sdest=s6*subpixel;
 			} else sg++;
 		}
 		if (sg==7) {
@@ -708,7 +758,7 @@ function coreloop1(){
 				a1x=acdn/s7;
 				a2=-acdn;
 				//V=ve+acdn*s7*0.5;//+a2*0.5; // needed to make sure we reach accurate exit velocity
-				Sdest=s7;
+				Sdest=s7*subpixel;
 			} else sg++;
 		}
 		if (sg==8) return 0; // if happen, need to start new move
@@ -758,14 +808,22 @@ function startmove()
 	for (var i = 0; i < 4; i++) {
 
 
-	if (m.dx[i] > 0) {
-	  bsdx[i] = (m.dx[i]);
-	  sx[i] = 1;
-	} else {
-	  bsdx[i] = -(m.dx[i]);
-	  sx[i] = -1;
+		if (m.dx[i] > 0) {
+		  bsdx[i] = (m.dx[i]);
+		  sx[i] = 1;
+		} else {
+		  bsdx[i] = -(m.dx[i]);
+		  sx[i] = -1;
+		}
 	}
-	}
+
+	// subpixel
+	//totalstep*=subpixel;	
+	acdn/=subpixel;
+	acup/=subpixel;
+	stepdiv/=subpixel;
+	stepdiv2/=subpixel;
+	
 	mctr =totalstep; 
 	newdircommand(!isG0 ? 255 : 0);
 	// laser
@@ -835,7 +893,8 @@ function dodemo(){
 	//	addmove(feed, +Math.sin(d)*r, Math.cos(d)*r, 0, 0);
 	  }
 	for (var x = 1; x < 36; x++) {
-      addmove(100, Math.sin(x/5.70)*30, Math.cos(x/5.70)*30, 0*Math.cos(x/5.70)*30, 0*Math.sin(x/5.70)*30,0);
+		r=5;
+      addmove(feed, Math.sin(x/5.70)*r, Math.cos(x/5.70)*r, 0*Math.cos(x/5.70)*r, 0*Math.sin(x/5.70)*r,0);
   }
   
 	addmove(50, 0, 0, 0, 0);
