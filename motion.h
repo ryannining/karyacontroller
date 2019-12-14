@@ -4,6 +4,31 @@
 #ifndef MOTION_H
 #define MOTION_H
 
+//#define TRUESCURVE
+#define DELAYBETWEENSTEP 4
+#define X 0
+#define MX 0
+#define E 3
+
+// Corner deviation Setting
+#define FASTBUFFERFILL 3 // if need faster buffer filling.
+// Centripetal
+#define MINCORNERSPEED 4 // minimum cornering speed
+#define MINSTEP 0
+#define TSTEP 0.0003 // time stepping to get the velocity
+
+#ifdef DRIVE_XYYZ
+  #define MZ 1
+  #define MY 2
+  #define Y 2
+  #define Z 1
+#else
+  #define MZ 2
+  #define MY 1
+  #define Y 1
+  #define Z 2
+#endif
+
 #define D_CARTESIAN 0
 #define D_COREXY 1
 #define D_COREXZ 2
@@ -37,14 +62,11 @@ typedef struct {
   int16_t ac; // needed for backplanner
   uint16_t fs, fn, fe, delta, maxs; // all are in square ! needed to calc real accell
 #else
-  float ac,delta, maxs; // needed for backplanner
+  float ac, delta, maxs; // needed for backplanner
   float fs, fn, fe; // all are in square ! needed to calc real accell
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
-
-#ifdef HARDSTOP  
   float dtx[NUMAXIS]; // keep the original coordinate before transform
-#endif
 
 #ifdef ISPC
   // for graphics
@@ -74,8 +96,8 @@ extern int mm_ctr;
 extern int xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
-extern int xyjerk,zjerk,xycorner, zcorner, accel;
-extern int zaccel;
+extern int32_t xyjerk, zjerk, xycorner, zcorner;
+extern int zaccel, accel;
 extern int  maxf[4];
 extern int32_t dlp;
 extern float stepmmx[4], xyscale;

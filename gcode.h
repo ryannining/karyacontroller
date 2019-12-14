@@ -88,7 +88,7 @@ typedef struct {
 #endif
 
 extern int32_t linecount, lineprocess;
-extern int waitforline,overridetemp;
+extern int waitforline, overridetemp;
 extern char g_str[g_str_len];
 extern int rasterlen;
 extern int lastB;

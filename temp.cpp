@@ -153,20 +153,20 @@ void temp_loop(uint32_t cm)
     float dt;
     float tt = 0;
     if (HEATING) {
-      if (emutemp<200)dt = pow(200.0 - emutemp, 0.2);
-      else dt=1;//pow((250.0-emutemp)/50.0,2);
+      if (emutemp < 200)dt = pow(200.0 - emutemp, 0.2);
+      else dt = 1; //pow((250.0-emutemp)/50.0,2);
       emutemp += dt * sec;
-    } else tt=tbang;
+    } else tt = tbang;
     // heat dissipation to air, can be tweak using eeprom ET
     dt = -pow(emutemp, 2.97) * 0.0000001;
     if (ectstep2 != ectstep) {
       // if there is printing / extruding then need to adjust, since the flow of filament take the heat away
       uint32_t et = (ectstep2 - ectstep);
       if (et < 0)et = 0;
-      #define stmax 16
+#define stmax 16
       float tt2;
       if (et > stepmmx[3] * stmax)tt2 = stmax; else tt2 = et / stepmmx[3];
-      tt+=tt2*HEATINGSCALE;
+      tt += tt2 * HEATINGSCALE;
       //zprintf(PSTR("%d\n"),fi(et));
       ectstep2 = ectstep;
     }
@@ -176,38 +176,38 @@ void temp_loop(uint32_t cm)
     if (emutemp > 250)emutemp = 250;
     if (emutemp < 30)emutemp = 30;
     Input = emutemp;
-    #ifdef temp_pin
-        tmc1++;
-        if (tmc1 > 40) {
-          tmc1 = 0;
-          // for debugging, still read the sensor if available and reported as Tx:$$
-          v = analogRead(temp_pin) >> ANALOGSHIFT;
-          v = v + 120; //22K resistor
-          ctemp = (ctemp + v) / 2; // averaging
-          xInput =  read_temp(ctemp);
-          // averaging with the emulated one if the real temperature is higher
-          if (xInput > Input)Input = Input * 0.5 + xInput * 0.5;
-        }
-    #endif
+#ifdef temp_pin
+    tmc1++;
+    if (tmc1 > 40) {
+      tmc1 = 0;
+      // for debugging, still read the sensor if available and reported as Tx:$$
+      v = analogRead(temp_pin) >> ANALOGSHIFT;
+      v = v + 120; //22K resistor
+      ctemp = (ctemp + v) / 2; // averaging
+      xInput =  read_temp(ctemp);
+      // averaging with the emulated one if the real temperature is higher
+      if (xInput > Input)Input = Input * 0.5 + xInput * 0.5;
+    }
+#endif
 
 #else
     // real hardware sensor
 
-    #if defined( __AVR__) && defined(ISRTEMP)
-        // automatic in ESR
-        ADCREAD(temp_pin)
-        v = vanalog[temp_pin];
-    #else
-        v = analogRead(temp_pin) >> ANALOGSHIFT;
-        //zprintf(PSTR("%d\n"),fi(v));
-    #endif
+#if defined( __AVR__) && defined(ISRTEMP)
+    // automatic in ESR
+    ADCREAD(temp_pin)
+    v = vanalog[temp_pin];
+#else
+    v = analogRead(temp_pin) >> ANALOGSHIFT;
+    //zprintf(PSTR("%d\n"),fi(v));
+#endif
 
-    #ifdef ESP8266
+#ifdef ESP8266
 
     //v = v * 3.3 + 120; //200K resistor
     v = v * 1 + 120; //22K resistor
 
-    #endif
+#endif
 
     //    ctemp = v;//(ctemp * 2 + v * 6) / 8; // averaging
     ctemp = (ctemp + v) / 2; // averaging
@@ -217,7 +217,7 @@ void temp_loop(uint32_t cm)
 #ifdef fan_pin
     if ((Input > 80) && (fan_val < 50)) setfan_val(255);
 #endif
-    //if (Setpoint >= 0) 
+    //if (Setpoint >= 0)
     {
 #ifdef heater_pin
       //xpinMode(heater_pin, OUTPUT);

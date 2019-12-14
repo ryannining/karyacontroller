@@ -74,89 +74,89 @@ void begincompress(String fn) {
 }
 void endcompress() {
   if (!compressing)return;
-/*  
-  byte h = 1;
-  h |= 2 << 1;
-  zprintf(PSTR("End Compress Gcode\n"));
-  fsGcode.write((uint8_t *)&h, 1);
-  fsGcode.close();
-*/
+  /*
+    byte h = 1;
+    h |= 2 << 1;
+    zprintf(PSTR("End Compress Gcode\n"));
+    fsGcode.write((uint8_t *)&h, 1);
+    fsGcode.close();
+  */
   compressing = 0;
 }
 
 void addgcode()
 {
   if (!compressing)return;
-/*  char h = 0;
-  byte f, s;
-  int x;
-  if (next_target.seen_M) {
-    h = 1;
-    switch (next_target.M) {
-      case 3: h |= 0; break;
-      case 109: h |= 1 << 1; break;
-      case 2: h |= 2 << 1; break; // final
-      default: return; // not implemented
+  /*  char h = 0;
+    byte f, s;
+    int x;
+    if (next_target.seen_M) {
+      h = 1;
+      switch (next_target.M) {
+        case 3: h |= 0; break;
+        case 109: h |= 1 << 1; break;
+        case 2: h |= 2 << 1; break; // final
+        default: return; // not implemented
+      }
+      s = next_target.S;
+      h |= 1 << 3;
+      fsGcode.write((uint8_t *)&h, 1);
+      fsGcode.write((uint8_t *)&s, 1);
+      //zprintf(PSTR("M%d S%d\n"), fi(next_target.M), fi(s));
     }
-    s = next_target.S;
-    h |= 1 << 3;
-    fsGcode.write((uint8_t *)&h, 1);
-    fsGcode.write((uint8_t *)&s, 1);
-    //zprintf(PSTR("M%d S%d\n"), fi(next_target.M), fi(s));
-  }
-  if (next_target.seen_G) {
-    h = 0;
-    switch (next_target.G) {
-      case 0: h |= 0; break;
-      case 1: h |= 1 << 1; break;
-      case 28:
-        h |= 2 << 1;
-        cntg28--;
-        break;
-      case 92: h |= 3 << 1; break;
-      default: return; // not implemented
-    }
-    if (next_target.seen_F)h |= 1 << 3;
-    if (next_target.seen_X)h |= 1 << 4;
-    if (next_target.seen_Y)h |= 1 << 5;
-    if (next_target.seen_Z)h |= 1 << 6;
-    if (next_target.seen_E)h |= 1 << 7;
+    if (next_target.seen_G) {
+      h = 0;
+      switch (next_target.G) {
+        case 0: h |= 0; break;
+        case 1: h |= 1 << 1; break;
+        case 28:
+          h |= 2 << 1;
+          cntg28--;
+          break;
+        case 92: h |= 3 << 1; break;
+        default: return; // not implemented
+      }
+      if (next_target.seen_F)h |= 1 << 3;
+      if (next_target.seen_X)h |= 1 << 4;
+      if (next_target.seen_Y)h |= 1 << 5;
+      if (next_target.seen_Z)h |= 1 << 6;
+      if (next_target.seen_E)h |= 1 << 7;
 
-    fsGcode.write((uint8_t *)&h, 1);
-    //zprintf(PSTR("H%d G%d "), fi(h), fi(next_target.G));
-    // write the parameter if exist
-    if (next_target.seen_F) {
-      f = fmin(next_target.target.F, 250);
-      fsGcode.write((uint8_t *)&f, 1);
-      //zprintf(PSTR("F%d "), fi(f));
+      fsGcode.write((uint8_t *)&h, 1);
+      //zprintf(PSTR("H%d G%d "), fi(h), fi(next_target.G));
+      // write the parameter if exist
+      if (next_target.seen_F) {
+        f = fmin(next_target.target.F, 250);
+        fsGcode.write((uint8_t *)&f, 1);
+        //zprintf(PSTR("F%d "), fi(f));
+      }
+      if (next_target.seen_X) {
+        x = (next_target.target.axis[X] + 160) * 100;
+        fsGcode.write((uint8_t *)&x, 2);
+        //zprintf(PSTR("X%d "), fi(x));
+      }
+      if (next_target.seen_Y) {
+        x = (next_target.target.axis[Y] + 160) * 100;
+        fsGcode.write((uint8_t *)&x, 2);
+        //zprintf(PSTR("Y%d "), fi(x));
+      }
+      if (next_target.seen_Z) {
+        x = (next_target.target.axis[Z] + 50) * 100;
+        fsGcode.write((uint8_t *)&x, 2);
+        //zprintf(PSTR("Z%d "), fi(x));
+      }
+      if (next_target.seen_E) {
+        x = next_target.target.axis[E] * 1000;
+        fsGcode.write((uint8_t *)&x, 3);
+        //zprintf(PSTR("E%d "), fi(x));
+      }
     }
-    if (next_target.seen_X) {
-      x = (next_target.target.axis[X] + 160) * 100;
-      fsGcode.write((uint8_t *)&x, 2);
-      //zprintf(PSTR("X%d "), fi(x));
+    if (!cntg28) {
+      endcompress();
+      cntg28 = 2;
     }
-    if (next_target.seen_Y) {
-      x = (next_target.target.axis[Y] + 160) * 100;
-      fsGcode.write((uint8_t *)&x, 2);
-      //zprintf(PSTR("Y%d "), fi(x));
-    }
-    if (next_target.seen_Z) {
-      x = (next_target.target.axis[Z] + 50) * 100;
-      fsGcode.write((uint8_t *)&x, 2);
-      //zprintf(PSTR("Z%d "), fi(x));
-    }
-    if (next_target.seen_E) {
-      x = next_target.target.axis[E] * 1000;
-      fsGcode.write((uint8_t *)&x, 3);
-      //zprintf(PSTR("E%d "), fi(x));
-    }
-  }
-  if (!cntg28) {
-    endcompress();
-    cntg28 = 2;
-  }
-  //zprintf(PSTR("\n"));
-*/
+    //zprintf(PSTR("\n"));
+  */
 }
 int compress_loop() {
   if (uncompress)return 0;
@@ -338,14 +338,14 @@ void uncompressaline() {
       //zprintf(PSTR("X%d "), fi(x));
       next_target.seen_X = 1;
       next_target.target.axis[X] = float(x) / xyMul - 300;
-      next_target.target.axis[X] *=xyscale;
+      next_target.target.axis[X] *= xyscale;
     }
     if (h & (1 << 5)) {
       fsGcode.read((uint8_t *)&x, 2);
       //zprintf(PSTR("Y%d "), fi(x));
       next_target.seen_Y = 1;
       next_target.target.axis[Y] = float(x) / xyMul - 300;
-      next_target.target.axis[Y] *=xyscale;
+      next_target.target.axis[Y] *= xyscale;
     }
     if (h & (1 << 6)) {
       fsGcode.read((uint8_t *)&x, 2);

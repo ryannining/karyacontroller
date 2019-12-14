@@ -77,14 +77,14 @@ void demofile() {
   //#define fn "d:/git/karyacontroller/gcode/graf.gcode"
   //#define fn "D:/cutting/File ukiran.nc/File ukiran.nc"
   //#define fn "d:/3d/testarc.gcode"
-  #define fn "d:/testnc.gcode"
+#define fn "d:/testnc.gcode"
   FILE *file = fopen(fn, "r");
   char code[100];
   size_t n = 0;
   int c;
-  graphscale = 3;
-  tickscale = 290;
-  fscale = 300;
+  graphscale = 8;
+  tickscale = 100;
+  fscale = 1000;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l = 0;
@@ -117,10 +117,10 @@ void demo() {
   int f = 100;
   ///*
   for (int x = 1; x < 36; x++) {
-       //amove(20, sin(x/5.7)*5, cos(x/5.7)*10, 0, 0,0,0);
+    //amove(20, sin(x/5.7)*5, cos(x/5.7)*10, 0, 0,0,0);
   }
   for (int x = 1; x < 36; x++) {
-      amove(90, +sin(x/5.70)*30, cos(x/5.70)*30, 0*cos(x/5.70)*30, 0*sin(x/5.70)*30,0,0);
+    amove(90, +sin(x / 5.70) * 30, cos(x / 5.70) * 30, 0 * cos(x / 5.70) * 30, 0 * sin(x / 5.70) * 30, 0, 0);
   }
   //*/
   //amove(50, 30, 0, 0, 0, 0,0);

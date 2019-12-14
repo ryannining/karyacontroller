@@ -100,8 +100,8 @@ void reload_eeprom() {
   xyjerk = eepromread(EE_jerk);
   homingspeed = eepromread(EE_homing);
   zcorner = fmin(homingspeed / 3, xycorner);
-  zjerk = xyjerk*zcorner/xycorner;
-  
+  zjerk = xyjerk * zcorner / xycorner;
+
   CNCMODE = ((ax_home[0] + ax_home[1] + ax_home[2] == 0) && (xycorner <= 15));
   if (CNCMODE)zprintf(PSTR("CNCMODE\n"));
   xyscale = (float)eepromread(EE_xyscale) * 0.001;
@@ -137,7 +137,7 @@ void reload_eeprom() {
 #if defined(heater_pin)
   myPID.SetTunings(eepromread(EE_pid_p) * 0.001, eepromread(EE_pid_i) * 0.001, eepromread(EE_pid_d) * 0.001);
   tbang = eepromread(EE_pid_bang) * 0.001;
-  HEATINGSCALE= eepromread(EE_pid_HS) * 0.001;
+  HEATINGSCALE = eepromread(EE_pid_HS) * 0.001;
 #endif
   tbang = eepromread(EE_pid_bang) * 0.001;
   HEATINGSCALE = eepromread(EE_pid_HS) * 0.001;

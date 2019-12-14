@@ -412,7 +412,7 @@ uint8_t gcode_parse_char(uint8_t c)
 // implement minimalis code to match teacup
 
 float lastE;
-int overridetemp=0;
+int overridetemp = 0;
 void printposition()
 {
   zprintf(PSTR("X:%f Y:%f Z:%f E:%f\n"),
@@ -671,7 +671,7 @@ void process_gcode_command()
         ocz1 = 0;
         ce01 = 0;
         /*
-        amove(1, 100, 100, 100, 0);
+          amove(1, 100, 100, 100, 0);
           amove(100, 10, 0, 0, 0);
           amove(100, 10, 10, 0, 0);
           amove(100, 0, 10, 0, 0);
@@ -769,14 +769,14 @@ void process_gcode_command()
             for (int i = 0; i < YCount; i++) {
               addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
 
-              
-              if (i+j==0) pointProbing(); // first test
+
+              if (i + j == 0) pointProbing(); // first test
               int zz = 10 * pointProbing(); // fixed point
               zmin = fmin(zmin, zz);
               ZValues[j + 1][i + 1] = zz;
-              #ifdef TCPSERVER
+#ifdef TCPSERVER
               wifi_loop();
-              #endif
+#endif
 
             }
           }
@@ -1064,12 +1064,12 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
 #endif
       case 104:
         set_temp(next_target.S);
-        #ifdef EMULATETEMP
+#ifdef EMULATETEMP
         extern float HEATINGSCALE;
-        if (next_target.seen_P){
-          HEATINGSCALE=next_target.P/100.0;
+        if (next_target.seen_P) {
+          HEATINGSCALE = next_target.P / 100.0;
         }
-        #endif
+#endif
         break;
       case 105:
         zprintf(PSTR("T:%f\n"), ff(Input));
@@ -1083,9 +1083,9 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         break;
       case 109:
         waitbufferempty();
-        if (overridetemp)next_target.S=overridetemp;
-        overridetemp=0;
-        set_temp(next_target.S+8);
+        if (overridetemp)next_target.S = overridetemp;
+        overridetemp = 0;
+        set_temp(next_target.S + 8);
         temp_wait();
         set_temp(next_target.S);
         break;

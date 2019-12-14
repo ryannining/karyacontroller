@@ -762,7 +762,7 @@ function urlopen(s){
   xhr.send();
 }
 function startprint(){
-  urlopen("startprint");
+  urlopen("startjob?jobname=/"+getvalue("jobname")+".gcode");
 }
 function stopprint(){
   urlopen("stopprint");

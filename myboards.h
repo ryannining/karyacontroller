@@ -1037,15 +1037,15 @@
 
 #define xdirection D5
 #define xstep D4
-#define e0direction D7
-#define e0step D3
+#define zdirection D7
+#define zstep D3
 
 // z and e have same direction pin, we think that normally slicer never move z and e together.. we hope we right :D
 #define ydirection D6
 #define ystep D0
 
-#define zdirection D6
-#define zstep D2
+#define e0direction D6
+#define e0step D2
 
 #define limit_pin D8
 
@@ -1053,8 +1053,8 @@
 #define heater_pin D1
 
 //#define INVERTENDSTOP
-#define NUMBUFFER 30
-#define DRIVE_XYYZ
+#define NUMBUFFER 40
+#define DRIVE_XZY2
 /*
   ============================================================================================
      _WEMOS3D
@@ -1079,7 +1079,7 @@
 #define heater_pin D1
 
 //#define INVERTENDSTOP
-#define NUMBUFFER 100
+#define NUMBUFFER 40
 #define DRIVE_COREXY
 #define SHARE_EZ
 

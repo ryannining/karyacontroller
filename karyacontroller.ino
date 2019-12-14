@@ -76,7 +76,7 @@ void touchserver(int v, String info) {
     String url = "http://172.245.97.171/connect?info=" + info + "&ipaddress=" + String((ip[0])) + "." + String( (ip[1])) + "." + String( (ip[2])) + "." + String( (ip[3]));
     http.begin(url);
     int httpCode = http.GET();
-    String cmd, par,par2;
+    String cmd, par, par2;
     cmd = http.getString();
     //pn("Command:"+cmd);
     if (cmd.indexOf(" ") > 0) {
@@ -85,10 +85,10 @@ void touchserver(int v, String info) {
     }
     http.end();
     if (cmd == "print") {
-      par2 = par.substring(par.indexOf(",")+1);
-      par = par.substring(0,par.indexOf(","));
+      par2 = par.substring(par.indexOf(",") + 1);
+      par = par.substring(0, par.indexOf(","));
       reload_eeprom();
-      zprintf(PSTR("Print:%d Temp:%d\n"),fi(par.toInt()),fi(par2.toInt()));
+      zprintf(PSTR("Print:%d Temp:%d\n"), fi(par.toInt()), fi(par2.toInt()));
       if (wifi_gcode == par.toInt()) {
         // no need to redownload
       } else {
@@ -96,7 +96,7 @@ void touchserver(int v, String info) {
         String durl = "http://172.245.97.171/download?act=Download&gid=" + par;
         File f = SPIFFS.open("/gcode.gcode", "w");
         if (f) {
-          overridetemp=par2.toInt();
+          overridetemp = par2.toInt();
           http.begin(durl);
           int httpCode = http.GET();
           if (httpCode > 0) {
@@ -112,7 +112,7 @@ void touchserver(int v, String info) {
           f.close();
           eepromwrite(EE_gcode, par.toInt());
         }
-      
+
       }
       beginuncompress("/gcode.gcode");
     }
@@ -340,8 +340,8 @@ void setupwifi(int num) {
 
 
   server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
-    ispause = ispause==0?1:0;
-    server.send ( 200, "text/html", ispause==1?"PAUSED":"RESUMED");
+    ispause = ispause == 0 ? 1 : 0;
+    server.send ( 200, "text/html", ispause == 1 ? "PAUSED" : "RESUMED");
   });
   server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
     ispause = 0;
@@ -368,26 +368,26 @@ void setupwifi(int num) {
       server.send ( 200, "text/html", "FAIL, STILL PRINTING");
     } else {
       SPIFFS.remove(server.arg("jobname"));
-      SPIFFS.remove(server.arg("jobname")+".jpg");
+      SPIFFS.remove(server.arg("jobname") + ".jpg");
       server.send ( 200, "text/html", "Delete Ok");
     }
   });
-  server.on("/getjobs",HTTP_GET,[](){
+  server.on("/getjobs", HTTP_GET, []() {
     String str = "[";
     Dir dir = SPIFFS.openDir("/");
     while (dir.next()) {
-        String s=dir.fileName();
-        if (s.endsWith(".gcode")){
-          if (str.length()>2)str+=",";
-          str += "['";
-          str += dir.fileName();
-          str += "',";
-          str += dir.fileSize();
-          str += "]";
-        }
+      String s = dir.fileName();
+      if (s.endsWith(".gcode")) {
+        if (str.length() > 2)str += ",";
+        str += "['";
+        str += dir.fileName();
+        str += "',";
+        str += dir.fileSize();
+        str += "]";
+      }
     }
-    str+="]";
-    server.send(200,"text/plain",str);    
+    str += "]";
+    server.send(200, "text/plain", str);
   });
   server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
     if (!uncompress) {
@@ -401,8 +401,8 @@ void setupwifi(int num) {
     }
   });
   server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
-    addmove(100, 0, 0, 10, 0,1,1);
-    addmove(100, 0, 0, 2, 0,1,0);
+    addmove(100, 0, 0, 10, 0, 1, 1);
+    addmove(100, 0, 0, 2, 0, 1, 0);
     server.send ( 200, "text/html", "OK");
     //homing();
   });
@@ -410,13 +410,13 @@ void setupwifi(int num) {
     server.send ( 200, "text/html", "OK");
     float x;
     float y;
-    x=server.arg("x").toFloat();
-    y=server.arg("y").toFloat();
-    addmove(100, x, y, 0, 0,1,1);
+    x = server.arg("x").toFloat();
+    y = server.arg("y").toFloat();
+    addmove(100, x, y, 0, 0, 1, 1);
   });
   server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
-    int temp=0;
-    if (server.arg("t0")== "")temp=180; else temp=server.arg("t0").toInt();
+    int temp = 0;
+    if (server.arg("t0") == "")temp = 180; else temp = server.arg("t0").toInt();
     server.send ( 200, "text/html", String(Input));
     set_temp(180);
   });
@@ -431,7 +431,7 @@ void setupwifi(int num) {
   server.on("/delete", HTTP_GET, []() {                 // if the client requests the upload page
     //xprintf(PSTR("Handle UPLOAD \n"));
     SPIFFS.remove(server.arg("fn"));
-    server.send ( 200, "text/html", "Delete "+server.arg("fn"));
+    server.send ( 200, "text/html", "Delete " + server.arg("fn"));
   });
 
   server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
@@ -466,17 +466,47 @@ void setupwifi(int num) {
 #ifdef DISABLESERIAL
   //Serial.end();
 #endif
+
+#ifdef USEOTA
+  ArduinoOTA.onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH)
+      type = "sketch";
+    else // U_SPIFFS
+      type = "filesystem";
+
+    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+    Serial.println("Start updating " + type);
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
+#endif
+
+
   INTS
 }
 extern int sendwait;
 boolean alreadyConnected = false;
-uint32_t wmc=0;
+uint32_t wmc = 0;
 void wifi_loop() {
-  uint32_t uc=millis();
-  if (uc-wmc<50) {
+  uint32_t uc = millis();
+  if (uc - wmc < 50) {
     return;
   }
-  wmc=uc;
+  wmc = uc;
   server.handleClient();
 #ifdef WEBSOCKSERVER
   webSocket.loop();
@@ -508,7 +538,7 @@ void wifi_loop() {
   }
 #endif
 #ifdef USEOTA
-ArduinoOTA.handle();
+  ArduinoOTA.handle();
 #endif
 }
 #else
@@ -884,33 +914,6 @@ void setup() {
   setupother();
 #endif
 
-#ifdef USEOTA
-ArduinoOTA.onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH)
-      type = "sketch";
-    else // U_SPIFFS
-      type = "filesystem";
-
-    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-    Serial.println("Start updating " + type);
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
-#endif
 }
 
 
@@ -920,12 +923,12 @@ void loop() {
   if (!setupok && (t1 - millis() > DELAYSETUP * 1000))setupother();
 #endif
   if (setupok) {
-    char c=gcode_loop();
+    char c = gcode_loop();
     control_loop();
     display_loop();
 #ifdef ESP8266
     wifi_loop();
-    if (c==0)uncompress_loop();
+    if (c == 0)uncompress_loop();
 #endif
   }
 }
