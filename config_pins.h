@@ -85,7 +85,7 @@
 #define THEISR ICACHE_RAM_ATTR
 #define ANALOGSHIFT 0 // 10bit adc ??
 #define BAUDRATE 115200*2
-#define NUMBUFFER 35
+#define NUMBUFFER 100
 
 
 //#define BOARD_NANONANO_WEMOS
@@ -94,12 +94,22 @@
 //#define BOARD_WEMOS3D_COREXY
 #define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
+
 //#define BOARD_WEMOSCNC
+//#define MYLASER
+
 //#define BOARD_MINICNC_ESP01
 //#define BOARD_WEMOS_XYY_LASER
 //#define BOARD_ESP01CNC_V1
 #define EMULATETEMP
 #endif
+
+#ifdef MYLASER
+  #undef BOARD_WEMOS3D_COREXY
+  #undef BOARD_WEMOS_CNC_XZYY
+  #define BOARD_WEMOSCNC
+#endif
+
 
 #include "myboards.h"
 #define USE_EEPROM
@@ -132,7 +142,7 @@
 //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
 //#define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-#define WIFISERVER
+//#define WIFISERVER
 //#define TOUCHSERVER
 #endif
 // ==========================================================
@@ -149,17 +159,27 @@
 #undef temp_pin
 #endif
 
-
-//#define MYLASER
-
-#ifdef MYLASER
-//#undef WIFISERVER
-#undef heater_pin
-#define LASERON LOW
-#define NUMBUFFER 50
+#if defined(ESP8266)
+	//#define USEOTA
+	//#define TCPSERVER
+	#define WEBSOCKSERVER
+  #define WIFISERVER
 #endif
 
 #define LASERON LOW
+
+#ifdef MYLASER
+  #define LASERON LOW
+  #undef USEOTA
+  #undef WIFISERVER
+  #undef TCPSERVER
+  #undef WEBSOCKETSERVER
+  #undef heater_pin
+  #undef temp_pin
+  #define NUMBUFFER 120
+  #define BAUDRATE 115200*2
+#endif
+
 //#define NUMBUFFER 50
 
 //#define USE_EEPROM
@@ -183,7 +203,8 @@
 #ifndef ISPC
 #define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
 #else
-#define SUBPIXELMAX 0
+//#define SUBPIXELMAX 0
+#undef SUBPIXELMAX
 #endif
 
 
@@ -265,14 +286,14 @@
 #define XYCORNER 45
 #define XACCELL 1600
 #else
-#define XYJERK 18000
-#define XYCORNER 35
-#define XACCELL 1400
+#define XYJERK 5000
+#define XYCORNER 25
+#define XACCELL 1000
 #endif
 
 #ifdef BOARD_WEMOS3D_COREXY
-#define XMAXFEEDRATE 100
-#define YMAXFEEDRATE 100
+#define XMAXFEEDRATE 400
+#define YMAXFEEDRATE 400
 #define ZMAXFEEDRATE 30
 #define E0MAXFEEDRATE 25
 #else
@@ -288,9 +309,9 @@
 #define ZSTEPPERMM 243.75//2300//80//1020//1020 //420
 #define E0STEPPERMM 152//92//340//380
 #else
-#define XSTEPPERMM 150//50//105.090//50//131//178
-#define YSTEPPERMM 150////105.090//50//175//125
-#define ZSTEPPERMM 150//2300//80//1020//1020 //420
+#define XSTEPPERMM 100//50//105.090//50//131//178
+#define YSTEPPERMM 100////105.090//50//175//125
+#define ZSTEPPERMM 100//2300//80//1020//1020 //420
 #define E0STEPPERMM 100//92//340//380
 #endif
 

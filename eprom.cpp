@@ -89,6 +89,12 @@ void reload_eeprom() {
   maxf[1] = eepromread(EE_max_y_feedrate);
   maxf[2] = eepromread(EE_max_z_feedrate);
   maxf[3] = eepromread(EE_max_e_feedrate);
+  
+  maxa[0]=accel;
+  maxa[1]=accel*maxf[1]/maxf[0];
+  maxa[2]=accel*maxf[2]/maxf[0];
+  maxa[3]=accel;
+  
   zaccel = accel * maxf[2] / maxf[0];
 
   stepmmx[0] = (float)eepromread(EE_xstepmm)  * 0.001;

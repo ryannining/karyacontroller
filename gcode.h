@@ -101,6 +101,7 @@ extern void demoSD();
 #else
 static void demoSD() {}
 #endif
+extern void loadmeshleveling();
 extern void changefilament(float l);
 extern void process_gcode_command();
 extern int reset_command();

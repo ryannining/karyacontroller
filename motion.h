@@ -5,17 +5,18 @@
 #define MOTION_H
 
 //#define TRUESCURVE
-#define DELAYBETWEENSTEP 4
+#define UPDATE_V_EVERY 4 // must be 1<<n  16 =1<<4
+#define DELAYBETWEENSTEP 3
 #define X 0
 #define MX 0
 #define E 3
 
 // Corner deviation Setting
-#define FASTBUFFERFILL 3 // if need faster buffer filling.
+//#define FASTBUFFERFILL 2 // if need faster buffer filling.
 // Centripetal
 #define MINCORNERSPEED 4 // minimum cornering speed
 #define MINSTEP 0
-#define TSTEP 0.0003 // time stepping to get the velocity
+#define TSTEP 0.0005 // time stepping to get the velocity
 
 #ifdef DRIVE_XYYZ
   #define MZ 1
@@ -60,10 +61,10 @@ typedef struct {
   float dis; // max start speed, maxcorner
 #ifdef __AVR__
   int16_t ac; // needed for backplanner
-  uint16_t fs, fn, fe, delta, maxs; // all are in square ! needed to calc real accell
+  uint16_t fs, fn, delta, maxs; // all are in square ! needed to calc real accell
 #else
-  float ac, delta, maxs; // needed for backplanner
-  float fs, fn, fe; // all are in square ! needed to calc real accell
+  int32_t ac, delta, maxs; // needed for backplanner
+  int32_t fs, fn; // all are in square ! needed to calc real accell
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
   float dtx[NUMAXIS]; // keep the original coordinate before transform
@@ -77,7 +78,7 @@ typedef struct {
 
 
 extern int XCount, YCount;
-extern int ZValues[10][10];
+extern int ZValues[40][40];
 
 extern float pointProbing();
 
@@ -99,6 +100,7 @@ extern uint8_t homeoffset[4];
 extern int32_t xyjerk, zjerk, xycorner, zcorner;
 extern int zaccel, accel;
 extern int  maxf[4];
+extern int  maxa[4];
 extern int32_t dlp;
 extern float stepmmx[4], xyscale;
 extern float retract_in, retract_out;
@@ -209,6 +211,8 @@ extern void preparecalc();
 extern tmove* m;
 #define fmax(a,b) a<b?b:a
 #define fmin(a,b) a>b?b:a
+#define fmax3(a,b,c) fmax(a,fmax(b,c))
+#define fmin3(a,b,c) fmin(a,fmin(b,c))
 
 #define domotionloop motionloop();
 

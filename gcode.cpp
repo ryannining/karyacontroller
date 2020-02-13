@@ -10,6 +10,8 @@
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
+#include <FS.h>   // Include the SPIFFS library
+
 //#include <WiFi.h>
 //#include <WiFiClient.h>
 #endif
@@ -432,9 +434,9 @@ void pausemachine()
   else zprintf(PSTR("Resume\n"));
 }
 void stopmachine() {
+  RUNNING = 0;
   if (m) {
     rasterlen = 0;
-    RUNNING = 0;
     waitbufferempty();
     printposition();
     rasterlen = 0;
@@ -531,7 +533,47 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
 int lastG = 0;
 int probex1, probey1;
 int probemode = 0;
-
+File fme;
+void printmeshleveling() {
+  for (int j = 0; j <= YCount; j++) {
+    for (int i = 0; i <= XCount; i++) {
+      if (i)zprintf(PSTR("\t"));
+      if (j == 0 && i > 0)zprintf(PSTR("%d"), fi(i));
+      else if (i == 0 && j > 0)zprintf(PSTR("%d"), fi(j));
+      else if (i == 0 && j == 0)zprintf(PSTR("*"));
+      else zprintf(PSTR("%d"), fi(ZValues[i][j]));
+    }
+    zprintf(PSTR("\n"));
+  }
+  zprintf(PSTR("\n\n"));
+}
+void loadmeshleveling() {
+#ifdef ESP8266
+#define path "/mesh.dat"
+  if (SPIFFS.exists(path)) {
+    fme = SPIFFS.open(path, "r");
+    fme.read((uint8_t *)&XCount, sizeof XCount);
+    fme.read((uint8_t *)&YCount, sizeof YCount);
+    fme.read((uint8_t *) & (ZValues[0][0]), sizeof ZValues);
+    zprintf(PSTR("%d bytes\nMESH\n"), fi(fme.size()));
+    zprintf(PSTR("%dx%d\n"), fi(XCount), fi(YCount));
+    fme.close();
+    /*for (int j = 1; j <= XCount; j++) {
+      for (int i = 1; i <= YCount; i++) {
+        zprintf(PSTR("%d,"),fi(ZValues[j][i]));
+      }
+      zprintf(PSTR("\n"));
+      }
+      zprintf(PSTR("\n"));
+    */
+  } else {
+    zprintf(PSTR("File not found mesh.dat\n"));
+    return;
+  }
+#endif
+  MESHLEVELING = 1;
+  printmeshleveling();
+}
 void process_gcode_command()
 {
   uint32_t	backup_f;
@@ -639,8 +681,34 @@ void process_gcode_command()
         if (!next_target.seen_I) next_target.I = 0;
         if (!next_target.seen_J) next_target.J = 0;
         //if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
+#define isCW (next_target.G == 2)
+        if (next_target.seen_R) {
+          float r = next_target.R;
+          float x = next_target.seen_X ? next_target.target.axis[X] - cx1 : 0;
+          float y = next_target.seen_Y ? next_target.target.axis[Y] - cy1 : 0;
 
-        enqueuearc(&next_target, next_target.I, next_target.J, next_target.G == 2);
+          float h_x2_div_d = 4 * r * r - x * x - y * y;
+          if (h_x2_div_d < 0) {
+            break;
+            //FAIL(STATUS_ARC_RADIUS_ERROR);
+            //return (gc.status_code);
+          }
+          // Finish computing h_x2_div_d.
+          h_x2_div_d = -sqrt(h_x2_div_d) / hypot(x, y); // == -(h * 2 / d)
+          // Invert the sign of h_x2_div_d if the circle is counter clockwise (see sketch below)
+          if (!isCW) {
+            h_x2_div_d = -h_x2_div_d;
+          }
+          if (r < 0) {
+            h_x2_div_d = -h_x2_div_d;
+            r = -r; // Finished with r. Set to positive for mc_arc
+          }
+          // Complete the operation by calculating the actual center of the arc
+          next_target.I = 0.5 * (x - (y * h_x2_div_d));
+          next_target.J = 0.5 * (y + (x * h_x2_div_d));
+        }
+
+        enqueuearc(&next_target, next_target.I, next_target.J, isCW);
 #endif
         break;
 
@@ -730,7 +798,7 @@ void process_gcode_command()
         break;
 #ifdef MESHLEVEL
       case 29:
-        MESHLEVELING = next_target.S;
+        MESHLEVELING = next_target.seen_S;
         //zprintf(PSTR("A.L "));
         if (MESHLEVELING)zprintf(PSTR("on\n")); else zprintf(PSTR("off\n"));
         break;
@@ -766,33 +834,43 @@ void process_gcode_command()
           for (int j = 0; j < XCount; j++) {
             ZValues[j + 1][0] = (probex1 + j * dx);
 
-            for (int i = 0; i < YCount; i++) {
+            for (int ii = 0; ii < YCount; ii++) {
+              int i = ii;
+              if (j & 1 == 1)i = YCount - 1 - ii;
+
+              int lz,zz,good,gz;
+              good=0;
+              gz=0;
+              lz = 10*pointProbing();
+              
+              while (good<3){
               addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
 
+                zz = 10*pointProbing();
+                if (abs(zz-lz)<3){
+                  good++;
+                  gz+=zz;
+                }
+                lz = zz;                
+              }
+              ZValues[j + 1][i + 1] = gz/good; // average good z
 
-              if (i + j == 0) pointProbing(); // first test
-              int zz = 10 * pointProbing(); // fixed point
-              zmin = fmin(zmin, zz);
-              ZValues[j + 1][i + 1] = zz;
+            }
 #ifdef TCPSERVER
               wifi_loop();
 #endif
-
-            }
           }
           zmin = ZValues[1][1];
 
           // normalize the data
-          zprintf(PSTR("MESH\n"));
+
           for (int j = 0; j <= XCount; j++) {
             for (int i = 0; i <= YCount; i++) {
               if (i && j)ZValues[j][i] -= zmin;
-              if (i)zprintf(PSTR(","));
-              zprintf(PSTR("%f"), ff(ZValues[j][i]));
             }
-            zprintf(PSTR("\n"));
+
           }
-          zprintf(PSTR("\n"));
+
           // activate leveling
           // back to zero position and adjust
           addmove(8000, probex1 , probey1 , ocz1, ce01, 0, 0);
@@ -802,7 +880,14 @@ void process_gcode_command()
           cz1 = 0;
           printposition();
           MESHLEVELING = 1;
-
+#ifdef ESP8266
+          fme = SPIFFS.open("/mesh.dat", "w");
+          fme.write((uint8_t *)&XCount, sizeof XCount);
+          fme.write((uint8_t *)&YCount, sizeof YCount);
+          fme.write((uint8_t *) & (ZValues[0][0]), sizeof ZValues);
+          fme.close();
+#endif
+          loadmeshleveling();
         } else {
 
           MESHLEVELING = 0;
@@ -813,11 +898,44 @@ void process_gcode_command()
 
           float zz = pointProbing();
           zprintf(PSTR("%f\n"), ff(zz));
+
         }
         break;
         // manually store probing data
 #endif
       case 31:
+        // load meshleveling
+        loadmeshleveling();
+        break;
+      case 32:
+        // load meshleveling
+        int ii;
+        ii=next_target.target.axis[Y];
+        int jj;
+        jj=next_target.target.axis[X];
+        ZValues[jj][ii] = next_target.target.axis[Z];
+        printmeshleveling();
+        break;
+      case 33:
+#ifdef ESP8266
+        int zmin;
+        zmin = ZValues[1][1];
+
+        // normalize the data
+
+        for (int j = 0; j <= XCount; j++) {
+          for (int i = 0; i <= YCount; i++) {
+            if (i && j)ZValues[j][i] -= zmin;
+          }
+
+        }
+        fme = SPIFFS.open("/mesh.dat", "w");
+        fme.write((uint8_t *)&XCount, sizeof XCount);
+        fme.write((uint8_t *)&YCount, sizeof YCount);
+        fme.write((uint8_t *) & (ZValues[0][0]), sizeof ZValues);
+        fme.close();
+        printmeshleveling();
+#endif
         break;
       case 90:
         //? --- G90: Set to Absolute Positioning ---
@@ -886,7 +1004,7 @@ void process_gcode_command()
                                          ce01 = next_target.target.axis[E] = 0;
         }
         init_pos();
-        if (MESHLEVELING) {
+        /*if (MESHLEVELING) {
           lx -= cx1;
           ly -= cy1;
           // normalize the data
@@ -897,7 +1015,7 @@ void process_gcode_command()
             ZValues[0][j + 1] -= ly;
           }
           // activate leveling
-        }
+          }*/
 
         break;
 

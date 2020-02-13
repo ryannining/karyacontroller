@@ -1,9 +1,6 @@
-#define USEOTA
 //#define timing
 //#define timingG
 //#define echoserial
-#define TCPSERVER
-#define WEBSOCKSERVER
 
 #include "platform.h"
 #include "config_pins.h"
@@ -14,6 +11,7 @@
 #include "eprom.h"
 #include "motion.h"
 #include "gcodesave.h"
+
 #ifdef USEOTA
 #include <ArduinoOTA.h>
 #endif
@@ -114,6 +112,8 @@ void touchserver(int v, String info) {
         }
 
       }
+      extern int8_t RUNNING;
+      RUNNING = 1;
       beginuncompress("/gcode.gcode");
     }
     //p("\n");
@@ -315,6 +315,17 @@ void setupwifi(int num) {
     server.send ( 200, "text/html", "OK");
 
   });
+  server.on("/speed", HTTP_GET, []() {                 // if the client requests the upload page
+    extern uint8_t head, tail, tailok;
+    char gc[10];
+    server.arg("t").toCharArray(gc, 9);
+    extern float f_multiplier;
+    f_multiplier = atoi(gc) * 0.01;
+    tailok=tail+5; // need to replanning all moves
+    server.send ( 200, "text/html", "OK");
+
+  });
+
   server.on("/getconfig", HTTP_GET, []() {                 // if the client requests the upload page
     String st = "disconnected";
     if (WiFi.status() == WL_CONNECTED)st = "connected";
@@ -341,10 +352,19 @@ void setupwifi(int num) {
 
   server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
     ispause = ispause == 0 ? 1 : 0;
+    extern int8_t PAUSE;
+    PAUSE = ispause;
     server.send ( 200, "text/html", ispause == 1 ? "PAUSED" : "RESUMED");
+  });
+  server.on("/probe", HTTP_GET, []() {
+    docheckendstop(1);
+    extern int16_t endstopstatus;
+    server.send ( 200, "text/html", endstopstatus < 0 ? "HIGH" : "LOW");
   });
   server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
     ispause = 0;
+    extern int8_t PAUSE;
+    PAUSE = ispause;
     server.send ( 200, "text/html", "OK");
   });
   server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
@@ -408,11 +428,11 @@ void setupwifi(int num) {
   });
   server.on("/jogmove", HTTP_GET, []() {                 // if the client requests the upload page
     server.send ( 200, "text/html", "OK");
-    float x;
-    float y;
+    float x, y, z;
     x = server.arg("x").toFloat();
     y = server.arg("y").toFloat();
-    addmove(100, x, y, 0, 0, 1, 1);
+    z = server.arg("z").toFloat();
+    addmove(100, x, y, z, 0, 1, 1);
   });
   server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
     int temp = 0;
@@ -462,6 +482,8 @@ void setupwifi(int num) {
 
   //if (!num)
   SPIFFS.begin();
+  loadmeshleveling();
+
   touchserver(1, String(wifi_dns));
 #ifdef DISABLESERIAL
   //Serial.end();
@@ -510,10 +532,10 @@ void wifi_loop() {
   server.handleClient();
 #ifdef WEBSOCKSERVER
   webSocket.loop();
-#endif
+#endif //webserver
 #ifdef TOUCHSERVER
   if (sendwait == 1)touchserver(0, String(wifi_dns));
-#endif
+#endif // touch
 
 #ifdef TCPSERVER
   // wait for a new client:
@@ -536,7 +558,7 @@ void wifi_loop() {
       }
     } else client.stop();
   }
-#endif
+#endif // tcp server
 #ifdef USEOTA
   ArduinoOTA.handle();
 #endif
@@ -783,9 +805,10 @@ char gcode_loop() {
     }
   }
 #else
-  for (int i = 0; i < 5; i++) {
-    if (!motionloop())break;
-  }
+  //for (int i = 0; i < 5; i++) {
+  //  if (!motionloop())break;
+  //}
+  motionloop();
 #endif
   servo_loop();
   if (ack_waiting) {

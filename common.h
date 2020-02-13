@@ -8,7 +8,7 @@
 #ifdef __AVR__
 #define BUFSIZE     64
 #else
-#define BUFSIZE     640
+#define BUFSIZE     128
 #endif
 #define buf_canread(buffer)     ((buffer ## head - buffer ## tail ) & \
                                  (BUFSIZE - 1))
@@ -37,7 +37,7 @@
 //#define POWERS(e) (float)pgm_read_float(&(powers[e]))
 const int32_t PROGMEM powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};;
 #define POWERS(e) (int32_t)pgm_read_dword(&(powers[e]))
-#define DECFLOAT_EXP_MAX 8
+#define DECFLOAT_EXP_MAX 6
 
 #ifndef ISPC
 //#define output_enable
@@ -102,7 +102,7 @@ void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...);
 
 
 #else // ispc
-#define output_enable
+//#define output_enable
 #include<stdio.h>
 #include<stdint.h>
 #define PROGMEM

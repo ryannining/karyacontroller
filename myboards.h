@@ -1053,7 +1053,7 @@
 #define heater_pin D1
 
 //#define INVERTENDSTOP
-#define NUMBUFFER 40
+#define NUMBUFFER 100
 #define DRIVE_XZY2
 /*
   ============================================================================================

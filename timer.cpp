@@ -141,7 +141,7 @@ volatile uint32_t ndelay = 0, ndelay2 = 0;
 */
 #ifdef __AVR__
 #define USETIMEROK
-#define MINDELAY 45000
+#define MINDELAY 5000
 
 
 ISR(TIMER1_COMPA_vect)
@@ -193,7 +193,7 @@ void timer_init()
 //#include "HardwareTimer.h"
 #define USETIMEROK
 //HardwareTimer timer1(2);
-#define MINDELAY 45000
+#define MINDELAY 5000
 
 void tm()
 {
@@ -241,7 +241,7 @@ void timer_init()
 // -------------------------------------   ESP8266  ----------------------------------------------------------
 #ifdef ESP8266
 #define USETIMEROK
-#define MINDELAY 45000
+#define MINDELAY 5000
 #define usetmr1
 void ICACHE_RAM_ATTR tm()
 {
@@ -259,7 +259,7 @@ void ICACHE_RAM_ATTR tm()
     ndelay = ndelay2;
     ndelay2 = 0;
 #ifdef laser_pin
-    LASER(  LASERON);
+    //LASER(  LASERON);
 #endif
   }
   int d = ndelay >= 30000 ? 30000 : ndelay;
@@ -293,7 +293,7 @@ void timer_init()
 
 void THEISR timer_set(int32_t delay)
 {
-  ndelay = fmin(MINDELAY, delay);
+  ndelay = delay;//fmin(MINDELAY, delay);
   ndelay2 = 0;
 }
 
@@ -301,7 +301,7 @@ void THEISR timer_set(int32_t delay)
 void THEISR timer_set2(int32_t delay, int32_t delayL)
 {
   //LASER(  !LASERON);
-  delay = fmin(MINDELAY, delay);
+  //delay = fmin(MINDELAY, delay);
   ndelay = fmax(1, delay - delayL); // laser on delay
   ndelay2 = fmax(1, delayL); // the rest delay after laser on
 }

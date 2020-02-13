@@ -83,8 +83,8 @@ void demofile() {
   size_t n = 0;
   int c;
   graphscale = 8;
-  tickscale = 100;
-  fscale = 1000;
+  tickscale = 400;
+  fscale = 200;
   if (file == NULL) return; //could not open file
   int comment = 0;
   long l = 0;
@@ -112,16 +112,28 @@ void demofile() {
 
 void demo() {
   graphscale = 5;
-  tickscale = 100;
-  fscale = 200;
+  tickscale = 300;
+  fscale = 300;
   int f = 100;
   ///*
   for (int x = 1; x < 36; x++) {
     //amove(20, sin(x/5.7)*5, cos(x/5.7)*10, 0, 0,0,0);
   }
+#define r 3
+#define round2(x) (0.1 * floor(10*(x)))
+  amove(170, round2(20),
+        round2(20 + r),
+        0, 0, 0, 0);
+  amove(170, round2(20),
+        round2(20 + r),
+        -2, 0, 0, 0);
   for (int x = 1; x < 36; x++) {
-    amove(90, +sin(x / 5.70) * 30, cos(x / 5.70) * 30, 0 * cos(x / 5.70) * 30, 0 * sin(x / 5.70) * 30, 0, 0);
+    amove(25, round2(20 + sin(x / 5.70) * r),
+          round2(20 + cos(x / 5.70) * r),
+          -2, 0, 0, 0);
   }
+  amove(170, 0, 0, -2, 0, 0, 0);
+  amove(170, 0, 0, 0, 0, 0, 0);
   //*/
   //amove(50, 30, 0, 0, 0, 0,0);
   //amove(150, 30, 30, 10, 0, 0,0);

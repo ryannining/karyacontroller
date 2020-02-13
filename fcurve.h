@@ -1,14 +1,4 @@
-uint8_t cntF;
-int prevacc;
-int nextacc;
-int curracc;
-int scurve, has1, has2, has3, has4, has5, has6, has7;
-int sg, ok;
-int lsteps;
 
-
-float s1, s2, s3, s4, s5, s6, s7;
-float vi, vc, ve, vjerk1, vjerk7, mvjerk;
 float acup, acdn, ja, a1x, a1, a2, as3, as7, T, V;
 int Sdest;
 
@@ -23,204 +13,220 @@ int Sdest;
 void prepareramp(int32_t bpos)
 {
 
-  tmove *m, *next;
+  tmove *m, *next2, *next;
   m = &move[bpos];
-  scurve = (xyjerk > 0); // && (m->dis>5);
-  // local m
-  int faxis = FASTAXIS(m);
-  // trapezoid ramps up /down
-  float ru, rd;
-  ru = rd = 0;
-  ja = m->ac * 0.5;
-  float accel2 = m->ac;
-  float stepa = 1.0 / (accel2);
-  float stepj;
-
-  ru = ramplenq(m->fs, m->fn, stepa);
-  rd = ramplenq(m->fe, m->fn, stepa);
-
-
-
-  if (ru + rd > m->dis) {
-    // if crossing and have rampup
-    float r = ((ru + rd) - m->dis) * 0.5;
-    ru -= r;
-    rd -= r;
-    if (ru < 0)ru = 0;
-    if (rd < 0)rd = 0;
-    if (rd > m->dis)rd = m->dis;
-    if (ru > m->dis)ru = m->dis;
-    m->fn = speedat(m->fs, accel2, ru);
-
-    //    if (rd== 0)next->fs = m->fn;
-  }
-
-  // convert to steps
+  scurve = (xyjerk > 0) && (m->dis > 1);
+  //  f curve
   float tosteps = totalstep / m->dis;
-  ru = int(ru * tosteps);
-  rd = int(rd * tosteps);
-  if (scurve)stepj = tosteps / (m->ac);
-
-  //if (m->fs - m->fe >= m->delta) m->fn = m->fs;
-  prevacc = curracc;
-  if (bpos != (head)) {
-    next = &move[nextbuff(bpos)];
-    if (int(next->fs - next->fe) >= int(next->delta)) next->fn = next->fs;
-
-    if ((next->fs == next->fn) && (next->fe < next->fn)) { // all down
-      nextacc = -1;
-    } else if ((next->fe == next->fn) && (next->fs < next->fn)) { // all up
-      nextacc = 1;
-    } else if ((next->fe == next->fn) && (next->fs == next->fn)) { // all up
-      nextacc = 0;
-    } else {
-      nextacc = 1;
-    }
-  } else {
-    //fe=0;
-    nextacc = 0;
-  }
-
-  has4 = int(m->delta) > int(fabs(m->fe - m->fs));
-
-  if ((m->fs == m->fn) && (m->fe < m->fn)) { // all down
-    curracc = -1;
-  } else if ((m->fe == m->fn) && (m->fs < m->fn) && !has4) { // all up
-    curracc = 1;
-  } else if (m->fe == m->fn && m->fs == m->fn) { // all up
-    curracc = 0;
-  } else {
-    if (m->fn > m->fe) curracc = -1; //else curracc = 0;
-  }
-
-  // lets check 1 by 1
+  float accel2 = m->ac;
+  float stepj, stepa = 1.0 / (accel2);
   //
-  // identify which segment is available
-  //
-  // lets check 1 by 1
-  //
-  mvjerk = scurve ? (0.5 * ja * ja / jerk) : 0;
-
-  vjerk1 = 0;
-  // if
-  // segment 1, prevacc <=0 and fs<fn
-  has1 = scurve && (prevacc <= 0) && (m->fs < m->fn);
-  // segment 3, curracc <=0 and fs<fn
-  has3 = scurve && (has4) && (m->fs < m->fn);
-
-  if (has1)vjerk1 += mvjerk;
-  if (has3)vjerk1 += mvjerk;
-  // segment 2, constant acceleration prevacc <=0 and fs<fn
-  //has2=(m->fn-m->fs>vjerk1*vjerk1);
-
-  vjerk7 = 0;
-  //
-  // segment 1, prevacc <=0 and fs<fn
-  has7 = scurve && (nextacc >= 0) && (m->fe < m->fn);
-  // segment 3, curracc <=0 and fs<fn
-  has5 = scurve && (curracc <= 0 && has4) && (m->fe < m->fn);
-  if (!has4 && prevacc == -1 && curracc == -1)has5 = 0;
-
-
-
-  if (has7)vjerk7 += mvjerk;
-  if (has5)vjerk7 += mvjerk;
-  // segment 2, constant acceleration prevacc <=0 and fs<fn
-  has6 = (m->fn - m->fe > vjerk7 * vjerk7);
-
-
-
+  float nve;
   vi = m->fs;
-  vc = m->fn;
-  ve = m->fe;
-  float vi1 = sqrt(m->fs);
-  float vc1 = sqrt(m->fn);
-  float ve1 = sqrt(m->fe);
+  if (bpos != (head)) {
+    int npos = nextbuff(bpos);
+    next = &move[npos];
+    if (npos != head) {
+      next2 = &move[nextbuff(npos)];
+      nve = next2->fs;
+    } nve = 0;
+    //enext->fn=fmin(next->fn,next->fs + 0.5 * (nve - next->fs + next->delta));
+    ve = next->fs;
+  } else ve = 0;
 
-  //preparejerk(m->dis);
-  float delta1, delta7;
-  float jerk6 = 0.16667 * jerk;
-  if (has1 || has3) {
-    vjerk1 = fmin(vjerk1, fabs(vc1 - vi1));
-    if (has1 && has3)vjerk1 = vjerk1 * 0.5;
-    //zprintf(PSTR("Vj1:%f\n"),ff(vjerk1));
-  }
+  float vcc = vi + 0.5 * (ve - vi + m->delta);
+  vc = fmin(m->fn, vcc); //
 
-  if (has1) {
-    s1 = floor(ramplenq2(vi, sqr(vi1 + vjerk1), stepj));
+  float ru = floor(tosteps * (ramplenq(vi, vc, stepa)));
+  float rd = floor(tosteps * (ramplenq(ve, vc, stepa)));
+
+  // if path is short then we dont need to do high accurate calculation
+  if (!scurve) {
+    //faster calculation
+
+    has1 = 0;
+    has3 = 0;
+    has5 = 0;
+    has7 = 0;
+    s2 = ru;
+    s6 = rd;
+    s4 = totalstep - (ru + rd);
+    has2 = s2 > 0; //(vi < ve);
+    has6 = s6 > 0; //(vi > ve);
+    has4 = s4 > 0; //(vi == ve);
+    if (!has4)s4 = 0;
+    acup = acdn = accel2 / tosteps;
+    sg = 0;
+    ok = 0;
+    Sdest = 0;
+    //vc=ve;
+    V = vi;
+    prevacc = curracc;
+    curracc = 0;
+
   } else {
-    s1 = 0;
-  }
-  if (has3) {
-    s3 = floor(ramplenq2(sqr(vc1 - vjerk1), vc, stepj));
-  } else {
-    s3 = 0;
-  }
+    // trapezoid ramps up /down
+    ja = accel2 * 0.5;
 
-  s2 = ru - s1 - s3;
-  has2 = s2 > 0;
-  if (!has2) {
-    if (s2 < 0) {
-      s2 = s1 + s3;
-      s1 = floor(s1 * ru / s2);
-      s3 = floor(s3 * ru / s2);
+
+
+
+    if (scurve)stepj = tosteps / (accel2);
+
+    //if (m->fs - m->fe >= m->delta) m->fn = m->fs;
+    prevacc = curracc;
+    if (bpos != (head)) {
+      //if ((next->fs - nve) >= (next->delta)) next->fn = next->fs;
+      if ((next->fs == next->fn) && (nve < next->fn)) { // all down
+        nextacc = -1;
+      } else if ((nve == next->fn) && (next->fs < next->fn)) { // all up
+        nextacc = 1;
+      } else if ((nve == next->fn) && (next->fs == next->fn)) { // all up
+        nextacc = 0;
+      } else {
+        nextacc = 1;
+      }
+    } else {
+      nextacc = 0;
     }
-    s2 = 0;
-  }
 
-  // calc new rate for up
-  accel2 = accel2 / tosteps;
+    has4 = (m->delta) > (fabs(ve - vi));
 
-
-  if (ru) {
-    acup = accel2 * (ru / (ru - 0.5 * (s1 + s3)));
-  } else acup = accel2;
-
-  // ===============================
-  if (has5 || has7) {
-    vjerk7 = fmin(vjerk7, fabs(vc1 - ve1));
-    if (has5 && has7)vjerk7 = vjerk7 * 0.5;
-  }
-
-  if (has7) {
-    s7 = floor(ramplenq2(ve, sqr(ve1 + vjerk7), stepj));
-  } else {
-    s7 = 0;
-  }
-  if (has5) {
-    s5 = floor(ramplenq2(sqr(vc1 - vjerk7), vc, stepj));
-
-  } else {
-    s5 = 0;
-  }
-  s6 = rd - s5 - s7;
-  has6 = s6 > 0;
-  if (!has6) {
-    if (s6 < 0) {
-      s6 = s5 + s7;
-      s5 = floor(s5 * rd / s6);
-      s7 = floor(s7 * rd / s6);
+    if ((vi == vc) && (ve < vc)) { // all down
+      curracc = -1;
+    } else if ((ve == vc) && (vi < vc) && !has4) { // all up
+      curracc = 1;
+    } else if (ve == vc && vi == vc) { // all up
+      curracc = 0;
+    } else {
+      if (vc > ve) curracc = -1; //else curracc = 0;
     }
-    s6 = 0;
-  }// calc new rate for down
-  if (rd) {
-    acdn = accel2 * (rd / (rd - 0.5 * (s5 + s7)));
-  } else acdn = accel2;
 
-  s4 = totalstep - s1 - s2 - s3 - s5 - s6 - s7;
-  has4 = s4 > 0;
-  if (!has4) s4 = 0;
+    // lets check 1 by 1
+    //
+    // identify which segment is available
+    //
+    // lets check 1 by 1
+    //
+    mvjerk = scurve ? (0.5 * ja * ja / jerk) : 0;
+
+    vjerk1 = 0;
+    // if
+    // segment 1, prevacc <=0 and fs<fn
+    has1 = scurve && (prevacc <= 0) && (vi < vc);
+    // segment 3, curracc <=0 and fs<fn
+    has3 = scurve && (has4) && (vi < vc);
+
+    if (has1)vjerk1 += mvjerk;
+    if (has3)vjerk1 += mvjerk;
+    // segment 2, constant acceleration prevacc <=0 and fs<fn
+    //has2=(m->fn-m->fs>vjerk1*vjerk1);
+
+    vjerk7 = 0;
+    //
+    // segment 1, prevacc <=0 and fs<fn
+    has7 = scurve && (nextacc >= 0) && (ve < vc);
+    // segment 3, curracc <=0 and fs<fn
+    has5 = scurve && (curracc <= 0 && has4) && (ve < vc);
+    if (!has4 && prevacc == -1 && curracc == -1)has5 = 0;
 
 
-  sg = 0;
-  ok = 0;
-  Sdest = 0;
-  V = vi;
-  has1 = s1 > 0;
-  has3 = s3 > 0;
-  has5 = s5 > 0;
-  has7 = s7 > 0;
 
+    if (has7)vjerk7 += mvjerk;
+    if (has5)vjerk7 += mvjerk;
+    // segment 2, constant acceleration prevacc <=0 and fs<fn
+    has6 = (vc - ve > vjerk7 * vjerk7);
+
+
+
+    float vi1 = sqrt(vi);
+    float vc1 = sqrt(vc);
+    float ve1 = sqrt(ve);
+
+    //preparejerk(m->dis);
+    float delta1, delta7;
+    float jerk6 = 0.16667 * jerk;
+    if (has1 || has3) {
+      vjerk1 = fmin(vjerk1, fabs(vc1 - vi1));
+      if (has1 && has3)vjerk1 = vjerk1 * 0.5;
+      //zprintf(PSTR("Vj1:%f\n"),ff(vjerk1));
+    }
+
+    if (has1) {
+      s1 = floor(ramplenq2(vi, sqr(vi1 + vjerk1), stepj));
+    } else {
+      s1 = 0;
+    }
+    if (has3) {
+      s3 = floor(ramplenq2(sqr(vc1 - vjerk1), vc, stepj));
+    } else {
+      s3 = 0;
+    }
+
+    s2 = ru - s1 - s3;
+    has2 = s2 > 0;
+    if (!has2) {
+      if (s2 < 0) {
+        s2 = s1 + s3;
+        s1 = floor(s1 * ru / s2);
+        s3 = floor(s3 * ru / s2);
+      }
+      s2 = 0;
+    }
+
+    // calc new rate for up
+    accel2 = accel2 / tosteps;
+
+
+    if (ru) {
+      acup = accel2 * (ru / (ru - 0.5 * (s1 + s3)));
+    } else acup = accel2;
+
+    // ===============================
+    if (has5 || has7) {
+      vjerk7 = fmin(vjerk7, fabs(vc1 - ve1));
+      if (has5 && has7)vjerk7 = vjerk7 * 0.5;
+    }
+
+    if (has7) {
+      s7 = floor(ramplenq2(ve, sqr(ve1 + vjerk7), stepj));
+    } else {
+      s7 = 0;
+    }
+    if (has5) {
+      s5 = floor(ramplenq2(sqr(vc1 - vjerk7), vc, stepj));
+
+    } else {
+      s5 = 0;
+    }
+    s6 = rd - s5 - s7;
+    has6 = s6 > 0;
+    if (!has6) {
+      if (s6 < 0) {
+        s6 = s5 + s7;
+        s5 = floor(s5 * rd / s6);
+        s7 = floor(s7 * rd / s6);
+      }
+      s6 = 0;
+    }// calc new rate for down
+    if (rd) {
+      acdn = accel2 * (rd / (rd - 0.5 * (s5 + s7)));
+    } else acdn = accel2;
+
+    s4 = totalstep - s1 - s2 - s3 - s5 - s6 - s7;
+    has4 = s4 > 0;
+    if (!has4) s4 = 0;
+
+
+    sg = 0;
+    ok = 0;
+    Sdest = 0;
+    V = vi;
+    has1 = s1 > 0;
+    has3 = s3 > 0;
+    has5 = s5 > 0;
+    has7 = s7 > 0;
+  }
   m->status |= 4;
   CORELOOP
 }
@@ -234,10 +240,11 @@ void prepareramp(int32_t bpos)
 
 int curveloop() {
   //dlp=(stepdiv2/sqrt(V)); // T = CPU_CLOCK/Vel
-  if (sg!=4 && ((++cntF)&4))
-	xInvSqrt(dlp, V);
-  a2 += a1x; // jerk add to acceleration
-  V += a2; // acceleration add to velocity
+  if (sg != 4) {
+    if  ((++cntF) & UPDATE_V_EVERY) xInvSqrt(dlp, V);
+    a2 += a1x; // jerk add to acceleration
+    V += a2; // acceleration add to velocity
+  }
   // do bresenham this step longs
   //if (--mctr){
   cmd0 = 1; //step command
@@ -294,8 +301,8 @@ int coreloopscurve() {
     }
     if (sg == 4) { // constant velocity segment
       if (has4) {
-        V=vc;
-		xInvSqrt(dlp, V);
+        V = vc;
+        xInvSqrt(dlp, V);
         a2 = 0;
         a1x = 0;
         Sdest = s4;
@@ -321,7 +328,7 @@ int coreloopscurve() {
       if (has7) {
         a1x = acdn / s7;
         a2 = -acdn;
-        //V=ve+acdn*s7*0.5;//+a2*0.5; // needed to make sure we reach accurate exit velocity
+        V = ve + acdn * s7 * 0.5; //+a2*0.5; // needed to make sure we reach accurate exit velocity
         Sdest = s7;
       } else sg++;
     }

@@ -35,19 +35,19 @@
 #ifdef __AVR__
 #define CLOCKCONSTANT 2000000.f        // tick/seconds
 #define DSCALE 0   // use 2Mhz timer need to shift right 2bit
-#define DIRDELAY 20
+#define DIRDELAY 4
 #endif // avr
 
 #ifdef __ARM__
 #define CLOCKCONSTANT 8000000.f        // tick/seconds
 #define DSCALE 0   // use 8Mhz timer shift 0bit
-#define DIRDELAY 20 // usec
+#define DIRDELAY 4 // usec
 #endif // arm
 
 #ifdef ESP8266
 #define CLOCKCONSTANT 5000000.f        // tick/seconds
 #define DSCALE 0   // use 5Mhz timer shift 0bit
-#define DIRDELAY 20 // usec
+#define DIRDELAY 4 // usec
 #endif // esp
 
 #else // usetimer1
@@ -68,7 +68,8 @@ uint8_t homingspeed;
 int xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
-float xyscale, f_multiplier, e_multiplier;
+int maxa[4];
+float xyscale, f_multiplier,  e_multiplier;
 int accel, zaccel;
 int32_t xycorner, zcorner,  xyjerk, zjerk;
 int i;
@@ -86,7 +87,7 @@ int8_t ishoming;
 float axisofs[4] = {0, 0, 0, 0};
 float F_SCALE = 1;
 int8_t RUNNING = 1;
-int8_t PAUSE = 0;
+int8_t PAUSE = 0; uint32_t PAUSEadd = 0;
 float stepmmx[4];
 int odir[4] = {1, 1, 1, 1};
 float retract_in, retract_out;
@@ -105,6 +106,7 @@ tmove move[NUMBUFFER];
 
 float InvSqrt(float x)
 {
+
 #ifdef FASTINVSQRT
   int32_t* i = (int32_t*)&x;           // store floating-point bits in integer
   *i = 0x5f335a86  - (*i >> 1);    // initial guess for Newton's method
@@ -119,7 +121,7 @@ float InvSqrt(float x)
 }
 #else // avr
 // other CPU use normal SQRT
-#define InvSqrt(f) 1.0/sqrt(f)
+#define InvSqrt(f) 1.0/f
 #endif // avr
 
 //#define xInvSqrt(n) n>1?stepdiv2*InvSqrt(n):stepdiv
@@ -129,8 +131,8 @@ float InvSqrt(float x)
 
 float pta = 0;
 //#define xInvSqrt(d,n) pta=(pta+n)*0.5;d=pta>0.25?stepdiv2*InvSqrt(pta):2*stepdiv2;
-#define xInvSqrt(d,n) d=n>0.25?stepdiv2*InvSqrt(n):2*stepdiv2;
-#define xInvVel(d,n) d=stepdiv2/n;
+#define xInvSqrt(d,n) d=n>0.25?stepdiv2/(sqrt(n)):2*stepdiv2;
+#define xInvVel(d,n) d=stepdiv2/(n);
 
 
 #define sqrt32(n) sqrt(n)
@@ -225,7 +227,7 @@ void reset_motion()
   xyscale = 1;
   ishoming = 0;
   cmctr = 0;
-  e_multiplier = f_multiplier = 1;
+  e_multiplier = f_multiplier =  1;
   checkendstop = 0;
   endstopstatus = 0;
   xcheckevery = CHECKENDSTOP_EVERY * stepmmx[0];
@@ -256,6 +258,10 @@ void reset_motion()
   maxf[MZ] = ZMAXFEEDRATE;
   maxf[E] = E0MAXFEEDRATE;
 
+  maxa[MX] = XACCELL;
+  maxa[MY] = XACCELL * YMAXFEEDRATE / XMAXFEEDRATE;
+  maxa[MZ] = XACCELL * ZMAXFEEDRATE / XMAXFEEDRATE;
+  maxa[E] = XACCELL;
 
 
   accel = XACCELL;
@@ -366,17 +372,18 @@ int32_t rampseg, rampup, rampdown;
   =================================================================================================================================================
 */
 #ifdef __AVR__
-#define NUMCMDBUF 100
+#define NUMCMDBUF 150
 #else
-#define NUMCMDBUF 200
+#define NUMCMDBUF 150
 #endif
 
 
-#define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
+//#define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
+#define nextbuffm(x) ((x+1)&127)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
-static volatile uint8_t  cmhead = 0, cmtail = 0, cmcmd, cmbit = 0;
-static volatile uint32_t cmdlaserval = 0;
+static volatile uint8_t   cmcmd, cmbit = 0;
+static volatile uint32_t cmhead = 0, cmtail = 0, cmdlaserval = 0;
 
 static int8_t mo = 0;
 #define cmdfull (nextbuffm(cmhead)==cmtail)
@@ -415,7 +422,7 @@ static void pushcmd()
   }
 
 }
-
+int nodeinbuffer = 0;
 void newdircommand(int laserval)
 {
   // change dir command
@@ -432,6 +439,7 @@ void newdircommand(int laserval)
   if (bsdx[3] > 0)cmd0 |= 256;
   ldelay = 0;
   pushcmd();
+  nodeinbuffer++;
 
 }
 
@@ -447,11 +455,24 @@ void newdircommand(int laserval)
 /*
 	-------------------------------------------- BEGIN OF SCURVE IMPLEMENTATION ----------------------------------------------
 */
+
+uint8_t cntF;
+int prevacc;
+int nextacc;
+int curracc;
+int scurve, has1, has2, has3, has4, has5, has6, has7;
+int sg, ok;
+int lsteps;
+
+float s1, s2, s3, s4, s5, s6, s7;
+float va, vi, vc, ve, vjerk1, vjerk7, mvjerk;
+
+
 #ifdef TRUESCURVE
 #include "scurve.h"
 #else
 #include "fcurve.h"
-#endif	
+#endif
 
 /*
 	-------------------------------------------- END OF SCURVE IMPLEMENTATION ----------------------------------------------
@@ -466,7 +487,6 @@ void newdircommand(int laserval)
   kontrol mbelok adalah cara mengontrol supaya saat menikung, kecepatan dikurangi sehingga tidak skip motornya
 
 */
-
 float curru[5], prevu[5];
 float lastf = 0;
 
@@ -478,6 +498,7 @@ void backforward()
   tmove *next, *curr;
   // now back planner
   h = head; //
+  //tailok=tail;
   if (h == tailok) return;
 
   // last data
@@ -488,7 +509,6 @@ void backforward()
     next = curr;
     float fs = next ? next->fs : MINCORNERSPEED;
     curr = &move[h];
-    curr->fe = fs;
     if (curr->fs != curr->maxs) {
       curr->fs = fmin(fs + curr->delta, curr->maxs); // maximum speed from next start
     }
@@ -510,21 +530,22 @@ void backforward()
   while (h != head) {
     curr = next;
     next = &move[h];
-    curr->fe = next->fs;
     if (curr->fs < next->fs) { // if this start speed is less then next start /
       float fs = curr->fs + curr->delta; // maximum speed at end
       if (fs < next->fs) { // if next start is less than this maximum speed , then its final
         next->fs = fs;
-        curr->fe = fs;
         tailok = prevbuff(h);
       }
-      curr->fn = fmax(curr->fe, fmin(fs, curr->fn));
+      //curr->fn = fmax(curr->fe, fmin(fs, curr->fn));
+      //curr->fn = fmin(fs, curr->fn);
     }
     if (next->fs == next->maxs) tailok = prevbuff(h);
     h = nextbuff(h);
   }
   CORELOOP
 }
+
+
 float mmdis[4];
 void planner(int32_t h)
 {
@@ -538,52 +559,40 @@ void planner(int32_t h)
   int32_t xtotalstep = abs(curr->dx[FASTAXIS(curr)]);
   memcpy(prevu, curru, sizeof prevu);
   curru[4] = 1;
-  float ucorner = xycorner * 0.005;
+  float ac = accel;
+  float fn = 10000;
   for (int i = 0; i < 4; i++) {
     curru[i] = 0;
     if (curr->dx[i] != 0) {
-
-      float cdx = curr->fn * mmdis[i];
-      if ((i != 3)) {
-        float scale2 = float(maxf[i]) * curr->dis / fabs(cdx);
-        if (scale2 < scale) scale = scale2;
-      }
       curru[i] = float(mmdis[i] / curr->dis);
+      ac = fmin(ac, fabs(maxa[i] / curru[i]));
+      fn = fmin(fn, fabs(maxf[i] / curru[i]));
       CORELOOP
     }
   }
-  ucorner *= curr->ac;
-  curr->delta = curr->ac * curr->dis;
-#ifdef output_enable
-  zprintf (PSTR("Fratio :%f\n"), ff(scale));
-#endif
-
-  curr->fn = sqr(scale * curr->fn);
-
-#ifdef output_enable
-  zprintf (PSTR("FN :%d\n"), fi(curr->fn));
-#endif
+  float ucorner = xycorner * ac * 0.001;
+  curr->ac = 2 * ac;
+  curr->delta = fabs(curr->ac * curr->dis);
+  //f_rmaxmultiplier=fmin(f_multiplier,curr->fn/fn);
+  curr->fn = sqr(fmin(fn,curr->fn));
 
   // ==================================
   // Centripetal corner max speed calculation, copy from other firmware
-  float MINSPEED=MINCORNERSPEED;//pow(xyjerk,0.06667);//
+  float MINSPEED = MINCORNERSPEED; //pow(xyjerk,0.06667);//
   float max_f = MINSPEED;
   if (bufflen() > 1) {
 
 
-
-    float corner = 0;
-    float factor = 1;
     float junc_cos = -prevu[MX] * curru[MX] - prevu[MY] * curru[MY] - prevu[MZ] * curru[MZ];
-    if (junc_cos > 0.9999) {
-      max_f = MINSPEED;
-    } else if (junc_cos < -0.9999) {
-      max_f = 250000;
+    if (junc_cos > 0.999) {
+      max_f = MINSPEED; // reversal case
+      //zprintf(PSTR("HAH!\n"));
+    } else if (junc_cos < -0.999) {
+      max_f = 10000000; // straight line
     } else {
-      float sin_theta_d2 = sqrt(0.5 * (1.0 - junc_cos)); // Trig half angle identity. Always positive.
+      float sin_theta_d2 = sqrt(0.5 * (1 - junc_cos)); // Trig half angle identity. Always positive.
       max_f = fmax( MINSPEED, (ucorner * sin_theta_d2) / (1.0 - sin_theta_d2) );
     }
-
 
     CORELOOP
 
@@ -593,6 +602,7 @@ void planner(int32_t h)
 #ifdef output_enable
   zprintf(PSTR("maxs. %f\n"), ff(curr->maxs));
 #endif
+  //zprintf(PSTR("maxs. %f\n"), ff(curr->maxs));
   lastf = curr->fn;
   backforward();
 
@@ -646,9 +656,11 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     //zprintf(PSTR("Empty !\n"));
   }
 #ifdef output_enable
-  zprintf(PSTR("\n\nADDMOVE\nTail:%d Head:%d \n"), fi(tail), fi(head));
-  zprintf(PSTR("F:%f From X:%f Y:%f Z:%f E:%f\n"), ff(cf), ff(cx1), ff(cy1), ff(cz1), ff(ce01));
-  zprintf(PSTR("To X:%f Y:%f Z:%f E:%f\n"),  ff(cx2), ff(cy2), ff(cz2), ff(ce02));
+  /*
+    zprintf(PSTR("\n\nADDMOVE\nTail:%d Head:%d \n"), fi(tail), fi(head));
+    zprintf(PSTR("F:%f From X:%f Y:%f Z:%f E:%f\n"), ff(cf), ff(cx1), ff(cy1), ff(cz1), ff(ce01));
+    zprintf(PSTR("To X:%f Y:%f Z:%f E:%f\n"),  ff(cx2), ff(cy2), ff(cz2), ff(ce02));
+  */
 #endif
   tmove *curr;
   curr = &move[nextbuff(head)];
@@ -661,7 +673,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   if (rel) {
     cx2 += cx1;
     cy2 += cy1;
-    cz2 += cz1;
+    cz2 += ocz1;
     ce02 += ce01;
   }
 
@@ -669,7 +681,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   float ocz2 = cz2;
   if (MESHLEVELING) {
     cz2 -= Interpolizer(cx2, cy2);
-    zprintf(PSTR("ZI:%f\n"),  ff(cz2));
+    //zprintf(PSTR("ZI:%f\n"),  ff(cz2));
   }
 
 
@@ -840,7 +852,6 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     zprintf(PSTR("Totalstep AX%d %d\n"), (int32_t)faxis, (int32_t)curr->dx[faxis]);
 #endif
     curr->status |= faxis << 4;
-    curr->ac = 2 * accel;
     //zprintf(PSTR("F:%f A:%d\n"), ff(cf), fi(curr->ac));
     if (head == tail) {
       otx[0] = cx1;
@@ -1048,10 +1059,22 @@ int maincmdlaserval = 0;
 static THEISR void decodecmd()
 {
   if (cmdempty) {
-
+    RUNNING=1;
     return;
 
   }
+
+  // if on pause we need to decelerate until command buffer empty
+  if (PAUSE || (RUNNING == 0)) {
+    PAUSEadd += CLOCKCONSTANT / (10 * NUMCMDBUF);
+    PAUSEadd = fmax(PAUSEadd, CLOCKCONSTANT / 5); // slowest
+  } else PAUSEadd = 0;
+
+  // to make sure the overrides speed is gradual, not sudden change
+  //if (f_multiplier > f_rmultiplier)f_rmultiplier += 0.005;
+  //else if (f_multiplier < f_rmultiplier)f_rmultiplier -= 0.005;
+
+
   uint32_t cmd = cmddelay[cmtail];
   cmcmd = cmd & 1;
   if (cmcmd) {
@@ -1062,6 +1085,7 @@ static THEISR void decodecmd()
     cmdly = (cmd >> 5) >> DSCALE;
   } else {
     // header command,
+    nodeinbuffer--;
     cmbit = (cmd >> 1) & 255;
     cmdly = DIRDELAY >> DSCALE;
 
@@ -1069,28 +1093,11 @@ static THEISR void decodecmd()
     cmdlaserval = maincmdlaserval = (cmd >> 9) & 255;
 
 
-    //else zprintf(PSTR("\nR"));
-    //zprintf(PSTR("%d\n"), fi(cmdlaserval));
-    //zprintf(PSTR("int %d\n"), fi(cmdlaserval));
   }
-  //if (Setpoint == 0)LASER( !LASERON);
-  //  if (maincmdlaserval && !rasterlen) {
-  //zprintf(PSTR("%d\n"), fi(e_ctr));
-  //    LASER(LASERON);
-  //  };
-  //zprintf(PSTR("%d"), fi(cmdlaserval));
-
-  /*Serial.print("X ");
-    Serial.print(cmd);
-    Serial.print(":");
-    Serial.print(cmdly);
-    Serial.print(":");
-    Serial.println(cmdlaserval);
-  */
   nextok = 1;
   cmtail = nextbuffm(cmtail);
 #ifdef USETIMER1
-  timer_set(cmdly);
+  timer_set(cmdly + PAUSEadd); // on PaUSE or stop, decelerate until buffer runout
 #ifdef heater_pin
   HEATER(HEATING);
 #endif
@@ -1128,12 +1135,6 @@ int mm_ctr = 0;
 void THEISR coreloopm()
 {
 
-  if (PAUSE) {
-#ifdef USETIMER1
-    timer_set(1000);
-#endif
-    return;
-  }
   //dmc=(micros()-mc); mc=micros();
   if (!nextok) {
     decodecmd();
@@ -1176,7 +1177,7 @@ void THEISR coreloopm()
         yctstep++;
         motor_1_STEP();
 #ifdef DRIVE_XZY2
-		// copy motion on motor E
+        // copy motion on motor E
         motor_3_STEP();
 #endif
       }
@@ -1185,7 +1186,9 @@ void THEISR coreloopm()
         motor_2_STEP();
       }
       pinCommit();
-      delayMicroseconds(DELAYBETWEENSTEP);
+#ifndef ISPC
+      //delayMicroseconds(DELAYBETWEENSTEP);
+#endif
       motor_3_UNSTEP();
       motor_0_UNSTEP();
       motor_1_UNSTEP();
@@ -1220,9 +1223,11 @@ void THEISR coreloopm()
       if (cmbit & 8) motor_1_DIR((cmbit & 4) ? -1 : 1);
       if (cmbit & 32) motor_2_DIR((cmbit & 16) ? -1 : 1);
       if (cmbit & 128) {
+#ifndef DRIVE_XZY2
         e_dir = (cmbit & 64) ? -1 : 1;
         motor_3_DIR(e_dir);
         //zprintf(PSTR("E:%d\n"), fi(e_dir));
+#endif
       }
 
       pinCommit();
@@ -1263,9 +1268,13 @@ void dographics()
     return;
   }
   // this might be wrong because the last cmd maybe is from previous segment which have different step/mm
-  float f = lstepdiv / cmdly;
+  float f = CLOCKCONSTANT / cmdly;
   lstepdiv = stepdiv;
-  f = sqrt(V);//sqrt(ta);
+#ifdef TRUESCURVE
+  //f = (V);//sqrt(ta);
+#else
+  //f = sqrt(V);//sqrt(ta);
+#endif
   //f =  sqrt(ta)/stepdiv2;
   tick = tick + cmdly; //1.0/timescale;
   int32_t c;
@@ -1354,7 +1363,7 @@ void dographics()
   float ez = realpos1(2) * graphscale;
 
   //putpixel (ex + 320, ey + 150, c);
-  putpixel (ex + ey * 0.3 + 220, ey * 0.3 - ez + 150, c);
+  putpixel (ex + ey * 0.3 + 120, ey * 0.8 - ez + 150, c);
   //putpixel (ex + 320, ey  + 150, c);
 #endif
 
@@ -1384,6 +1393,7 @@ static THEISR void readpixel2() {
 
 int coreloop1()
 {
+    
 #ifdef output_enable
   //if (mctr == 10)zprintf(PSTR("DLY:%d \n"), fi(cmdly));
 #else
@@ -1393,10 +1403,11 @@ int coreloop1()
   if (!m || (mctr <= 0)) {
     //zprintf(PSTR("R\n"));
     //m = 0;
+    LASER( !LASERON);
     return 0;
   }
 #ifdef FASTBUFFERFILL
-  for (f = FASTBUFFERFILL; f; f--)
+  for (int ff = FASTBUFFERFILL + 1; ff; ff--)
 #endif
     if (!coreloopscurve())return 0;
 
@@ -1424,6 +1435,7 @@ int coreloop1()
         cz1 = m->dtx[2] - p * m->dx[2] / Cstepmmx(2);
         ce01 = m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
         zprintf(PSTR("Stopped!\n"));
+        LASER( !LASERON);
 #endif
       }
       endstopstatus = 0;
@@ -1432,8 +1444,6 @@ int coreloop1()
       mctr = 0;
       m = 0;
       head = tail;
-      cmhead = cmtail;
-      RUNNING = 1;
       return 0;
     }
   }
@@ -1449,6 +1459,7 @@ int motionloop()
     cctr = 0;
     //Serial.println(ndelay);
   }
+  if (PAUSE)return 0;
   if (busy ) {
     zprintf(PSTR("Busy\n"));
     return 0;
@@ -1494,7 +1505,6 @@ void otherloop(int r)
         // coreloop ended, check if there is still move ahead in the buffer
         //zprintf(PSTR("Finish:\n"));
         m->status = 0;
-        //if (m->fe == 0)f = 0;
         m = 0;
         r = startmove();
       }
@@ -1524,6 +1534,7 @@ void otherloop(int r)
       if (sendwait == 1) {
         zprintf(PSTR("wait\n"));
         prevacc = 0;
+        RUNNING = 1;
       }
     }
   }
@@ -1612,8 +1623,8 @@ void calculate_delta_steps()
   // lets do the subpixel thing.
 
   // calculate the microseconds betwen step,
-  xInvSqrt(dln, (m->fn ));
 #ifdef SUBPIXELMAX
+  xInvSqrt(dln, (m->fn ));
   int u;
   if (vSUBPIXELMAX > 1) {
     for (u = 2; u <= (vSUBPIXELMAX); u++) {
@@ -1649,14 +1660,19 @@ void calculate_delta_steps()
 #endif
 }
 
-
+int empty1 = 0;
 int32_t startmove()
 {
   if (!RUNNING)return 0;
+  //if (nodeinbuffer>4)return 0;
+  if (cmdfull)return 0;
 
-  //if (cmdfull)return 0;
   if ((head == tail)) { // if empty buffer then wait a little bit and send "wait"
     //Serial.println("?");
+    if (!empty1) {
+      zprintf(PSTR("empty\n"));
+      empty1 = 1;
+    }
     //m = 0; wm = 0; mctr = 0; // thi cause bug on homing delta
     if (!sendwait && (cmdempty)) {
 
@@ -1672,7 +1688,7 @@ int32_t startmove()
 #endif
     }
     return 0;
-  }
+  } else empty1 = 0;
   sendwait = 0;
   // last calculation
   if (m ) return 0; // if empty then exit
@@ -1683,6 +1699,7 @@ int32_t startmove()
   int t = nextbuff(tail);
   // prepare ramp (for last move)
   m = &move[t];
+  //zprintf(PSTR("FS %f\n"),ff(m->fs));
   laxis = fastaxis;
   fastaxis = FASTAXIS(m);
   totalstep = labs(m->dx[fastaxis]);
@@ -1736,9 +1753,10 @@ int32_t startmove()
   m->status &= ~3;
   m->status |= 2;
 
-
+#ifndef USETIMER1
   if (f == 0)
     nextmicros = micros();// if from stop
+#endif
 
 #ifdef output_enable
   //zprintf(PSTR("SUB:%d FS:%f TA:%f FE:%f RAMP:%d %d ACC:%f %f\n"), fi(subp), ff(m->fs), ff(m->fn), ff(fe), fi(rampup), fi(rampdown), ff(acup), ff(acdn));
@@ -1748,17 +1766,17 @@ int32_t startmove()
   tail = t;
 
 #ifdef output_enable
+  /*
+    zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
+    zprintf(PSTR("RU:%d Rd:%d Ts:%d Dis:%f\n"), fi(rampup), fi(rampdown), fi(totalstep), ff(m->dis));
+    zprintf(PSTR("FS:%f FN:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->ac));
+    zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(rampup), fi(rampdown));
+    zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
 
-  zprintf(PSTR("Start tail:%d head:%d\n"), fi(tail), fi(head));
-  zprintf(PSTR("RU:%d Rd:%d Ts:%d Dis:%f\n"), fi(rampup), fi(rampdown), fi(totalstep), ff(m->dis));
-  zprintf(PSTR("FS:%f FN:%f AC:%f \n"), ff(m->fs), ff(m->fn), ff(m->ac));
-  zprintf(PSTR("TA,ACUP,ACDN:%d,%d,%d \n"), fi(ta), fi(rampup), fi(rampdown));
-  zprintf(PSTR("DX:%d DY:%d DZ:%d DE:%d \n"), fi(m->dx[0]), fi(m->dx[1]), fi(m->dx[2]), fi(m->dx[3]));
-
-  //zprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
-  //zprintf(PSTR("sx %d %d %d \n"), fi(sx[0]), fi(sx[1]), fi(sx[2]));
-  //zprintf(PSTR("Status:%d \n"), fi(m->status));
-
+    //zprintf(PSTR("Last %f %f %f \n"), ff(px[0] / stepmmx[0]), ff(px[1] / stepmmx[0]), ff(px[2] / stepmmx[0]));
+    //zprintf(PSTR("sx %d %d %d \n"), fi(sx[0]), fi(sx[1]), fi(sx[2]));
+    //zprintf(PSTR("Status:%d \n"), fi(m->status));
+  */
 #endif
   calculate_delta_steps();
 #ifdef SUBPIXELMAX
@@ -1772,7 +1790,6 @@ int32_t startmove()
     if (isG0)e_ctr = m->dtx[3];
     if ((m->dx[3] != 0) && (!isG0)) {
       lastB--;
-
     }
     pixelon = 0;
   }
@@ -1948,7 +1965,7 @@ void homing()
 */
 
 int XCount, YCount;
-int ZValues[10][10];
+int ZValues[40][40]; // 
 
 float pointProbing()
 {
@@ -1956,31 +1973,32 @@ float pointProbing()
 
   // clear buffer
   waitbufferempty();
-  mm_ctr = 0;
   int32_t tx;
 #define mmax HOMING_MOVE
 #define smmax ENDSTOP_MOVE
-  tx = -20;
+  tx = -30;
 
   // fast check every 31 step
   //zprintf(PSTR("Homing to %d %d %d\n"), tx[0], tx[1], tx[2]);
 
   // move away before endstop
-  checkendstop = 1;
   int o = zcheckevery;
+  
+  checkendstop = 1;
   zcheckevery = 1;
-  addmove(homingspeed, 0, 0, tx, 0, 1, 1);
-
-
+  mm_ctr = 0;
+  addmove(20, 0, 0, tx, 0, 1, 1);
   // now slow down and check endstop once again
   waitbufferempty();
   float zmm = mm_ctr;
   //zprintf(PSTR("Probe %f,%f = %f\n"), ff(cx1), ff(cy1), ff(zmm));
-  zmm /= stepmmx[2];
+  zmm /= stepmmx[MZ];
   checkendstop = 0;
-  zcheckevery = o;
   //move back
   addmove(homingspeed, 0, 0, zmm, 0, 1, 1);
+
+  
+  zcheckevery = o;
   init_user_input();
   return zmm;
 }
@@ -2203,4 +2221,3 @@ void initmotion()
 #endif
 
 }
-
