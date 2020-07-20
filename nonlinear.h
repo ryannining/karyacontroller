@@ -19,7 +19,6 @@
 // LINEAR DRIVE IS SIMPLE
 #define Cstepmmx(i) stepmmx[i]
 // no scaling
-#define XYSCALING
 
 #else
 // NONLINEAR HERE
@@ -67,7 +66,6 @@ extern float F_SCALE;
 */
 
 #if defined(DRIVE_DELTA)
-#define XYSCALING   cx2*=xyscale;  cy2*=xyscale;
 
 #define NONLINEARHOME   cx1 = 0;  cy1  = 0;  cz1=ocz1 = ax_home[2];
 #define SINGLESEGMENT (ishoming || ((m->dx[0] == 0) && (m->dx[1] == 0)))
@@ -191,5 +189,3 @@ void transformdelta( float x, float y, float z, float e) {
 
 
 #endif // LINEAR
-
-

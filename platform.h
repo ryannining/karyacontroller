@@ -27,11 +27,19 @@
 extern int CNCMODE;
 extern int HEATING;
 #include "motors.h"
-//#define LASER(x) {}
+#ifdef laser_pin
 #define LASER(x) {if (!CNCMODE){xdigitalWrite(laser_pin,x);}}
-//#define LASER(x) {if (!HEATING)digitalWrite(laser_pin,x);}
 #define SPINDLE(x) {if (CNCMODE){xdigitalWrite(laser_pin,x);} }
+#else
+#define SPINDLE(x) {}
+#define LASER(x) {}
+
+#endif
+#ifdef heater_pin
 #define HEATER(x) {if (!CNCMODE){xdigitalWrite(heater_pin,x);} }
+#else
+#define HEATER(x) {}
+#endif
 #else
 #warning Detected as PC
 #define LASER(x) {}

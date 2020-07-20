@@ -27,7 +27,7 @@
 #define e0enable -1
 
 #define ISRTEMP // 120bytes check board.h
-
+#define INDEX "/3d.html"
 
 #define MAXTEMP 249
 
@@ -57,9 +57,9 @@
 //#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
 //#define BOARD_NANONANO_STM32
 //#define BOARD_ST33DV1_STM32
-#define BOARD_ST33DV11_STM32
+//#define BOARD_ST33DV11_STM32
 //#define BOARD_ST33DV1_STM32_3DPLEX
-//#define BOARD_ST33DV1_XYYZ_STM32
+#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 //#define BOARD_STM32F0
 
@@ -85,13 +85,14 @@
 #define THEISR ICACHE_RAM_ATTR
 #define ANALOGSHIFT 0 // 10bit adc ??
 #define BAUDRATE 115200*2
-#define NUMBUFFER 100
+#define NUMBUFFER 30
 
 
 //#define BOARD_NANONANO_WEMOS
 //#define BOARD_WEMOS3D
 //#define BOARD_ESPUNO_COREXY
 //#define BOARD_WEMOS3D_COREXY
+
 #define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
 
@@ -135,8 +136,8 @@
 // ==========================================================
 
 #else
-#define MESHLEVEL
-#define ARC_SUPPORT // 3kb
+//#define MESHLEVEL
+//#define ARC_SUPPORT // 3kb
 #define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
 //#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
@@ -165,6 +166,9 @@
 	#define WEBSOCKSERVER
   #define WIFISERVER
 #endif
+#if defined(__ARM__)
+  #undef MESHLEVEL
+#endif
 
 #define LASERON LOW
 
@@ -176,7 +180,7 @@
   #undef WEBSOCKETSERVER
   #undef heater_pin
   #undef temp_pin
-  #define NUMBUFFER 120
+  #define NUMBUFFER 40
   #define BAUDRATE 115200*2
 #endif
 
@@ -248,7 +252,7 @@
 //#define DRIVE_COREXY
 //#define DRIVE_COREXZ
 
-//#define DRIVE_DELTA
+#define DRIVE_DELTA
 //#define DRIVE_DELTASIAN
 
 #endif

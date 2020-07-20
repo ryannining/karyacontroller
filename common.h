@@ -8,7 +8,7 @@
 #ifdef __AVR__
 #define BUFSIZE     64
 #else
-#define BUFSIZE     128
+#define BUFSIZE     256
 #endif
 #define buf_canread(buffer)     ((buffer ## head - buffer ## tail ) & \
                                  (BUFSIZE - 1))

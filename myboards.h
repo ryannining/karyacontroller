@@ -1032,6 +1032,7 @@
   ============================================================================================
 */
 #elif defined(BOARD_WEMOS_CNC_XZYY)
+#define INDEX "index.html"
 
 // motor will be X->X board  Z->Y board Y1->Zboard Y2->EBoard
 
@@ -1053,7 +1054,7 @@
 #define heater_pin D1
 
 //#define INVERTENDSTOP
-#define NUMBUFFER 100
+#define NUMBUFFER 20
 #define DRIVE_XZY2
 /*
   ============================================================================================
@@ -1079,7 +1080,7 @@
 #define heater_pin D1
 
 //#define INVERTENDSTOP
-#define NUMBUFFER 40
+#define NUMBUFFER 20
 #define DRIVE_COREXY
 #define SHARE_EZ
 

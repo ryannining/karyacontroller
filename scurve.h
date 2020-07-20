@@ -2,6 +2,9 @@
 float ja, a1x, a1, a2, as3, as7, T, V, S, Sdest, itstep, tstep, tstepS;
 
 #define jerk xyjerk
+extern static THEISR void readpixel2();
+extern int pixelon;
+
 
 
 float preparejerk(float dis) {
@@ -137,8 +140,8 @@ float preparejerk(float dis) {
 void prepareramp(int32_t bpos)
 {
 
-  tmove *m, *next2,*next;
-  m = &move[bpos];
+  tmove *m, *next2, *next;
+  m = &moves[bpos];
   scurve = (xyjerk > 0) && (m->dis > 1);
   // local m
   vi = m->fs;
@@ -146,15 +149,15 @@ void prepareramp(int32_t bpos)
   float nve;
 
   if (bpos != (head)) {
-	int npos=nextbuff(bpos);  
-	next = &move[npos];
-	if (npos!=head){
-		next2 = &move[nextbuff(npos)];
-		nve=next2->fs;
-	} nve=0;	
-	//next->fn=fmin(next->fn,next->fs + 0.5 * (nve - next->fs + next->delta));
-	ve = next->fs;
-  } else ve=0;
+    int npos = nextbuff(bpos);
+    next = &moves[npos];
+    if (npos != head) {
+      next2 = &moves[nextbuff(npos)];
+      nve = next2->fs;
+    } nve = 0;
+    //next->fn=fmin(next->fn,next->fs + 0.5 * (nve - next->fs + next->delta));
+    ve = next->fs;
+  } else ve = 0;
 
   float vcc = vi + 0.5 * (ve - vi + m->delta);
   vc = fmin(m->fn, vcc); //
@@ -242,7 +245,7 @@ void machinemove(int steps) {
     //else zprintf(PSTR("."));
     lsteps = steps; // save last step position
     if (sg != 4 && ((++cntF) & UPDATE_V_EVERY))
-		xInvVel(dlp, va); // T = CPU_CLOCK/Vel , only update every 4 step, increase if need faster motor
+      xInvVel(dlp, va); // T = CPU_CLOCK/Vel , only update every 4 step, increase if need faster motor
     for (int i = 0; i < ds; i++) {
       // do bresenham this step longs
       if (mctr > 0) {
@@ -251,8 +254,14 @@ void machinemove(int steps) {
         bresenham(0); //
         bresenham(1);
         bresenham(2);
-        bresenham(3);
-
+        /*if (rasterlen) {
+          if ((mcx[3] -= bsdx[3]) < 0) {
+            e_ctr += sx[3];
+            readpixel2();
+            mcx[3] += totalstep;
+          }
+          if (pixelon)cmd0 |= 2 << 3;
+        } else */bresenham(3);
         // push T=CLOCK/V to timer command buffer
         cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
         pushcmd();

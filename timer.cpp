@@ -6,7 +6,6 @@
 #include "common.h"
 #include "platform.h"
 
-
 #ifdef servo_pin
 uint32_t servo_timer = 0;
 int32_t servo_pos = 0;
@@ -131,11 +130,35 @@ int feedthedog()
 
 // ======================== TIMER for motionloop =============================
 
+
 uint32_t	next_step_time;
 #ifdef USETIMER1
 int busy1 = 0;
 volatile uint32_t ndelay = 0, ndelay2 = 0;
 
+// ======= the same code for all cpu ======
+inline int THEISR timercode() {
+  if (ndelay2)
+  {
+    // turn off laser , laser constant burn mode
+    ndelay = ndelay2;
+    ndelay2 = 0;
+    LASER(!LASERON);
+  } else {
+    if (ndelay < 30000) {
+      ndelay = 30;
+      coreloopm();
+#ifdef __AVR__
+      TCNT1 = 0;
+#endif
+    } else {
+      ndelay -= 30000;
+    }
+  }
+  return ndelay >= 30000 ? 30000 : ndelay;
+}
+
+// ==============================================
 /*
     AVR TIMER
 */
@@ -151,24 +174,9 @@ ISR(TIMER1_COMPA_vect)
 
   // stepper tick
   //cli();
-  if (ndelay2 == 0) {
-    if (ndelay < 30000) {
-      ndelay = 20;
-      coreloopm();
-      TCNT1 = 0;
-      ndelay = fmax(20, ndelay);
-    } else {
-      ndelay = fmax(20, ndelay - 30100);
-    }
-  } else {
-    // turn off laser , laser constant burn mode
-    ndelay = ndelay2;
-    ndelay2 = 0;
-#ifdef laser_pin
-    //LASER(!LASERON)
-#endif
-  }
-  OCR1A = ndelay > 30000 ? 30000 : ndelay;
+  int d = timercode();
+  if (d < 6)d = 6;
+  OCR1A = d;
   //sei();
   TIMSK1 |= (1 << OCIE1A);
   //if (ndelay>40)zprintf(PSTR("%d\n"),fi(ndelay));
@@ -199,24 +207,9 @@ void tm()
 {
   //Timer1.pause();
   //zprintf(PSTR(".\n"));
-  if (ndelay2 == 0) {
-    if (ndelay < 30000) {
-      ndelay = 30;
-      coreloopm();
-      ndelay = fmax(4, ndelay);
-    } else {
-      ndelay = fmax(4, ndelay - 30000);
-    }
-  } else {
-    // turn off laser , laser constant burn mode
-    ndelay = ndelay2;
-    ndelay2 = 0;
-#ifdef laser_pin
-    LASER(  LASERON);
-#endif
-  }
-  int d = ndelay >= 30000 ? 30000 : ndelay;
+  int d = timercode();
   if (d < 6)d = 6;
+
   Timer1.setOverflow(d);
   Timer1.setCompare1(d);
   Timer1.resume();
@@ -243,27 +236,14 @@ void timer_init()
 #define USETIMEROK
 #define MINDELAY 5000
 #define usetmr1
+
+
 void ICACHE_RAM_ATTR tm()
 {
   noInterrupts();
-  if (ndelay2 == 0) {
-    if (ndelay < 30000) {
-      ndelay = 30;
-      coreloopm();
-      ndelay = fmax(4, ndelay);
-    } else {
-      ndelay = fmax(4, ndelay - 30000);
-    }
-  } else {
-    // turn off laser , laser constant burn mode
-    ndelay = ndelay2;
-    ndelay2 = 0;
-#ifdef laser_pin
-    //LASER(  LASERON);
-#endif
-  }
-  int d = ndelay >= 30000 ? 30000 : ndelay;
+  int d = timercode();
   if (d < 6)d = 6;
+
 #ifdef usetmr1
   timer1_write(d);
 #else
@@ -291,21 +271,20 @@ void timer_init()
 
 #endif // esp8266
 
-void THEISR timer_set(int32_t delay)
-{
-  ndelay = delay;//fmin(MINDELAY, delay);
-  ndelay2 = 0;
-}
 
 // Laser constant burn timer
 void THEISR timer_set2(int32_t delay, int32_t delayL)
 {
-  //LASER(  !LASERON);
-  //delay = fmin(MINDELAY, delay);
-  ndelay = fmax(1, delay - delayL); // laser on delay
-  ndelay2 = fmax(1, delayL); // the rest delay after laser on
+  if (delayL && (delayL < delay)) {
+    ndelay2 = delay - delayL; // the rest delay after laser on
+    ndelay = delayL; // laser on delay
+  } else {
+    //ndelay2=0;
+    ndelay = delay;
+  }
 }
 
+#define timer_set(a) timer_set2(a,0)
 #endif
 
 
@@ -313,6 +292,5 @@ void THEISR timer_set2(int32_t delay, int32_t delayL)
 #ifndef USETIMEROK
 #undef USETIMER1
 void timer_init() {};
-void timer_set(int32_t delay) {};
 void timer_set2(int32_t delay, int32_t delayl) {};
 #endif

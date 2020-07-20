@@ -1,6 +1,8 @@
 
 float acup, acdn, ja, a1x, a1, a2, as3, as7, T, V;
 int Sdest;
+extern void readpixel2();
+extern int pixelon;
 
 #define jerk xyjerk
 
@@ -14,7 +16,7 @@ void prepareramp(int32_t bpos)
 {
 
   tmove *m, *next2, *next;
-  m = &move[bpos];
+  m = &moves[bpos];
   scurve = (xyjerk > 0) && (m->dis > 1);
   //  f curve
   float tosteps = totalstep / m->dis;
@@ -25,9 +27,9 @@ void prepareramp(int32_t bpos)
   vi = m->fs;
   if (bpos != (head)) {
     int npos = nextbuff(bpos);
-    next = &move[npos];
+    next = &moves[npos];
     if (npos != head) {
-      next2 = &move[nextbuff(npos)];
+      next2 = &moves[nextbuff(npos)];
       nve = next2->fs;
     } nve = 0;
     //enext->fn=fmin(next->fn,next->fs + 0.5 * (nve - next->fs + next->delta));
@@ -252,6 +254,14 @@ int curveloop() {
   bresenham(0); //
   bresenham(1);
   bresenham(2);
+  /*if (rasterlen) {
+    if ((mcx[3] -= bsdx[3]) < 0) {
+      e_ctr += sx[3];
+      readpixel2();
+      mcx[3] += totalstep;
+    }
+    if (pixelon)cmd0 |= 2 << 3;
+  } else */
   bresenham(3);
 
   // push T=CLOCK/V to timer command buffer

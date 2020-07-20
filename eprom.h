@@ -153,7 +153,7 @@ static void eepromwrite(int p, int32_t val)
 #endif
 
 #define EE_corner 165
-#define EE_xyscale 170
+#define EE_Lscale 170
 
 #ifdef POWERFAILURE
 #define EE_lastline 200
@@ -185,7 +185,7 @@ extern float EEMEM EE_yhome;
 extern float EEMEM EE_zhome;
 extern int32_t EEMEM EE_homing;
 extern int32_t EEMEM EE_corner;
-extern float EEMEM EE_xyscale;
+extern float EEMEM EE_Lscale;
 
 extern int32_t EEMEM EE_accel;
 

@@ -140,14 +140,13 @@ String getContentType(String filename) { // convert the file extension to the MI
 bool handleFileRead(String path) { // send the right file to the client (if it exists)
   motionloop();
   NOINTS
-  if (path.endsWith("/3d")) path += ".html";          // If a folder is requested, send the index file
+  if (SPIFFS.exists(path + ".html")) path += ".html";
   else if (path.endsWith("/config")) path = "/karyaconfig.html";          // If a folder is requested, send the index file
-  else if (path.endsWith("/jobs")) path = "/jobs.html";          // If a folder is requested, send the index file
   else if (path.endsWith("/cnc")) path = "/index.html";          // If a folder is requested, send the index file
   else if (path.endsWith("/")) {
     // if wifi not connected redirect to configuration
     if (ISWIFIOK) {
-      path = "/3d.html.gz";          // If a folder is requested, send the index file
+      path = INDEX;          // If a folder is requested, send the index file
       if (!SPIFFS.exists(path))path = "/3d.html";          // If a folder is requested, send the index file
       if (!SPIFFS.exists(path))path = "/index.html";
     }
@@ -157,16 +156,15 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
   xprintf(PSTR("handleFileRead: %s\n"), path.c_str());
   String contentType = getContentType(path);             // Get the MIME type
   String pathWithGz = path + ".gz";
-  if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)) { // If the file exists, either as a compressed archive, or normal
-    if (SPIFFS.exists(pathWithGz))                         // If there's a compressed version available
-      path += ".gz";                                         // Use the compressed verion
-    File file = SPIFFS.open(path, "r");                    // Open the file
+  bool gz = SPIFFS.exists(pathWithGz);
+  if (gz || SPIFFS.exists(path)) { // If the file exists, either as a compressed archive, or normal
+    File file = SPIFFS.open(gz ? pathWithGz : path, "r");                // Open the file
     size_t sent = server.streamFile(file, contentType);    // Send it to the client
     file.close();                                          // Close the file again
     xprintf(PSTR("\tSent file: %s\n") , path.c_str());
-    return true;
-  }
-  xprintf(PSTR("\tFile Not Found: %s\n") , path.c_str());   // If the file doesn't exist, return false
+  } else
+    xprintf(PSTR("\tFile Not Found: %s\n") , path.c_str());   // If the file doesn't exist, return false
+
   INTS
   return false;
 }
@@ -199,7 +197,8 @@ void handleFileUpload() { // upload a new file to the SPIFFS
         server.send(500, "text/plain", "500: couldn't create file");
       }
     }
-  }  INTS
+  }
+  INTS
 }
 
 #ifdef WEBSOCKSERVER
@@ -213,7 +212,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
         IPAddress ip = webSocket.remoteIP(num);
         xprintf(PSTR("[%d] Connected from %d.%d.%d.%d url: %s\n"), fi(num), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]), payload);
         // on connect, send the scale
-        zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
+        zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
       }
       break;
     case WStype_TEXT:                     // if new text data is received
@@ -306,14 +305,17 @@ void setupwifi(int num) {
     reload_eeprom();
   });
   server.on("/gcode", HTTP_GET, []() {                 // if the client requests the upload page
-    char gc[100];
-    server.arg("t").toCharArray(gc, 99);
-    for (int i = 0; i < strlen(gc); i++) {
-      buf_push(wf, gc[i]);
+    if (!uncompress) {
+      char gc[100];
+      server.arg("t").toCharArray(gc, 99);
+      for (int i = 0; i < strlen(gc); i++) {
+        buf_push(wf, gc[i]);
+      }
+      buf_push(wf, '\n');
+      server.send ( 200, "text/html", "OK");
+    } else {
+      server.send(200, "text/plain", "ERR");
     }
-    buf_push(wf, '\n');
-    server.send ( 200, "text/html", "OK");
-
   });
   server.on("/speed", HTTP_GET, []() {                 // if the client requests the upload page
     extern uint8_t head, tail, tailok;
@@ -321,7 +323,7 @@ void setupwifi(int num) {
     server.arg("t").toCharArray(gc, 9);
     extern float f_multiplier;
     f_multiplier = atoi(gc) * 0.01;
-    tailok=tail+5; // need to replanning all moves
+    tailok = tail + 5; // need to replanning all moves
     server.send ( 200, "text/html", "OK");
 
   });
@@ -351,21 +353,33 @@ void setupwifi(int num) {
 
 
   server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
-    ispause = ispause == 0 ? 1 : 0;
-    extern int8_t PAUSE;
-    PAUSE = ispause;
-    server.send ( 200, "text/html", ispause == 1 ? "PAUSED" : "RESUMED");
+    if (uncompress) {
+      ispause = ispause == 0 ? 1 : 0;
+      extern int8_t PAUSE;
+      PAUSE = ispause;
+      server.send ( 200, "text/html", ispause == 1 ? "PAUSED" : "RESUMED");
+    } else {
+      server.send(200, "text/plain", "ERR");
+    }
   });
   server.on("/probe", HTTP_GET, []() {
-    docheckendstop(1);
-    extern int16_t endstopstatus;
-    server.send ( 200, "text/html", endstopstatus < 0 ? "HIGH" : "LOW");
+    if (!uncompress) {
+      docheckendstop(1);
+      extern int16_t endstopstatus;
+      server.send ( 200, "text/html", endstopstatus < 0 ? "HIGH" : "LOW");
+    } else {
+      server.send(200, "text/plain", "ERR");
+    }
   });
   server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
-    ispause = 0;
-    extern int8_t PAUSE;
-    PAUSE = ispause;
-    server.send ( 200, "text/html", "OK");
+    if (uncompress) {
+      ispause = 0;
+      extern int8_t PAUSE;
+      PAUSE = ispause;
+      server.send ( 200, "text/html", "OK");
+    } else {
+      server.send(200, "text/plain", "ERR");
+    }
   });
   server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
     if (uncompress) {
@@ -393,21 +407,25 @@ void setupwifi(int num) {
     }
   });
   server.on("/getjobs", HTTP_GET, []() {
-    String str = "[";
-    Dir dir = SPIFFS.openDir("/");
-    while (dir.next()) {
-      String s = dir.fileName();
-      if (s.endsWith(".gcode")) {
-        if (str.length() > 2)str += ",";
-        str += "['";
-        str += dir.fileName();
-        str += "',";
-        str += dir.fileSize();
-        str += "]";
+    if (!uncompress) {
+      String str = "[";
+      Dir dir = SPIFFS.openDir("/");
+      while (dir.next()) {
+        String s = dir.fileName();
+        if (s.endsWith(".gcode")) {
+          if (str.length() > 2)str += ",";
+          str += "['";
+          str += dir.fileName();
+          str += "',";
+          str += dir.fileSize();
+          str += "]";
+        }
       }
+      str += "]";
+      server.send(200, "text/plain", str);
+    } else {
+      server.send(200, "text/plain", "ERR");
     }
-    str += "]";
-    server.send(200, "text/plain", str);
   });
   server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
     if (!uncompress) {
@@ -428,11 +446,13 @@ void setupwifi(int num) {
   });
   server.on("/jogmove", HTTP_GET, []() {                 // if the client requests the upload page
     server.send ( 200, "text/html", "OK");
-    float x, y, z;
-    x = server.arg("x").toFloat();
-    y = server.arg("y").toFloat();
-    z = server.arg("z").toFloat();
-    addmove(100, x, y, z, 0, 1, 1);
+    if (!uncompress) {
+      float x, y, z;
+      x = server.arg("x").toFloat();
+      y = server.arg("y").toFloat();
+      z = server.arg("z").toFloat();
+      addmove(100, x, y, z, 0, 1, 1);
+    }
   });
   server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
     int temp = 0;
@@ -788,88 +808,70 @@ char gcode_loop() {
 
       =========================================================================================================================================================
   */
-  int32_t zz;
-#ifdef timing
-  uint32_t t1 = micros();
-  if (motionloop())
-  {
-    uint32_t t2 = micros() - t1;
-    tmax = fmax(t2, tmax);
-    tmin = fmin(t2, tmin);
 
-    if (ct++ > 1) {
-      zprintf(PSTR("%d %dus\n"), fi(tmin), fi(tmax));
-      tmax = 0;
-      tmin = 1000;
-      ct = 0;
-    }
-  }
-#else
-  //for (int i = 0; i < 5; i++) {
-  //  if (!motionloop())break;
-  //}
   motionloop();
-#endif
   servo_loop();
-  if (ack_waiting) {
-    zprintf(PSTR("ok\n"));
-    ack_waiting = 0;
-    n = 1;
-  }
-
 
   char c = 0;
-  // wifi are first class
-#ifdef WIFISERVER
-  if (buf_canread(wf)) {
-    buf_pop(wf, c);
-  } else
-#endif
   {
-    if (serialav())
+    if (ack_waiting) {
+      zprintf(PSTR("ok\n"));
+      ack_waiting = 0;
+      n = 1;
+    }
+    // wifi are first class
+#ifdef WIFISERVER
+    if (buf_canread(wf)) {
+      buf_pop(wf, c);
+    } else
+#endif
     {
-      if (n) {
-        gt = micros();
-        n = 0;
+      if (serialav())
+      {
+        if (n) {
+          gt = micros();
+          n = 0;
+        }
+        serialrd(c);
       }
-      serialrd(c);
     }
-  }
 #ifdef USE_SDCARD
-  if (sdcardok == 2) {
-    // read from the file until there's nothing else in it:
-    if (myFile.available()) {
-      c = myFile.read();
-      //myFile.write(c);
-    } else {
-      // close the file:
+    if (sdcardok == 2) {
+      // read from the file until there's nothing else in it:
+      if (myFile.available()) {
+        c = myFile.read();
+        //myFile.write(c);
+      } else {
+        // close the file:
 #ifdef POWERFAILURE
-      eepromwrite(EE_lastline, fi(0));
+        eepromwrite(EE_lastline, fi(0));
 #endif
-      myFile.close();
-      sdcardok = 0;
-      zprintf(PSTR("Done\n"));
-      c = 0;
+        myFile.close();
+        sdcardok = 0;
+        zprintf(PSTR("Done\n"));
+        c = 0;
+      }
     }
-  }
 #endif
 
-  if (c) {
-    if (c == '\n') {
-      lineprocess++;
-    }
+    if (c) {
+      if (c == '\n') {
+        lineprocess++;
+      }
 
-    //#define echoserial
+      //#define echoserial
 #ifdef echoserial
-    serialwr(c);
+      serialwr(c);
 #endif
-    line_done = gcode_parse_char(c);
-    if (line_done) {
-      ack_waiting = line_done - 1;
+      line_done = gcode_parse_char(c);
+      if (line_done) {
+        ack_waiting = line_done - 1;
 #ifdef timingG
-      zprintf(PSTR("Gcode:%dus\n"), fi(micros() - gt));
+        zprintf(PSTR("Gcode:%dus\n"), fi(micros() - gt));
 #endif
+      }
     }
+    //motionloop();
   }
 #else
 #endif
@@ -900,7 +902,7 @@ void setupother() {
   timer_init();
 #endif
   // important for KARYACNC to know the scale
-  zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
+  zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
 #ifdef WIFISERVER
   setupwifi(0);
 #endif
@@ -930,7 +932,6 @@ void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
   serialinit(BAUDRATE); //115200);
-  LASER(!LASERON);
   t1 = millis();
   //while (!Serial.available())continue;
 #ifndef DELAYEDSETUP
@@ -951,6 +952,9 @@ void loop() {
     display_loop();
 #ifdef ESP8266
     wifi_loop();
+#ifdef FASTBUFFERFILL
+    for (int ff = FASTBUFFERFILL + 1; ff; ff--)
+#endif
     if (c == 0)uncompress_loop();
 #endif
   }

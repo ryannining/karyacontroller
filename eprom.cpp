@@ -35,7 +35,7 @@ float EEMEM EE_xstepmm;
 float EEMEM EE_ystepmm;
 float EEMEM EE_zstepmm;
 float EEMEM EE_estepmm;
-float EEMEM EE_xyscale;
+float EEMEM EE_Lscale;
 
 #ifdef USE_BACKLASH
 int32_t EEMEM EE_xbacklash;
@@ -107,10 +107,12 @@ void reload_eeprom() {
   homingspeed = eepromread(EE_homing);
   zcorner = fmin(homingspeed / 3, xycorner);
   zjerk = xyjerk * zcorner / xycorner;
-
+  #ifndef MYLASER
   CNCMODE = ((ax_home[0] + ax_home[1] + ax_home[2] == 0) && (xycorner <= 15));
+  #endif
+  
   if (CNCMODE)zprintf(PSTR("CNCMODE\n"));
-  xyscale = (float)eepromread(EE_xyscale) * 0.001;
+  Lscale = (float)eepromread(EE_Lscale) * 0.001;
 #ifdef NONLINEAR
   delta_radius = (float)eepromread(EE_hor_radius)   * 0.001;
   delta_diagonal_rod = (float)eepromread(EE_rod_length)   * 0.001;
@@ -179,7 +181,7 @@ void reset_eeprom() {
 
   eepromwrite(EE_homing, homingspeed);
   eepromwrite(EE_corner, xycorner);
-  eepromwrite(EE_xyscale, ff(xyscale));
+  eepromwrite(EE_Lscale, ff(Lscale));
 #ifdef NONLINEAR
   eepromwrite(EE_hor_radius, ff(delta_radius));
   eepromwrite(EE_rod_length, ff(delta_diagonal_rod));

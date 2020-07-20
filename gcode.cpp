@@ -11,6 +11,7 @@
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <FS.h>   // Include the SPIFFS library
+File fme;
 
 //#include <WiFi.h>
 //#include <WiFiClient.h>
@@ -424,7 +425,7 @@ void printposition()
 }
 void printbufflen()
 {
-  zprintf(PSTR("Buf:%d\n"), fi(bufflen()));
+  zprintf(PSTR("Buf:%d\n"), fi(bufflen));
 
 }
 void pausemachine()
@@ -436,7 +437,6 @@ void pausemachine()
 void stopmachine() {
   RUNNING = 0;
   if (m) {
-    rasterlen = 0;
     waitbufferempty();
     printposition();
     rasterlen = 0;
@@ -502,7 +502,7 @@ static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
 float F0 = 5000;
 float F1 = 2000;
-int S1 = 255;
+uint8_t S1 = 255;
 inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
 {
   if (t->seen_F) {
@@ -533,8 +533,9 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
 int lastG = 0;
 int probex1, probey1;
 int probemode = 0;
-File fme;
+
 void printmeshleveling() {
+#ifdef MESHLEVEL
   for (int j = 0; j <= YCount; j++) {
     for (int i = 0; i <= XCount; i++) {
       if (i)zprintf(PSTR("\t"));
@@ -546,8 +547,10 @@ void printmeshleveling() {
     zprintf(PSTR("\n"));
   }
   zprintf(PSTR("\n\n"));
+#endif
 }
 void loadmeshleveling() {
+#ifdef MESHLEVEL
 #ifdef ESP8266
 #define path "/mesh.dat"
   if (SPIFFS.exists(path)) {
@@ -573,6 +576,7 @@ void loadmeshleveling() {
 #endif
   MESHLEVELING = 1;
   printmeshleveling();
+#endif
 }
 void process_gcode_command()
 {
@@ -661,6 +665,7 @@ void process_gcode_command()
         }
         if (CNCMODE == 0) {
           laserOn = S1 > 0;
+          //zprintf(PSTR("int %d\n"), fi(S1));
           constantlaserVal = S1;
         }
         enqueue(&next_target, 0);
@@ -902,7 +907,6 @@ void process_gcode_command()
         }
         break;
         // manually store probing data
-#endif
       case 31:
         // load meshleveling
         loadmeshleveling();
@@ -937,6 +941,7 @@ void process_gcode_command()
         printmeshleveling();
 #endif
         break;
+#endif
       case 90:
         //? --- G90: Set to Absolute Positioning ---
         //?
@@ -1093,9 +1098,6 @@ void process_gcode_command()
         //zprintf(PSTR("SPINDLE OFF\n"));
         if (next_target.seen_P)CNCMODE = next_target.P;
 #ifndef ISPC
-#ifdef laser_pin
-        //xpinMode(laser_pin, OUTPUT);
-#endif
         if (CNCMODE)goto SPINDLEOFF;
         LASER(!LASERON)
 #endif
@@ -1135,13 +1137,12 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
             delay(next_target.P);
 #endif
             // after some delay turn off laser
-            LASER( !LASERON);
+            LASER(!LASERON);
           } else {
             if (!laserOn) {
               //
               // turn off M3 S0
               waitbufferempty();
-              LASER(!LASERON);
             }
           }
         }
@@ -1197,7 +1198,7 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
 #endif
 #endif
         //zprintf(PSTR("TS:%f\n"), ff(Setpoint));
-        //zprintf(PSTR("B:%d/%d\n"), fi(bufflen()),fi(NUMBUFFER));
+        //zprintf(PSTR("B:%d/%d\n"), fi(bufflen),NUMBUFFER));
         break;
       case 109:
         waitbufferempty();
@@ -1306,7 +1307,7 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
               eprom_wr(67, EE_jerk, S_I);
               eprom_wr(177, EE_homing, S_I);
               eprom_wr(181, EE_corner, S_I);
-              eprom_wr(185, EE_xyscale, S_F);
+              eprom_wr(185, EE_Lscale, S_F);
 #ifdef NONLINEAR
               eprom_wr(157, EE_rod_length, S_F);
               eprom_wr(161, EE_hor_radius, S_F);
@@ -1378,7 +1379,7 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         zprintf(PSTR("EPR:3 51 %d Acl\n"), fi(accel));
         zprintf(PSTR("EPR:3 67 %d Jerk\n"), fi(xyjerk));
         zprintf(PSTR("EPR:3 177 %d HomeF\n"), fi(homingspeed));
-        zprintf(PSTR("EPR:3 185 %f XYscale\n"), ff(xyscale));
+        zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
 #ifdef NONLINEAR
         zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
         zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
