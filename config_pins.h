@@ -6,9 +6,14 @@
 #ifndef CONFIG_PINS
 #define CONFIG_PINS
 //#define SHARE_EZ
+
 #define NUMBUFFER 20
+
+
+
 #include "platform.h"
 #define THEISR
+
 #ifdef ISPC
 #define LOW false
 #define HIGH true
@@ -72,10 +77,11 @@
 // ====== ESP32 ====================================================
 #elif defined(ESP32)
 #define BOARD_ESP32VN3D
-#define THEISR ICACHE_RAM_ATTR
-#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
+#define THEISR IRAM_ATTR
+//#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
 #define EMULATETEMP
-#define BAUDRATE 115200*1
+#define BAUDRATE 115200*2
+#define NUMBUFFER 30
 
 
 // ====== ESP8266 ====================================================
@@ -97,8 +103,8 @@
 //#define BOARD_WEMOS3DCOREXY
 
 //#define BOARD_WEMOSCNC
-//#define MYLASER
-
+#define MYLASER
+//#define LASERMINI
 //#define BOARD_MINICNC_ESP01
 //#define BOARD_WEMOS_XYY_LASER
 //#define BOARD_ESP01CNC_V1
@@ -106,9 +112,9 @@
 #endif
 
 #ifdef MYLASER
-  #undef BOARD_WEMOS3D_COREXY
-  #undef BOARD_WEMOS_CNC_XZYY
-  #define BOARD_WEMOSCNC
+#undef BOARD_WEMOS3D_COREXY
+#undef BOARD_WEMOS_CNC_XZYY
+#define BOARD_WEMOSCNC
 #endif
 
 
@@ -145,6 +151,8 @@
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 //#define WIFISERVER
 //#define TOUCHSERVER
+//#define TRUESCURVE // more complicated calculation for JERK motion smoothing
+
 #endif
 // ==========================================================
 
@@ -161,27 +169,43 @@
 #endif
 
 #if defined(ESP8266)
-	//#define USEOTA
-	//#define TCPSERVER
-	#define WEBSOCKSERVER
-  #define WIFISERVER
+//#define USEOTA
+//#define TCPSERVER
+#define WEBSOCKSERVER
+#define WIFISERVER
 #endif
+
+#if defined(ESP32)
+//#define USEOTA
+//#define TCPSERVER
+#define WIFISERVER
+#define WEBSOCKSERVER  // need wifiserver
+#endif
+
+
 #if defined(__ARM__)
-  #undef MESHLEVEL
+#undef MESHLEVEL
 #endif
 
 #define LASERON LOW
 
 #ifdef MYLASER
-  #define LASERON LOW
-  #undef USEOTA
-  #undef WIFISERVER
-  #undef TCPSERVER
-  #undef WEBSOCKETSERVER
-  #undef heater_pin
-  #undef temp_pin
-  #define NUMBUFFER 40
-  #define BAUDRATE 115200*2
+#define LASERON LOW 
+#define laser_pin D2
+//LOW
+#undef USEOTA
+#undef WIFISERVER
+#undef TCPSERVER
+#undef WEBSOCKETSERVER
+#undef heater_pin
+#undef temp_pin
+#define NUMBUFFER 40
+#define BAUDRATE 115200*2
+#endif
+
+#ifdef LASERMINI
+#define LASERON HIGH 
+#define laser_pin D1
 #endif
 
 //#define NUMBUFFER 50
@@ -224,7 +248,7 @@
 #endif
 
 
-#ifndef ESP8266
+#if defined(__AVR__) || defined (__ARM__)
 #undef WIFISERVER
 
 #endif

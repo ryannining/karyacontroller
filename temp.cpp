@@ -9,8 +9,8 @@
 #ifdef EMULATETEMP
 #undef ISRTEMP
 float emutemp = 30;
-float HEATINGSCALE = 1;
 #endif
+float HEATINGSCALE = 1;
 
 
 
@@ -283,4 +283,3 @@ void temp_loop(uint32_t cm)
 {
 }
 #endif
-

@@ -3,12 +3,12 @@
 #include <stdint.h>
 #include "motion.h"
 #include "config_pins.h"
-#define X 0
-#define Y 1
-#define Z 2
-#define E 3
-#define E0 3
-#define E1 4
+#define nX 0
+#define nY 1
+#define nZ 2
+#define nE 3
+#define nE0 3
+#define nE1 4
 
 //#define DEBUG
 

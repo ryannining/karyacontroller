@@ -3,6 +3,7 @@
 
 #include "platform.h"
 #include "common.h"
+#include "timer.h"
 
 
 
@@ -11,24 +12,30 @@
 
 #define eepromread(p) eeprom_read_dword((uint32_t)&p)
 #define eepromwrite(p,val) eeprom_write_dword((uint32_t)&p,(int32_t)val)
-#define eepromcommit
+#define eepromcommit()
 #define eeprominit
 
-#elif defined(ESP8266) ///end avr
+#elif defined(ESP8266) || defined(ESP32) ///end avr
 
 #include <EEPROM.h>
+#define EEPROM_SIZE 512
 #define EEMEM
+
 #define eepromwrite(p,val) EEPROM.put(p, (int32_t)val)
+
 static int32_t eepromread(int p) {
   int32_t val;
   EEPROM.get(p, val);
+  //EEPROM.read(p+1, val);
   return val;
 }
 static void  eepromwritestring(int p, char* str) {
   byte l = strlen(str);
+  //EEPROM.write(p, l);
   EEPROM.put(p, l);
   for (int i = 0; i < l; i++) {
     p++;
+    //EEPROM.write(p, str[i]);
     EEPROM.put(p, str[i]);
   }
 }
@@ -45,9 +52,14 @@ static void  eepromreadstring(int p, char* str, int len) {
   }
   str[l] = 0;
 }
+static void eepromcommit() {
+  timerPause();
+  //zprintf(PSTR("Commit\n"));
+  EEPROM.commit();
+  timerResume();
+}
 
-#define eepromcommit EEPROM.commit()
-#define eeprominit EEPROM.begin(512);
+#define eeprominit EEPROM.begin(512)
 
 #elif defined(__ARM__) // esp8266
 #include <EEPROM.h>
@@ -81,7 +93,7 @@ static void eepromwrite(int p, int32_t val)
   zprintf(PSTR("Write eeprom %d %d\n"), fi(p), fi(val));
 }
 
-#define eepromcommit
+#define eepromcommit()
 
 #ifdef _VARIANT_ARDUINO_STM32_
 #define eeprominit

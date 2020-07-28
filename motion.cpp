@@ -50,6 +50,12 @@
 #define DIRDELAY 4 // usec
 #endif // esp
 
+#ifdef  ESP32
+#define CLOCKCONSTANT 80000000.f        // tick/seconds
+#define DSCALE 0   // use 5Mhz timer shift 0bit
+#define DIRDELAY 4 // usec
+#endif // esp
+
 #else // usetimer1
 #define CLOCKCONSTANT 1000000.f        // tick/seconds
 
@@ -87,7 +93,7 @@ int8_t ishoming;
 float axisofs[4] = {0, 0, 0, 0};
 float F_SCALE = 1;
 int8_t RUNNING = 1;
-int8_t PAUSE = 0; uint32_t PAUSEadd = 0;
+int8_t PAUSE = 0;
 float stepmmx[4];
 int odir[4] = {1, 1, 1, 1};
 float retract_in, retract_out;
@@ -187,7 +193,7 @@ void init_home_input() {};
 void close_home_input() {};
 #else
 int home_cnt = 0;
-void home_input() {
+void THEISR home_input() {
   home_cnt++;
   // tap home 3 times to start printing
 }
@@ -197,7 +203,6 @@ void init_home_input() {
 }
 void close_home_input() {
   detachInterrupt(digitalPinToInterrupt(limit_pin));
-
 }
 
 #endif
@@ -256,12 +261,12 @@ void reset_motion()
   maxf[MX] = XMAXFEEDRATE;
   maxf[MY] = YMAXFEEDRATE;
   maxf[MZ] = ZMAXFEEDRATE;
-  maxf[E] = E0MAXFEEDRATE;
+  maxf[nE] = E0MAXFEEDRATE;
 
   maxa[MX] = XACCELL;
   maxa[MY] = XACCELL * YMAXFEEDRATE / XMAXFEEDRATE;
   maxa[MZ] = XACCELL * ZMAXFEEDRATE / XMAXFEEDRATE;
-  maxa[E] = XACCELL;
+  maxa[nE] = XACCELL;
 
 
   accel = XACCELL;
@@ -271,12 +276,12 @@ void reset_motion()
   stepmmx[MX] = fabs(XSTEPPERMM);
   stepmmx[MY] = fabs(YSTEPPERMM);
   stepmmx[MZ] = fabs(ZSTEPPERMM);
-  stepmmx[E] = fabs(E0STEPPERMM);
+  stepmmx[nE] = fabs(E0STEPPERMM);
 
   odir[MX] = XSTEPPERMM < 0 ? -1 : 1;
   odir[MY] = YSTEPPERMM < 0 ? -1 : 1;
   odir[MZ] = ZSTEPPERMM < 0 ? -1 : 1;
-  odir[E] = E0STEPPERMM < 0 ? -1 : 1;
+  odir[nE] = E0STEPPERMM < 0 ? -1 : 1;
 
 
   ax_home[MX] = XMAX;
@@ -286,7 +291,7 @@ void reset_motion()
   xback[MX] = MOTOR_X_BACKLASH;
   xback[MY] = MOTOR_Y_BACKLASH;
   xback[MZ] = MOTOR_Z_BACKLASH;
-  xback[E] = MOTOR_E_BACKLASH;
+  xback[nE] = MOTOR_E_BACKLASH;
 
 #endif
 }
@@ -369,7 +374,7 @@ int32_t rampseg, rampup, rampdown;
 #ifdef __AVR__
 #define NUMCMDBUF 100
 #else
-#define NUMCMDBUF 300
+#define NUMCMDBUF 200
 #endif
 
 
@@ -388,7 +393,7 @@ static int8_t mo = 0;
 
 static volatile int nextok = 0, laserwason = 0;
 
-int sendwait = 0;
+int sendwait = 0; int delaywait = 1;
 
 // we must interpolate delay here, between 10 steps
 int ldelay = 0;
@@ -419,7 +424,6 @@ static void pushcmd()
   }
 
 }
-int nodeinbuffer = 0;
 void newdircommand(int laserval)
 {
   // change dir command
@@ -437,7 +441,6 @@ void newdircommand(int laserval)
   if (bsdx[3] > 0)cmd0 |= 256;
   ldelay = 0;
   pushcmd();
-  nodeinbuffer++;
 
 }
 
@@ -818,7 +821,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   // calculate the delta, and direction
 
 #ifdef SHARE_EZ
-  // if delta[Z] is not same direction with delta[E] then
+  // if delta[nZ] is not same direction with delta[nE] then
   //  if (cz2 != cz1) ce02 = ce01; // zeroing the E movement if Z is moving and ZE share direction pin
 #define delt(i) x2[i]*odir[i]
   if ((delt(2) != 0) && (delt(2)*delt(3) < 0)) {
@@ -1011,7 +1014,7 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
     float ny = cy + r_axis1;
     ne += extruder_per_segment;
     nz += z_per_segment;
-    //move.axis[E] = extscaled>>4;
+    //move.axis[nE] = extscaled>>4;
     addmove(cf, nx, ny, nz, ne, 0, 0);
   }
   // Ensure last segment arrives at target location.
@@ -1047,7 +1050,7 @@ void dographics();
   =================================================================================================================================================
 */
 void otherloop(int r);
-uint32_t cm, ocm,  mctr2, dlmin, dlmax, laser_step,cmd_mul;
+uint32_t cm, ocm,  mctr2, dlmin, dlmax, laser_step, cmd_mul;
 int32_t timing = 0;
 
 
@@ -1057,15 +1060,11 @@ static THEISR void decodecmd()
 {
   if (cmdempty) {
     RUNNING = 1;
-    LASER(!LASERON);
+    //LASER(!LASERON);
     return;
   }
 
   // if on pause we need to decelerate until command buffer empty
-  if (PAUSE || (RUNNING == 0)) {
-    PAUSEadd += CLOCKCONSTANT / (10 * NUMCMDBUF);
-    PAUSEadd = fmax(PAUSEadd, CLOCKCONSTANT / 5); // slowest
-  } else PAUSEadd = 0;
 
   // to make sure the overrides speed is gradual, not sudden change
   //if (f_multiplier > f_rmultiplier)f_rmultiplier += 0.005;
@@ -1074,18 +1073,24 @@ static THEISR void decodecmd()
 
   uint32_t cmd = cmddelay[cmtail];
   cmcmd = cmd & 1;
-  if (cmtail & 15==0){
-    // 
-    cmd_mul=0;
-    int bl=cmdlen;
-    
-    if (bl<(NUMCMDBUF/6)) cmd_mul=1;
-    else if (bl<(NUMCMDBUF/5)) cmd_mul=2;
-    else if (bl<(NUMCMDBUF/4)) cmd_mul=3;
-    else if (bl<(NUMCMDBUF/2)) cmd_mul=4;
-    
+  #define SLOWDOWNING
+  
+  #ifdef SLOWDOWNING
+  
+  if (cmtail & 15 == 0) {
+    //
+    cmd_mul = 0;
+    int bl = cmdlen;
+
+    if (bl < (NUMCMDBUF / 6)) cmd_mul = 1;
+    else if (bl < (NUMCMDBUF / 5)) cmd_mul = 2;
+    else if (bl < (NUMCMDBUF / 4)) cmd_mul = 4;
+    else if (bl < (NUMCMDBUF / 2)) cmd_mul = 5;
+
     //zprintf(PSTR("int %d\n"), fi(cmd_mul));
   }
+  #endif
+  
   if (cmcmd) {
     cmbit = (cmd >> 1) & 15;
     // if nothing to move then turn off laser , its end of the move
@@ -1094,7 +1099,6 @@ static THEISR void decodecmd()
     cmdly = (cmd >> 5);
   } else {
     // header command,
-    nodeinbuffer--;
     cmbit = (cmd >> 1) & 255;
     cmdly = DIRDELAY;
 
@@ -1108,12 +1112,14 @@ static THEISR void decodecmd()
       }
     }
   }
-  cmdly = (cmdly + (cmd_mul>0?cmdly>>(cmd_mul):0)) >> DSCALE;
-  LASER(laserwason && !rasterlen ? LASERON : !LASERON);
+  cmdly = (cmdly 
+  #ifdef SLOWDOWNING 
+  +(cmd_mul > 0 ? (cmdly << 1) >> (cmd_mul) : 0)
+  #endif
+  ) >> DSCALE;
+  if (!cmcmd || laser_step)LASER(laserwason ? LASERON : !LASERON);
   nextok = 1;
   cmtail = nextbuffm(cmtail);
-  cmdly += PAUSEadd;
-  //cmdly += PAUSEadd;
 
 #ifdef USETIMER1
   timer_set2(cmdly, laser_step);
@@ -1423,7 +1429,7 @@ int coreloop1()
         cy1 = m->dtx[1] - p * m->dx[1] / Cstepmmx(1);
         cz1 = m->dtx[2] - p * m->dx[2] / Cstepmmx(2);
         ce01 = m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
-        zprintf(PSTR("Stopped!\n"));
+        zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
 #endif
       }
       endstopstatus = 0;
@@ -1513,7 +1519,7 @@ void otherloop(int r)
   }
 #endif // motortimeout
 
-#ifdef ESP8266
+#if defined(ESP32) || defined(ESP8266)
   feedthedog();
 #endif
 
@@ -1522,10 +1528,12 @@ void otherloop(int r)
 
   if (!wait_for_temp && !ishoming) {
     if (sendwait > 0) {
-      sendwait--;
-      if (sendwait == 1) {
+      sendwait -= delaywait;
+      if (sendwait <= 0) {
         zprintf(PSTR("wait\n"));
+        delaywait = 1;
         prevacc = 0;
+        
         RUNNING = 1;
       }
     }
@@ -1642,7 +1650,8 @@ void calculate_delta_steps()
   //zprintf(PSTR(" %d\n"),fi(dln));
 #endif
   //
-  stepdivL = stepdiv2 * 0.0001 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
+  //stepdivL = stepdiv2 * 0.0001 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
+  stepdivL = 5 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
   mctr = totalstep ;
   newdircommand(!isG0 ? m->laserval : 0);
   //zprintf(PSTR("int %d\n"), fi(m->laserval));
@@ -1656,7 +1665,6 @@ int empty1 = 0;
 int32_t startmove()
 {
   if (!RUNNING)return 0;
-  //if (nodeinbuffer>4)return 0;
   if (cmdfull)return 0;
 
   if ((head == tail)) { // if empty buffer then wait a little bit and send "wait"
@@ -1666,14 +1674,19 @@ int32_t startmove()
       empty1 = 1;
     }
     //m = 0; wm = 0; mctr = 0; // thi cause bug on homing delta
-    if (!sendwait && (cmdempty)) {
+    if (!cmdempty) {
+      delaywait = 20;
+    } else {
+      if (!sendwait) {
+        LASER(!LASERON);
 
-      // send one time, is buffer is emspy after running
+        // send one time, is buffer is emspy after running
 #ifdef __ARM__
-      sendwait = 300000;
+        sendwait = 100000;
 #else
-      sendwait = 300000;
+        sendwait = 1000000;
 #endif
+      }
     }
     return 0;
   } else empty1 = 0;
@@ -1797,7 +1810,7 @@ int32_t startmove()
 
 #define ENDPIN INPUT_PULLUP
 
-void docheckendstop(int m)
+void THEISR docheckendstop(int m)
 {
 
   // AVR specific code here
@@ -2071,21 +2084,22 @@ void waitbufferempty()
 {
   //if (head != tail)prepareramp(head);
   startmove();
-#ifdef output_enable
+  //#define output_enable1
+#ifdef output_enable1
   zprintf(PSTR("Wait %d\n"), fi(mctr));
 #endif
   MEMORY_BARRIER()
   LOOP_IN(2)
-  domotionloop
   while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0)) { //(tail == otail) //
-
     domotionloop
     servo_loop();
     MEMORY_BARRIER()
-    //zprintf(PSTR("->%d\n"), fi(mctr));
+#ifdef output_enable1
+    zprintf(PSTR("->H%d T%d cH%d cT%d\n"), fi(head), fi(tail), fi(cmhead), fi(cmtail));
+#endif
   }
   LOOP_OUT(2)
-#ifdef output_enable
+#ifdef output_enable1
   zprintf(PSTR("Empty"));
 #endif
 }

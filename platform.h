@@ -20,7 +20,7 @@
 
 #ifdef ESP32
 #warning Detected ESP32
-#define ESP8266
+//#define ESP8266
 #endif
 
 #if defined(__AVR__) || defined(ESP8266)|| defined(ESP32)  || defined (__ARM__)

@@ -1125,16 +1125,16 @@
 #define ystep D3
 
 // z and e have same direction pin, we think that normally slicer never move z and e together.. we hope we right :D
-#define zdirection D6
-#define zstep D0
-#define e0direction D6
-#define e0step D2
+//#define zdirection D6
+//#define zstep D0
+//#define e0direction D6
+//#define e0step D2
 
 #define limit_pin D8
 
 //#define temp_pin A0
 //#define heater_pin D1
-#define heater_pin D1
+//#define heater_pin D1
 #define laser_pin D1
 
 //#define INVERTENDSTOP
@@ -1173,24 +1173,25 @@
 */
 #elif defined(BOARD_ESP32VN3D)
 
-#define xdirection 5
-#define xstep 4
-#define ydirection 7
-#define ystep 3
+#define xdirection 36
+#define xstep 39
+#define ydirection 34
+#define ystep 35
 
 // z and e have same direction pin, we think that normally slicer never move z and e together.. we hope we right :D
-#define zdirection 6
-#define zstep 0
-#define e0direction 6
-#define e0step 2
+#define zdirection 32
+#define zstep 33
+#define e0direction 25
+#define e0step 26
 
-#define limit_pin 8
+#define limit_pin 27
 
-#define temp_pin 0
-#define heater_pin 1
+//#define temp_pin 0
+#define heater_pin 14
+#define laser_pin 14
 
 #define INVERTENDSTOP
-#define NUMBUFFER 20
+#define NUMBUFFER 50
 /*
   ============================================================================================
      NANONANO_WEMOS

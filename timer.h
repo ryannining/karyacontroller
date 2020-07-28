@@ -11,10 +11,12 @@ extern int feedthedog();
 #ifdef ISPC
 extern uint32_t micros();
 #else
+
 #if defined(ESP8266) && defined(WIFISERVER)
 #define usetmr1
 #define TEMPTICK 100000 //100ms
 #endif
+
 #endif // ISPC
 
 #define SUBMOTION 1
@@ -61,4 +63,13 @@ extern void servo_set(int us);
 #define MEMORY_BARRIER()
 #define ATOMIC_START
 #define ATOMIC_END
+#endif
+
+#ifdef xESP32
+extern void THEISR timerPause();
+extern void THEISR timerResume();
+
+#else
+#define timerPause()
+#define timerResume()
 #endif

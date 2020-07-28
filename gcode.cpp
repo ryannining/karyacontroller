@@ -8,24 +8,42 @@
 #include "eprom.h"
 #include "gcodesave.h"
 
+#if defined(ESP32) || defined(ESP8266)
+
+// ==========================
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <FS.h>   // Include the SPIFFS library
-File fme;
-
-//#include <WiFi.h>
-//#include <WiFiClient.h>
+// ==========================
+#elif ESP32
+#include <WiFi.h>
+#include "SPIFFS.h"
+// ==========================
 #endif
 
-#if defined(USE_SDCARD) && defined(SDCARD_CS)
+
+//#include <WiFiClient.h>
+File fme;
+
+extern IPAddress ip ;
+
+#endif
+
+#if defined(USE_SDCARD) && defined( _CS)
 // generic sdcard add about 800uint8_t ram and 8kb code
+
+//================
 #ifdef ESP8266 || __ARM__
 #include "SdFat.h"
 SdFat SD;
+//================
 #else
 #include "SdFat.h"
 SdFat SD;
+//================
 #endif
+
+
 #endif
 int32_t linecount, lineprocess;
 #if defined(USE_SDCARD) && defined(SDCARD_CS)
@@ -36,7 +54,7 @@ const uint8_t SD_CS_PIN = SDCARD_CS;
 File myFile;
 void demoSD()
 {
-#ifdef ESP8266
+#if defined( ESP8266) || defined(ESP32)
   if (!SD.begin(SD_CS_PIN)) {
 #else
   if (!SD.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
@@ -175,10 +193,10 @@ int reset_command() {
   read_digit.sign = read_digit.mantissa = read_digit.exponent = 0;
 
   if (next_target.option_all_relative) {
-    next_target.target.axis[X] = next_target.target.axis[Y] = next_target.target.axis[Z] = 0;
+    next_target.target.axis[nX] = next_target.target.axis[nY] = next_target.target.axis[nZ] = 0;
   }
   if (next_target.option_all_relative || next_target.option_e_relative) {
-    next_target.target.axis[E] = 0;
+    next_target.target.axis[nE] = 0;
   }
   return ok;
 }
@@ -214,13 +232,13 @@ uint8_t gcode_parse_char(uint8_t c)
           break;
         case 'X':
 
-          next_target.target.axis[X] = decfloat_to_float();
+          next_target.target.axis[nX] = decfloat_to_float();
           break;
         case 'Y':
-          next_target.target.axis[Y] = decfloat_to_float();
+          next_target.target.axis[nY] = decfloat_to_float();
           break;
         case 'Z':
-          next_target.target.axis[Z] = decfloat_to_float();
+          next_target.target.axis[nZ] = decfloat_to_float();
           break;
 #ifdef ARC_SUPPORT
         case 'I':
@@ -234,7 +252,7 @@ uint8_t gcode_parse_char(uint8_t c)
           break;
 #endif
         case 'E':
-          next_target.target.axis[E] = decfloat_to_float();
+          next_target.target.axis[nE] = decfloat_to_float();
           break;
         case 'F':
           // just use raw integer, we need move distance and n_steps to convert it to a useful value, so wait until we have those to convert it
@@ -376,7 +394,7 @@ uint8_t gcode_parse_char(uint8_t c)
   } //else if ( next_target.seen_parens_comment == 1 && c == ')')
   else {
     // store string in g_str  from gcode example M206 P450 [ryan widi]
-    if (c == ']') {
+    if (c == ']' || c == 10 || c == 13) {
       g_str[g_str_c] = 0;
       next_target.read_string = 0;
     } else {
@@ -509,10 +527,10 @@ inline void enqueue(GCODE_COMMAND *t, int g0 = 1)
     if (g0)F0 = t->target.F; else F1 = t->target.F;
   }
 
-  amove(g0 ? F0 : F1, t->seen_X ? t->target.axis[X] : cx1
-        , t->seen_Y ? t->target.axis[Y] : cy1
-        , t->seen_Z ? t->target.axis[Z] : ocz1
-        , t->seen_E ? t->target.axis[E] : ce01
+  amove(g0 ? F0 : F1, t->seen_X ? t->target.axis[nX] : cx1
+        , t->seen_Y ? t->target.axis[nY] : cy1
+        , t->seen_Z ? t->target.axis[nZ] : ocz1
+        , t->seen_E ? t->target.axis[nE] : ce01
         , g0, 0);
 }
 #ifdef ARC_SUPPORT
@@ -523,10 +541,10 @@ inline void enqueuearc(GCODE_COMMAND *t, float I, float J, int cw)
   if (t->seen_F) {
     F1 = t->target.F;
   }
-  draw_arc(F1, t->seen_X ? t->target.axis[X] : cx1
-           , t->seen_Y ? t->target.axis[Y] : cy1
-           , t->seen_Z ? t->target.axis[Z] : ocz1
-           , t->seen_E ? t->target.axis[E] : ce01
+  draw_arc(F1, t->seen_X ? t->target.axis[nX] : cx1
+           , t->seen_Y ? t->target.axis[nY] : cy1
+           , t->seen_Z ? t->target.axis[nZ] : ocz1
+           , t->seen_E ? t->target.axis[nE] : ce01
            , I, J, cw);
 }
 #endif
@@ -551,7 +569,7 @@ void printmeshleveling() {
 }
 void loadmeshleveling() {
 #ifdef MESHLEVEL
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
 #define path "/mesh.dat"
   if (SPIFFS.exists(path)) {
     fme = SPIFFS.open(path, "r");
@@ -584,10 +602,10 @@ void process_gcode_command()
 
   // convert relative to absolute
   if (next_target.option_all_relative) {
-    next_target.target.axis[X] += cx1;//startpoint.axis[X];
-    next_target.target.axis[Y] += cy1;//startpoint.axis[Y];
-    next_target.target.axis[Z] += ocz1;//startpoint.axis[Z];
-    next_target.target.axis[E] += ce01;//startpoint.axis[Z];
+    next_target.target.axis[nX] += cx1;//startpoint.axis[nX];
+    next_target.target.axis[nY] += cy1;//startpoint.axis[nY];
+    next_target.target.axis[nZ] += ocz1;//startpoint.axis[nZ];
+    next_target.target.axis[nE] += ce01;//startpoint.axis[nZ];
   }
 
   // E relative movement.
@@ -598,12 +616,12 @@ void process_gcode_command()
     next_target.target.e_relative = 0;
 
   // The GCode documentation was taken from http://reprap.org/wiki/Gcode .
-#ifdef ESP8266
+#if defined(ESP32) || defined(ESP8266)
   if (compress_loop()) {
-    cx1 = next_target.target.axis[X]; //startpoint.axis[X];
-    cy1 = next_target.target.axis[Y]; //startpoint.axis[Y];
-    ocz1 = next_target.target.axis[Z]; //startpoint.axis[Z];
-    ce01 = next_target.target.axis[E]; //startpoint.axis[Z];
+    cx1 = next_target.target.axis[nX]; //startpoint.axis[nX];
+    cy1 = next_target.target.axis[nY]; //startpoint.axis[nY];
+    ocz1 = next_target.target.axis[nZ]; //startpoint.axis[nZ];
+    ce01 = next_target.target.axis[nE]; //startpoint.axis[nE];
     return;
   }
 #endif
@@ -656,7 +674,7 @@ void process_gcode_command()
         //?
         //? Go in a straight line from the current (X, Y) point to the point (90.6, 13.8), extruding material as the move happens from the current extruded length to a length of 22.4 mm.
         //?
-        //next_target.target.axis[E]=0;
+        //next_target.target.axis[nE]=0;
         // auto retraction change
 
         // thread S parameter as value of the laser, in 3D printer, donot use S in G1 !!
@@ -689,8 +707,8 @@ void process_gcode_command()
 #define isCW (next_target.G == 2)
         if (next_target.seen_R) {
           float r = next_target.R;
-          float x = next_target.seen_X ? next_target.target.axis[X] - cx1 : 0;
-          float y = next_target.seen_Y ? next_target.target.axis[Y] - cy1 : 0;
+          float x = next_target.seen_X ? next_target.target.axis[nX] - cx1 : 0;
+          float y = next_target.seen_Y ? next_target.target.axis[nY] - cy1 : 0;
 
           float h_x2_div_d = 4 * r * r - x * x - y * y;
           if (h_x2_div_d < 0) {
@@ -795,10 +813,10 @@ void process_gcode_command()
         break;
       case 28:
         homing();
-        next_target.target.axis[X] = cx1;
-        next_target.target.axis[Y] = cy1;
-        next_target.target.axis[Z] = ocz1;
-        next_target.target.axis[E] = ce01;
+        next_target.target.axis[nX] = cx1;
+        next_target.target.axis[nY] = cy1;
+        next_target.target.axis[nZ] = ocz1;
+        next_target.target.axis[nE] = ce01;
         printposition();
         break;
 #ifdef MESHLEVEL
@@ -826,8 +844,8 @@ void process_gcode_command()
           //float probez1 = ocz1;
           // move up before probing
           //addmove(8000, probex1 , probey1 , ocz1 + 15, ce01, 0, 0);
-          int ww = next_target.target.axis[X];
-          int hh = next_target.target.axis[Y];
+          int ww = next_target.target.axis[nX];
+          int hh = next_target.target.axis[nY];
           XCount = floor(ww / w) + 2; // 150/200 = 0 + 2 = 2
           YCount = floor(hh / w) + 2; // 50/200 = 0 + 2 = 2
           int dx = ww / (XCount - 1); // 150/1 = 150
@@ -843,26 +861,26 @@ void process_gcode_command()
               int i = ii;
               if (j & 1 == 1)i = YCount - 1 - ii;
 
-              int lz,zz,good,gz;
-              good=0;
-              gz=0;
-              lz = 10*pointProbing();
-              
-              while (good<3){
-              addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
+              int lz, zz, good, gz;
+              good = 0;
+              gz = 0;
+              lz = 10 * pointProbing();
 
-                zz = 10*pointProbing();
-                if (abs(zz-lz)<3){
+              while (good < 3) {
+                addmove(8000, probex1 + j * dx, probey1 + i * dy, ocz1, ce01, 0, 0);
+
+                zz = 10 * pointProbing();
+                if (abs(zz - lz) < 3) {
                   good++;
-                  gz+=zz;
+                  gz += zz;
                 }
-                lz = zz;                
+                lz = zz;
               }
-              ZValues[j + 1][i + 1] = gz/good; // average good z
+              ZValues[j + 1][i + 1] = gz / good; // average good z
 
             }
 #ifdef TCPSERVER
-              wifi_loop();
+            wifi_loop();
 #endif
           }
           zmin = ZValues[1][1];
@@ -885,7 +903,7 @@ void process_gcode_command()
           cz1 = 0;
           printposition();
           MESHLEVELING = 1;
-#ifdef ESP8266
+#if defined(ESP32) || defined(ESP8266)
           fme = SPIFFS.open("/mesh.dat", "w");
           fme.write((uint8_t *)&XCount, sizeof XCount);
           fme.write((uint8_t *)&YCount, sizeof YCount);
@@ -896,17 +914,17 @@ void process_gcode_command()
         } else {
 
           MESHLEVELING = 0;
-          if (!next_target.seen_X)next_target.target.axis[X] = cx1;
-          if (!next_target.seen_Y)next_target.target.axis[Y] = cy1;
-          //zprintf(PSTR("PR X=%f Y=%f :"), ff(next_target.target.axis[X]), ff(next_target.target.axis[Y]));
-          addmove(4000, next_target.target.axis[X], next_target.target.axis[Y], ocz1, ce01, 1, 0);
+          if (!next_target.seen_X)next_target.target.axis[nX] = cx1;
+          if (!next_target.seen_Y)next_target.target.axis[nY] = cy1;
+          //zprintf(PSTR("PR X=%f Y=%f :"), ff(next_target.target.axis[nX]), ff(next_target.target.axis[nY]));
+          addmove(4000, next_target.target.axis[nX], next_target.target.axis[nY], ocz1, ce01, 1, 0);
 
           float zz = pointProbing();
           zprintf(PSTR("%f\n"), ff(zz));
 
         }
         break;
-        // manually store probing data
+      // manually store probing data
       case 31:
         // load meshleveling
         loadmeshleveling();
@@ -914,14 +932,14 @@ void process_gcode_command()
       case 32:
         // load meshleveling
         int ii;
-        ii=next_target.target.axis[Y];
+        ii = next_target.target.axis[nY];
         int jj;
-        jj=next_target.target.axis[X];
-        ZValues[jj][ii] = next_target.target.axis[Z];
+        jj = next_target.target.axis[nX];
+        ZValues[jj][ii] = next_target.target.axis[nZ];
         printmeshleveling();
         break;
       case 33:
-#ifdef ESP8266
+#if defined(ESP32) || defined(ESP8266)
         int zmin;
         zmin = ZValues[1][1];
 
@@ -986,27 +1004,27 @@ void process_gcode_command()
         float ly;
         ly = cy1;
         if (next_target.seen_X) {
-          cx1 = next_target.target.axis[X];
+          cx1 = next_target.target.axis[nX];
           axisSelected = 1;
         };
         if (next_target.seen_Y) {
-          cy1 = next_target.target.axis[Y];
+          cy1 = next_target.target.axis[nY];
           axisSelected = 1;
         };
         if (next_target.seen_Z) {
-          cz1 = ocz1 = next_target.target.axis[Z];
+          cz1 = ocz1 = next_target.target.axis[nZ];
           axisSelected = 1;
         };
         if (next_target.seen_E) {
-          lastE = ce01 = next_target.target.axis[E];
+          lastE = ce01 = next_target.target.axis[nE];
           axisSelected = 1;
         };
 
         if (axisSelected == 0) {
-          cx1 = next_target.target.axis[X] =
-                  cy1 = next_target.target.axis[Y] =
-                          cz1 = ocz1 = next_target.target.axis[Z] =
-                                         ce01 = next_target.target.axis[E] = 0;
+          cx1 = next_target.target.axis[nX] =
+                  cy1 = next_target.target.axis[nY] =
+                          cz1 = ocz1 = next_target.target.axis[nZ] =
+                                         ce01 = next_target.target.axis[nE] = 0;
         }
         init_pos();
         /*if (MESHLEVELING) {
@@ -1276,7 +1294,7 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         // unknown mcode: spit an error
 #ifdef USE_EEPROM
       case 206:
-        if (next_target.seen_X)next_target.S = next_target.target.axis[X];
+        if (next_target.seen_X)next_target.S = next_target.target.axis[nX];
         int32_t S_F;
         S_F = (next_target.S * 1000);
         int32_t S_I;
@@ -1326,7 +1344,7 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
               eprom_wr(324, EE_pid_d, S_F);
               eprom_wr(328, EE_pid_bang, S_F);
               eprom_wr(340, EE_pid_HS, S_F);
-#if defined(ESP8266)
+#if defined(ESP32) || defined(ESP8266)
               eprom_wr(380, EE_gcode, S_I);
 #endif
               eprom_wr(332, EE_ext_adv, S_F);
@@ -1424,7 +1442,6 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
       case 504:
 
         zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
-        extern IPAddress ip ;
         zprintf(PSTR("%d.%d.%d.%d\n"), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]));
         //zprintf(PSTR("NGOPO TO !"));
         break;
@@ -1446,10 +1463,10 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
 
         break;
       case 290: // m290 baby step in X Y Z E in milimeter
-        if (next_target.seen_X) babystep[0] = next_target.target.axis[X] * 1000;
-        if (next_target.seen_Y) babystep[1] = next_target.target.axis[Y] * 1000;
-        if (next_target.seen_Z) babystep[2] = next_target.target.axis[Z] * 1000;
-        if (next_target.seen_E) babystep[3] = next_target.target.axis[E] * 1000;
+        if (next_target.seen_X) babystep[0] = next_target.target.axis[nX] * 1000;
+        if (next_target.seen_Y) babystep[1] = next_target.target.axis[nY] * 1000;
+        if (next_target.seen_Z) babystep[2] = next_target.target.axis[nZ] * 1000;
+        if (next_target.seen_E) babystep[3] = next_target.target.axis[nE] * 1000;
         break;
       case 291:
 #ifdef SUBPIXELMAX
@@ -1480,7 +1497,7 @@ void init_gcode()
   next_target.target.F = 50;
   next_target.option_all_relative = 0;
 #ifdef USE_EEPROM
-  eeprominit
+  eeprominit;
 #endif
 
 }

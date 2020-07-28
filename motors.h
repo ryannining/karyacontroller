@@ -40,10 +40,11 @@ static byte srdata = 0;
 
 //#define pinCommit() digitalWrite(pinlatch,LOW);shiftOut(pindata,pinclock,MSBFIRST,srdata);digitalWrite(pinlatch,HIGH);
 //Fast shiftout ESP8266 D0 as LATCH
+
 #ifdef ESP8266
 #define pinH(pin) GPOS = (1 << pin)
 #define pinL(pin) GPOC = (1 << pin)
-static void pinCommit() {
+static ThEISR void pinCommit() {
   // USE D0 as latch
   GP16O |= 1;
 #define pushbit(i)if (srdata&i)pinH(pindata);else pinL(pindata);pinL(pinclock);pinH(pinclock);
@@ -172,4 +173,3 @@ DUMMYMOTOR(3, 0, 0, 0)
 
 
 #endif //mototh
-

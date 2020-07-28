@@ -4,13 +4,12 @@
 #ifndef MOTION_H
 #define MOTION_H
 
-//#define TRUESCURVE // more complicated calculation for JERK motion smoothing
 
 #define UPDATE_V_EVERY 4 // must be 1<<n  16 =1<<4
 #define DELAYBETWEENSTEP 3
-#define X 0
+#define nX 0
 #define MX 0
-#define E 3
+#define nE 3
 
 // Corner deviation Setting
 //#define FASTBUFFERFILL 10 // if need faster buffer filling.
@@ -24,13 +23,13 @@
 #ifdef DRIVE_XYYZ
   #define MZ 1
   #define MY 2
-  #define Y 2
-  #define Z 1
+  #define nY 2
+  #define nZ 1
 #else
   #define MZ 2
   #define MY 1
-  #define Y 1
-  #define Z 2
+  #define nY 1
+  #define nZ 2
 #endif
 
 #define D_CARTESIAN 0

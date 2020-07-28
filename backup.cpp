@@ -15,7 +15,7 @@
   int32_t dist;
 
   // deltas
-  dist = approx_distance(labs(cx2 - cx1), labs(cy2 - cy1)); //,labs(diff.axis[Z]));
+  dist = approx_distance(labs(cx2 - cx1), labs(cy2 - cy1)); //,labs(diff.axis[nZ]));
   if (dist < 2) {
     addmove(cf, cx2, cy2, cz2, ce02, g0, rel);
     return;
@@ -32,7 +32,7 @@
   int segment_total = dist;
   zprintf(PSTR("Dist:%d Segmen:%d\n"), fi(dist), fi(segment_total));
 
-  if ((df[X] == 0 && df[Y] == 0))
+  if ((df[nX] == 0 && df[nY] == 0))
   {
     addmove(cf, cx2, cy2, cz2, ce02, g0, rel);
     return;
@@ -158,7 +158,7 @@
 
   #define preprampdebug
   tmove *m, *next;
-  m = &move[bpos];
+  m = &moves[bpos];
   //if (m->status & 4)return; // already calculated
 
   int faxis = FASTAXIS(m);
@@ -171,7 +171,7 @@
   float stepb = stepa;//stepmm / (m->ac);//(accel); // deceleration always use the feed accell
   CORELOOP
   if (bpos != (head)) {
-    next = &move[nextbuff(bpos)];
+    next = &moves[nextbuff(bpos)];
     fe = next->fs;
   } else fe = 0;
   rampup = rampdown = 0;

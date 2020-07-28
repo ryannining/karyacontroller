@@ -29,15 +29,29 @@
 
 */
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
 #define fdebug
-#include <ESP8266WiFi.h>
+
 #include <WiFiClient.h>
+
+
+#ifdef ESP32
+#include <WiFi.h>
+#include <SPIFFS.h>   // Include the SPIFFS library
+#elif ESP8266
+#include <ESP8266WiFi.h>
+#endif
+
 
 #include <FS.h>   // Include the SPIFFS library
 #include "gcode.h"   // Include the SPIFFS library
 #include "eprom.h"   // Include the SPIFFS library
 #include "common.h"   // Include the SPIFFS library
+#include "timer.h"   // Include the SPIFFS library
+
+#define NOINTS timerPause();
+#define INTS timerResume();
+
 File fsGcode;
 extern GCODE_COMMAND next_target;
 int cntg28;
@@ -131,22 +145,22 @@ void addgcode()
         //zprintf(PSTR("F%d "), fi(f));
       }
       if (next_target.seen_X) {
-        x = (next_target.target.axis[X] + 160) * 100;
+        x = (next_target.target.axis[nX] + 160) * 100;
         fsGcode.write((uint8_t *)&x, 2);
         //zprintf(PSTR("X%d "), fi(x));
       }
       if (next_target.seen_Y) {
-        x = (next_target.target.axis[Y] + 160) * 100;
+        x = (next_target.target.axis[nY] + 160) * 100;
         fsGcode.write((uint8_t *)&x, 2);
         //zprintf(PSTR("Y%d "), fi(x));
       }
       if (next_target.seen_Z) {
-        x = (next_target.target.axis[Z] + 50) * 100;
+        x = (next_target.target.axis[nZ] + 50) * 100;
         fsGcode.write((uint8_t *)&x, 2);
         //zprintf(PSTR("Z%d "), fi(x));
       }
       if (next_target.seen_E) {
-        x = next_target.target.axis[E] * 1000;
+        x = next_target.target.axis[nE] * 1000;
         fsGcode.write((uint8_t *)&x, 3);
         //zprintf(PSTR("E%d "), fi(x));
       }
@@ -373,8 +387,8 @@ void uncompressaline() {
       //zprintf(PSTR("X%d "), fi(x));
       next_target.seen_X = 1;
       AX+=float(x-xyLimit) / xyScale;
-      next_target.target.axis[X] = AX;
-      //next_target.target.axis[X] *= xyscale;
+      next_target.target.axis[nX] = AX;
+      //next_target.target.axis[nX] *= xyscale;
     }
     if (h & (1 << 5)) {
       x=0;
@@ -382,8 +396,8 @@ void uncompressaline() {
       //zprintf(PSTR("Y%d "), fi(x));
       next_target.seen_Y = 1;
       AY+=float(x-xyLimit) / xyScale;
-      next_target.target.axis[Y] = AY;
-      //next_target.target.axis[Y] *= xyscale;
+      next_target.target.axis[nY] = AY;
+      //next_target.target.axis[nY] *= xyscale;
     }
     if (h & (1 << 6)) {
       x=0;
@@ -391,7 +405,7 @@ void uncompressaline() {
       //zprintf(PSTR("Z%d "), fi(x));
       next_target.seen_Z = 1;
       AZ+=float(x-zLimit) / zScale;
-      next_target.target.axis[Z] = AZ;
+      next_target.target.axis[nZ] = AZ;
     }
     if (h & (1 << 7)) {
       x = 0;
@@ -399,7 +413,7 @@ void uncompressaline() {
       //zprintf(PSTR("E%d "), fi(x));
       next_target.seen_E = 1;
       AE+=float(x-eLimit) / eScale;
-      next_target.target.axis[E] = AE;
+      next_target.target.axis[nE] = AE;
     }
     //zprintf(PSTR("\n"));
   }

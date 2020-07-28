@@ -21,19 +21,31 @@
 #ifdef WIFISERVER
 //#include <WiFiClient.h>
 
-#ifdef ESP32
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <WebServer.h>
-#else
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
+ESP8266WebServer server ( 80 );
+#define WIFI_AUTH_OPEN ENC_TYPE_NONE
+// ===============================
+#elif ESP32
+#include <WiFi.h>
+#include <WiFiAP.h>
+#include <HTTPClient.h>
+#include <WebServer.h>
+#include "SPIFFS.h"
+WebServer server ( 80 );
+#endif
+// ==============================
+
+#include <WiFiClient.h>
+
+#include <FS.h>   // Include the SPIFFS library
+
 #ifdef WEBSOCKSERVER
 #include <WebSocketsServer.h>
 #endif
-#endif
-#include <FS.h>   // Include the SPIFFS library
+
 
 
 uint8_t wfhead = 0;
@@ -42,7 +54,7 @@ uint8_t wfbuf[BUFSIZE];
 char wfb[300];
 int wfl = 0;
 int bpwf = 0;
-ESP8266WebServer server ( 80 );
+
 #ifdef TCPSERVER
 WiFiClient client;
 WiFiServer servertcp(82);
@@ -124,8 +136,8 @@ void touchserver(int v, String info) {
 File fsUploadFile;
 //#define NOINTS noInterrupts();
 //#define INTS interrupts();
-#define NOINTS
-#define INTS
+#define NOINTS timerPause();
+#define INTS timerResume();
 
 
 
@@ -139,7 +151,7 @@ String getContentType(String filename) { // convert the file extension to the MI
 }
 bool handleFileRead(String path) { // send the right file to the client (if it exists)
   motionloop();
-  NOINTS
+  //NOINTS
   if (SPIFFS.exists(path + ".html")) path += ".html";
   else if (path.endsWith("/config")) path = "/karyaconfig.html";          // If a folder is requested, send the index file
   else if (path.endsWith("/cnc")) path = "/index.html";          // If a folder is requested, send the index file
@@ -165,7 +177,7 @@ bool handleFileRead(String path) { // send the right file to the client (if it e
   } else
     xprintf(PSTR("\tFile Not Found: %s\n") , path.c_str());   // If the file doesn't exist, return false
 
-  INTS
+  //INTS
   return false;
 }
 
@@ -247,250 +259,290 @@ void wifiwr(uint8_t s) {
 
 void setupwifi(int num) {
   NOINTS
-  if (num) {
-    xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
-    return;
-    WiFi.disconnect();
-    server.close();
-  }
-  char c = wifi_ap[0];
-  if ((c == 0) || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-  } else {
-    String("karyacontroller").toCharArray(wifi_dns, 29);
-    String("Tenda_AD26C0").toCharArray(wifi_ap, 49);
-    String("45712319").toCharArray(wifi_pwd, 19);
-    eepromwritestring(470, wifi_dns);
-    eepromwritestring(400, wifi_ap);
-    eepromwritestring(450, wifi_pwd);
-    c = 'a';
-  }
-  if (c != 0) {
-    xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin ( wifi_ap, wifi_pwd);
-    int cntr = 30;
-    while ( WiFi.status() != WL_CONNECTED ) {
-      delay ( 500 );
-      cntr--;
-      if (!cntr)break;
-      //xprintf(PSTR("."));
-      Serial.print(".");
+  while (1) {
+    xprintf(PSTR("Wifi Initialization\n"));
+    if (num) {
+      xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
+      break;
+      WiFi.disconnect();
+      server.close();
     }
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    ip = WiFi.localIP();
-    ISWIFIOK = 1;
-    xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
-
-    xprintf(PSTR("HTTP server started\n"));
-
-  } else {
-    WiFi.mode(WIFI_AP);
-    ISWIFIOK = 0;
-    const char *password = "123456789";
-    WiFi.softAP(wifi_dns, password);
-    ip = WiFi.softAPIP();
-    xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), wifi_dns, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
-  }
-
-  server.on("/setconfig", HTTP_GET, []() {                 // if the client requests the upload page
-    server.arg("name").toCharArray(wifi_dns, 29);
-    eepromwritestring(470, wifi_dns);
-    server.arg("ap").toCharArray(wifi_ap, 49);
-    eepromwritestring(400, wifi_ap);
-    server.arg("pw").toCharArray(wifi_pwd, 19);
-    eepromwritestring(450, wifi_pwd);
-    server.send ( 200, "text/html", "OK");
-    reload_eeprom();
-  });
-  server.on("/gcode", HTTP_GET, []() {                 // if the client requests the upload page
-    if (!uncompress) {
-      char gc[100];
-      server.arg("t").toCharArray(gc, 99);
-      for (int i = 0; i < strlen(gc); i++) {
-        buf_push(wf, gc[i]);
-      }
-      buf_push(wf, '\n');
-      server.send ( 200, "text/html", "OK");
+    char c = wifi_ap[0];
+    if ((c == 0) || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
     } else {
-      server.send(200, "text/plain", "ERR");
+      String("karyacontroller").toCharArray(wifi_dns, 29);
+      String("Tenda_AD26C0").toCharArray(wifi_ap, 49);
+      String("45712319").toCharArray(wifi_pwd, 19);
+      eepromwritestring(470, wifi_dns);
+      eepromwritestring(400, wifi_ap);
+      eepromwritestring(450, wifi_pwd);
+      c = 'a';
     }
-  });
-  server.on("/speed", HTTP_GET, []() {                 // if the client requests the upload page
-    extern uint8_t head, tail, tailok;
-    char gc[10];
-    server.arg("t").toCharArray(gc, 9);
-    extern float f_multiplier;
-    f_multiplier = atoi(gc) * 0.01;
-    tailok = tail + 5; // need to replanning all moves
-    server.send ( 200, "text/html", "OK");
-
-  });
-
-  server.on("/getconfig", HTTP_GET, []() {                 // if the client requests the upload page
-    String st = "disconnected";
-    if (WiFi.status() == WL_CONNECTED)st = "connected";
-    server.send ( 200, "text/html", "['" + String(wifi_ap) + "','" + String(wifi_pwd) + "','" + String(wifi_dns) + "','" + st + "']");
-  });
-  server.on("/scanwifi", HTTP_GET, []() {
-    int n = WiFi.scanNetworks();
-    String res = "[";
-    if (n == 0) {
-    } else {
-      for (int i = 0; i < n; ++i) {
-        // Print SSID and RSSI for each network found
-        if (i)res += ",";
-        res += "['" + WiFi.SSID(i) + "','" + WiFi.RSSI(i) + "',";
-        if (WiFi.encryptionType(i) == ENC_TYPE_NONE) res += "''"; else res += "'*'";
-        res += "]";
+    if (c != 0) {
+      xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
+      WiFi.mode(WIFI_STA);
+      WiFi.begin ( wifi_ap, wifi_pwd);
+      int cntr = 30;
+      while ( WiFi.status() != WL_CONNECTED ) {
+        delay ( 500 );
+        cntr--;
+        if (!cntr)break;
+        //xprintf(PSTR("."));
+        Serial.print(".");
       }
     }
-    res += "]";
-    server.send(200, "text/html", res);
-  });
 
+    if (WiFi.status() == WL_CONNECTED) {
+      ip = WiFi.localIP();
+      ISWIFIOK = 1;
+      xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
 
+      xprintf(PSTR("HTTP server started\n"));
 
-  server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
-    if (uncompress) {
-      ispause = ispause == 0 ? 1 : 0;
-      extern int8_t PAUSE;
-      PAUSE = ispause;
-      server.send ( 200, "text/html", ispause == 1 ? "PAUSED" : "RESUMED");
     } else {
-      server.send(200, "text/plain", "ERR");
+      xprintf(PSTR("Access Point Mode\n"));
+      WiFi.mode(WIFI_AP);
+      ISWIFIOK = 0;
+      const char *ssid = "yourAP";
+      const char *password = "123456789";
+      WiFi.softAP(ssid, password);
+      ip = WiFi.softAPIP();
+      xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), ssid, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
     }
-  });
-  server.on("/probe", HTTP_GET, []() {
-    if (!uncompress) {
-      docheckendstop(1);
-      extern int16_t endstopstatus;
-      server.send ( 200, "text/html", endstopstatus < 0 ? "HIGH" : "LOW");
-    } else {
-      server.send(200, "text/plain", "ERR");
-    }
-  });
-  server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
-    if (uncompress) {
-      ispause = 0;
-      extern int8_t PAUSE;
-      PAUSE = ispause;
+
+    
+    server.on("/setconfig", HTTP_GET, []() {                 // if the client requests the upload page
+      NOINTS
+      server.arg("name").toCharArray(wifi_dns, 29);
+      eepromwritestring(470, wifi_dns);
+      server.arg("ap").toCharArray(wifi_ap, 49);
+      eepromwritestring(400, wifi_ap);
+      server.arg("pw").toCharArray(wifi_pwd, 19);
+      eepromwritestring(450, wifi_pwd);
       server.send ( 200, "text/html", "OK");
-    } else {
-      server.send(200, "text/plain", "ERR");
-    }
-  });
-  server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
-    if (uncompress) {
-      server.send ( 200, "text/html", "FAIL, STILL PRINTING");
-    } else {
+      reload_eeprom();
+      INTS
+    });
+    server.on("/gcode", HTTP_GET, []() {                 // if the client requests the upload page
+      if (!uncompress) {
+        char gc[100];
+        server.arg("t").toCharArray(gc, 99);
+        for (int i = 0; i < strlen(gc); i++) {
+          buf_push(wf, gc[i]);
+        }
+        buf_push(wf, '\n');
+        server.send ( 200, "text/html", "OK");
+      } else {
+        server.send(200, "text/plain", "ERR");
+      }
+    });
+    server.on("/speed", HTTP_GET, []() {                 // if the client requests the upload page
+      extern uint8_t head, tail, tailok;
+      char gc[10];
+      server.arg("t").toCharArray(gc, 9);
+      extern float f_multiplier;
+      f_multiplier = atoi(gc) * 0.01;
+      tailok = tail + 5; // need to replanning all moves
       server.send ( 200, "text/html", "OK");
-      beginuncompress("/gcode.gcode");
-    }
-  });
-  server.on("/startjob", HTTP_GET, []() {                 // if the client requests the upload page
-    if (uncompress) {
-      server.send ( 200, "text/html", "FAIL, STILL PRINTING");
-    } else {
-      beginuncompress(server.arg("jobname"));
-      server.send ( 200, "text/html", "Start Ok");
-    }
-  });
-  server.on("/removejob", HTTP_GET, []() {                 // if the client requests the upload page
-    if (uncompress) {
-      server.send ( 200, "text/html", "FAIL, STILL PRINTING");
-    } else {
-      SPIFFS.remove(server.arg("jobname"));
-      SPIFFS.remove(server.arg("jobname") + ".jpg");
-      server.send ( 200, "text/html", "Delete Ok");
-    }
-  });
-  server.on("/getjobs", HTTP_GET, []() {
-    if (!uncompress) {
-      String str = "[";
-      Dir dir = SPIFFS.openDir("/");
-      while (dir.next()) {
-        String s = dir.fileName();
-        if (s.endsWith(".gcode")) {
-          if (str.length() > 2)str += ",";
-          str += "['";
-          str += dir.fileName();
-          str += "',";
-          str += dir.fileSize();
-          str += "]";
+
+    });
+
+    server.on("/getconfig", HTTP_GET, []() {                 // if the client requests the upload page
+      String st = "disconnected";
+      if (WiFi.status() == WL_CONNECTED)st = "connected";
+      server.send ( 200, "text/html", "['" + String(wifi_ap) + "','" + String(wifi_pwd) + "','" + String(wifi_dns) + "','" + st + "']");
+    });
+    server.on("/scanwifi", HTTP_GET, []() {
+      int n = WiFi.scanNetworks();
+      String res = "[";
+      if (n == 0) {
+      } else {
+        for (int i = 0; i < n; ++i) {
+          // Print SSID and RSSI for each network found
+          if (i)res += ",";
+          res += "['" + WiFi.SSID(i) + "','" + WiFi.RSSI(i) + "',";
+          if (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) res += "''"; else res += "'*'";
+          res += "]";
         }
       }
-      str += "]";
-      server.send(200, "text/plain", str);
-    } else {
-      server.send(200, "text/plain", "ERR");
-    }
-  });
-  server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
-    if (!uncompress) {
-      server.send ( 200, "text/html", "FAIL, NOT PRINTING");
-    } else {
+      res += "]";
+      server.send(200, "text/html", res);
+    });
+
+
+
+    server.on("/pauseprint", HTTP_GET, []() {                 // if the client requests the upload page
+      //NOINTS
+      if (uncompress) {
+        ispause = ispause == 0 ? 1 : 0;
+        extern int8_t PAUSE;
+        PAUSE = ispause;
+        server.send ( 200, "text/html", ispause == 1 ? "PAUSED" : "RESUMED");
+      } else {
+        server.send(200, "text/plain", "ERR");
+      }
+      //INTS
+    });
+    server.on("/probe", HTTP_GET, []() {
+      //NOINTS
+      if (!uncompress) {
+        docheckendstop(1);
+        extern int16_t endstopstatus;
+        server.send ( 200, "text/html", endstopstatus < 0 ? "HIGH" : "LOW");
+      } else {
+        server.send(200, "text/plain", "ERR");
+      }
+      //INTS
+    });
+    server.on("/resumeprint", HTTP_GET, []() {                 // if the client requests the upload page
+      //NOINTS
+      if (uncompress) {
+        ispause = 0;
+        extern int8_t PAUSE;
+        PAUSE = ispause;
+        server.send ( 200, "text/html", "OK");
+      } else {
+        server.send(200, "text/plain", "ERR");
+      }
+      //INTS
+    });
+    server.on("/startprint", HTTP_GET, []() {                 // if the client requests the upload page
+      NOINTS
+      if (uncompress) {
+        server.send ( 200, "text/html", "FAIL, STILL PRINTING");
+      } else {
+        server.send ( 200, "text/html", "OK");
+        beginuncompress("/gcode.gcode");
+      }
+      INTS
+    });
+    server.on("/startjob", HTTP_GET, []() {                 // if the client requests the upload page
+      NOINTS
+      if (uncompress) {
+        server.send ( 200, "text/html", "FAIL, STILL PRINTING");
+      } else {
+        beginuncompress(server.arg("jobname"));
+        server.send ( 200, "text/html", "Start Ok");
+      }
+      INTS
+    });
+    server.on("/removejob", HTTP_GET, []() {                 // if the client requests the upload page
+      NOINTS
+      if (uncompress) {
+        server.send ( 200, "text/html", "FAIL, STILL PRINTING");
+      } else {
+        SPIFFS.remove(server.arg("jobname"));
+        SPIFFS.remove(server.arg("jobname") + ".jpg");
+        server.send ( 200, "text/html", "Delete Ok");
+      }
+      INTS
+    });
+    server.on("/getjobs", HTTP_GET, []() {
+      NOINTS
+      if (!uncompress) {
+        String str = "[";
+#ifdef ESP32
+        File dir = SPIFFS.open("/");
+        File file = dir.openNextFile();
+        while (file) {
+          String s = file.name();
+          if (s.endsWith(".gcode")) {
+            if (str.length() > 2)str += ",";
+            str += "['";
+            str += file.name();
+            str += "',";
+            str += file.size();
+            str += "]";
+          }
+		  file = dir.openNextFile();
+        }
+#elif ESP8266
+        Dir dir = SPIFFS.openDir("/");
+        while (dir.next()) {
+          String s = dir.fileName();
+          if (s.endsWith(".gcode")) {
+            if (str.length() > 2)str += ",";
+            str += "['";
+            str += dir.fileName();
+            str += "',";
+            str += dir.fileSize();
+            str += "]";
+          }
+        }
+#endif
+
+        str += "]";
+        server.send(200, "text/plain", str);
+      } else {
+        server.send(200, "text/plain", "ERR");
+      }
+      INTS
+    });
+    server.on("/stopprint", HTTP_GET, []() {                 // if the client requests the upload page
+      if (!uncompress) {
+        server.send ( 200, "text/html", "FAIL, NOT PRINTING");
+      } else {
+        server.send ( 200, "text/html", "OK");
+        enduncompress();
+        extern void stopmachine();
+        stopmachine();
+
+      }
+    });
+    server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
+      addmove(100, 0, 0, 10, 0, 1, 1);
+      addmove(100, 0, 0, 2, 0, 1, 0);
       server.send ( 200, "text/html", "OK");
-      enduncompress();
-      extern void stopmachine();
-      stopmachine();
+      //homing();
+    });
+    server.on("/jogmove", HTTP_GET, []() {                 // if the client requests the upload page
+      server.send ( 200, "text/html", "OK");
+      if (!uncompress) {
+        float x, y, z;
+        x = server.arg("x").toFloat();
+        y = server.arg("y").toFloat();
+        z = server.arg("z").toFloat();
+        addmove(100, x, y, z, 0, 1, 1);
+      }
+    });
+    server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
+      int temp = 0;
+      if (server.arg("t0") == "")temp = 180; else temp = server.arg("t0").toInt();
+      server.send ( 200, "text/html", String(Input));
+      set_temp(180);
+    });
+    server.on("/cooling", HTTP_GET, []() {                 // if the client requests the upload page
+      server.send ( 200, "text/html", "Cooling");
+      set_temp(0);
+    });
+    server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
+      //xprintf(PSTR("Handle UPLOAD \n"));
+      server.send ( 200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>" );
+    });
+    server.on("/delete", HTTP_GET, []() {                 // if the client requests the upload page
+      //xprintf(PSTR("Handle UPLOAD \n"));
+      SPIFFS.remove(server.arg("fn"));
+      server.send ( 200, "text/html", "Delete " + server.arg("fn"));
+    });
 
-    }
-  });
-  server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
-    addmove(100, 0, 0, 10, 0, 1, 1);
-    addmove(100, 0, 0, 2, 0, 1, 0);
-    server.send ( 200, "text/html", "OK");
-    //homing();
-  });
-  server.on("/jogmove", HTTP_GET, []() {                 // if the client requests the upload page
-    server.send ( 200, "text/html", "OK");
-    if (!uncompress) {
-      float x, y, z;
-      x = server.arg("x").toFloat();
-      y = server.arg("y").toFloat();
-      z = server.arg("z").toFloat();
-      addmove(100, x, y, z, 0, 1, 1);
-    }
-  });
-  server.on("/heating", HTTP_GET, []() {                 // if the client requests the upload page
-    int temp = 0;
-    if (server.arg("t0") == "")temp = 180; else temp = server.arg("t0").toInt();
-    server.send ( 200, "text/html", String(Input));
-    set_temp(180);
-  });
-  server.on("/cooling", HTTP_GET, []() {                 // if the client requests the upload page
-    server.send ( 200, "text/html", "Cooling");
-    set_temp(0);
-  });
-  server.on("/upload", HTTP_GET, []() {                 // if the client requests the upload page
-    //xprintf(PSTR("Handle UPLOAD \n"));
-    server.send ( 200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>" );
-  });
-  server.on("/delete", HTTP_GET, []() {                 // if the client requests the upload page
-    //xprintf(PSTR("Handle UPLOAD \n"));
-    SPIFFS.remove(server.arg("fn"));
-    server.send ( 200, "text/html", "Delete " + server.arg("fn"));
-  });
-
-  server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
-  []() {
-    server.sendHeader("Access-Control-Expose-Headers", "Access-Control-*");
-    server.sendHeader("Access-Control-Allow-Headers", "Access-Control-*, Origin, X-Requested-With, Content-Type, Accept");
-    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.send(200);
-  },                          // Send status 200 (OK) to tell the client we are ready to receive
-  handleFileUpload                                    // Receive and save the file
-           );
+    server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
+    []() {
+      server.sendHeader("Access-Control-Expose-Headers", "Access-Control-*");
+      server.sendHeader("Access-Control-Allow-Headers", "Access-Control-*, Origin, X-Requested-With, Content-Type, Accept");
+      server.sendHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
+      server.sendHeader("Access-Control-Allow-Origin", "*");
+      server.send(200);
+    },                          // Send status 200 (OK) to tell the client we are ready to receive
+    handleFileUpload                                    // Receive and save the file
+             );
 
 
-  server.onNotFound([]() {                              // If the client requests any URI
-    if (!handleFileRead(server.uri()))                  // send it if it exists
-      server.send(404, "text/plain", "404: Not Found ?"); // otherwise, respond with a 404 (Not Found) error
-  });
-  server.begin();
+    server.onNotFound([]() {                              // If the client requests any URI
+      if (!handleFileRead(server.uri()))                  // send it if it exists
+        server.send(404, "text/plain", "404: Not Found ?"); // otherwise, respond with a 404 (Not Found) error
+    });
+    server.begin();
+
 #ifdef TCPSERVER
   servertcp.begin();
 #endif
@@ -501,7 +553,11 @@ void setupwifi(int num) {
 
 
   //if (!num)
+  #ifdef ESP32
+  SPIFFS.begin(true);
+  #else
   SPIFFS.begin();
+  #endif
   loadmeshleveling();
 
   touchserver(1, String(wifi_dns));
@@ -536,6 +592,9 @@ void setupwifi(int num) {
   });
   ArduinoOTA.begin();
 #endif
+    break;
+  }
+//  return;
 
 
   INTS
@@ -886,12 +945,12 @@ void setupother() {
 #ifdef output_enable
   zprintf(PSTR("Init motion\n"));
   initmotion();
+  zprintf(PSTR("Init timer\n"));
+  timer_init();
   zprintf(PSTR("Init Gcode\n"));
   init_gcode();
   zprintf(PSTR("Init Temp\n"));
   init_temp();
-  zprintf(PSTR("Init timer\n"));
-  timer_init();
   zprintf(PSTR("Init eeprom\n"));
   reload_eeprom();
 #else
@@ -947,14 +1006,14 @@ void loop() {
   if (!setupok && (t1 - millis() > DELAYSETUP * 1000))setupother();
 #endif
   if (setupok) {
-    char c = gcode_loop();
-    control_loop();
-    display_loop();
-#ifdef ESP8266
-    wifi_loop();
 #ifdef FASTBUFFERFILL
     for (int ff = FASTBUFFERFILL + 1; ff; ff--)
 #endif
+    char c = gcode_loop();
+    control_loop();
+    display_loop();
+#ifdef WIFISERVER
+    wifi_loop();
     if (c == 0)uncompress_loop();
 #endif
   }

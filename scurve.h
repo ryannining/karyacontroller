@@ -2,8 +2,6 @@
 float ja, a1x, a1, a2, as3, as7, T, V, S, Sdest, itstep, tstep, tstepS;
 
 #define jerk xyjerk
-extern static THEISR void readpixel2();
-extern int pixelon;
 
 
 
@@ -254,14 +252,7 @@ void machinemove(int steps) {
         bresenham(0); //
         bresenham(1);
         bresenham(2);
-        /*if (rasterlen) {
-          if ((mcx[3] -= bsdx[3]) < 0) {
-            e_ctr += sx[3];
-            readpixel2();
-            mcx[3] += totalstep;
-          }
-          if (pixelon)cmd0 |= 2 << 3;
-        } else */bresenham(3);
+        bresenham(3);
         // push T=CLOCK/V to timer command buffer
         cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
         pushcmd();

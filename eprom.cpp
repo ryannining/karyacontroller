@@ -77,7 +77,7 @@ int32_t EEMEM EE_un_microstep;
 
 extern int CNCMODE;
 void reload_eeprom() {
-  eepromcommit;
+  eepromcommit();
 
   ax_home[0] = ((float)eepromread(EE_xhome)) * 0.001;
   ax_home[1] = ((float)eepromread(EE_yhome)) * 0.001;
@@ -216,7 +216,7 @@ void reset_eeprom() {
 #endif
   eepromwrite(EE_ext_adv, ff(0));
   eepromwrite(EE_un_microstep, fi(0));
-  eepromcommit;
+  eepromcommit();
 #endif
 }
 #else

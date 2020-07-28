@@ -73,7 +73,7 @@ void prepareramp(int32_t bpos)
 
 
 
-    if (scurve)stepj = tosteps / (accel2);
+    stepj = tosteps / (accel2);
 
     //if (m->fs - m->fe >= m->delta) m->fn = m->fs;
     prevacc = curracc;
@@ -110,14 +110,14 @@ void prepareramp(int32_t bpos)
     //
     // lets check 1 by 1
     //
-    mvjerk = scurve ? (0.5 * ja * ja / jerk) : 0;
+    mvjerk = (0.5 * ja * ja / jerk);
 
     vjerk1 = 0;
     // if
     // segment 1, prevacc <=0 and fs<fn
-    has1 = scurve && (prevacc <= 0) && (vi < vc);
+    has1 = (prevacc <= 0) && (vi < vc);
     // segment 3, curracc <=0 and fs<fn
-    has3 = scurve && (has4) && (vi < vc);
+    has3 = (has4) && (vi < vc);
 
     if (has1)vjerk1 += mvjerk;
     if (has3)vjerk1 += mvjerk;
@@ -127,9 +127,9 @@ void prepareramp(int32_t bpos)
     vjerk7 = 0;
     //
     // segment 1, prevacc <=0 and fs<fn
-    has7 = scurve && (nextacc >= 0) && (ve < vc);
+    has7 = (nextacc >= 0) && (ve < vc);
     // segment 3, curracc <=0 and fs<fn
-    has5 = scurve && (curracc <= 0 && has4) && (ve < vc);
+    has5 = (curracc <= 0 && has4) && (ve < vc);
     if (!has4 && prevacc == -1 && curracc == -1)has5 = 0;
 
 
@@ -261,8 +261,7 @@ int curveloop() {
       mcx[3] += totalstep;
     }
     if (pixelon)cmd0 |= 2 << 3;
-  } else */
-  bresenham(3);
+  } else */bresenham(3);
 
   // push T=CLOCK/V to timer command buffer
   cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
