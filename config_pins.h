@@ -104,7 +104,8 @@
 
 //#define BOARD_WEMOSCNC
 #define MYLASER
-//#define LASERMINI
+#define LASERMINI
+#define LASERWIFI
 //#define BOARD_MINICNC_ESP01
 //#define BOARD_WEMOS_XYY_LASER
 //#define BOARD_ESP01CNC_V1
@@ -194,9 +195,13 @@
 #define laser_pin D2
 //LOW
 #undef USEOTA
-#undef WIFISERVER
 #undef TCPSERVER
+
+#ifndef LASERWIFI 
+#undef WIFISERVER
 #undef WEBSOCKETSERVER
+#endif
+
 #undef heater_pin
 #undef temp_pin
 #define NUMBUFFER 40

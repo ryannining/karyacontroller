@@ -354,8 +354,9 @@ void THEISR timerResume(){
 // Laser constant burn timer
 void THEISR timer_set2(int32_t delay, int32_t delayL)
 {
-  if (delayL) {
-    if (delayL > delay -6)delay=delayL+6;
+//  if (delayL) {
+//    if (delayL > delay -6)delay=delayL+6;
+  if ((delayL>0) && (delayL<delay)) {
     ndelay2 = delay - delayL; // the rest delay after laser on
     ndelay = delayL; // laser on delay
   } else {

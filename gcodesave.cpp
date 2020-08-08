@@ -226,9 +226,13 @@ long eE = 0;
 int gxver = 1;
 int xySize,zSize,eSize,xyLimit,zLimit,eLimit;
 float xyScale,zScale,eScale,fScale,AX,AY,AZ,AE;
+int mediaX,mediaY;
+
 #define datasize(n) ((1 << (n*8-1))-2)
 void beginuncompress(String fn) {
   if (uncompress)return;
+  mediaX=0;
+  mediaY=0;
   uctr = 1;
   eE = 0;
   fsGcode = SPIFFS.open(fn, "r");
@@ -340,7 +344,6 @@ void gcodereadnet(uint8_t * addr, int len) {
 }
 
 // version, old is using eSize 1
-
 void uncompressaline() {
   if (ispause)return;
   byte h;
@@ -356,11 +359,6 @@ void uncompressaline() {
       case 1: next_target.M = 109; break;
       case 2: enduncompress(); return; break;
     }
-    if (h & (1 << 3)) {
-      fsGcode.read((uint8_t *)&s, 1);
-      next_target.seen_S = 1;
-      next_target.S = s;
-    }
     //zprintf(PSTR("%d H%d M%d S%d\n"), fi(uctr), fi(h), fi(next_target.M), fi(s));
   } else {
     next_target.seen_G = 1;
@@ -373,30 +371,53 @@ void uncompressaline() {
         break;
       case 3: next_target.G = 92; eE = 0; break;
     }
+  }
+  // read the parameter
     //zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
     if (h & (1 << 3)) {
       s=0;
       fsGcode.read((uint8_t *)&s, 1);
-      next_target.seen_F = 1;
-      next_target.target.F = s*fScale;
+// F and S is same in M code
+      if (next_target.seen_M) // if M then its S
+      { 
+		next_target.seen_S = 1;
+		next_target.S = s;
+	  } else { //else its F
+		next_target.seen_F = 1;
+		next_target.target.F = s*fScale;
+	  }
+
       //zprintf(PSTR("F%d "), fi(s));
     }
+    
     if (h & (1 << 4)) {
       x=0;
       fsGcode.read((uint8_t *)&x, xySize);
       //zprintf(PSTR("X%d "), fi(x));
       next_target.seen_X = 1;
-      AX+=float(x-xyLimit) / xyScale;
-      next_target.target.axis[nX] = AX;
-      //next_target.target.axis[nX] *= xyscale;
+      if (next_target.seen_M){
+		  x=float(x-xyLimit)*100 / xyScale;
+		  mediaX=x;
+		  next_target.target.axis[nX] = x;
+	  } else {
+		  AX+=float(x-xyLimit) / xyScale;
+		  next_target.target.axis[nX] = AX;
+		  //next_target.target.axis[nX] *= xyscale;
+	  }
     }
     if (h & (1 << 5)) {
       x=0;
       fsGcode.read((uint8_t *)&x, xySize);
-      //zprintf(PSTR("Y%d "), fi(x));
-      next_target.seen_Y = 1;
-      AY+=float(x-xyLimit) / xyScale;
-      next_target.target.axis[nY] = AY;
+	  next_target.seen_Y = 1;
+      if (next_target.seen_M){
+		  x=float(x-xyLimit)*100 / xyScale;
+		  mediaY=x;
+		  next_target.target.axis[nY] = x;
+	  } else {
+		  //zprintf(PSTR("Y%d "), fi(x));
+		  AY+=float(x-xyLimit) / xyScale;
+		  next_target.target.axis[nY] = AY;
+	  }
       //next_target.target.axis[nY] *= xyscale;
     }
     if (h & (1 << 6)) {
@@ -416,7 +437,7 @@ void uncompressaline() {
       next_target.target.axis[nE] = AE;
     }
     //zprintf(PSTR("\n"));
-  }
+  
   process_gcode_command();
   reset_command();
   if (!cntg28) {

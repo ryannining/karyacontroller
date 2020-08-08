@@ -879,7 +879,7 @@ void process_gcode_command()
               ZValues[j + 1][i + 1] = gz / good; // average good z
 
             }
-#ifdef TCPSERVER
+#ifdef WIFISERVER
             wifi_loop();
 #endif
           }
