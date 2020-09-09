@@ -1,4 +1,8 @@
 # karyacontroller
+
+## NEW ! IR Remote and Oled Display
+[![](http://img.youtube.com/vi/zYC9wCI7BpY/0.jpg)](http://www.youtube.com/watch?v=zYC9wCI7BpY "IR Remote and Oled Display")
+
 I make this project to learn about the controller.
 ## Description
 simple multi axis motor controller for use in cnc project.
