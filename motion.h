@@ -49,13 +49,6 @@
 #define LOWESTDELAY 120 // IF LESS than this microsec then do the subpixel
 #endif
 
-// 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
-// 1 bit CMD 0:setdir 1:step 4bit parameter for dir/step, 11 bits for delay , delay*10 0-20480, si min speed is 0.5mm/s for 100step/mm motor
-typedef struct {
-  uint8_t cmd;
-  uint16_t dly;
-} tcmd;
-
 
 typedef struct {
   int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
@@ -108,6 +101,7 @@ extern int  maxa[4];
 extern int32_t dlp;
 extern float stepmmx[4], Lscale;
 extern float retract_in, retract_out;
+extern float info_x,info_y,info_z,info_e;
 extern float retract_in_f, retract_out_f;
 extern tmove moves[NUMBUFFER];
 extern float cx1, cy1, cz1, ocz1, ce01;
@@ -122,7 +116,7 @@ extern int8_t RUNNING;
 extern int8_t PAUSE;
 extern int constantlaserVal;
 extern float extadv;
-extern int32_t unms;
+
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 extern float Interpolizer(int zX, int zY);

@@ -146,8 +146,7 @@ void prepareramp(int32_t bpos)
     float ve1 = sqrt(ve);
 
     //preparejerk(m->dis);
-    float delta1, delta7;
-    float jerk6 = 0.16667 * jerk;
+
     if (has1 || has3) {
       vjerk1 = fmin(vjerk1, fabs(vc1 - vi1));
       if (has1 && has3)vjerk1 = vjerk1 * 0.5;
@@ -254,14 +253,7 @@ int curveloop() {
   bresenham(0); //
   bresenham(1);
   bresenham(2);
-  /*if (rasterlen) {
-    if ((mcx[3] -= bsdx[3]) < 0) {
-      e_ctr += sx[3];
-      readpixel2();
-      mcx[3] += totalstep;
-    }
-    if (pixelon)cmd0 |= 2 << 3;
-  } else */bresenham(3);
+  bresenham(3);
 
   // push T=CLOCK/V to timer command buffer
   cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
@@ -274,7 +266,7 @@ int curveloop() {
 }
 
 int coreloopscurve() {
-  float lV = V;
+
   if (!ok) {
 #ifdef output_enable
     if (sg == 0) {

@@ -24,19 +24,24 @@
 #endif
 
 #if defined(__AVR__) || defined(ESP8266)|| defined(ESP32)  || defined (__ARM__)
-extern int CNCMODE;
+
 extern int HEATING;
 #include "motors.h"
 #ifdef laser_pin
-#define LASER(x) {if (!CNCMODE){xdigitalWrite(laser_pin,x);}}
-#define SPINDLE(x) {if (CNCMODE){xdigitalWrite(laser_pin,x);} }
+#define LASER(x) {xdigitalWrite(laser_pin,x);}
 #else
-#define SPINDLE(x) {}
 #define LASER(x) {}
-
 #endif
+
+
+#ifdef spindle_pin
+#define SPINDLE(v) {extern int set_pwm(int x);set_pwm(v); }
+#else
+#define SPINDLE(v) {}
+#endif
+
 #ifdef heater_pin
-#define HEATER(x) {if (!CNCMODE){xdigitalWrite(heater_pin,x);} }
+#define HEATER(x) {xdigitalWrite(heater_pin,x);}
 #else
 #define HEATER(x) {}
 #endif

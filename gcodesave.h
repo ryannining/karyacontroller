@@ -6,4 +6,5 @@ extern void enduncompress();
 extern void beginuncompress(String fn);
 extern int ispause;
 extern int uncompress;
+extern int gcodepos,gcodesize;
 #endif

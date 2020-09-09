@@ -11,6 +11,7 @@
 #include "eprom.h"
 #include "motion.h"
 #include "gcodesave.h"
+#include "ir_remote.h"
 
 #ifdef USEOTA
 #include <ArduinoOTA.h>
@@ -111,8 +112,8 @@ void touchserver(int v, String info) {
           int httpCode = http.GET();
           if (httpCode > 0) {
             if (httpCode == HTTP_CODE_OK) {
-              Serial.println(durl);
-              Serial.println(http.getSize());
+              //Serial.println(durl);
+              //Serial.println(http.getSize());
               http.writeToStream(&f);
             }
           } else {
@@ -256,9 +257,14 @@ void wifiwr(uint8_t s) {
   }
 }
 
+void wifi_push(char c) {
+  buf_push(wf, c);
+}
 
 void setupwifi(int num) {
   NOINTS
+
+  
   while (1) {
     xprintf(PSTR("Wifi Initialization\n"));
     if (num) {
@@ -299,6 +305,7 @@ void setupwifi(int num) {
 
       xprintf(PSTR("HTTP server started\n"));
 
+
     } else {
       xprintf(PSTR("Access Point Mode\n"));
       WiFi.mode(WIFI_AP);
@@ -310,7 +317,12 @@ void setupwifi(int num) {
       xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), ssid, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
     }
 
-    
+#ifdef IR_OLED_MENU
+    // disable serial if using it as spindle_pin
+    Serial.end();
+    hasSerial=0;
+#endif
+
     server.on("/setconfig", HTTP_GET, []() {                 // if the client requests the upload page
       NOINTS
       server.arg("name").toCharArray(wifi_dns, 29);
@@ -454,7 +466,7 @@ void setupwifi(int num) {
             str += file.size();
             str += "]";
           }
-		  file = dir.openNextFile();
+          file = dir.openNextFile();
         }
 #elif ESP8266
         Dir dir = SPIFFS.openDir("/");
@@ -544,57 +556,58 @@ void setupwifi(int num) {
     server.begin();
 
 #ifdef TCPSERVER
-  servertcp.begin();
+    servertcp.begin();
 #endif
 #ifdef WEBSOCKSERVER
-  webSocket.begin();                          // start the websocket server
-  webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+    webSocket.begin();                          // start the websocket server
+    webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
 #endif
 
 
-  //if (!num)
-  #ifdef ESP32
-  SPIFFS.begin(true);
-  #else
-  SPIFFS.begin();
-  #endif
-  loadmeshleveling();
+    //if (!num)
+#ifdef ESP32
+    SPIFFS.begin(true);
+#else
+    SPIFFS.begin();
+#endif
+    loadmeshleveling();
 
-  touchserver(1, String(wifi_dns));
+    touchserver(1, String(wifi_dns));
 #ifdef DISABLESERIAL
-  //Serial.end();
+    //Serial.end();
 #endif
 
 #ifdef USEOTA
-  ArduinoOTA.onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH)
-      type = "sketch";
-    else // U_SPIFFS
-      type = "filesystem";
+    ArduinoOTA.onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
 
-    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-    Serial.println("Start updating " + type);
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
+      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+      //Serial.println("Start updating " + type);
+    });
+    ArduinoOTA.onEnd([]() {
+      //Serial.println("\nEnd");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+      //Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+      /*Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+      */
+    });
+    ArduinoOTA.begin();
 #endif
     break;
   }
-//  return;
+  //  return;
 
 
   INTS
@@ -960,6 +973,11 @@ void setupother() {
   reload_eeprom();
   timer_init();
 #endif
+#ifdef spindle_pin
+    //delay(1000);
+    pinMode(spindle_pin, OUTPUT);
+    xdigitalWrite(spindle_pin, LOW);
+#endif
   // important for KARYACNC to know the scale
   zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
 #ifdef WIFISERVER
@@ -981,7 +999,7 @@ void setupother() {
 #endif
 #endif
 
-
+  IR_setup();
   setupok = 1;
   zprintf(PSTR("start\nok\n"));
 
@@ -1009,9 +1027,10 @@ void loop() {
 #ifdef FASTBUFFERFILL
     for (int ff = FASTBUFFERFILL + 1; ff; ff--)
 #endif
-    char c = gcode_loop();
+      char c = gcode_loop();
     control_loop();
     display_loop();
+    IR_loop();
 #ifdef WIFISERVER
     wifi_loop();
     if (c == 0)uncompress_loop();

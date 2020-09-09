@@ -6,6 +6,7 @@
 extern int somedelay(int32_t n);
 //#define somedelay(n) delayMicroseconds(n);
 extern int feedthedog();
+
 #define TEMPTICK 100000 //500ms
 #define timescale 1000000L
 #ifdef ISPC
@@ -22,7 +23,8 @@ extern uint32_t micros();
 #define SUBMOTION 1
 #define timescaleLARGE timescale*TMSCALE
 
-
+extern void set_pwm(int v);
+extern void pause_pwm(bool v);
 extern volatile uint32_t ndelay, ndelay2;
 
 extern uint32_t	next_step_time;

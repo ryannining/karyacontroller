@@ -62,18 +62,19 @@ extern uint8_t serial_available();
 
 //#ifdef __ARM__
 #ifdef WIFISERVER
+static bool hasSerial=true;
 extern void wifiwr(uint8_t s);
 static void serialwr(uint8_t s) {
-  Serial.write(s);
+  if (hasSerial)Serial.write(s);
   wifiwr(s);
 }
 #else
 static void serialwr(uint8_t s) {
-  Serial.write(s);
+  if (hasSerial)Serial.write(s);
 }
 #endif
 static void serialwr0(uint8_t s) {
-  Serial.write(s);
+  if (hasSerial)Serial.write(s);
 }
 
 //#else
