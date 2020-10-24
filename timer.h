@@ -18,6 +18,9 @@ extern uint32_t micros();
 #define TEMPTICK 100000 //100ms
 #endif
 
+extern uint32_t get_RPM();
+
+
 #endif // ISPC
 
 #define SUBMOTION 1

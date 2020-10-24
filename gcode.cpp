@@ -121,9 +121,9 @@ char g_str[g_str_len];
 
 uint8_t okxyz;
 int g_str_c = 0;
-int rasterlen = 0;
+
 int g_str_l = 0;
-int CNCMODE = 0;
+
 GCODE_COMMAND next_target;
 uint16_t last_field = 0;
 /// list of powers of ten, used for dividing down decimal numbers for sending, and also for our crude floating point algorithm
@@ -200,7 +200,12 @@ int reset_command() {
   }
   return ok;
 }
-
+void update_pos(void) {
+  next_target.target.axis[nX] = cx1;
+  next_target.target.axis[nY] = cy1;
+  next_target.target.axis[nZ] = ocz1;
+  next_target.target.axis[nE] = ce01;
+}
 
 uint8_t gcode_parse_char(uint8_t c)
 {
@@ -457,7 +462,6 @@ void stopmachine() {
   if (m) {
     waitbufferempty();
     printposition();
-    rasterlen = 0;
     //printbufflen();
   }
 }
@@ -485,7 +489,6 @@ void temp_wait(void)
   uint32_t c = millis();
   while (wait_for_temp && !temp_achieved()) {
     domotionloop
-    servo_loop();
     wifi_loop();
     //report each second
     if (millis() - c > 1000) {
@@ -510,7 +513,6 @@ void str_wait()
   //uint32_t c = millis();
   while (lastB > 5) {
     domotionloop
-    servo_loop();
     MEMORY_BARRIER()
     //delayMicroseconds(10);
   }
@@ -596,6 +598,7 @@ void loadmeshleveling() {
   printmeshleveling();
 #endif
 }
+int lastS = 0;
 void process_gcode_command()
 {
   uint32_t	backup_f;
@@ -660,10 +663,8 @@ void process_gcode_command()
         //?
         //? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
         //?
-        if (CNCMODE == 0) {
-          laserOn = 0;
-          constantlaserVal = 0;
-        }
+        laserOn = 0;
+        constantlaserVal = 0;
         enqueue(&next_target, 1);
         break;
 
@@ -681,11 +682,9 @@ void process_gcode_command()
         if (next_target.seen_S) {
           S1 = next_target.S;
         }
-        if (CNCMODE == 0) {
-          laserOn = S1 > 0;
-          //zprintf(PSTR("int %d\n"), fi(S1));
-          constantlaserVal = S1;
-        }
+        laserOn = S1 > 0;
+        //zprintf(PSTR("int %d\n"), fi(S1));
+        constantlaserVal = S1;
         enqueue(&next_target, 0);
         if (laserOn) {
 #ifndef ISPC
@@ -743,7 +742,6 @@ void process_gcode_command()
         //? In this case sit still doing nothing for 200 milliseconds.  During delays the state of the machine (for example the temperatures of its extruders) will still be preserved and controlled.
         //?
         waitbufferempty();
-        rasterlen = 0;
         // delay
         if (next_target.seen_P) {
           for (; next_target.P > 0; next_target.P--) {
@@ -785,38 +783,12 @@ void process_gcode_command()
         */
         break;
 #endif
-      case 7: // raster gcode G7 Sdatalength [data]  data itself is a-z
-        // if rasterlen != 0 then it automatically enable the G1 using raster data.
-        // use the E coordinate as the raster coordinate
-        // so its need to make sure the E begin from 0 if necessary by using G92 E0
-        // then call G1 X100 E1000 will raster the Laser Intensity using raster data on E coordinate
-        // before change the raster data, need to cal the G4 to wait empty the move buffer
-
-        // example code :
-        // G92 E0
-        // G7 S13 [aaazzzaaazzaz]
-        // G0 Y0
-        // G1 X100 E13
-        // G0 Y0.2
-        // G1 X0 E0
-        // G4
-        // G7 S13 [zzaaazzaazzaa]
-        // G0 Y0.4
-        // G1 X100 E13
-        // G0 Y0.6
-        // G1 X0 E0
-        // G4
-        rasterlen = g_str_c; //next_target.S;
-        if (g_str_l != 0) {
-          if (next_target.S)lastB += next_target.S;
-        }
+      case 7:
+        // WE NEED TO REIMPLEMENT THE G7 COMMAND
         break;
       case 28:
         homing();
-        next_target.target.axis[nX] = cx1;
-        next_target.target.axis[nY] = cy1;
-        next_target.target.axis[nZ] = ocz1;
-        next_target.target.axis[nE] = ce01;
+        update_pos();
         printposition();
         break;
 #ifdef MESHLEVEL
@@ -1052,18 +1024,6 @@ void process_gcode_command()
     //zprintf(PSTR("Gcode M%d \n"),fi(next_target.M));
 
     switch (next_target.M) {
-      /*#ifndef ISPC
-            case 200: // keybox action
-              if (next_target.seen_P) {
-
-                zprintf(PSTR("DOKEY:%d\n"), next_target.P);
-                switch (next_target.P) {
-                    KBOX_DO_ACT
-                }
-              }
-              break;
-        #endif
-      */
       case 0:
       //? --- M0: machine stop ---
       //?
@@ -1112,57 +1072,53 @@ void process_gcode_command()
       //
 
       case 5:
-        // cnc mode laser
-        //zprintf(PSTR("SPINDLE OFF\n"));
-        if (next_target.seen_P)CNCMODE = next_target.P;
-#ifndef ISPC
-        if (CNCMODE)goto SPINDLEOFF;
-        LASER(!LASERON)
-#endif
-
-        break;
+        next_target.seen_S = true;
+        next_target.S = 0;
       case 3:
-        if (CNCMODE) {
-          //zprintf(PSTR("SPINDLE OFF\n"));
+        waitbufferempty();
+        if (!next_target.seen_S)next_target.S = 255;
+        if (next_target.S > 4000)next_target.S = next_target.S / 100; // convert 33K RPM max to 255
+        if (fi(next_target.S) == lastS)break;
+        lastS = fi(next_target.S);
+        if (!next_target.seen_P) {
+          next_target.seen_P = 1; next_target.P = 100;
+        }
 #ifndef ISPC
-          if (!next_target.seen_S)next_target.S = 255;
-          //xpinMode(laser_pin, OUTPUT);
-          if (next_target.S) {
-            SPINDLE(SPINDLEON)
 
-          } else {
-SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
-            waitbufferempty();
-            SPINDLE(!SPINDLEON)
+#ifdef AC_SPINDLE
+        // sometimes ac spindle need a boost at first ON
+        if (next_target.P > 1000) {
+          digitalWrite(spindle_pin, HIGH);
+          delay(1000);
+        }
+        SPINDLE(next_target.S);
+#else
+        SPINDLE(next_target.S)
+#endif
+#endif
+        // if no S defined then full power
+        S1 = next_target.S;
+        laserOn = S1 > 0;
+        constantlaserVal = next_target.S;
+        //if (laserOn) zprintf(PSTR("LASERON\n"));
+        if (next_target.seen_P) {
+          waitbufferempty();
+          //zprintf(PSTR("PULSE LASER\n"));
+#ifndef ISPC
+          delay(100);
+          //xpinMode(laser_pin, OUTPUT);
+#endif
+          LASER(LASERON)
+
+#ifndef ISPC
+          int rep = next_target.P / 10;
+          for (int j = 0; j <= rep; j++) {
+            delay(10);
+            domotionloop
           }
 #endif
-        } else { // if not CNCMODE
-          // if no S defined then full power
-          if (!next_target.seen_S)next_target.S = 255;
-          S1 = next_target.S;
-          laserOn = S1 > 0;
-          constantlaserVal = next_target.S;
-          //if (laserOn) zprintf(PSTR("LASERON\n"));
-          if (next_target.seen_P) {
-            waitbufferempty();
-            //zprintf(PSTR("PULSE LASER\n"));
-#ifndef ISPC
-            delay(100);
-            //xpinMode(laser_pin, OUTPUT);
-#endif
-            LASER(LASERON)
-#ifndef ISPC
-            delay(next_target.P);
-#endif
-            // after some delay turn off laser
-            LASER(!LASERON);
-          } else {
-            if (!laserOn) {
-              //
-              // turn off M3 S0
-              waitbufferempty();
-            }
-          }
+          // after some delay turn off laser
+          LASER(!LASERON);
         }
         break;
         /*      case 101:
@@ -1431,8 +1387,14 @@ SPINDLEOFF:          // M3 S0 or M5, wait buffer empty and turn off
         zprintf(PSTR("EPR:3 340 %f HS\n"), ff(HEATINGSCALE));
 #endif
 #endif
+#if  defined(RPM_COUNTER)
+        extern PID RPM_PID;
+        zprintf(PSTR("EPR:3 316 %f P\n"), ff(RPM_PID.GetKp()));
+        zprintf(PSTR("EPR:3 320 %f I\n"), ff(RPM_PID.GetKi()));
+        zprintf(PSTR("EPR:3 324 %f D\n"), ff(RPM_PID.GetKd()));
+#endif
         zprintf(PSTR("EPR:3 332 %f EXTADV\n"), ff(extadv));
-        zprintf(PSTR("EPR:3 336 %d UNMS\n"), fi(unms));
+        //zprintf(PSTR("EPR:3 336 %d UNMS\n"), fi(unms));
 #ifdef WIFISERVER
         zprintf(PSTR("EPR:3 380 %d GCODE\n"), fi(wifi_gcode));
 #endif

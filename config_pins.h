@@ -99,12 +99,13 @@
 //#define BOARD_ESPUNO_COREXY
 //#define BOARD_WEMOS3D_COREXY
 
-#define BOARD_WEMOS_CNC_XZYY
+//#define BOARD_WEMOS_CNC_XZYY
 //#define BOARD_WEMOS3DCOREXY
 
 //#define BOARD_WEMOSCNC
-#define MYLASER
-#define LASERMINI
+//#define MYLASER
+#define MK4CNC
+//#define LASERMINI
 #define LASERWIFI
 //#define BOARD_MINICNC_ESP01
 //#define BOARD_WEMOS_XYY_LASER
@@ -117,7 +118,11 @@
 #undef BOARD_WEMOS_CNC_XZYY
 #define BOARD_WEMOSCNC
 #endif
-
+#ifdef MK4CNC
+#undef BOARD_WEMOS3D_COREXY
+#undef BOARD_WEMOS_CNC_XZYY
+#define BOARD_WEMOSCNC_ONLY
+#endif
 
 #include "myboards.h"
 #define USE_EEPROM
@@ -144,10 +149,9 @@
 
 #else
 //#define MESHLEVEL
-//#define ARC_SUPPORT // 3kb
+#define ARC_SUPPORT // 3kb
 #define USE_BACKLASH  // 400bytes code
 #define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-//#define LCDDISPLAY 0x3F // more than 2.5K , simple oled controller
 //#define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
 //#define WIFISERVER
@@ -157,10 +161,30 @@
 #endif
 // ==========================================================
 
-//#define ACT_KEY
-#define IR_KEY D2
+#if defined(ESP8266)
+// ESP8266
+// using TX RX as SDA SCL for I2C or SPI LCD
+ 
 #define IR_OLED_MENU
+#define IR_KEY D2
+
+#undef LCD_OLED
+#define LCD_OLED_SSD
+//#define LCD_OLED
+
+//#define LCD_UC1609
+//#define LCD_UC1609DARK
+//#define LCD_NK1202
+#define LCD_NK1661
+//#define LCD_2004
+
+// to debug
+//#undef IR_OLED_MENU
 //
+#endif
+
+
+
 #ifndef temp_pin
 #define EMULATETEMP
 #endif
@@ -197,6 +221,10 @@
 //LOW
 //#undef USEOTA
 #undef TCPSERVER
+#ifdef LASERMINI
+#define LASERON HIGH
+#define laser_pin D1
+#endif
 
 #ifndef LASERWIFI
 #undef WIFISERVER
@@ -209,10 +237,6 @@
 #define BAUDRATE 115200*2
 #endif
 
-#ifdef LASERMINI
-#define LASERON HIGH
-#define laser_pin D1
-#endif
 
 //#define NUMBUFFER 50
 
@@ -266,7 +290,6 @@
 #undef ISRTEMP
 #undef CORESERIAL
 //#undef USE_EEPROM
-//#undef LCDDISPLAY
 //#undef USETIMER1
 
 #endif
@@ -276,7 +299,7 @@
 #undef USETIMER1
 #undef LASERMODE
 #undef SAVE_RESETMOTION
-#undef ACT_KEY
+
 
 //#define DRIVE_XYYZ  // dual Y individual homing
 //#define DRIVE_COREXY
@@ -306,48 +329,84 @@
 #define DELTA_DIAGONAL_ROD 180
 #define DELTA_RADIUS 85
 
-// Motion configuration
-#define CHECKENDSTOP_EVERY 0.05  // mm this translate to 200step if step/mm is 4000, must lower than 255 (byte size)
-#define HOMINGSPEED 30
-#define XOFFSET 0
-#define YOFFSET 0
-#define ZOFFSET 0
-#define EOFFSET 0
 
 
 #ifdef BOARD_WEMOS3D_COREXY
 #define XYJERK 600
 #define XYCORNER 45
 #define XACCELL 1600
-#else
-#define XYJERK 9000
-#define XYCORNER 35
-#define XACCELL 200
-#endif
-
-#ifdef BOARD_WEMOS3D_COREXY
 #define XMAXFEEDRATE 400
 #define YMAXFEEDRATE 400
 #define ZMAXFEEDRATE 30
 #define E0MAXFEEDRATE 25
-#else
+#define XSTEPPERMM 100.5//50//105.090//50//131//178
+#define YSTEPPERMM 100.5////105.090//50//175//125
+#define ZSTEPPERMM 243.75//2300//80//1020//1020 //420
+#define E0STEPPERMM 152//92//340//380
+#define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
+#define MOTOR_Y_BACKLASH 0
+#define MOTOR_Z_BACKLASH 0
+#define MOTOR_E_BACKLASH 0
+#endif
+
+/*
+// just for 115
+#define XSTEPPERMM -426.577
+#define YSTEPPERMM 427.354
+#define ZSTEPPERMM -400.000
+// TRiAL RPM counter
+// #define RPM_COUNTER D1
+#undef AC_SPINDLE // using DC
+*/
+
+
+#ifndef XSTEPPERMM
+#define XSTEPPERMM 100//50//105.090//50//131//178
+#define YSTEPPERMM 100////105.090//50//175//125
+#define ZSTEPPERMM 100//2300//80//1020//1020 //420
+#define E0STEPPERMM 100//92//340//380
+#endif
+
+#ifndef XMAXFEEDRATE 
 #define XMAXFEEDRATE 100
 #define YMAXFEEDRATE 100
 #define ZMAXFEEDRATE 100
 #define E0MAXFEEDRATE 100
 #endif
 
-#ifdef BOARD_WEMOS3D_COREXY
-#define XSTEPPERMM 100.5//50//105.090//50//131//178
-#define YSTEPPERMM 100.5////105.090//50//175//125
-#define ZSTEPPERMM 243.75//2300//80//1020//1020 //420
-#define E0STEPPERMM 152//92//340//380
-#else
-#define XSTEPPERMM 100//50//105.090//50//131//178
-#define YSTEPPERMM 100////105.090//50//175//125
-#define ZSTEPPERMM 100//2300//80//1020//1020 //420
-#define E0STEPPERMM 100//92//340//380
+#ifndef XACCELL
+#define XYJERK 9000
+#define XYCORNER 35
+#define XACCELL 200
 #endif
+
+#ifndef MOTOR_X_BACKLASH 
+#define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
+#define MOTOR_Y_BACKLASH 0
+#define MOTOR_Z_BACKLASH 0
+#define MOTOR_E_BACKLASH 0
+#endif
+
+#ifndef XOFFSET
+#define XOFFSET 0
+#define YOFFSET 0
+#define ZOFFSET 0
+#define EOFFSET 0
+#endif
+
+#ifndef LSCALE
+#define LSCALE 1
+#endif
+
+// Motion configuration
+#ifndef CHECKENDSTOP_EVERY 
+#define CHECKENDSTOP_EVERY 0.05  // mm this translate to 200step if step/mm is 4000, must lower than 255 (byte size)
+#endif
+
+#ifndef HOMINGSPEED 
+#define HOMINGSPEED 30
+#endif
+
 
 #ifndef NUMBUFFER
 #define NUMBUFFER 20
@@ -362,10 +421,7 @@
 #define ZMAX 0
 #endif
 
-#define MOTOR_X_BACKLASH 0  // MOTOR 0 = X, 1= Y 2=Z 3=E
-#define MOTOR_Y_BACKLASH 0
-#define MOTOR_Z_BACKLASH 0
-#define MOTOR_E_BACKLASH 0
+
 
 //#define AUTO_MOTOR_Z_OFF
 
@@ -376,40 +432,4 @@
 #define ENDSTOP_MOVE 3   //2mm move back after endstop hit, warning, must
 #define HOMING_MOVE 2000
 
-// KontrolBox a series resistor with switch to a analog PIN
-// MCU only
-#ifndef ISPC
-
-
-/*
-    MACROS for KBOXKontroller
-
-*/
-
-#ifndef KBOX_KEY1_R
-
-#define KBOX_KEY_CHECK(k)   case KBOX_KEY##k##_R : lkey = k;kdl=500;break;
-//#define KBOX_SHOW_VALUE
-#define KBOX_KEY1_R 0 ... 10
-#define KBOX_KEY2_R 500 ... 530
-#define KBOX_KEY3_R 670 ... 695
-#define KBOX_KEY4_R 750 ... 780
-
-#define KBOX_DO_CHECK  KBOX_KEY_CHECK(1) KBOX_KEY_CHECK(2) KBOX_KEY_CHECK(3) KBOX_KEY_CHECK(4)
-
-
-#ifdef KBOX_PIN
-#define KBOX_KEY4_ACTION zprintf(PSTR("HOMING\n"));homing();
-#define KBOX_KEY3_ACTION zprintf(PSTR("HEATING\n"));set_temp(190);
-#define KBOX_KEY2_ACTION if (sdcardok) {sdcardok = sdcardok == 1 ? 2 : 1;zprintf(PSTR("SD\n"));} else demoSD();
-#define KBOX_KEY1_ACTION RUNNING=0;sdcardok=0;zprintf(PSTR("STOP\n"));power_off();
-
-#define KBOX_KEY_ACT(k)   case k: zprintf(PSTR("Act %d\n"),k); KBOX_KEY##k##_ACTION  ;break;
-#define KBOX_DO_ACT  KBOX_KEY_ACT(1) KBOX_KEY_ACT(2) KBOX_KEY_ACT(3) KBOX_KEY_ACT(4)
-#else // no controller
-//#define KBOX_DO_ACT
-#endif
-#endif // 
-
-#endif
 #endif // config_pins

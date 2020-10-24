@@ -75,7 +75,7 @@ int32_t EEMEM EE_un_microstep;
 
 
 
-extern int CNCMODE;
+
 void reload_eeprom() {
   eepromcommit();
 
@@ -89,12 +89,12 @@ void reload_eeprom() {
   maxf[1] = eepromread(EE_max_y_feedrate);
   maxf[2] = eepromread(EE_max_z_feedrate);
   maxf[3] = eepromread(EE_max_e_feedrate);
-  
-  maxa[0]=accel;
-  maxa[1]=accel*maxf[1]/maxf[0];
-  maxa[2]=accel*maxf[2]/maxf[0];
-  maxa[3]=accel;
-  
+
+  maxa[0] = accel;
+  maxa[1] = accel * maxf[1] / maxf[0];
+  maxa[2] = accel * maxf[2] / maxf[0];
+  maxa[3] = accel;
+
   zaccel = accel * maxf[2] / maxf[0];
 
   stepmmx[0] = (float)eepromread(EE_xstepmm)  * 0.001;
@@ -107,11 +107,6 @@ void reload_eeprom() {
   homingspeed = eepromread(EE_homing);
   zcorner = fmin(homingspeed / 3, xycorner);
   zjerk = xyjerk * zcorner / xycorner;
-  #ifndef MYLASER
-  CNCMODE = ((ax_home[0] + ax_home[1] + ax_home[2] == 0) && (xycorner <= 15));
-  #endif
-  
-  if (CNCMODE)zprintf(PSTR("CNCMODE\n"));
   Lscale = (float)eepromread(EE_Lscale) * 0.001;
 #ifdef NONLINEAR
   delta_radius = (float)eepromread(EE_hor_radius)   * 0.001;
@@ -147,10 +142,14 @@ void reload_eeprom() {
   tbang = eepromread(EE_pid_bang) * 0.001;
   HEATINGSCALE = eepromread(EE_pid_HS) * 0.001;
 #endif
+#ifdef RPM_COUNTER
+  extern PID RPM_PID;
+  RPM_PID.SetTunings(eepromread(EE_pid_p) * 0.001, eepromread(EE_pid_i) * 0.001, eepromread(EE_pid_d) * 0.001);
+#endif
   tbang = eepromread(EE_pid_bang) * 0.001;
   HEATINGSCALE = eepromread(EE_pid_HS) * 0.001;
   extadv = eepromread(EE_ext_adv) * 0.001;
-  unms = eepromread(EE_un_microstep);
+  //unms = eepromread(EE_un_microstep);
   preparecalc();
 }
 

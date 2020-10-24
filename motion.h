@@ -116,7 +116,7 @@ extern int8_t RUNNING;
 extern int8_t PAUSE;
 extern int constantlaserVal;
 extern float extadv;
-
+extern String hstatus;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 extern float Interpolizer(int zX, int zY);
@@ -130,7 +130,7 @@ extern uint32_t ectstep;
 extern int32_t motionrunning;
 extern int32_t mctr;
 extern int motionloop();
-extern int laserOn;
+extern int laserOn,home_cnt;
 extern void init_pos();
 extern int coreloop();
 extern void coreloopm();

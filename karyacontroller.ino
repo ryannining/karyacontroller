@@ -264,7 +264,7 @@ void wifi_push(char c) {
 void setupwifi(int num) {
   NOINTS
 
-  
+
   while (1) {
     xprintf(PSTR("Wifi Initialization\n"));
     if (num) {
@@ -289,6 +289,12 @@ void setupwifi(int num) {
       WiFi.mode(WIFI_STA);
       WiFi.begin ( wifi_ap, wifi_pwd);
       int cntr = 30;
+      #ifdef IR_OLED_MENU
+      d_clear();
+      d_text(0, 0, "connecting ...");
+      d_text(0, 1, wifi_ap);
+      d_show();
+      #endif
       while ( WiFi.status() != WL_CONNECTED ) {
         delay ( 500 );
         cntr--;
@@ -297,14 +303,16 @@ void setupwifi(int num) {
         Serial.print(".");
       }
     }
-
+    String ipa="";
     if (WiFi.status() == WL_CONNECTED) {
       ip = WiFi.localIP();
       ISWIFIOK = 1;
       xprintf(PSTR("Connected to:%s Ip:%d.%d.%d.%d\n"), wifi_ap, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
 
       xprintf(PSTR("HTTP server started\n"));
-
+      ipa = "Wifi : " + String(ip[2]);
+      ipa += ".";
+      ipa += String(ip[3]);
 
     } else {
       xprintf(PSTR("Access Point Mode\n"));
@@ -315,12 +323,15 @@ void setupwifi(int num) {
       WiFi.softAP(ssid, password);
       ip = WiFi.softAPIP();
       xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), ssid, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]) );
-    }
-
+      ipa = String(ssid) + " : " + String(ip[2]);
+      ipa += ".";
+      ipa += String(ip[3]);
+}
 #ifdef IR_OLED_MENU
-    // disable serial if using it as spindle_pin
+  extern String IPA;  
+  IPA=ipa;
     Serial.end();
-    hasSerial=0;
+    hasSerial = 0;
 #endif
 
     server.on("/setconfig", HTTP_GET, []() {                 // if the client requests the upload page
@@ -449,6 +460,17 @@ void setupwifi(int num) {
       }
       INTS
     });
+    server.on("/renamejob", HTTP_GET, []() {                 // if the client requests the upload page
+      NOINTS
+      if (uncompress) {
+        server.send ( 200, "text/html", "FAIL, STILL PRINTING");
+      } else {
+        SPIFFS.rename(server.arg("jobname"),server.arg("newname"));
+        SPIFFS.rename(server.arg("jobname") + ".jpg",server.arg("newname") + ".jpg");
+        server.send ( 200, "text/html", "Rename Ok");
+      }
+      INTS
+    });
     server.on("/getjobs", HTTP_GET, []() {
       NOINTS
       if (!uncompress) {
@@ -503,7 +525,8 @@ void setupwifi(int num) {
     });
     server.on("/home", HTTP_GET, []() {                 // if the client requests the upload page
       addmove(100, 0, 0, 10, 0, 1, 1);
-      addmove(100, 0, 0, 2, 0, 1, 0);
+      addmove(100, 0, 0, 10, 0, 1, 0);
+      addmove(100, 0, 0, 0, 0, 1, 0);
       server.send ( 200, "text/html", "OK");
       //homing();
     });
@@ -535,6 +558,11 @@ void setupwifi(int num) {
       //xprintf(PSTR("Handle UPLOAD \n"));
       SPIFFS.remove(server.arg("fn"));
       server.send ( 200, "text/html", "Delete " + server.arg("fn"));
+    });
+    server.on("/rename", HTTP_GET, []() {                 // if the client requests the upload page
+      //xprintf(PSTR("Handle UPLOAD \n"));
+      SPIFFS.rename(server.arg("fn"),server.arg("fnew"));
+      server.send ( 200, "text/html", "Rename to " + server.arg("fnew"));
     });
 
     server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
@@ -596,11 +624,11 @@ void setupwifi(int num) {
     });
     ArduinoOTA.onError([](ota_error_t error) {
       /*Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+        else if (error == OTA_END_ERROR) Serial.println("End Failed");
       */
     });
     ArduinoOTA.begin();
@@ -676,132 +704,7 @@ int kdl = 200;
 
 
 */
-#ifdef LCDDISPLAY
-#include  <Wire.h>
-#include  <LiquidCrystal_I2C.h>
 
-LiquidCrystal_I2C lcd(LCDDISPLAY, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
-
-// 0X3C+SA0 - 0x3C or 0x3D
-#define I2C_ADDRESS 0x3C
-
-// Define proper RST_PIN if required.
-#define RST_PIN -1
-
-void menu_up() {
-
-}
-void menu_down() {
-
-}
-void menu_click() {
-
-}
-void menu_back() {
-
-}
-
-#define KBOX_KEY_ACT(k)   case k: KBOX_KEY##k##_ACTION;break;
-#define KBOX_KEY1_ACTION menu_up()
-#define KBOX_KEY2_ACTION menu_down()
-#define KBOX_KEY3_ACTION menu_click()
-#define KBOX_KEY4_ACTION menu_back()
-
-#define KBOX_DO_ACT  KBOX_KEY_ACT(1) KBOX_KEY_ACT(2) KBOX_KEY_ACT(3) KBOX_KEY_ACT(4)
-
-
-void oledwr(uint8_t c) {
-  lcd.write(c);
-}
-#define oprintf(...)   sendf_P(oledwr, __VA_ARGS__)
-#define gotoxy(x,y) lcd.setCursor(x,y)
-#define oclear() lcd.clear()
-
-
-//------------------------------------------------------------------------------
-void setupdisplay() {
-
-  lcd.begin();                      // initialize the lcd
-  lcd.backlight();
-  gotoxy(0, 0);
-  oprintf(PSTR("Karyacontroller"));
-}
-uint32_t sw, next_lcd = 0;
-void display_loop() {
-
-  uint32_t lcm = millis();
-  if (lcm - next_lcd < 500) return;
-  next_lcd = lcm; // each half second
-  if (sw++ > 3)sw = 0;
-  switch (sw) {
-    case 0:
-      gotoxy(0, 0);
-#ifdef USE_SDCARD
-      if (sdcardok == 1) {
-        oprintf(PSTR("SD:%d lines"), fi(linecount));
-      } else if (sdcardok == 2) {
-        oprintf(PSTR("Printing:%d"), fi(lineprocess));
-      } else
-#endif
-      {
-        oprintf(PSTR("Suhu:%f         "), ff(Input));
-      }
-      break;
-    case 1:
-      gotoxy(0, 1);
-      //              ----------------
-#ifdef USE_SDCARD
-      if (sdcardok == 1) {
-        oprintf(PSTR("Home Heat Prn -"));
-      }
-      else if (sdcardok == 2) {
-        oprintf(PSTR("- -  Pause Off"));
-      }
-#endif
-      {
-        oprintf(PSTR("Home Heat SD Off"));
-      }
-      break;
-  }
-}
-void control_loop() {
-  /*
-    #ifdef OLED_CONTROL_PIN
-
-    if (millis() - kctr > kdl) {
-    kctr = millis();
-    #ifdef ISRTEMP
-    int key = vanalog[OLED_CONTROL_PIN];
-    ADCREAD(OLED_CONTROL_PIN)
-    #else
-    int key = analogRead(OLED_CONTROL_PIN) >> ANALOGSHIFT;
-    #endif
-
-    switch (key) {
-        KBOX_DO_CHECK  // standart 4 key control box
-
-      case 1021 ... 1023:
-        if (lkey) {
-          zprintf(PSTR("KKey:%d\n"), fi(lkey));
-          switch (lkey) {
-            KBOX_DO_ACT
-          }
-        }
-        lkey = 0;
-        kdl = 200;
-        break;
-    }
-    zprintf(PSTR("Key:%d\n"), fi(key));
-    }
-    #endif
-  */
-}
-#else
-#define setupdisplay()
-#define display_loop()
-#define control_loop()
-
-#endif
 /*
       =========================================================================================================================================================
 */
@@ -830,46 +733,6 @@ char gcode_loop() {
 
        KONTROLBOX
 
-      =========================================================================================================================================================
-  */
-#ifdef KBOX_PIN
-
-  if (millis() - kctr > kdl) {
-    kctr = millis();
-#ifdef ISRTEMP
-    int key = vanalog[KBOX_PIN];
-    ADCREAD(KBOX_PIN)
-#else
-    int key = analogRead(KBOX_PIN) >> ANALOGSHIFT;
-#endif
-
-    switch (key) {
-        KBOX_DO_CHECK
-      case 1021 ... 1023:
-        if (lkey) {
-          //zprintf(PSTR("LKey:%d\n"), fi(lkey));
-          switch (lkey) {
-            case 4: zprintf(PSTR("HOMING\n")); homing(); break;
-            case 3: zprintf(PSTR("HEATING\n")); set_temp(190); break;
-            case 2: if (sdcardok) {
-                sdcardok = sdcardok == 1 ? 2 : 1;
-                zprintf(PSTR("SD\n"));
-              } else demoSD(); break;
-            case 1: RUNNING = 0; sdcardok = 0; zprintf(PSTR("STOP\n")); power_off(); break;
-
-          }
-        }
-        lkey = 0;
-        kdl = 200;
-        break;
-    }
-#ifdef KBOX_SHOW_VALUE
-    zprintf(PSTR("Key:%d\n"), fi(key));
-#endif
-
-  }
-#endif
-  /*
       =========================================================================================================================================================
   */
 
@@ -955,6 +818,7 @@ void setupother() {
 #ifdef USE_SDCARD
   demoSD();
 #endif
+
 #ifdef output_enable
   zprintf(PSTR("Init motion\n"));
   initmotion();
@@ -974,32 +838,23 @@ void setupother() {
   timer_init();
 #endif
 #ifdef spindle_pin
-    //delay(1000);
-    pinMode(spindle_pin, OUTPUT);
-    xdigitalWrite(spindle_pin, LOW);
+  //delay(1000);
+  pinMode(spindle_pin, OUTPUT);
+  xdigitalWrite(spindle_pin, LOW);
 #endif
   // important for KARYACNC to know the scale
-  zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
+  //zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
+
+
+
 #ifdef WIFISERVER
   setupwifi(0);
 #endif
 
 
-  setupdisplay();
 
   servo_init();
-#ifdef KBOX_PIN
-#ifdef __ARM__
-  pinMode(KBOX_PIN, INPUT_ANALOG);
-#else
-  pinMode(KBOX_PIN, INPUT_PULLUP);
-#endif
-#ifdef ISRTEMP
-  vanalog[KBOX_PIN] = 1023; // first read is error, throw it
-#endif
-#endif
 
-  IR_setup();
   setupok = 1;
   zprintf(PSTR("start\nok\n"));
 
@@ -1008,28 +863,27 @@ uint32_t t1;
 void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
+  IR_setup();
+  #ifndef IR_OLED_MENU  
   serialinit(BAUDRATE); //115200);
+  #endif
   t1 = millis();
   //while (!Serial.available())continue;
-#ifndef DELAYEDSETUP
+
   setupother();
-#endif
+
 
 }
 
 
 void loop() {
   //demo();
-#ifdef DELAYSETUP
-  if (!setupok && (t1 - millis() > DELAYSETUP * 1000))setupother();
-#endif
+
   if (setupok) {
 #ifdef FASTBUFFERFILL
     for (int ff = FASTBUFFERFILL + 1; ff; ff--)
 #endif
       char c = gcode_loop();
-    control_loop();
-    display_loop();
     IR_loop();
 #ifdef WIFISERVER
     wifi_loop();

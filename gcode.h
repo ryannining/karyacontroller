@@ -107,6 +107,8 @@ extern void loadmeshleveling();
 extern void changefilament(float l);
 extern void process_gcode_command();
 extern int reset_command();
+extern void update_pos(void);
+
 extern uint8_t gcode_parse_char(uint8_t c);
 extern void init_gcode();
 extern int sdcardok;

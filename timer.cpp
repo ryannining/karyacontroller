@@ -6,10 +6,120 @@
 #include "common.h"
 #include "platform.h"
 
+long spindle_pwm = 0;
+extern int lastS;
+bool RPM_PID_MODE=false;
+
+
+#ifdef RPM_COUNTER
+
+#include "pid.h"
+double rSetpoint, rInput, rOutput;
+
+//Specify the links and initial tuning parameters
+
+PID RPM_PID(&rInput, &rOutput, &rSetpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
+
+uint32_t rev=0;
+uint32_t lastMillis=0;
+uint32_t RPM=0;
+int avgpw=0;
+int avgcnt=0;
+void ICACHE_RAM_ATTR isr_RPM() {
+  rev++;
+}
+uint32_t get_RPM(){
+	uint32_t milli=millis();
+	uint32_t delta=milli-lastMillis;
+	if (delta>100){		
+		lastMillis=milli;
+		RPM=(rev*60*1000/delta);
+		rev=0;
+		if (RPM_PID_MODE) {
+			rSetpoint=lastS*100;
+			rInput=RPM;
+			RPM_PID.Compute();
+			if (lastS==0)rOutput=0;
+			avgpw=(avgpw+rOutput*0.01);
+			avgcnt++;
+			#ifdef AC_SPINDLE
+			spindle_pwm = 10000 - pow(rOutput * 0.0001, 2) * 10000;
+			#else
+			spindle_pwm = rOutput;
+			#endif
+		}
+	}
+	return RPM;
+}
+void setup_RPM(){
+	attachInterrupt(digitalPinToInterrupt (RPM_COUNTER), isr_RPM, RISING);
+	lastMillis=millis();
+    RPM_PID.SetMode(AUTOMATIC);
+	RPM_PID.SetOutputLimits(0, 10000);	
+}
+
+#endif
+
+
+
+uint32_t next_l = 0;
+bool spindle_state = LOW;
+int spindle_pct;
+
+bool in_pwm_loop=false;
+void set_pwm(int v) { // 0-255
+  if (v > 255)v = 255;  
+  
+  else if (v >= 0) {
+    spindle_pct=v*0.39;
+    if (! RPM_PID_MODE)
+    extern float Lscale;
+    v*=Lscale;
+		#ifdef AC_SPINDLE
+		spindle_pwm = 10000 - (fmin(pow(v * 0.00392156, 2) * 10000,10000));
+		#else
+		spindle_pwm = v*39.2156;
+		#endif		
+  }
+  lastS=v;
+  if (in_pwm_loop)return;
+#ifdef spindle_pin
+  pinMode(spindle_pin,OUTPUT);
+  xdigitalWrite(spindle_pin, HIGH);
+#endif
+}
+void pause_pwm(bool v){
+	in_pwm_loop=v;
+}
+void ICACHE_RAM_ATTR pwm_loop() {
+#ifdef RPM_COUNTER
+	get_RPM();
+#endif
+
+#ifdef spindle_pin
+  if (in_pwm_loop)return;
+  in_pwm_loop=true;
+  uint32_t pwmc = micros();
+  if (pwmc - next_l > spindle_pwm ) {
+    if (!spindle_state) {
+      spindle_state = HIGH;
+      xdigitalWrite(spindle_pin, HIGH);
+    }
+  } 
+  if (pwmc - next_l > 9999) { // 1khz on wemos
+    next_l = pwmc;
+    spindle_state = LOW;
+    xdigitalWrite(spindle_pin, LOW);
+  }
+  in_pwm_loop=false;
+#endif
+}
+
 #ifdef servo_pin
 uint32_t servo_timer = 0;
 int32_t servo_pos = 0;
 #ifdef __AVR__
+
 static volatile int ISRCount, remainder, counter; // iteration counter used in the interrupt routines;
 
 ISR (TIMER2_OVF_vect)
@@ -67,13 +177,17 @@ void servo_loop()
     digitalWrite(servo_pin, LOW);
   }
 #endif
+  pwm_loop();
 }
 #else
-void servo_loop() {}
+void servo_loop() {
+  pwm_loop();
+}
 void servo_init() {}
 void servo_set(int us) {}
 
 #endif
+
 
 
 int somedelay(int32_t n)
@@ -120,7 +234,7 @@ int feedthedog()
     // ESP8266 specific code here
     ESP.wdtFeed();
 #elif defined(ESP32)
-//  esp_task_wdt_reset();
+    //  esp_task_wdt_reset();
 #else
 #endif
     //zprintf(PSTR("Feed the dog\n"));
@@ -134,34 +248,13 @@ int feedthedog()
 #define timerPause()
 #define timerResume()
 
-uint32_t	next_step_time;
-#ifdef USETIMER1
 int busy1 = 0;
 volatile uint32_t ndelay = 0, ndelay2 = 0;
+uint32_t next_step_time;
+#ifdef USETIMER1
 
-// ======= the same code for all cpu ======
-inline int THEISR timercode() {
-  if (ndelay2)
-  {
-    // turn off laser , laser constant burn mode
-    ndelay = ndelay2;
-    ndelay2 = 0;
-    LASER(!LASERON);
-  } else {
-    if (ndelay < 30000) {
-      ndelay = 30;
-      coreloopm();
-#ifdef __AVR__
-      TCNT1 = 0;
-#endif
-    } else {
-      ndelay -= 30000;
-    }
-  }
-  return ndelay >= 30000 ? 30000 : ndelay;
-}
+inline int THEISR timercode();
 
-// ==============================================
 /*
     AVR TIMER
 */
@@ -237,7 +330,7 @@ void timer_init()
 // -------------------------------------   ESP8266  ----------------------------------------------------------
 #ifdef ESP8266
 #define USETIMEROK
-#define MINDELAY 5000
+#define MINDELAY 1000
 #define usetmr1
 
 
@@ -247,9 +340,9 @@ void ICACHE_RAM_ATTR tm()
   int d = timercode();
 
 #ifdef usetmr1
-  timer1_write(d<6?6:d);
+  timer1_write(d < 6 ? 6 : d);
 #else
-  timer0_write(ESP.getCycleCount() + 16 * (d<6?6:d));
+  timer0_write(ESP.getCycleCount() + 16 * (d < 6 ? 6 : d));
 #endif
   interrupts();
 }
@@ -262,12 +355,16 @@ void timer_init()
   timer1_isr_init();
   timer1_attachInterrupt(tm);
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
-  timer1_write(1000); //120000 us
+  timer1_write(1000); //200 us
 #else
   timer0_isr_init();
   timer0_attachInterrupt(tm);
   timer0_write(ESP.getCycleCount() + 16 * 1000); //120000 us
 #endif
+  #ifdef RPM_COUNTER
+  setup_RPM();
+  #endif
+  
   interrupts();
 }
 
@@ -275,35 +372,35 @@ void timer_init()
 #ifdef ESP32
 #define USETIMEROK
 typedef struct {
-    union {
-        struct {
-            uint32_t reserved0:   10;
-            uint32_t alarm_en:     1;             /*When set  alarm is enabled*/
-            uint32_t level_int_en: 1;             /*When set  level type interrupt will be generated during alarm*/
-            uint32_t edge_int_en:  1;             /*When set  edge type interrupt will be generated during alarm*/
-            uint32_t divider:     16;             /*Timer clock (T0/1_clk) pre-scale value.*/
-            uint32_t autoreload:   1;             /*When set  timer 0/1 auto-reload at alarming is enabled*/
-            uint32_t increase:     1;             /*When set  timer 0/1 time-base counter increment. When cleared timer 0 time-base counter decrement.*/
-            uint32_t enable:       1;             /*When set  timer 0/1 time-base counter is enabled*/
-        };
-        uint32_t val;
-    } config;
-    uint32_t cnt_low;                             /*Register to store timer 0/1 time-base counter current value lower 32 bits.*/
-    uint32_t cnt_high;                            /*Register to store timer 0 time-base counter current value higher 32 bits.*/
-    uint32_t update;                              /*Write any value will trigger a timer 0 time-base counter value update (timer 0 current value will be stored in registers above)*/
-    uint32_t alarm_low;                           /*Timer 0 time-base counter value lower 32 bits that will trigger the alarm*/
-    uint32_t alarm_high;                          /*Timer 0 time-base counter value higher 32 bits that will trigger the alarm*/
-    uint32_t load_low;                            /*Lower 32 bits of the value that will load into timer 0 time-base counter*/
-    uint32_t load_high;                           /*higher 32 bits of the value that will load into timer 0 time-base counter*/
-    uint32_t reload;                              /*Write any value will trigger timer 0 time-base counter reload*/
+  union {
+    struct {
+      uint32_t reserved0:   10;
+      uint32_t alarm_en:     1;             /*When set  alarm is enabled*/
+      uint32_t level_int_en: 1;             /*When set  level type interrupt will be generated during alarm*/
+      uint32_t edge_int_en:  1;             /*When set  edge type interrupt will be generated during alarm*/
+      uint32_t divider:     16;             /*Timer clock (T0/1_clk) pre-scale value.*/
+      uint32_t autoreload:   1;             /*When set  timer 0/1 auto-reload at alarming is enabled*/
+      uint32_t increase:     1;             /*When set  timer 0/1 time-base counter increment. When cleared timer 0 time-base counter decrement.*/
+      uint32_t enable:       1;             /*When set  timer 0/1 time-base counter is enabled*/
+    };
+    uint32_t val;
+  } config;
+  uint32_t cnt_low;                             /*Register to store timer 0/1 time-base counter current value lower 32 bits.*/
+  uint32_t cnt_high;                            /*Register to store timer 0 time-base counter current value higher 32 bits.*/
+  uint32_t update;                              /*Write any value will trigger a timer 0 time-base counter value update (timer 0 current value will be stored in registers above)*/
+  uint32_t alarm_low;                           /*Timer 0 time-base counter value lower 32 bits that will trigger the alarm*/
+  uint32_t alarm_high;                          /*Timer 0 time-base counter value higher 32 bits that will trigger the alarm*/
+  uint32_t load_low;                            /*Lower 32 bits of the value that will load into timer 0 time-base counter*/
+  uint32_t load_high;                           /*higher 32 bits of the value that will load into timer 0 time-base counter*/
+  uint32_t reload;                              /*Write any value will trigger timer 0 time-base counter reload*/
 } xhw_timer_reg_t;
 
 typedef struct xhw_timer_s {
-        xhw_timer_reg_t * dev;
-        uint8_t num;
-        uint8_t group;
-        uint8_t timer;
-        portMUX_TYPE lock;
+  xhw_timer_reg_t * dev;
+  uint8_t num;
+  uint8_t group;
+  uint8_t timer;
+  portMUX_TYPE lock;
 } xhw_timer_t;
 
 
@@ -311,19 +408,19 @@ hw_timer_t * timer = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 
-void THEISR xtimerAlarmWrite(xhw_timer_s *timer, uint64_t alarm_value){
-    timer->dev->alarm_high = (uint32_t) (alarm_value >> 32);
-    timer->dev->alarm_low = (uint32_t) alarm_value;
-    timer->dev->config.autoreload = true;
-    timer->dev->config.alarm_en = 1;
+void THEISR xtimerAlarmWrite(xhw_timer_s *timer, uint64_t alarm_value) {
+  timer->dev->alarm_high = (uint32_t) (alarm_value >> 32);
+  timer->dev->alarm_low = (uint32_t) alarm_value;
+  timer->dev->config.autoreload = true;
+  timer->dev->config.alarm_en = 1;
 }
 
 void THEISR tm() {
   portENTER_CRITICAL_ISR(&timerMux);
   int d = timercode();
 
-  xtimerAlarmWrite((xhw_timer_s*)timer, d<6?6:d);
-  
+  xtimerAlarmWrite((xhw_timer_s*)timer, d < 6 ? 6 : d);
+
   portEXIT_CRITICAL_ISR(&timerMux);
 }
 
@@ -336,27 +433,58 @@ void timer_init()
 }
 
 /*
-#undef timerPause()
-#undef timerResume()
-int tmrstack=0;
-void THEISR timerPause(){
+  #undef timerPause()
+  #undef timerResume()
+  int tmrstack=0;
+  void THEISR timerPause(){
   tmrstack++;
-  if (tmrstack==1)((xhw_timer_s*) timer)->dev->config.alarm_en = 0; 
-}
-void THEISR timerResume(){
+  if (tmrstack==1)((xhw_timer_s*) timer)->dev->config.alarm_en = 0;
+  }
+  void THEISR timerResume(){
   tmrstack--;
   if (tmrstack==0)((xhw_timer_s*) timer)->dev->config.alarm_en = 1;
-}
+  }
 */
 
 #endif //esp32
 
+// ======= the same code for all cpu ======
+
+
+inline int THEISR timercode() {
+  if (ndelay2)
+  {
+    // turn off laser , laser constant burn mode
+    ndelay = ndelay2;
+    ndelay2 = 0;
+    LASER(!LASERON);
+  } else {
+    if (ndelay < 30000) {
+      ndelay = MINDELAY;
+      coreloopm();
+#ifdef __AVR__
+      TCNT1 = 0;
+#endif
+    } else {
+      ndelay -= 30000;
+    }
+  }
+  return ndelay >= 30000 ? 30000 : ndelay;
+}
+
+// ==============================================
+
+#endif
+
+
+//#elif defined(__ARM__)//avr
+
 // Laser constant burn timer
 void THEISR timer_set2(int32_t delay, int32_t delayL)
 {
-//  if (delayL) {
-//    if (delayL > delay -6)delay=delayL+6;
-  if ((delayL>0) && (delayL<delay)) {
+  //  if (delayL) {
+  //if (delayL > delay -6)delay=delayL+6;
+  if ((delayL > 0) && (delayL < delay)) {
     ndelay2 = delay - delayL; // the rest delay after laser on
     ndelay = delayL; // laser on delay
   } else {
@@ -366,14 +494,8 @@ void THEISR timer_set2(int32_t delay, int32_t delayL)
 }
 
 #define timer_set(a) timer_set2(a,0)
-#endif
-
-
-//#elif defined(__ARM__)//avr
-
 
 #ifndef USETIMEROK
 #undef USETIMER1
 void timer_init() {};
-void timer_set2(int32_t delay, int32_t delayl) {};
 #endif
