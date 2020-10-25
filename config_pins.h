@@ -166,10 +166,10 @@
 // using TX RX as SDA SCL for I2C or SPI LCD
  
 #define IR_OLED_MENU
-#define IR_KEY D2
+#define IR_KEY TX
 
 #undef LCD_OLED
-#define LCD_OLED_SSD
+//#define LCD_OLED_SSD
 //#define LCD_OLED
 
 //#define LCD_UC1609

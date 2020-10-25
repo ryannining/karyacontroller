@@ -189,8 +189,6 @@ void close_home_input() {
 void reset_motion()
 {
 
-  close_user_input();
-  init_user_input();
   // 650bytes code
 #ifdef SUBPIXELMAX
   vSUBPIXELMAX = SUBPIXELMAX;
@@ -1469,7 +1467,6 @@ float info_x, info_y, info_z, info_e;
 
 void otherloop(int r)
 {
-  user_input_loop();
   cm = micros();
   if ((cm - last_c0 > 200000)) {
 
@@ -1845,7 +1842,6 @@ void homing()
 {
 
   pause_pwm(true);
-  close_user_input();
   IR_end();
   init_home_input();
   // clear buffer
@@ -1962,10 +1958,6 @@ void homing()
   ishoming = 0;
   init_pos();
   
-  close_home_input();
-  init_user_input();
-  IR_setup();
-
   
   pause_pwm(false);
   xdigitalWrite(spindle_pin, HIGH);
@@ -1983,7 +1975,6 @@ int ZValues[40][40]; //
 
 float pointProbing()
 {
-  close_user_input();
 
   // clear buffer
   waitbufferempty();
@@ -2013,7 +2004,6 @@ float pointProbing()
 
 
   zcheckevery = o;
-  init_user_input();
   return zmm;
 }
 

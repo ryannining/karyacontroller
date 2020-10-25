@@ -78,6 +78,7 @@ static String jobnum;
 
 //
 
+#include "ir_remote.h"
 #include "ir_oled.h"
 
 int menu_index = 1;
@@ -207,7 +208,7 @@ void draw_info(void)
         d_text(0,4,"Uptime "+uptime(millis()));
     }
     if (LINES > 5) {
-        d_text(0,5,"Last Job:" + (lastjobt>0?uptime(lastjobt):"-"));
+        d_text(0,5,"Last " + (lastjobt>0?uptime(lastjobt):"-"));
     }
 
     d_show();
@@ -619,7 +620,7 @@ void draw_menu(void)
     d_setcolor(WHITE);
     d_text(0, 0, *menu_t); // write something to the internal memory
     d_rect(0, LCD_Y + 1, LCD_X * d_w(), 1);
-    d_frect(0, LCD_Y * (1 + *menu_pos - *menu_page) + 2, LCD_X * d_w(), LCD_Y);
+    d_frect(0, LCD_Y * (1 + *menu_pos - *menu_page) + 2, LCD_X * d_w()+2, LCD_Y);
     if (menu_col == 2) {
         d_text(20 - d_t_width(*(menu_t + 1)) / LCD_X, 0, *(menu_t + 1)); // write something to the internal memory
         d_rect(col2pos * LCD_X - 1, 0, 1, LCD_Y);
@@ -683,6 +684,26 @@ void menu_81_click(int a)
     menu_81_t[0] = T;           \
     confirm_click = clickok;    \
     LOADMENU(81);
+
+int menu_82_pos = 0;
+int menu_82_page = 0;
+String menu_82_t[] = { "", "","","","",""};
+
+void menu_82_click(int a)
+{
+    if (a == IRK_OK || a == IRK_LF) {
+        confirm_click(*menu_pos);
+    }
+}
+#define LOADCUSTOM(T, L1,L2,L3,L4,L5,clickok) \
+    menu_82_t[0] = T;           \
+    menu_82_t[1] = L1;           \
+    menu_82_t[2] = L2;           \
+    menu_82_t[3] = L3;           \
+    menu_82_t[4] = L4;           \
+    menu_82_t[5] = L5;           \
+    confirm_click = clickok;    \
+    LOADMENU(82);
 
 extern int uncompress;
 
@@ -752,12 +773,38 @@ void menu_0_click(int a)
     }
 }
 
+void DELETEJOB(int a) {
+    if (a) {
+        deletejob("/"+jobname);
+    }
+    LOADMENU2();
+}
+void DUMMYJOB(int a) {
+    LOADMENU2();
+}
 void runjob(int a)
 {
     if (a==0) {
         // jobname
         beginuncompress("/" + jobname);
         LOADINFO();
+    } else
+    if (a==1) {
+        // jobname
+
+        dummy_beginuncompress("/" + jobname);
+        LOADCUSTOM( jobname,
+                    "Work size",
+                    (String(xMax-xMin)+"mm x "+String(yMax-yMin)+"mm"),
+                    "Height",
+                    (String(zMax-zMin)+"mm"),
+                    "-",
+                    DUMMYJOB);
+    } else
+    if (a==2) {
+        // jobname
+
+        LOADCONFIRM(("Confirm delete ?"), DELETEJOB);
     } // run jobs
     else
         LOADMENU2();
@@ -819,7 +866,7 @@ void setup_oled(void)
     oledready = true;
 }
 
-static int IR_loop(int icommand)
+static int IR_UIloop(int icommand)
 {
 
     if (menu_index == 99 && icommand != IRK_OK)
@@ -860,13 +907,13 @@ static int IR_loop(int icommand)
 
 int ir_oled_loop(int icommand)
 {
-    if (millis() - mili > 1000) {
+    if (icommand ==0 && (millis() - mili > 1000)) {
         mili = millis();
         if (menu_index == 99)
             menu_f();
     }
 
-    return IR_loop(icommand);
+    return IR_UIloop(icommand);
 }
 #else
 #endif

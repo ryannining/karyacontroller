@@ -220,8 +220,12 @@ int compress_loop() {
 
 void beginuncompress(String fn);
 void enduncompress();
+void deletejob(String fn) {
+        SPIFFS.remove(fn);
+        SPIFFS.remove(fn + ".jpg");
+}
 // ============================================= uncompress ===============================================
-
+bool dummy_uncompress=false;
 int uctr = 0;
 long eE = 0;
 int gxver = 1;
@@ -352,12 +356,17 @@ void gcodereadnet(uint8_t * addr, int len) {
   }
 }
 
+float xMin,xMax,yMin,yMax,zMin,zMax;
 // version, old is using eSize 1
 void uncompressaline() {
   if (ispause)return;
   byte h;
   byte s;
   int32_t x = 0;
+  if (!fsGcode.available()) {
+    enduncompress();
+    return;
+  }  
   fsGcode.read((uint8_t *)&h, 1); gcodepos++;
 
   uctr++;
@@ -448,7 +457,15 @@ void uncompressaline() {
   }
   //zprintf(PSTR("\n"));
 
-  process_gcode_command();
+  if (!dummy_uncompress)process_gcode_command();
+  else {
+        xMin=fmin(xMin,AX);
+        xMax=fmax(xMax,AX);
+        yMin=fmin(yMin,AY);
+        yMax=fmax(yMax,AY);        
+        zMin=fmin(zMin,AZ);
+        zMax=fmax(zMax,AZ);        
+  }  
   lastjobt=millis()-lastjobt0;
   reset_command();
   if (!cntg28) {
@@ -457,6 +474,20 @@ void uncompressaline() {
   }
 }
 
+void dummy_beginuncompress(String fn){
+    dummy_uncompress=true;
+    zMin=xMin=yMin=10000;
+    zMax=xMax=yMax=-10000;
+    
+    beginuncompress(fn);
+    while (uncompress){
+        uncompressaline();
+        
+    }
+    enduncompress();
+    dummy_uncompress=false;
+    
+}
 
 
 // ========================== LOOP =============================

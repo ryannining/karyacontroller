@@ -12,6 +12,8 @@
 #include "motion.h"
 #include "gcodesave.h"
 #include "ir_remote.h"
+#include "ir_oled.h"
+
 
 #ifdef USEOTA
 #include <ArduinoOTA.h>
@@ -454,8 +456,7 @@ void setupwifi(int num) {
       if (uncompress) {
         server.send ( 200, "text/html", "FAIL, STILL PRINTING");
       } else {
-        SPIFFS.remove(server.arg("jobname"));
-        SPIFFS.remove(server.arg("jobname") + ".jpg");
+        deletejob(server.arg("jobname"));  
         server.send ( 200, "text/html", "Delete Ok");
       }
       INTS
@@ -864,6 +865,8 @@ void setup() {
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
   IR_setup();
+  setup_oled();
+  
   #ifndef IR_OLED_MENU  
   serialinit(BAUDRATE); //115200);
   #endif

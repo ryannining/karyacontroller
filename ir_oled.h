@@ -54,6 +54,9 @@ extern NK1661Wire xdisplay;
 
 #define REINIT
 
+
+extern void IR_setup();
+
 #ifdef LCD_2004
 #include "LiquidCrystal_PCF8574.h"
 extern LiquidCrystal_PCF8574 xdisplay;
@@ -102,7 +105,7 @@ extern LiquidCrystal_PCF8574 xdisplay;
 #define d_h() 4
 //xdisplay.getHeight()
 #define d_clear() xdisplay.clear()
-#define d_show() xdisplay.display()
+#define d_show() IR_end();xdisplay.display();IR_setup()
 //only if IR pin same with LCD CS Pin
 //#define d_show() display.display();IR_connect()
 #define d_setcolor(x) xdisplay.setColor(x)
@@ -111,9 +114,9 @@ extern LiquidCrystal_PCF8574 xdisplay;
 
 #endif
 
-void setup_oled(void);
-int ir_oled_loop(int icommand);
+extern void setup_oled(void);
+extern int ir_oled_loop(int icommand);
 #else
-static void setup_oled(void){};
-static int ir_oled_loop(int icommand){};
+#define setup_oled() {}
+#define ir_oled_loop(i) {}
 #endif
