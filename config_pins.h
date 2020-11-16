@@ -166,21 +166,37 @@
 // using TX RX as SDA SCL for I2C or SPI LCD
  
 #define IR_OLED_MENU
-#define IR_KEY TX
 
 #undef LCD_OLED
-//#define LCD_OLED_SSD
+#define LCD_OLED_SSD
 //#define LCD_OLED
 
 //#define LCD_UC1609
 //#define LCD_UC1609DARK
 //#define LCD_NK1202
-#define LCD_NK1661
+//#define LCD_NK1661
 //#define LCD_2004
+#define LCD_TEST
 
 // to debug
 //#undef IR_OLED_MENU
-//
+//FOR quick dev test 1661
+#ifdef LCD_TEST
+#undef LCD_OLED_SSD
+#undef LCD_OLED
+#undef LCD_UC1609
+#undef LCD_NK1661
+#undef LCD_NK1202
+
+//#undef AC_SPINDLE
+//#define PCA9685
+
+#define LCD_NK1661
+//#define LCD_NK1202
+#define IR_KEY TX //share with SDA pin
+#endif
+
+
 #endif
 
 
@@ -349,15 +365,16 @@
 #define MOTOR_E_BACKLASH 0
 #endif
 
-/*
+//#define M115
+#ifdef M115
 // just for 115
 #define XSTEPPERMM -426.577
 #define YSTEPPERMM 427.354
 #define ZSTEPPERMM -400.000
 // TRiAL RPM counter
 // #define RPM_COUNTER D1
-#undef AC_SPINDLE // using DC
-*/
+//#undef AC_SPINDLE // using DC
+#endif
 
 
 #ifndef XSTEPPERMM

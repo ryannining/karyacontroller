@@ -35,8 +35,7 @@ extern void timer_init();
 extern  void timer_set(int32_t delay);
 extern  void timer_set2(int32_t delay, int32_t delayL);
 extern void servo_loop();
-extern void servo_init();
-extern void servo_set(int us);
+extern void servo_set(int angle);
 
 #ifndef MASK
 /// MASKING- returns \f$2^PIN\f$

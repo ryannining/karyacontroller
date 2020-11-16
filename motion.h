@@ -101,7 +101,7 @@ extern int  maxa[4];
 extern int32_t dlp;
 extern float stepmmx[4], Lscale;
 extern float retract_in, retract_out;
-extern float info_x,info_y,info_z,info_e;
+extern float info_x,info_y,info_z,info_e,perstepx,perstepy,perstepz;
 extern float retract_in_f, retract_out_f;
 extern tmove moves[NUMBUFFER];
 extern float cx1, cy1, cz1, ocz1, ce01;

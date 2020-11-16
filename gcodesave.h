@@ -10,5 +10,5 @@ extern void deletejob(String fn);
 extern int ispause;
 extern int uncompress;
 extern int gcodepos,gcodesize;
-extern float xMin,xMax,yMin,yMax,zMin,zMax;
+extern float dMax,tMax,fMax, xMin,xMax,yMin,yMax,zMin,zMax;
 #endif

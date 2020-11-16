@@ -35,12 +35,14 @@ extern UC1609Wire xdisplay;
 #ifdef LCD_NK1202
 #include "NK1202Wire.h"
 extern NK1202Wire xdisplay;
-#define LCD_Y 17
+#define LINES 5
+#define LCD_Y 14
 #define LCD_X 4.8
-#define YOFS 1
+#define YOFS 0
 #endif
 
 #ifdef LCD_NK1661
+#define USERGB12
 #include "NK1661Wire.h"
 extern NK1661Wire xdisplay;
 #define LCD_Y 21
@@ -52,7 +54,8 @@ extern NK1661Wire xdisplay;
 #endif
 
 
-#define REINIT
+#define REINIT xdisplay.Reset();
+
 
 
 extern void IR_setup();
@@ -89,7 +92,7 @@ extern LiquidCrystal_PCF8574 xdisplay;
     #endif
 #else
     #ifdef LCD_NK1202
-        #define INITDISPLAY xdisplay.init();xdisplay.setContrast(140,false);xdisplay.setFont(xfont);
+        #define INITDISPLAY xdisplay.init();xdisplay.setContrast(200,false);xdisplay.setFont(xfont);
     #else
         // other oled here
         #define INITDISPLAY xdisplay.init();xdisplay.setFont(xfont);

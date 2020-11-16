@@ -2,25 +2,12 @@
 
 #if defined(IR_OLED_MENU)
 
-#define IRK_1 0x45
-#define IRK_2 0x46
-#define IRK_3 0x47
-#define IRK_4 0x44
-#define IRK_5 0x40
-#define IRK_6 0x43
-#define IRK_7 0x7
-#define IRK_8 0x15
-#define IRK_9 0x9
-#define IRK_0 0x19
-#define IRK_X 0x16
-#define IRK_H 0xD
-#define IRK_UP 0x18
-#define IRK_LF 0x8
-#define IRK_RG 0x5A
-#define IRK_DN 0x52
-#define IRK_OK 0x1C
+static int wait_job = 0;
+static int wait_spindle = 0;
+static String jobnum;
 
-#define IR_KEY D2
+#include "ir_remote.h"
+#include "ir_oled.h"
 
 //#define OLEDDISPLAY_REDUCE_MEMORY
 
@@ -45,8 +32,9 @@ NK1202Wire xdisplay(TX, RX);
 #endif
 
 #ifdef LCD_NK1661
+#define USERGB12
 #include "NK1661Wire.h"
-NK1661Wire xdisplay(TX, RX);
+NK1661Wire xdisplay(TX, RX, RX, 20); // CS control HIGH long time on RX, Header line separator is LCD_Y
 #endif
 
 #ifdef LCD_2004
@@ -62,10 +50,6 @@ LiquidCrystal_PCF8574 xdisplay(IR_OLED_MENU); // set the LCD address to 0x27 for
 #include "eprom.h"
 #include <math.h>
 
-static int wait_job = 0;
-static int wait_spindle = 0;
-static String jobnum;
-
 /*
   U8g2lib Example Overview:
     Frame Buffer Examples: clearBuffer/sendBuffer. Fast, but may not work with all Arduino boards because of RAM consumption
@@ -77,9 +61,6 @@ static String jobnum;
 // End of constructor list
 
 //
-
-#include "ir_remote.h"
-#include "ir_oled.h"
 
 int menu_index = 1;
 int menu_page_le = 0;
@@ -102,14 +83,13 @@ void load_menu(int index, String* menu, int le, int col, int* pos, int* page, vo
     menu_f = f;
     menu_click = fc;
     menu_col = col;
-    REINIT;
+    //REINIT;
     f();
 }
 void draw_menu(void);
 void menu_0_click(int a);
 void menu_2_click(int a);
 void menu_3_click(int a);
-void menu_33_click(int a);
 
 void menu_4_click(int a);
 
@@ -134,49 +114,53 @@ extern int avgpw, avgcnt;
 
 String uptime(long w)
 {
- long days=0;
- long hours=0;
- long mins=0;
- long secs=0;
- secs = w/1000; //convect milliseconds to seconds
- mins=secs/60; //convert seconds to minutes
- hours=mins/60; //convert minutes to hours
- days=hours/24; //convert hours to days
- secs=secs-(mins*60); //subtract the coverted seconds to minutes in order to display 59 secs max
- mins=mins-(hours*60); //subtract the coverted minutes to hours in order to display 59 minutes max
- hours=hours-(days*24); //subtract the coverted hours to days in order to display 23 hours max
- //Display results
- String ups=""; 
-   if (days>0) // days will displayed only if value is greater than zero
- {
-   ups=days;
-   ups+=" day ";
- }
- ups+=(hours);
- ups+=(":");
- ups+=(mins);
- ups+=(":");
- ups+=(secs);
- return ups;
+    long days = 0;
+    long hours = 0;
+    long mins = 0;
+    long secs = 0;
+    secs = w / 1000; //convect milliseconds to seconds
+    mins = secs / 60; //convert seconds to minutes
+    hours = mins / 60; //convert minutes to hours
+    days = hours / 24; //convert hours to days
+    secs = secs - (mins * 60); //subtract the coverted seconds to minutes in order to display 59 secs max
+    mins = mins - (hours * 60); //subtract the coverted minutes to hours in order to display 59 minutes max
+    hours = hours - (days * 24); //subtract the coverted hours to days in order to display 23 hours max
+    //Display results
+    String ups = "";
+    if (days > 0) // days will displayed only if value is greater than zero
+    {
+        ups = days;
+        ups += " day ";
+    }
+    ups += (hours);
+    ups += (":");
+    ups += (mins);
+    ups += (":");
+    ups += (secs);
+    return ups;
 }
-int tmul=1;
+int tmul = 100;
+int rmkey;
 extern long lastjobt;
-
+extern int spindle_pct, lastS;
+extern long spindle_pwm;
+uint8_t LCDturn;
 void draw_info(void)
 {
+    extern bool inwaitbuffer;
+    if (inwaitbuffer)return;
+    
     d_clear(); // clear the internal memory
     d_setcolor(WHITE);
     d_text(0, 0, IPA); // write something to the internal memory
 
-    d_frect(0, LCD_Y + 2, d_w() * LCD_X, LCD_Y);
+    d_frect(0, LCD_Y - 1, d_w() * LCD_X, LCD_Y);
     d_setcolor(BLACK);
     d_text(1, 1, String(info_x)); // write something to the internal memory
     d_text(8, 1, String(info_y)); // write something to the internal memory
     d_text(15, 1, String(info_z)); // write something to the internal memory
     d_setcolor(WHITE);
 
-    extern int spindle_pct, lastS;
-    extern long spindle_pwm;
 #ifdef RPM_COUNTER
     extern uint32_t get_RPM();
     uint32_t r = get_RPM();
@@ -192,26 +176,53 @@ void draw_info(void)
     else
         pw = spindle_pct;
 
-    d_text(0, 2, "Spindle :" + String(r) + "/" + String(pw) + "%"); // write something to the internal memory
+    d_text(0, 2, "SPD  " + String(r) + "/" + String(pw) + "%"); // write something to the internal memory
 #else
 #define r spindle_pct
-    d_text(0, 2, "Spindle :" + String(r) + "%"); // write something to the internal memory
+    d_text(0, 2, "SPD% " + String(r)); // write something to the internal memory
+    d_text(10, 2, "RT% " + String(int(f_multiplier*100))); // write something to the internal memory
 #endif
+    String L1, L2, L3;
     if (uncompress) {
-
-        d_text(0, 3, jobname + "  %" + String(100 * gcodepos / gcodesize)); // write something to the internal memory
+        L1 = jobname + "% " + String(100 * gcodepos / gcodesize);
     }
     else {
-        d_text(0, 3, "Jog : " + String(tmul) + "x"); // write something to the internal memory
+        L1 = "JOG% " + String(tmul);
     }
-    if (LINES > 4) {
-        d_text(0,4,"Uptime "+uptime(millis()));
+    L2 = "Uptime " + uptime(millis());
+    L3 = "Last " + (lastjobt > 0 ? uptime(lastjobt) : "-");
+
+    if (LINES == 4) {
+        LCDturn++;
+        //d_text(0, 3, L1);
+        if (LCDturn > ((3 << 4) - 1))
+            LCDturn = 0;
+        if (LCDturn >> 4 == 0)
+            d_text(0, 3, L1); // write something to the internal memory
+        if (LCDturn >> 4 == 1)
+            d_text(0, 3, L2); // write something to the internal memory
+        if (LCDturn >> 4 == 2)
+            d_text(0, 3, L3); // write something to the internal memory
     }
-    if (LINES > 5) {
-        d_text(0,5,"Last " + (lastjobt>0?uptime(lastjobt):"-"));
+    else if (LINES == 5) {
+        LCDturn++;
+        //d_text(0, 3, L1);
+        d_text(0, 3, L1);
+        if (LCDturn > ((2 << 4) - 1))
+            LCDturn = 0;
+        if (LCDturn >> 4 == 0)
+            d_text(0, 4, L2); // write something to the internal memory
+        if (LCDturn >> 4 == 1)
+            d_text(0, 4, L3); // write something to the internal memory
+    }
+    else {
+        d_text(0, 3, L1); // write something to the internal memory
+        d_text(0, 4, L2);
+        d_text(0, 5, L3);
     }
 
     d_show();
+    //tmul=tmr;
 }
 
 /*
@@ -221,7 +232,7 @@ void draw_info(void)
 // Standar menu is index 0: title, rest is the menu
 int menu_0_pos = 0;
 int menu_0_page = 0;
-String menu_0_t[] = { "CNC : Ready", "1. Set ZERO", "2. My jobs", "3. Tools", "4. Settings", "5. Restart ESP" };
+String menu_0_t[] = { "Main Menu", "1. Set Zero", "2. My jobs", "3. Tools", "4. Settings", "5. Restart CNC" };
 
 /*
     MENU 3, Tools
@@ -230,7 +241,36 @@ String menu_0_t[] = { "CNC : Ready", "1. Set ZERO", "2. My jobs", "3. Tools", "4
 // Standar menu is index 0: title, rest is the menu
 int menu_3_pos = 0;
 int menu_3_page = 0;
-String menu_3_t[] = { "Tools", "1. Homing", "2. Test Box", "3. Test Circle" };
+String menu_3_t[] = { "Tools", "1. Homing" };
+
+/*
+   ONCLICK
+*/
+
+Tclickmenu confirm_click;
+
+/*
+    MENU 80, Confirmation
+
+*/
+
+// Standar menu is index 0: title, rest is the menu
+int menu_80_pos = 0;
+int menu_80_page = 0;
+String menu_80_t[] = { "", "YES", "NO" };
+
+void menu_80_click(int a)
+{
+    if (a == IRK_OK || a == IRK_LF || a == IRK4_OK || a == IRK4_LF || a == IRK4_BACK2) {
+        int res = (a == IRK_OK || a == IRK4_OK) && (*menu_pos == 0);
+        confirm_click(res);
+    }
+}
+
+#define LOADCONFIRM(T, clickok) \
+    menu_80_t[0] = T;           \
+    confirm_click = clickok;    \
+    LOADMENU(80);
 
 /*
 
@@ -246,12 +286,12 @@ String menu_3_t[] = { "Tools", "1. Homing", "2. Test Box", "3. Test Circle" };
 
 int menu_4_pos = 0;
 int menu_4_page = 0;
-String menu_4_t[] = { "Settings", "1. Speed", "2. Acceleration", "3. Backlash", "4. Step/mm", "5. Homing", "6.Spindle mode", "Save to EEPROM" };
+String menu_4_t[] = { "Settings", "1. Speed", "2. Acceleration", "3. Backlash", "4. Step/mm", "5. Homing", "Save to EEPROM", "Update firmware" };
 
 // Standar menu is index 0: title, rest is the menu
 int menu_41_pos = 0;
 int menu_41_page = 0;
-String menu_41_t[] = { "Max Speed", "mm/s", "Axis X", "50", "Axis Y", "50", "Axis Z", "5", "Spindle", "1" };
+String menu_41_t[] = { "Max Speed", "mm/s", "Axis X", "50", "Axis Y", "50", "Axis Z", "5", "Spindle %", "1" };
 int xyzspeed[4] = { 10, 20, 30, 1 };
 
 int getSpeed(void)
@@ -259,7 +299,7 @@ int getSpeed(void)
     xyzspeed[0] = maxf[MX];
     xyzspeed[1] = maxf[MY];
     xyzspeed[2] = maxf[MZ];
-    xyzspeed[3] = Lscale * 1000;
+    xyzspeed[3] = Lscale * 100;
 
     menu_41_t[3] = xyzspeed[0];
     menu_41_t[5] = xyzspeed[1];
@@ -270,44 +310,47 @@ int getSpeed(void)
 
 int menu_setvalue(int a)
 {
-    if (a == IRK_LF)
+    if (a == IRK_LF || a == IRK4_LF)
         return -1;
-    if (a == IRK_RG)
+    if (a == IRK_RG || a == IRK4_RG)
         return 1;
-    if (a == IRK_4)
+    if (a == IRK_4 || a == IRK4_4)
         return -5;
-    if (a == IRK_6)
+    if (a == IRK_6 || a == IRK4_6)
         return 5;
-    if (a == IRK_X)
+    if (a == IRK_X || a == IRK4_X)
         return -1000;
     return 0;
 }
 
 void menu_41_click(int a)
 {
-    if (a == IRK_H)
+    if (a == IRK_H || a == IRK4_H|| a == IRK4_BACK2)
         LOADMENU(4);
-    if (a == IRK_OK) {
+    if (a == IRK_OK || a == IRK4_OK) {
         // save config and back to menu 4
         maxf[MX] = xyzspeed[0];
         maxf[MY] = xyzspeed[1];
         maxf[MZ] = xyzspeed[2];
-        Lscale = xyzspeed[3] / 1000.0;
+        Lscale = (float)xyzspeed[3] / 100.0;
         eepromwrite(EE_max_x_feedrate, xyzspeed[0]); // accell
         eepromwrite(EE_max_y_feedrate, xyzspeed[1]); // accell
         eepromwrite(EE_max_z_feedrate, xyzspeed[2]); // accell
-        eepromwrite(EE_Lscale, xyzspeed[3]);
+        eepromwrite(EE_Lscale, ff(Lscale));
 
         LOADMENU(4);
     }
     int v = menu_setvalue(a);
-    if (v != 0 && v > -1000) {
-
-        if (*menu_pos == 3)
-            v = v * 5;
-        xyzspeed[*menu_pos] += v;
-        if (xyzspeed[*menu_pos] < 1)
-            xyzspeed[*menu_pos] = 1;
+    if (v != 0) {
+        if (v <= -1000) {
+            if (*menu_pos == 3)
+                xyzspeed[*menu_pos] = -xyzspeed[*menu_pos];
+        }
+        else {
+            xyzspeed[*menu_pos] += v;
+            if ((*menu_pos != 3) && (xyzspeed[*menu_pos] < 1))
+                xyzspeed[*menu_pos] = 1;
+        }
         menu_41_t[(*menu_pos) * 2 + 3] = xyzspeed[*menu_pos];
         draw_menu();
     }
@@ -323,7 +366,7 @@ void LOADMENU41(void)
 
 int menu_42_pos = 0;
 int menu_42_page = 0;
-String menu_42_t[] = { "Accel", "mm/s~", "Jerk", "8000", "Accel", "250", "Corner", "15" };
+String menu_42_t[] = { "Accel", "mm/s~", "Jerk", "0", "Accel", "250", "Corner", "15" };
 int xyzaccel[3] = { 8000, 220, 30 };
 
 int getAccel(void)
@@ -339,9 +382,9 @@ int getAccel(void)
 
 void menu_42_click(int a)
 {
-    if (a == IRK_H)
+    if (a == IRK_H || a == IRK4_H|| a == IRK4_BACK2)
         LOADMENU(4);
-    if (a == IRK_OK) {
+    if (a == IRK_OK || a == IRK4_OK) {
         // save config and back to menu 4
         /*
       eprom_wr(51, EE_accel, S_I);
@@ -382,7 +425,7 @@ void LOADMENU42(void)
 
 int menu_43_pos = 0;
 int menu_43_page = 0;
-String menu_43_t[] = { "Backlash", "mm", "X", "8000", "Y", "250", "Z", "15" };
+String menu_43_t[] = { "De-Backlash", "mm", "X", "0", "Y", "250", "Z", "15" };
 int xyzback[3] = { 10, 10, 3 };
 
 int getBacklash(void)
@@ -394,14 +437,15 @@ int getBacklash(void)
     menu_43_t[3] = 0.001 * xyzback[0];
     menu_43_t[5] = 0.001 * xyzback[1];
     menu_43_t[7] = 0.001 * xyzback[2];
+    col2pos = 14;
     return 8;
 }
 
 void menu_43_click(int a)
 {
-    if (a == IRK_H)
+    if (a == IRK_H || a == IRK4_H|| a == IRK4_BACK2)
         LOADMENU(4);
-    if (a == IRK_OK) {
+    if (a == IRK_OK || a == IRK4_OK) {
         // save config and back to menu 4
         //EE_xbacklash
         xback[MX] = xyzback[0];
@@ -435,7 +479,7 @@ void LOADMENU43(void)
 
 int menu_44_pos = 0;
 int menu_44_page = 0;
-String menu_44_t[] = { "1 mm =", "Step", "X", "8000", "Y", "250", "Z", "15" };
+String menu_44_t[] = { "1 mm =", "Step", "X", "0", "Y", "250", "Z", "15" };
 int xyzsteps[3] = { 19512, 19512, 230400 };
 
 int getSteps(void)
@@ -452,9 +496,9 @@ int getSteps(void)
 
 void menu_44_click(int a)
 {
-    if (a == IRK_H)
+    if (a == IRK_H || a == IRK4_H|| a == IRK4_BACK2)
         LOADMENU(4);
-    if (a == IRK_OK) {
+    if (a == IRK_OK || a == IRK4_OK) {
         // save config and back to menu 4
         //EE_estepmm
         stepmmx[0] = xyzsteps[0] * 0.001;
@@ -487,7 +531,7 @@ void LOADMENU44(void)
 
 int menu_45_pos = 0;
 int menu_45_page = 0;
-String menu_45_t[] = { "Home Pos", "mm", "X", "8000", "Y", "250", "Z", "15" };
+String menu_45_t[] = { "Home Pos", "mm", "X", "0", "Y", "250", "Z", "15" };
 int xyzhome[3] = { 19512, 19512, 230400 };
 
 int getHomes(void)
@@ -504,11 +548,11 @@ int getHomes(void)
 
 void menu_45_click(int a)
 {
-    if (a == IRK_H) {
+    if (a == IRK_H || a == IRK4_H|| a == IRK4_BACK2) {
         LOADMENU(4);
         reload_eeprom();
     }
-    if (a == IRK_OK) {
+    if (a == IRK_OK || a == IRK4_OK) {
         // save config and back to menu 4
         //EE_xhome
         ax_home[0] = xyzhome[0];
@@ -538,13 +582,20 @@ void LOADMENU45(void)
         2,
         &menu_45_pos, &menu_45_page, draw_menu, menu_45_click);
 }
-
+void UPDATEESP(int a)
+{
+    if (a) {
+        extern void updateFirmware();
+        updateFirmware();
+    }
+    LOADMENU(0);
+}
 void menu_4_click(int a)
 {
     extern bool RPM_PID_MODE;
-    if (a == IRK_LF)
+    if (a == IRK_LF  || a == IRK4_LF || a == IRK4_BACK2)
         LOADMENU(0);
-    else if (a == IRK_OK)
+    else if (a == IRK_OK || a == IRK4_OK)
         switch (*menu_pos) {
         case 0:
             LOADMENU41();
@@ -562,26 +613,16 @@ void menu_4_click(int a)
             LOADMENU45();
             break;
         case 5:
-            RPM_PID_MODE = !RPM_PID_MODE;
-            break;
-        case 6:
             eepromcommit();
             LOADMENU(0);
             break;
+        case 6:
+            LOADCONFIRM(("UPDATE FIRMWARE ?"), UPDATEESP);
         }
 }
 /*
  *  * ============================================================================================
 */
-
-/*
-    MENU 33, Test Circle
-
-*/
-// Standar menu is index 0: title, rest is the menu
-int menu_33_pos = 0;
-int menu_33_page = 0;
-String menu_33_t[] = { "Test Circle 10cm", "F:10 D:2mm 1x", "F:10 D:4mm 2x", "F:20 D:2mm 1x", "F:20 D:4mm 2x" };
 
 /*
     MENU 2, job list
@@ -616,11 +657,14 @@ int getJobs(void)
 
 void draw_menu(void)
 {
+    extern bool inwaitbuffer;
+    if (inwaitbuffer)return;
+
     d_clear(); // clear the internal memory
     d_setcolor(WHITE);
     d_text(0, 0, *menu_t); // write something to the internal memory
-    d_rect(0, LCD_Y + 1, LCD_X * d_w(), 1);
-    d_frect(0, LCD_Y * (1 + *menu_pos - *menu_page) + 2, LCD_X * d_w()+2, LCD_Y);
+    d_rect(0, LCD_Y - 2, LCD_X * d_w(), 1);
+    d_frect(0, LCD_Y * (1 + *menu_pos - *menu_page) - 1, LCD_X * d_w() + 2, LCD_Y);
     if (menu_col == 2) {
         d_text(20 - d_t_width(*(menu_t + 1)) / LCD_X, 0, *(menu_t + 1)); // write something to the internal memory
         d_rect(col2pos * LCD_X - 1, 0, 1, LCD_Y);
@@ -642,67 +686,39 @@ void draw_menu(void)
     d_show();
 }
 
-/*
-   ONCLICK
-*/
-
-Tclickmenu confirm_click;
-
-/*
-    MENU 80, Confirmation
-
-*/
-
-// Standar menu is index 0: title, rest is the menu
-int menu_80_pos = 0;
-int menu_80_page = 0;
-String menu_80_t[] = { "", "YES", "NO" };
-
-void menu_80_click(int a)
-{
-    if (a == IRK_OK || a == IRK_LF) {
-        int res = (a == IRK_OK) && (*menu_pos == 0);
-        confirm_click(res);
-    }
-}
-#define LOADCONFIRM(T, clickok) \
-    menu_80_t[0] = T;           \
-    confirm_click = clickok;    \
-    LOADMENU(80);
-
 int menu_81_pos = 0;
 int menu_81_page = 0;
-String menu_81_t[] = { "", "Execute", "Preview Area", "Delete", "Back"};
+String menu_81_t[] = { "", "Execute", "Preview Area", "Delete", "Back" };
 
 void menu_81_click(int a)
 {
-    if (a == IRK_OK || a == IRK_LF) {
-        confirm_click(*menu_pos);
+    if (a == IRK_OK ||a == IRK4_OK || a == IRK_LF||a == IRK4_LF ||a==IRK4_BACK2) {
+        confirm_click((a == IRK_OK || a == IRK4_OK) ? *menu_pos : -1);
     }
 }
 #define LOADCONFIRM1(T, clickok) \
-    menu_81_t[0] = T;           \
-    confirm_click = clickok;    \
+    menu_81_t[0] = T;            \
+    confirm_click = clickok;     \
     LOADMENU(81);
 
 int menu_82_pos = 0;
 int menu_82_page = 0;
-String menu_82_t[] = { "", "","","","",""};
+String menu_82_t[] = { "", "", "", "", "", "" };
 
 void menu_82_click(int a)
 {
-    if (a == IRK_OK || a == IRK_LF) {
-        confirm_click(*menu_pos);
+    if (a == IRK_OK ||a == IRK4_OK || a == IRK_LF||a == IRK4_LF ||a==IRK4_BACK2) {
+        confirm_click((a == IRK_OK || a == IRK4_OK) ? *menu_pos : -1);
     }
 }
-#define LOADCUSTOM(T, L1,L2,L3,L4,L5,clickok) \
-    menu_82_t[0] = T;           \
-    menu_82_t[1] = L1;           \
-    menu_82_t[2] = L2;           \
-    menu_82_t[3] = L3;           \
-    menu_82_t[4] = L4;           \
-    menu_82_t[5] = L5;           \
-    confirm_click = clickok;    \
+#define LOADCUSTOM(T, L1, L2, L3, L4, L5, clickok) \
+    menu_82_t[0] = T;                              \
+    menu_82_t[1] = L1;                             \
+    menu_82_t[2] = L2;                             \
+    menu_82_t[3] = L3;                             \
+    menu_82_t[4] = L4;                             \
+    menu_82_t[5] = L5;                             \
+    confirm_click = clickok;                       \
     LOADMENU(82);
 
 extern int uncompress;
@@ -731,7 +747,7 @@ void LOADMENU2(void)
 
 void menu_99_click(int a)
 {
-    if (a == IRK_OK) {
+    if (a == IRK_OK || a == IRK4_OK) {
         LOADMENU(0);
     }
 }
@@ -740,17 +756,24 @@ extern void wifi_push(char c); // we use WIFI GCODE Command buffer to inject gco
 static const char* gc92 = "G92\n";
 void RESTARTESP(int a)
 {
-    if (a)
+    if (a) {
+        //eepromwrite(EE_softreset, 111);
+        //eepromcommit();
+        delay(200);
+        extern void setupwifi(int num);
+        //setupwifi(1);
+        //LOADINFO();
         ESP.restart();
+    }
     else
         LOADMENU(0);
 }
 void menu_0_click(int a)
 {
-    if (a == IRK_LF)
+    if (a == IRK_LF || a == IRK4_LF || a == IRK4_BACK2)
         LOADINFO();
 
-    if (a == IRK_OK) {
+    if (a == IRK_OK || a==IRK4_OK) {
         switch (*menu_pos) {
         case 0:
             for (int i = 0; i < strlen(gc92); i++)
@@ -767,43 +790,68 @@ void menu_0_click(int a)
             LOADMENU(4);
             break; // settings menu
         case 4:
-            LOADCONFIRM(("Restart ?"), RESTARTESP);
+            LOADCONFIRM(("Restart CNC ?"), RESTARTESP);
             break; // settings menu
         }
     }
 }
 
-void DELETEJOB(int a) {
+void DELETEJOB(int a)
+{
     if (a) {
-        deletejob("/"+jobname);
+        deletejob("/" + jobname);
     }
     LOADMENU2();
 }
-void DUMMYJOB(int a) {
+void DUMMYJOB(int a)
+{
     LOADMENU2();
+}
+void runjob(int a);
+void PREVIEWJOB(int a)
+{
+    if (a == 4) {
+        LOADINFO();
+
+        set_pwm(150);
+        addmove(100, 0, 0, 2, 0, 1, 1);
+        addmove(100, xMax - xMin, 0, 0, 0, 1, 1);
+        addmove(100, 0, yMax - yMin, 0, 0, 1, 1);
+        addmove(100, xMin - xMax, 0, 0, 0, 1, 1);
+        addmove(100, 0, yMin - yMax, 0, 0, 1, 1);
+        addmove(100, 0, 0, -2, 0, 1, 1);
+        //waitbufferempty();
+        //set_pwm(0);
+    }
+    else if (a == -1) {
+        LOADCONFIRM1((jobname), runjob);
+    }
+    else
+        LOADINFO();
 }
 void runjob(int a)
 {
-    if (a==0) {
+    if (a == 0) {
         // jobname
         beginuncompress("/" + jobname);
         LOADINFO();
-    } else
-    if (a==1) {
+    }
+    else if (a == 1) {
         // jobname
 
         dummy_beginuncompress("/" + jobname);
-        LOADCUSTOM( jobname,
-                    "Work size",
-                    (String(xMax-xMin)+"mm x "+String(yMax-yMin)+"mm"),
-                    "Height",
-                    (String(zMax-zMin)+"mm"),
-                    "-",
-                    DUMMYJOB);
-    } else
-    if (a==2) {
-        // jobname
 
+        LOADCUSTOM("Job /" + jobname,
+            "Area X Y Z cm",
+            String((xMax - xMin) * 0.1) + "  " + String((yMax - yMin) * 0.1) + "  " + String(zMin * -0.1),
+            "F-avg " + String(dMax / tMax) + "mm/s",
+            "Time " + String(uptime(2000 * tMax)),
+
+            "Machine Preview",
+            PREVIEWJOB);
+    }
+    else if (a == 2) {
+        // jobname
         LOADCONFIRM(("Confirm delete ?"), DELETEJOB);
     } // run jobs
     else
@@ -811,24 +859,19 @@ void runjob(int a)
 }
 void menu_2_click(int a)
 {
-    if (a == IRK_LF) // back to main menu
+    if (a == IRK_LF || a == IRK4_LF||a == IRK4_BACK2) // back to main menu
         LOADMENU(0);
-    if (a != IRK_OK)
-        return;
-    jobname = menu_2_t[(*menu_pos) * 2 + 2] + ".gcode";
-    LOADCONFIRM1((jobname), runjob); // CONFIRMATION MENU
-}
-void menu_33_click(int a)
-{
-    if (a == IRK_LF) // back to main menu
-        LOADMENU(3);
+    if (a == IRK_OK || a == IRK4_OK) {
+        jobname = menu_2_t[(*menu_pos) * 2 + 2] + ".gcode";
+        LOADCONFIRM1((jobname), runjob); // CONFIRMATION MENU
+    }
 }
 
 void menu_3_click(int a)
 {
-    if (a == IRK_LF)
+    if (a == IRK_LF|| a == IRK4_LF || a == IRK4_BACK2)
         menu_2_click(a);
-    if (a != IRK_OK)
+    if (!(a == IRK_OK || a==IRK4_OK))
         return;
     switch (*menu_pos) {
     case 0:
@@ -843,9 +886,6 @@ void menu_3_click(int a)
         }
         LOADINFO();
         break;
-    case 2:
-        LOADMENU(33);
-        break;
     }
 }
 
@@ -855,9 +895,13 @@ extern IPAddress ip;
 bool oledready = false;
 void setup_oled(void)
 {
-    if (oledready)
-        return;
-    INITDISPLAY
+    //oledready=eepromread(EE_softreset)==111;
+    //rst_info *resetInfo;
+    //resetInfo = ESP.getResetInfoPtr();
+    //tmul=ESP.getResetReason().toInt();
+    //oledready=tmul!=0;
+    if (!oledready)
+        INITDISPLAY
 
     mili = millis();
 
@@ -866,17 +910,82 @@ void setup_oled(void)
     oledready = true;
 }
 
+void dopause(){
+    if (uncompress){
+        ispause = ispause == 0 ? 1 : 0;
+        extern int8_t PAUSE;
+        PAUSE = ispause;
+    }
+}
 static int IR_UIloop(int icommand)
 {
+    // handle special keys
+    extern float f_multiplier;
+    switch (icommand){
+        case IRK4_JOBINDEX:
+            LOADMENU2();
+            break;
+        case IRK4_FASTER:
+            f_multiplier=1.5;
+            break;
+        case IRK4_SLOWDOWN:
+            f_multiplier=0.666;
+            break;
+        case IRK4_PLAY:
+            if (ispause){
+                dopause();
+            } else f_multiplier=1;
+            break;
+        case IRK4_EXIT:
+            LOADINFO();
+            break;
+        case IRK4_BACK:
+            icommand=IRK4_LF;
+            break;
+        case IRK4_PAUSE:
+            dopause();
+            break;
+        case IRK4_SETTINGS:
+            LOADMENU(4);
+            break;
+        case IRK4_POWER:
+            IR_end();
+            REINIT;
+            IR_setup();
+            break;
+        case IRK4_STOP:
+            extern void stopmachine();
+            stopmachine();
+            enduncompress();
+            break;
+        case IRK4_SPINDLEDN:
+            set_pwm(lastS-25);
+            break;
+        case IRK4_SPINDLEUP:
+            set_pwm(lastS+25);
+            break;
+        case IRK4_DOT1:
+            tmul=25;
+            break;
+        case IRK4_DOT2:
+            tmul=100;
+            break;
+        case IRK4_DOT3:
+            tmul=250;
+            break;
+        case IRK4_DOT4:
+            tmul=500;
+            break;
+    }
 
-    if (menu_index == 99 && icommand != IRK_OK)
+    if (menu_index == 99 && !(icommand == IRK_OK || icommand == IRK4_OK)){
         return 0;
-
+    }
     int y = 0;
     // jog on arrow key = small incremental
-    if (icommand == IRK_UP)
+    if (icommand == IRK_UP || icommand == IRK4_UP)
         y = -1;
-    if (icommand == IRK_DN)
+    if (icommand == IRK_DN || icommand == IRK4_DN)
         y = +1;
     else {
         //display.init();
@@ -907,11 +1016,13 @@ static int IR_UIloop(int icommand)
 
 int ir_oled_loop(int icommand)
 {
-    if (icommand ==0 && (millis() - mili > 1000)) {
+    if (icommand)rmkey=icommand;
+    if (icommand == 0 && (millis() - mili > (uncompress ? 500 : 500))) {
         mili = millis();
         if (menu_index == 99)
             menu_f();
     }
+    if (icommand)mili = millis();
 
     return IR_UIloop(icommand);
 }

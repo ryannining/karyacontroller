@@ -176,9 +176,7 @@ void changefilament(float l)
 
 int reset_command() {
   // reset variables
-  okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
-
-  uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
+  //if (ok)zprintf(PSTR("ok\n")); // response quick !!
 
   next_target.seen_X = next_target.seen_Y = next_target.seen_Z = \
                        next_target.seen_E = next_target.seen_F = next_target.seen_S = \
@@ -198,7 +196,7 @@ int reset_command() {
   if (next_target.option_all_relative || next_target.option_e_relative) {
     next_target.target.axis[nE] = 0;
   }
-  return ok;
+  return 1;
 }
 void update_pos(void) {
   next_target.target.axis[nX] = cx1;
@@ -426,7 +424,13 @@ uint8_t gcode_parse_char(uint8_t c)
         }
     */
     MLOOP
-    process_gcode_command();
+
+    okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
+
+    uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
+    if (ok)zprintf(PSTR("ok\n")); // response quick !!
+    
+    process_gcode_command();    
     if (reset_command()) return 2;
     return 1;
   }
@@ -518,6 +522,42 @@ void str_wait()
   }
 }
 //int32_t mvc = 0;
+
+typedef struct {
+    float pX,pY;
+    uint8_t bit;
+} tlaserdata;
+
+bool collectLaser=false;
+bool runLaser=false;
+int laseridx=0;
+int laseridxrun=0;
+tlaserdata laserdata[200];
+tlaserdata laserdatarun[200];
+void runlasernow(){
+        // if still running, lets wait
+        while (runLaser) {
+            motionloop();
+        }
+        laseridxrun=0;
+        runLaser=1;
+        memcpy(&laserdatarun,&laserdata,sizeof(laserdata));
+}
+
+void addlaserxy(float x,float y, uint8_t bit)
+{
+    laserdata[laseridx].pX=x;
+    laserdata[laseridx].pY=y;
+    laserdata[laseridx].bit=bit;
+    
+    
+    laseridx++;
+    if (laseridx>199){
+        runlasernow();
+    }
+}
+
+
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
 float F0 = 5000;
@@ -599,6 +639,7 @@ void loadmeshleveling() {
 #endif
 }
 int lastS = 0;
+
 void process_gcode_command()
 {
   uint32_t	backup_f;
@@ -1143,8 +1184,7 @@ void process_gcode_command()
         waitbufferempty();
         setfan_val(255); // turn on power
         zprintf(PSTR("Servo:%d\n"), fi(next_target.S));
-        //pinMode(servo_pin,OUTPUT);
-        servo_set(next_target.S * (2000 / 180));
+        servo_set(next_target.S);
         if (!next_target.seen_P)next_target.P = 1000; // 1 second wait
         // wait loop
         uint32_t mc;
@@ -1458,8 +1498,6 @@ void init_gcode()
 {
   next_target.target.F = 50;
   next_target.option_all_relative = 0;
-#ifdef USE_EEPROM
-  eeprominit;
-#endif
+
 
 }

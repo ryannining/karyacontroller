@@ -356,7 +356,8 @@ void gcodereadnet(uint8_t * addr, int len) {
   }
 }
 
-float xMin,xMax,yMin,yMax,zMin,zMax;
+float dMax,fMax,lF,lF0,lF1,xMin,xMax,yMin,yMax,zMin,zMax,tMax;
+int sMax;
 // version, old is using eSize 1
 void uncompressaline() {
   if (ispause)return;
@@ -401,13 +402,23 @@ void uncompressaline() {
     {
       next_target.seen_S = 1;
       next_target.S = s;
+      sMax=fmax(sMax,s);
     } else { //else its F
       next_target.seen_F = 1;
-      next_target.target.F = s * fScale;
+      lF=next_target.target.F = s * fScale;
+      if (next_target.G==1){
+          lF1=lF;
+      }else lF0=lF;
+      
     }
 
     //zprintf(PSTR("F%d "), fi(s));
   }
+  lF=(next_target.G==1)?lF1:lF0;
+
+  
+    float D=0;
+    float d;
 
   if (h & (1 << 4)) {
     x = 0;
@@ -419,7 +430,9 @@ void uncompressaline() {
       mediaX = x;
       next_target.target.axis[nX] = x;
     } else {
-      AX += float(x - xyLimit) / xyScale;
+      d=float(x - xyLimit) / xyScale;
+      D+=d*d;
+      AX += d;
       next_target.target.axis[nX] = AX;
       //next_target.target.axis[nX] *= xyscale;
     }
@@ -434,7 +447,9 @@ void uncompressaline() {
       next_target.target.axis[nY] = x;
     } else {
       //zprintf(PSTR("Y%d "), fi(x));
-      AY += float(x - xyLimit) / xyScale;
+      d=float(x - xyLimit) / xyScale;
+      D+=d*d;
+      AY += d;
       next_target.target.axis[nY] = AY;
     }
     //next_target.target.axis[nY] *= xyscale;
@@ -444,7 +459,9 @@ void uncompressaline() {
     fsGcode.read((uint8_t *)&x, zSize);gcodepos+=xySize;
     //zprintf(PSTR("Z%d "), fi(x));
     next_target.seen_Z = 1;
-    AZ += float(x - zLimit) / zScale;
+    d=float(x - zLimit) / zScale;
+    D+=d*d;
+    AZ += d;
     next_target.target.axis[nZ] = AZ;
   }
   if (h & (1 << 7)) {
@@ -464,7 +481,12 @@ void uncompressaline() {
         yMin=fmin(yMin,AY);
         yMax=fmax(yMax,AY);        
         zMin=fmin(zMin,AZ);
-        zMax=fmax(zMax,AZ);        
+        zMax=fmax(zMax,AZ);
+        if (AZ<=0 && D>0){
+            D=sqrt(D);
+            dMax+=D;
+            tMax+=D/lF;
+        }
   }  
   lastjobt=millis()-lastjobt0;
   reset_command();
@@ -478,6 +500,8 @@ void dummy_beginuncompress(String fn){
     dummy_uncompress=true;
     zMin=xMin=yMin=10000;
     zMax=xMax=yMax=-10000;
+    dMax=lF=lF0=lF1=sMax=fMax=0;
+    tMax=0;
     
     beginuncompress(fn);
     while (uncompress){

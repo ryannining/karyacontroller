@@ -185,6 +185,7 @@ void close_home_input() {
   Reset all variable
 */
 // keep last direction to enable backlash if needed
+float perstepx,perstepy,perstepz;
 
 void reset_motion()
 {
@@ -241,10 +242,14 @@ void reset_motion()
   zaccel = accel * ZMAXFEEDRATE / XMAXFEEDRATE;
 
 
-  stepmmx[MX] = fabs(XSTEPPERMM);
-  stepmmx[MY] = fabs(YSTEPPERMM);
-  stepmmx[MZ] = fabs(ZSTEPPERMM);
   stepmmx[nE] = fabs(E0STEPPERMM);
+  stepmmx[MX]=fabs(XSTEPPERMM);
+  stepmmx[MY]=fabs(YSTEPPERMM);
+  stepmmx[MZ]=fabs(ZSTEPPERMM);
+  perstepx=1.0/(XSTEPPERMM);
+  perstepy=1.0/(YSTEPPERMM);
+  perstepz=1.0/(ZSTEPPERMM);
+  
 
   odir[MX] = XSTEPPERMM < 0 ? -1 : 1;
   odir[MY] = YSTEPPERMM < 0 ? -1 : 1;
@@ -367,6 +372,7 @@ int32_t rampseg, rampup, rampdown;
 
 //#define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
 #define nextbuffm(x) ((x+1)&255)
+#define nextbuffmV(x,v) ((x+v)&255)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
 static volatile uint8_t   cmcmd, cmbit = 0;
@@ -1115,8 +1121,9 @@ static THEISR void decodecmd()
 
 uint32_t mc, dmc, cmctr;
 int32_t e_ctr = 0;
-int e_dir = 0;
+int e_dir,x_dir,y_dir,z_dir;
 int mm_ctr = 0;
+int32_t info_x_s,info_y_s,info_z_s;
 
 void THEISR coreloopm()
 {
@@ -1159,11 +1166,13 @@ void THEISR coreloopm()
       if (cmbit & 1) {
         //cmctr++;
         xctstep++;
+        info_x_s-=x_dir;    
         motor_0_STEP();
       }
       // AXIS 2
       if (cmbit & 2) {
         yctstep++;
+        info_y_s-=y_dir;    
         motor_1_STEP();
 #ifdef DRIVE_XZY2
         // copy motion on motor E
@@ -1173,6 +1182,7 @@ void THEISR coreloopm()
       // AXIS 3
       if (cmbit & 4) {
         zctstep++;
+        info_z_s-=z_dir;    
         motor_2_STEP();
       }
       pinCommit();
@@ -1207,13 +1217,13 @@ void THEISR coreloopm()
     } else { // 0: set dir
       // header command, we set the motor driver direction
       e_dir = 0;
-      if (cmbit & 2) motor_0_DIR((cmbit & 1) ? -1 : 1);
-      if (cmbit & 8) motor_1_DIR((cmbit & 4) ? -1 : 1);
-      if (cmbit & 32) motor_2_DIR((cmbit & 16) ? -1 : 1);
+      if (cmbit & 2) motor_0_DIR(x_dir=(cmbit & 1) ? -1 : 1);
+      if (cmbit & 8) motor_1_DIR(y_dir=(cmbit & 4) ? -1 : 1);
+      if (cmbit & 32) motor_2_DIR(z_dir=(cmbit & 16) ? -1 : 1);
       if (cmbit & 128) {
 #ifndef DRIVE_XZY2
-        e_dir = (cmbit & 64) ? -1 : 1;
-        motor_3_DIR(e_dir);
+        
+        motor_3_DIR(e_dir = (cmbit & 64) ? -1 : 1);
         //zprintf(PSTR("E:%d\n"), fi(e_dir));
 #endif
       }
@@ -1405,13 +1415,11 @@ int coreloop1()
         // mctr
 #ifdef HARDSTOP
         float p = mctr;
-        p /= totalstep;
-        //p=1-p;
-        cx1 = m->dtx[0] - p * m->dx[0] / Cstepmmx(0);
-        cy1 = m->dtx[1] - p * m->dx[1] / Cstepmmx(1);
-        cz1 = m->dtx[2] - p * m->dx[2] / Cstepmmx(2);
-        ce01 = m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
-        zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
+        cx1 = info_x_s*perstepx;
+        cy1 = info_x_s*perstepy;
+        cz1 = info_x_s*perstepz;
+        ce01 = 0;//m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
+        //zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
 #endif
       }
       endstopstatus = 0;
@@ -1420,6 +1428,7 @@ int coreloop1()
       mctr = 0;
       m = 0;
       head = tail;
+      cmhead = cmtail = 0;
       return 0;
     }
   }
@@ -1447,8 +1456,9 @@ int motionloop()
 #endif
   {
     CORELOOP
-    if (!m ) r = startmove();
-    else {
+    if (!m ) {
+        r = startmove();
+    } else {
       //zprintf(PSTR("->%d\n"),fi(mctr));
 
       r = coreloop1();
@@ -1463,30 +1473,20 @@ int motionloop()
 }
 long last_c0 = 0;
 
-float info_x, info_y, info_z, info_e;
+bool inwaitbuffer;
 
+float info_x, info_y, info_z, info_e;
 void otherloop(int r)
 {
   cm = micros();
-  if ((cm - last_c0 > 200000)) {
-
+  if ((cm - last_c0 > 20000)) { // update every 20ms
     last_c0 = cm;
 #ifdef HARDSTOP
-    if (m) {
-      float p = mctr;
-      p /= totalstep;
-      //p=1-p;
-      info_x = m->dtx[0] - p * m->dx[0] / Cstepmmx(0);
-      info_y = m->dtx[1] - p * m->dx[1] / Cstepmmx(1);
-      info_z = m->dtx[2] - p * m->dx[2] / Cstepmmx(2);
-      info_e = m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
-      //zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
-    } else {
-      info_x = cx1;
-      info_y = cy1;
-      info_z = cz1;
-
-    }
+    info_x = info_x_s*perstepx;
+    info_y = info_y_s*perstepy;
+    info_z = info_z_s*perstepz;
+    extern void setXYZservo(float x,float y,float z);
+    setXYZservo(info_x,info_y,info_z);
 #endif
   }
   // NON TIMER
@@ -1515,6 +1515,11 @@ void otherloop(int r)
     }
   }
 #ifndef ISPC
+
+    #ifdef IR_OLED_MENU
+    extern void IR_loop();
+    if (inwaitbuffer)IR_loop();
+    #endif
 
   // this both check take 8us
   temp_loop(cm);
@@ -2093,6 +2098,7 @@ void waitbufferempty()
 #endif
   MEMORY_BARRIER()
   LOOP_IN(2)
+  inwaitbuffer=true;
   while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0)) { //(tail == otail) //
     domotionloop
     MEMORY_BARRIER()
@@ -2100,6 +2106,7 @@ void waitbufferempty()
     zprintf(PSTR("->H%d T%d cH%d cT%d\n"), fi(head), fi(tail), fi(cmhead), fi(cmtail));
 #endif
   }
+  inwaitbuffer=false;
   LOOP_OUT(2)
 #ifdef output_enable1
   zprintf(PSTR("Empty"));
@@ -2177,7 +2184,13 @@ void init_pos()
   tailok = 0;
   cmhead = 0;
   cmtail = 0;
-  info_x = info_y = info_z = info_e = 0;
+  info_e=ce01;
+  info_x=cx1;
+  info_y=cy1;
+  info_z=cz1;
+  info_x_s=info_x*stepmmx[0];
+  info_y_s=info_y*stepmmx[1];
+  info_z_s=info_z*stepmmx[2];
   set_pwm(0);
 }
 void initmotion()

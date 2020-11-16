@@ -28,6 +28,7 @@ int avgcnt=0;
 void ICACHE_RAM_ATTR isr_RPM() {
   rev++;
 }
+
 uint32_t get_RPM(){
 	uint32_t milli=millis();
 	uint32_t delta=milli-lastMillis;
@@ -66,32 +67,90 @@ uint32_t next_l = 0;
 bool spindle_state = LOW;
 int spindle_pct;
 
+//PWM Freq is 1000000/20000 = 50Hz , 20mms pulse  
+// for servo, the LSCALE at least 10%
+
+
+
+#ifdef PCA9685
+#ifndef spindle_servo_pin
+#define spindle_servo_pin 2
+#endif
+// dont use classic PWM
+#undef spindle_pin
+#include "Wire.h"
+#include "Adafruit_PWMServoDriver.h"
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
+#define MIN_PULSE_WIDTH 600
+#define MAX_PULSE_WIDTH 2600
+#define FREQUENCY 50
+#define EQ_S (FREQUENCY*4096.0/1000000)
+#define EQ_A (EQ_S*MIN_PULSE_WIDTH)
+#define EQ_B (EQ_S*(MAX_PULSE_WIDTH-MIN_PULSE_WIDTH)/180.0)
+void setupPwm() 
+{
+  Wire.begin(D2,D1);
+  Wire.setClock(700000);
+  pwm.begin();
+  pwm.setPWMFreq(FREQUENCY);
+  pwm.setPWM(8, 0,MIN_PULSE_WIDTH);
+}
+int pulseWidth(int angle)
+{
+  //int pulse_wide, analog_value;
+  //pulse_wide = map(angle, 0, 180, MIN_PULSE_WIDTH, MAX_PULSE_WIDTH);
+  //analog_value = int(float(pulse_wide) / 1000000 * FREQUENCY * 4096);
+  return EQ_A+EQ_B*angle;
+}
+long lzc=0;
+void setXYZservo(float x,float y,float z){
+    //long m=millis();
+    //if (m-lzc>20){
+    //    lzc=m;
+        //pwm.setPWM(0, 0,pulseWidth(x)); // set 180 = 40mm then
+        //pwm.setPWM(1, 0,pulseWidth(y)); // set 180 = 40mm then
+        //pwm.setPWM(2, 0,pulseWidth((25+z)*4.5)); // set 180 = 40mm then
+    //}
+}
+#else
+void setupPwm() {}
+int pulseWidth(int angle){}
+void setXYZservo(float x,float y,float z){}
+// cannot use servo
+#undef servo_pin
+#endif
+
+
+
 bool in_pwm_loop=false;
 void set_pwm(int v) { // 0-255
-  if (v > 255)v = 255;  
-  
-  else if (v >= 0) {
-    spindle_pct=v*0.39;
-    if (! RPM_PID_MODE)
+  if (v > 255)v = 255;
+  if (v<0)v=0;
+  next_l=micros();
+  if (v >= 0) {
+    spindle_pct=v*0.39; // 0 - 100
+    //if (! RPM_PID_MODE)
+    lastS=v;
+    v=fabs(v*Lscale);
+    if (Lscale<0)v=255-v;
     extern float Lscale;
-    v*=Lscale;
-		#ifdef AC_SPINDLE
-		spindle_pwm = 10000 - (fmin(pow(v * 0.00392156, 2) * 10000,10000));
-		#else
-		spindle_pwm = v*39.2156;
-		#endif		
+    spindle_pwm = fmin(20000,v*39.2156*2);
+    #ifdef PCA9685
+    pwm.setPWM(spindle_servo_pin, 0,pulseWidth(0.009*spindle_pwm)); // set 0 - 4095
+    return;
+    #endif
   }
-  lastS=v;
   if (in_pwm_loop)return;
 #ifdef spindle_pin
   pinMode(spindle_pin,OUTPUT);
-  xdigitalWrite(spindle_pin, HIGH);
+  //xdigitalWrite(spindle_pin, HIGH);
 #endif
 }
 void pause_pwm(bool v){
 	in_pwm_loop=v;
 }
 void ICACHE_RAM_ATTR pwm_loop() {
+
 #ifdef RPM_COUNTER
 	get_RPM();
 #endif
@@ -106,7 +165,7 @@ void ICACHE_RAM_ATTR pwm_loop() {
       xdigitalWrite(spindle_pin, HIGH);
     }
   } 
-  if (pwmc - next_l > 9999) { // 1khz on wemos
+  if (pwmc - next_l > 19999) { // 50hz on wemos
     next_l = pwmc;
     spindle_state = LOW;
     xdigitalWrite(spindle_pin, LOW);
@@ -115,80 +174,15 @@ void ICACHE_RAM_ATTR pwm_loop() {
 #endif
 }
 
+void servo_set(int angle){
 #ifdef servo_pin
-uint32_t servo_timer = 0;
-int32_t servo_pos = 0;
-#ifdef __AVR__
-
-static volatile int ISRCount, remainder, counter; // iteration counter used in the interrupt routines;
-
-ISR (TIMER2_OVF_vect)
-{
-  ++ISRCount; // increment the overlflow counter
-  if (ISRCount ==  counter) { // are we on the final iteration for this channel
-    TCNT2 =  remainder;   // yes, set count for overflow after remainder ticks
-  }
-  if (ISRCount ==  (counter + 1)) {
-    digitalWrite( servo_pin, LOW  ); // pulse this channel low if active
-  } else if (ISRCount >  157) {
-    digitalWrite( servo_pin, HIGH); // pulse this channel low if active
-    ISRCount = 0; // reset the isr iteration counter
-    TCNT2 = 0;    // reset the clock counter register
-  }
-}
-#endif
-
-void servo_set(int us)
-{
-  counter = us / 128;
-  remainder = 255 - (2 * (us - ( counter * 128)));
-}
-
-void servo_init()
-{
-  pinMode(servo_pin, OUTPUT);
-
-#ifdef __AVR__
-  servo_set(1000);
-
-  ISRCount = 0;  // clear the value of the ISR counter;
-
-  /* setup for timer 2 */
-  TIMSK2 = 0;  // disable interrupts
-  TCCR2A = 0;  // normal counting mode
-  TCCR2B = _BV(CS21); // set prescaler of 8 = 2MHZ
-  TCNT2 = 0;     // clear the timer2 count
-  TIFR2 = _BV(TOV2);  // clear pending interrupts;
-  TIMSK2 =  _BV(TOIE2) ; // enable the overflow interrupt
+    pwm.setPWM(servo_pin, 0,spindle_pwm*0.205); // set 0 - 4095
+    return;
 #endif
 }
-
-void servo_loop()
-{
-
-#ifdef __AVR__
-#else
-  uint32_t m = micros();
-  if (m - servo_timer > 20000) {
-    servo_timer = m;
-    digitalWrite(servo_pin, HIGH);
-  }
-  if (m - servo_timer > servo_pos) {
-    digitalWrite(servo_pin, LOW);
-  }
-#endif
-  pwm_loop();
-}
-#else
 void servo_loop() {
   pwm_loop();
 }
-void servo_init() {}
-void servo_set(int us) {}
-
-#endif
-
-
 
 int somedelay(int32_t n)
 {
@@ -364,7 +358,8 @@ void timer_init()
   #ifdef RPM_COUNTER
   setup_RPM();
   #endif
-  
+  setupPwm();
+  set_pwm(0);
   interrupts();
 }
 
@@ -469,6 +464,7 @@ inline int THEISR timercode() {
       ndelay -= 30000;
     }
   }
+  //pwm_loop();
   return ndelay >= 30000 ? 30000 : ndelay;
 }
 
