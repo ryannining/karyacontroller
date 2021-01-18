@@ -242,7 +242,7 @@ void reset_motion()
   zaccel = accel * ZMAXFEEDRATE / XMAXFEEDRATE;
 
 
-  stepmmx[nE] = fabs(E0STEPPERMM);
+  stepmmx[nE]=fabs(E0STEPPERMM);
   stepmmx[MX]=fabs(XSTEPPERMM);
   stepmmx[MY]=fabs(YSTEPPERMM);
   stepmmx[MZ]=fabs(ZSTEPPERMM);
@@ -366,13 +366,13 @@ int32_t rampseg, rampup, rampdown;
 #ifdef __AVR__
 #define NUMCMDBUF 260
 #else
-#define NUMCMDBUF 260
+#define NUMCMDBUF 520
 #endif
 
 
 //#define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
-#define nextbuffm(x) ((x+1)&255)
-#define nextbuffmV(x,v) ((x+v)&255)
+#define nextbuffm(x) ((x+1)&511)
+#define nextbuffmV(x,v) ((x+v)&511)
 
 static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
 static volatile uint8_t   cmcmd, cmbit = 0;
@@ -671,6 +671,11 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     cz2 += ocz1;
     ce02 += ce01;
   }
+  if (!ishoming) {
+    // limit movement to prevent damaged gantry part  
+    //if (cx2<-3)cx2=-3;
+    //if (cy2<-3)cy2=-3;
+  }
 
   // mesh leveling
   // get Z offset on mesh data
@@ -711,7 +716,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
       // backlash data is INTEGER 1000x of original value so we need to * 0.001
       float b = xback[i] * dir * 0.001;
       deltax += b;
-      x2[i] = b * Cstepmmx(i);
+      x2[i] = b * Cstepmmx(i) * odir[i];
     }
     // if no movement, then dont save direction
     if (dir != 0)ldir[i] = dir;
@@ -1092,6 +1097,7 @@ static THEISR void decodecmd()
         // the delay can be adjusted by GCODE Svalue, and can be calibrated using
         // eeprom Lscale
         laser_step = cmdlaserval * stepdivL; // 254
+        if (cmdlaserval && (laser_step<0))laser_step=1;
       }
     }
   }
@@ -1382,6 +1388,25 @@ void readpixel2() {
   if (vv == 'A')pixelon = 0; else pixelon = 1;
 }
 
+void doHardStop(){
+      if (!RUNNING) {
+#ifdef HARDSTOP
+        float p = mctr;
+        cx1 = info_x_s*perstepx;
+        cy1 = info_y_s*perstepy;
+        cz1 = info_z_s*perstepz;
+        ce01 = 0;//m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
+        //zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
+#endif
+      }
+      endstopstatus = 0;
+      checkendstop = 0;
+      m->status = 0;
+      mctr = 0;
+      m = 0;
+      head = tail;
+      cmhead = cmtail = 0;
+}
 
 int coreloop1()
 {
@@ -1410,25 +1435,9 @@ int coreloop1()
     //zprintf(PSTR("%d \n"),fi(mctr));
     if ((endstopstatus < 0) || (!RUNNING)) {
       //zprintf(PSTR("Endstop hit"));
-      if (!RUNNING) {
         // need to calculate at least correct next start position based on
         // mctr
-#ifdef HARDSTOP
-        float p = mctr;
-        cx1 = info_x_s*perstepx;
-        cy1 = info_x_s*perstepy;
-        cz1 = info_x_s*perstepz;
-        ce01 = 0;//m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
-        //zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
-#endif
-      }
-      endstopstatus = 0;
-      checkendstop = 0;
-      m->status = 0;
-      mctr = 0;
-      m = 0;
-      head = tail;
-      cmhead = cmtail = 0;
+        doHardStop();
       return 0;
     }
   }
@@ -1661,8 +1670,8 @@ void calculate_delta_steps()
   //zprintf(PSTR(" %d\n"),fi(dln));
 #endif
   //
-  //stepdivL = stepdiv2 * 0.0001 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
-  stepdivL = 5 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
+  stepdivL = stepdiv2 * 0.000001 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
+  //stepdivL = 5 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
   mctr = totalstep ;
   newdircommand(!isG0 ? m->laserval : 0);
   //zprintf(PSTR("int %d\n"), fi(m->laserval));
@@ -1965,7 +1974,9 @@ void homing()
   
   
   pause_pwm(false);
+  #ifdef spindle_pin
   xdigitalWrite(spindle_pin, HIGH);
+  #endif
 }
 
 
@@ -2100,11 +2111,14 @@ void waitbufferempty()
   LOOP_IN(2)
   inwaitbuffer=true;
   while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0)) { //(tail == otail) //
+    
     domotionloop
     MEMORY_BARRIER()
 #ifdef output_enable1
     zprintf(PSTR("->H%d T%d cH%d cT%d\n"), fi(head), fi(tail), fi(cmhead), fi(cmtail));
 #endif
+    if (PAUSE)break;
+    if (!RUNNING)break;
   }
   inwaitbuffer=false;
   LOOP_OUT(2)

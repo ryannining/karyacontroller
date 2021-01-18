@@ -293,8 +293,7 @@ uint8_t gcode_parse_char(uint8_t c)
     if (c >= '0' && c <= '9') {
       if (read_digit.exponent < DECFLOAT_EXP_MAX + 1) {
         // this is simply mantissa = (mantissa * 10) + atoi(c) in different clothes
-        read_digit.mantissa = (read_digit.mantissa << 3) +
-                              (read_digit.mantissa << 1) + (c - '0');
+        read_digit.mantissa = (read_digit.mantissa * 10) + (c - '0');
         if (read_digit.exponent)
           read_digit.exponent++;
       }
@@ -428,9 +427,9 @@ uint8_t gcode_parse_char(uint8_t c)
     okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
 
     uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
-    if (ok)zprintf(PSTR("ok\n")); // response quick !!
     
     process_gcode_command();    
+    if (ok)zprintf(PSTR("ok\n")); // response quick !!
     if (reset_command()) return 2;
     return 1;
   }
@@ -464,8 +463,12 @@ void pausemachine()
 void stopmachine() {
   RUNNING = 0;
   if (m) {
-    waitbufferempty();
-    printposition();
+    PAUSE = 0;
+    extern void doHardStop();
+    doHardStop();
+    
+    //waitbufferempty();
+    //printposition();
     //printbufflen();
   }
 }
@@ -557,6 +560,17 @@ void addlaserxy(float x,float y, uint8_t bit)
     }
 }
 
+void testLaser(void){
+  LASER(LASERON)
+#ifndef ISPC
+  for (int j = 0; j <= 30; j++) {
+    delay(1);
+    domotionloop
+  }
+#endif
+  // after some delay turn off laser
+  LASER(!LASERON);
+}
 
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
 
@@ -1116,13 +1130,13 @@ void process_gcode_command()
         next_target.seen_S = true;
         next_target.S = 0;
       case 3:
-        waitbufferempty();
         if (!next_target.seen_S)next_target.S = 255;
         if (next_target.S > 4000)next_target.S = next_target.S / 100; // convert 33K RPM max to 255
-        if (fi(next_target.S) == lastS)break;
+        //if (fi(next_target.S) == lastS)break;
         lastS = fi(next_target.S);
         if (!next_target.seen_P) {
-          next_target.seen_P = 1; next_target.P = 100;
+          //next_target.seen_P = 1; next_target.P = 100;
+            waitbufferempty();
         }
 #ifndef ISPC
 

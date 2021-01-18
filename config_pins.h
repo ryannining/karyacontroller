@@ -103,9 +103,16 @@
 //#define BOARD_WEMOS3DCOREXY
 
 //#define BOARD_WEMOSCNC
+
 //#define MYLASER
-#define MK4CNC
 //#define LASERMINI
+//#define LASERBIG
+
+#define MK4CNC
+// subset cnc, if not dfault to mini cnc
+//#define CNCBIG
+//#define M115
+
 #define LASERWIFI
 //#define BOARD_MINICNC_ESP01
 //#define BOARD_WEMOS_XYY_LASER
@@ -114,14 +121,18 @@
 #endif
 
 #ifdef MYLASER
+#undef MK4CNC
 #undef BOARD_WEMOS3D_COREXY
 #undef BOARD_WEMOS_CNC_XZYY
 #define BOARD_WEMOSCNC
 #endif
+
 #ifdef MK4CNC
+#undef laser_pin
 #undef BOARD_WEMOS3D_COREXY
 #undef BOARD_WEMOS_CNC_XZYY
 #define BOARD_WEMOSCNC_ONLY
+#define IR_OLED_MENU
 #endif
 
 #include "myboards.h"
@@ -164,38 +175,50 @@
 #if defined(ESP8266)
 // ESP8266
 // using TX RX as SDA SCL for I2C or SPI LCD
- 
+
+#ifdef M115
 #define IR_OLED_MENU
-
-#undef LCD_OLED
-#define LCD_OLED_SSD
-//#define LCD_OLED
-
-//#define LCD_UC1609
-//#define LCD_UC1609DARK
-//#define LCD_NK1202
-//#define LCD_NK1661
-//#define LCD_2004
-#define LCD_TEST
-
-// to debug
-//#undef IR_OLED_MENU
-//FOR quick dev test 1661
-#ifdef LCD_TEST
-#undef LCD_OLED_SSD
-#undef LCD_OLED
-#undef LCD_UC1609
-#undef LCD_NK1661
-#undef LCD_NK1202
-
-//#undef AC_SPINDLE
-//#define PCA9685
-
-#define LCD_NK1661
-//#define LCD_NK1202
-#define IR_KEY TX //share with SDA pin
 #endif
 
+#if defined(LASERMINI) || defined(LASERBIG)
+#define IR_OLED_MENU
+#endif
+
+
+#ifdef IR_OLED_MENU
+    #undef LCD_OLED
+    #define LCD_OLED_SSD
+    //#define LCD_OLED
+
+    //#define LCD_UC1609
+    //#define LCD_UC1609DARK
+    //#define LCD_NK1202
+    //#define LCD_NK1661
+    //#define LCD_2004
+    #ifdef M115
+    #define IR_KEY D2
+    #else
+    #define LCD_TEST
+    #endif
+    // to debug
+    //#undef IR_OLED_MENU
+    //FOR quick dev test 1661
+    #ifdef LCD_TEST
+        #undef LCD_OLED_SSD
+        #undef LCD_OLED
+        #undef LCD_UC1609
+        #undef LCD_NK1661
+        #undef LCD_NK1202
+
+        //#undef AC_SPINDLE
+        //#define PCA9685
+        #define HAS_CS D2
+        #define LCD_NK1661
+        //#define LCD_NK1202
+        #define IR_KEY TX //share with SDA pin
+    #endif
+
+#endif
 
 #endif
 
@@ -234,10 +257,18 @@
 #ifdef MYLASER
 #define LASERON LOW
 #define laser_pin D2
+#undef spindle_pin
+#define BAUDRATE 115200*2
 //LOW
 //#undef USEOTA
 #undef TCPSERVER
+
 #ifdef LASERMINI
+#define LASERON HIGH
+#define laser_pin D1
+#endif
+
+#ifdef LASERBIG
 #define LASERON HIGH
 #define laser_pin D1
 #endif
@@ -250,7 +281,6 @@
 #undef heater_pin
 #undef temp_pin
 #define NUMBUFFER 40
-#define BAUDRATE 115200*2
 #endif
 
 
@@ -269,8 +299,8 @@
 #elif defined(heater_pin)
 
 // to make sure all board can be user for laser engraving
-#define laser_pin heater_pin
-#define LASERMODE
+//#define laser_pin heater_pin
+//#define LASERMODE
 #endif
 
 
@@ -365,7 +395,7 @@
 #define MOTOR_E_BACKLASH 0
 #endif
 
-//#define M115
+
 #ifdef M115
 // just for 115
 #define XSTEPPERMM -426.577
@@ -376,6 +406,55 @@
 //#undef AC_SPINDLE // using DC
 #endif
 
+#ifdef CNCBIG
+// just for new cnc BIG with custom gear
+#define XSTEPPERMM 334.014 // gear 10:47 htd5m drv8825
+#define YSTEPPERMM 334.014 // gear 10:47 htd5m drv8825
+#define ZSTEPPERMM 800.000
+#endif
+
+#ifdef MYLASER
+#define XYJERK 0
+#define XYCORNER 25
+#define XACCELL 4000
+#define XMAXFEEDRATE 230
+#define YMAXFEEDRATE 170
+#define ZMAXFEEDRATE 200
+#define E0MAXFEEDRATE 100
+#define ZSTEPPERMM 10
+#define E0STEPPERMM 10
+
+#define XSTEPPERMM 78.740
+#define YSTEPPERMM 314.136
+
+#ifdef LASERBIG
+#define XYCORNER 15
+#define XACCELL 1200
+#define XMAXFEEDRATE 130
+#define YMAXFEEDRATE 40
+#define XSTEPPERMM 200
+#define YSTEPPERMM -327.631
+#define xdirection D6
+#define xstep D0
+#define ydirection D7
+#define ystep D3
+#define zdirection D5
+#define zstep D4
+#endif
+
+#ifdef LASERMINI
+#define XSTEPPERMM 78.82
+#define YSTEPPERMM 78.82
+#define ZSTEPPERMM 10
+#define xdirection D6
+#define xstep D0
+#define ydirection D7
+#define ystep D3
+#define zdirection D5
+#define zstep D4
+#endif
+
+#endif
 
 #ifndef XSTEPPERMM
 #define XSTEPPERMM 100//50//105.090//50//131//178

@@ -1,4 +1,5 @@
 #include "config_pins.h"
+#include <ESP8266WiFi.h>
 
 #if defined(IR_OLED_MENU)
 
@@ -28,13 +29,20 @@ UC1609Wire xdisplay(TX, RX, D1);
 
 #ifdef LCD_NK1202
 #include "NK1202Wire.h"
+#ifdef HAS_CS
+NK1202Wire xdisplay(TX, RX,HAS_CS);
+#else
 NK1202Wire xdisplay(TX, RX);
+#endif
 #endif
 
 #ifdef LCD_NK1661
 #define USERGB12
 #include "NK1661Wire.h"
-NK1661Wire xdisplay(TX, RX, RX, 20); // CS control HIGH long time on RX, Header line separator is LCD_Y
+#define HAS_CS RX
+
+NK1661Wire xdisplay(TX, RX, HAS_CS, 20); // 
+
 #endif
 
 #ifdef LCD_2004
@@ -152,7 +160,12 @@ void draw_info(void)
     
     d_clear(); // clear the internal memory
     d_setcolor(WHITE);
-    d_text(0, 0, IPA); // write something to the internal memory
+    extern int ISWIFIOK;
+
+    if (ISWIFIOK && (WiFi.status() != WL_CONNECTED))
+        d_text(0, 0, "Wifi disconnect"); // write something to the internal memory
+    else
+        d_text(0, 0, IPA); // write something to the internal memory
 
     d_frect(0, LCD_Y - 1, d_w() * LCD_X, LCD_Y);
     d_setcolor(BLACK);
@@ -184,7 +197,10 @@ void draw_info(void)
 #endif
     String L1, L2, L3;
     if (uncompress) {
-        L1 = jobname + "% " + String(100 * gcodepos / gcodesize);
+        if (PAUSE)L1="Paused !"; else
+        L1 = jobname;
+        
+        L1 += " "+String(100 * gcodepos / gcodesize) + "%";
     }
     else {
         L1 = "JOG% " + String(tmul);
@@ -232,7 +248,7 @@ void draw_info(void)
 // Standar menu is index 0: title, rest is the menu
 int menu_0_pos = 0;
 int menu_0_page = 0;
-String menu_0_t[] = { "Main Menu", "1. Set Zero", "2. My jobs", "3. Tools", "4. Settings", "5. Restart CNC" };
+String menu_0_t[] = { "Main Menu", "1. Set Zero", "2. My jobs", "3. Tools", "4. Settings", "5. Retry WIFI" };
 
 /*
     MENU 3, Tools
@@ -241,7 +257,7 @@ String menu_0_t[] = { "Main Menu", "1. Set Zero", "2. My jobs", "3. Tools", "4. 
 // Standar menu is index 0: title, rest is the menu
 int menu_3_pos = 0;
 int menu_3_page = 0;
-String menu_3_t[] = { "Tools", "1. Homing" };
+String menu_3_t[] = { "Tools",  "1. Preview","2. Laser Test","3. Homing" };
 
 /*
    ONCLICK
@@ -754,16 +770,18 @@ void menu_99_click(int a)
 
 extern void wifi_push(char c); // we use WIFI GCODE Command buffer to inject gcode
 static const char* gc92 = "G92\n";
+extern void connectWifi(int ret=1);
+extern int ISWIFIOK;
 void RESTARTESP(int a)
 {
     if (a) {
         //eepromwrite(EE_softreset, 111);
         //eepromcommit();
-        delay(200);
-        extern void setupwifi(int num);
-        //setupwifi(1);
-        //LOADINFO();
-        ESP.restart();
+        //delay(200);
+        if (ISWIFIOK){
+            connectWifi();
+            LOADINFO();
+        } else ESP.restart();
     }
     else
         LOADMENU(0);
@@ -790,7 +808,12 @@ void menu_0_click(int a)
             LOADMENU(4);
             break; // settings menu
         case 4:
-            LOADCONFIRM(("Restart CNC ?"), RESTARTESP);
+            if (ISWIFIOK)
+                RESTARTESP(1);
+            else
+            {
+                LOADCONFIRM(("Restart CNC ?"), RESTARTESP);
+            }
             break; // settings menu
         }
     }
@@ -812,14 +835,28 @@ void PREVIEWJOB(int a)
 {
     if (a == 4) {
         LOADINFO();
-
+extern int laserOn,constantlaserVal;
+        laserOn=1;
+        constantlaserVal=255;
+        
         set_pwm(150);
         addmove(100, 0, 0, 2, 0, 1, 1);
         addmove(100, xMax - xMin, 0, 0, 0, 1, 1);
+
+        addmove(100, 0, 0, 0.5, 0, 0, 1);
+
         addmove(100, 0, yMax - yMin, 0, 0, 1, 1);
+        addmove(100, 0, 0, -0.5, 0, 0, 1);
+
         addmove(100, xMin - xMax, 0, 0, 0, 1, 1);
+        addmove(100, 0, 0, 0.5, 0, 0, 1);
+
         addmove(100, 0, yMin - yMax, 0, 0, 1, 1);
+        addmove(100, 0, 0, -0.5, 0, 0, 1);
+
         addmove(100, 0, 0, -2, 0, 1, 1);
+        laserOn=0;
+        constantlaserVal=255;
         //waitbufferempty();
         //set_pwm(0);
     }
@@ -875,6 +912,14 @@ void menu_3_click(int a)
         return;
     switch (*menu_pos) {
     case 0:
+        beginuncompress("/preview.gcode");
+        LOADINFO();                  
+        break;
+    case 1:
+        extern void testLaser(void);
+        testLaser();
+        break;
+    case 2:
         if ((ax_home[0] == 0) && (ax_home[1] == 0) && (ax_home[2] == 0)) {
             addmove(100, 0, 0, 10, 0, 1, 1);
             addmove(100, 0, 0, 10, 0, 1, 0);
@@ -959,10 +1004,20 @@ static int IR_UIloop(int icommand)
             enduncompress();
             break;
         case IRK4_SPINDLEDN:
+            #ifdef laser_pin
+            extern void testLaser(void);
+            testLaser();
+            #else
             set_pwm(lastS-25);
+            #endif
             break;
         case IRK4_SPINDLEUP:
+            #ifdef laser_pin
+            extern void testLaser(void);
+            testLaser();
+            #else
             set_pwm(lastS+25);
+            #endif
             break;
         case IRK4_DOT1:
             tmul=25;

@@ -1140,8 +1140,8 @@
 //#define INVERTENDSTOP
 #define NUMBUFFER 20
 
-#define IR_KEY D2
-#define IR_OLED_MENU 0x3c, RX, TX
+//#define IR_KEY D2
+//#define IR_OLED_MENU 0x3c, RX, TX
 /*
   ============================================================================================
      _WEMOS_CNC_ONLY
@@ -1171,7 +1171,7 @@
 //#define INVERTENDSTOP
 #define NUMBUFFER 20
 
-#define IR_KEY D2
+//#define IR_KEY D2
 #define LCD_OLED
 #define IR_OLED_MENU 0x3c, RX, TX
 //#define IR_OLED_MENU 0x3c, RX, D1

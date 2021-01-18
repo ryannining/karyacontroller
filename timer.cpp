@@ -113,7 +113,22 @@ void setXYZservo(float x,float y,float z){
     //}
 }
 #else
-void setupPwm() {}
+
+#ifdef  ZERO_CROSS_PIN
+void ICACHE_RAM_ATTR zero_cross(){
+    in_pwm_loop=false;
+    next_l = micros();
+    spindle_state = LOW;
+    xdigitalWrite(spindle_pin, LOW);
+    
+}
+#endif
+
+void setupPwm() {
+#ifdef  ZERO_CROSS_PIN
+      attachInterrupt(ZERO_CROSS_PIN, zero_cross, RAISING);
+#endif
+    }
 int pulseWidth(int angle){}
 void setXYZservo(float x,float y,float z){}
 // cannot use servo
@@ -131,10 +146,12 @@ void set_pwm(int v) { // 0-255
     spindle_pct=v*0.39; // 0 - 100
     //if (! RPM_PID_MODE)
     lastS=v;
-    v=fabs(v*Lscale);
-    if (Lscale<0)v=255-v;
     extern float Lscale;
-    spindle_pwm = fmin(20000,v*39.2156*2);
+    if (Lscale>0)v=255-v;
+    if (Lscale==0)v=v>30?255:0;
+    float vf=fabs(v*Lscale);
+    spindle_pwm = fmin(20000,vf*39.2156*2);
+    xdigitalWrite(spindle_pin, LOW);
     #ifdef PCA9685
     pwm.setPWM(spindle_servo_pin, 0,pulseWidth(0.009*spindle_pwm)); // set 0 - 4095
     return;
@@ -149,30 +166,39 @@ void set_pwm(int v) { // 0-255
 void pause_pwm(bool v){
 	in_pwm_loop=v;
 }
+
 void ICACHE_RAM_ATTR pwm_loop() {
 
 #ifdef RPM_COUNTER
 	get_RPM();
 #endif
 
+
+
 #ifdef spindle_pin
   if (in_pwm_loop)return;
   in_pwm_loop=true;
-  uint32_t pwmc = micros();
-  if (pwmc - next_l > spindle_pwm ) {
+  uint32_t pwmc = micros(); // next_l contain last time target for 50Hz
+  if ((pwmc - next_l > spindle_pwm)  && (spindle_pwm<20000)) { // if  current time - next time > delta time pwm, then turn it on
     if (!spindle_state) {
       spindle_state = HIGH;
       xdigitalWrite(spindle_pin, HIGH);
     }
-  } 
-  if (pwmc - next_l > 19999) { // 50hz on wemos
+  }
+
+// if use zero_cross then in_pwm_loop will be true until a trigger happened
+// basically replace all below using interrupt trigger  
+#ifndef ZERO_CROSS_PIN 
+  if (pwmc - next_l > 19999) { // 50hz on wemos then turn off
     next_l = pwmc;
     spindle_state = LOW;
     xdigitalWrite(spindle_pin, LOW);
   }
   in_pwm_loop=false;
 #endif
+#endif
 }
+
 
 void servo_set(int angle){
 #ifdef servo_pin
@@ -479,9 +505,9 @@ inline int THEISR timercode() {
 void THEISR timer_set2(int32_t delay, int32_t delayL)
 {
   //  if (delayL) {
-  //if (delayL > delay -6)delay=delayL+6;
   if ((delayL > 0) && (delayL < delay)) {
-    ndelay2 = delay - delayL; // the rest delay after laser on
+    if (delayL < delay)
+        ndelay2 = delay - delayL; // the rest delay after laser on
     ndelay = delayL; // laser on delay
   } else {
     //ndelay2=0;

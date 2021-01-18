@@ -4,6 +4,7 @@
 
 //#define VERSION "Firmware 1.0.0" // first to have firmware update
 #define VERSION "Firmware 1.0.1" // new remote, able to control more on remote
+#define VERSION "Firmware 1.0.2" // fix lots issues with remote, LCD
 
 #include "platform.h"
 #include "config_pins.h"
@@ -300,8 +301,11 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t lenght)
     case WStype_TEXT: // if new text data is received
         //xprintf(PSTR("%s"),payload);
         //webSocket.sendTXT(num, payload);
-        for (int i = 0; i < lenght; i++) {
-            buf_push(wf, payload[i]);
+        // if runnning job, ignore command from all channel
+        if (!uncompress) {
+            for (int i = 0; i < lenght; i++) {
+                buf_push(wf, payload[i]);
+            }
         }
         //webSocket.broadcastTXT(payload);
         break;
@@ -332,6 +336,37 @@ void wifi_push(char c)
     buf_push(wf, c);
 }
 
+void connectWifi(int ret=1)
+{
+            //if (ret){
+            //    WiFi.reconnect();
+            //    return;
+            //}
+            //xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
+            WiFi.mode(WIFI_STA);
+            WiFi.begin(wifi_ap, wifi_pwd);
+            
+            int cntr = 30;
+#ifdef IR_OLED_MENU
+            d_clear();
+            d_text(0, 0, VERSION);
+            d_text(0, 1, "connecting ...");
+            d_text(0, 2, wifi_ap);
+            d_show();
+#endif
+            while (WiFi.status() != WL_CONNECTED) {
+                delay(200);
+                cntr--;
+                if (!cntr)
+                    break;
+                //xprintf(PSTR("."));
+                //Serial.print(".");
+            }
+            WiFi.setAutoReconnect(true);
+            WiFi.persistent(true);
+
+}
+bool isSTA;
 void setupwifi(int num)
 {
     NOINTS
@@ -357,27 +392,7 @@ void setupwifi(int num)
             eepromwritestring(450, wifi_pwd);
             c = 'a';
         }
-        if (c != 0) {
-            xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
-            WiFi.mode(WIFI_STA);
-            WiFi.begin(wifi_ap, wifi_pwd);
-            int cntr = 30;
-#ifdef IR_OLED_MENU
-            d_clear();
-            d_text(0, 0, VERSION);
-            d_text(0, 1, "connecting ...");
-            d_text(0, 2, wifi_ap);
-            d_show();
-#endif
-            while (WiFi.status() != WL_CONNECTED) {
-                delay(500);
-                cntr--;
-                if (!cntr)
-                    break;
-                //xprintf(PSTR("."));
-                Serial.print(".");
-            }
-        }
+        if (c != 0) connectWifi(0);
         String ipa = "";
         if (WiFi.status() == WL_CONNECTED) {
             ip = WiFi.localIP();
@@ -737,18 +752,25 @@ uint32_t wmc = 0;
 void wifi_loop()
 {
     uint32_t uc = millis();
-    if (uc - wmc < 50) {
-        return;
-    }
-    wmc = uc;
     server.handleClient();
 #ifdef WEBSOCKSERVER
     webSocket.loop();
 #endif //webserver
+    if (uc - wmc < 50) {
+        return;
+    }
+    wmc = uc;
 #ifdef TOUCHSERVER
     if (sendwait == 1)
         touchserver(0, String(wifi_dns));
 #endif // touch
+
+    if (ISWIFIOK){
+        if (WiFi.status() != WL_CONNECTED){
+            //connectWifi();
+            //return;
+        }
+    }
 
 #ifdef TCPSERVER
     // wait for a new client:
@@ -896,6 +918,10 @@ char gcode_loop()
             line_done = gcode_parse_char(c);
             if (line_done) {
                 ack_waiting = line_done - 1;
+                if (ack_waiting) {
+                    //zprintf(PSTR("ok\n"));
+                    ack_waiting = 0;
+                }                
 #ifdef timingG
                 zprintf(PSTR("Gcode:%dus\n"), fi(micros() - gt));
 #endif
@@ -956,10 +982,10 @@ void setup()
 #ifdef USE_EEPROM
     eeprominit;
 #endif
+#ifdef IR_OLED_MENU
     IR_setup();
     setup_oled();
-
-#ifndef IR_OLED_MENU
+#else
     serialinit(BAUDRATE); //115200);
 #endif
     t1 = millis();

@@ -120,6 +120,13 @@ extern LiquidCrystal_PCF8574 xdisplay;
 extern void setup_oled(void);
 extern int ir_oled_loop(int icommand);
 #else
+// if not using LCD
+
 #define setup_oled() {}
 #define ir_oled_loop(i) {}
+#define d_clear()
+#define d_show() 
+#define d_setcolor(x) 
+#define d_text(x,y,s)
+
 #endif
