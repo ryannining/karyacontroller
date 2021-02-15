@@ -1,4 +1,7 @@
 # karyacontroller
+New upload schematic and PCB for simple 3 axis CNC / LASER.
+![image](https://user-images.githubusercontent.com/11457832/107949586-13b98600-6fc8-11eb-9eaf-ca55a78deb87.png)
+Checkout the wemosminiboard folder
 
 ## NEW ! IR Remote and Oled Display
 [![](http://img.youtube.com/vi/zYC9wCI7BpY/0.jpg)](http://www.youtube.com/watch?v=zYC9wCI7BpY "IR Remote and Oled Display")
