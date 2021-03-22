@@ -460,12 +460,19 @@ void pausemachine()
   if (PAUSE)zprintf(PSTR("Pause\n"));
   else zprintf(PSTR("Resume\n"));
 }
+#ifdef IR_OLED_MENU
+#include "ir_oled.h"
+#endif
+
 void stopmachine() {
   RUNNING = 0;
   if (m) {
     PAUSE = 0;
     extern void doHardStop();
     doHardStop();
+#ifdef IR_OLED_MENU
+    xdisplay.Reset();
+#endif
     
     //waitbufferempty();
     //printposition();

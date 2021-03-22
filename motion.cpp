@@ -364,24 +364,24 @@ int32_t rampseg, rampup, rampdown;
 
 */
 #ifdef __AVR__
-#define NUMCMDBUF 260
+#define NUMCMDBUF 255
 #else
-#define NUMCMDBUF 520
+#define NUMCMDBUF 1023
 #endif
 
 
-//#define nextbuffm(x) ((x) < NUMCMDBUF-1 ? (x) + 1 : 0)
-#define nextbuffm(x) ((x+1)&511)
-#define nextbuffmV(x,v) ((x+v)&511)
+//#define nextbuffm(x) ((x) < NUMCMDBUF ? (x) + 1 : 0)
+#define nextbuffm(x) ((x+1)&NUMCMDBUF)
+#define nextbuffmV(x,v) ((x+v)&NUMCMDBUF)
 
-static volatile uint32_t cmddelay[NUMCMDBUF], cmd0;
+static volatile uint32_t cmddelay[(NUMCMDBUF+1)], cmd0;
 static volatile uint8_t   cmcmd, cmbit = 0;
 static volatile uint32_t cmhead = 0, cmtail = 0, cmdlaserval = 0;
 
 #define cmdfull (nextbuffm(cmhead)==cmtail)
 #define cmdnotfull (nextbuffm(cmhead)!=cmtail)
 #define cmdempty (cmhead==cmtail)
-#define cmdlen (cmhead >= cmtail ? cmhead - cmtail : (NUMCMDBUF + cmhead) - cmtail)
+#define cmdlen (cmhead >= cmtail ? cmhead - cmtail : ((NUMCMDBUF+1) + cmhead) - cmtail)
 
 static volatile int nextok = 0, laserwason = 0;
 
@@ -588,9 +588,9 @@ void planner(int32_t h)
     // if already more than 1 vector, lets calculate the maximum junction speed using
     // centripetal formula
     float junc_cos = -prevu[MX] * curru[MX] - prevu[MY] * curru[MY] - prevu[MZ] * curru[MZ];
-    if (junc_cos > 0.999) {
+    if (junc_cos > 0.99999) {
       max_f = MINSPEED; // reversal case, angle is 180'
-    } else if (junc_cos < -0.999) {
+    } else if (junc_cos < -0.99999) {
       max_f = 10000000; // straight line, set a large value
     } else {
       // using cheap mathematical formula, check GRBL for the full code
@@ -1109,7 +1109,6 @@ static THEISR void decodecmd()
           ) >> DSCALE;
 
 
-  if (!cmcmd || laser_step)LASER(laserwason ? LASERON : !LASERON);
   // signal this command is OK
   nextok = 1;
   // point next command
@@ -1118,7 +1117,9 @@ static THEISR void decodecmd()
   // set the timer, non hardware timer need to work on constant laserburn
   // but since, all hardware have use hardwaretimer, i think maybe its
   // good time to remove the non hardware timer code, and clean up the source code
+  //laser_step=1;
   timer_set2(cmdly, laser_step);
+  if (!cmcmd || laser_step)LASER(laserwason ? LASERON : !LASERON);
 #ifdef heater_pin
   HEATER(HEATING);
 #endif
@@ -1526,8 +1527,8 @@ void otherloop(int r)
 #ifndef ISPC
 
     #ifdef IR_OLED_MENU
-    extern void IR_loop();
-    if (inwaitbuffer)IR_loop();
+    //extern void IR_loop(int mode=0);
+    //if (inwaitbuffer)IR_loop(1);
     #endif
 
   // this both check take 8us
@@ -1670,7 +1671,7 @@ void calculate_delta_steps()
   //zprintf(PSTR(" %d\n"),fi(dln));
 #endif
   //
-  stepdivL = stepdiv2 * 0.000001 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
+  stepdivL = (stepdiv2 * 0.000001) * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
   //stepdivL = 5 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
   mctr = totalstep ;
   newdircommand(!isG0 ? m->laserval : 0);
@@ -2142,6 +2143,7 @@ void needbuffer()
     int t = tail;
     LOOP_IN(3)
     MEMORY_BARRIER()
+    inwaitbuffer=true;
     while (t == tail) {
       domotionloop
 
@@ -2149,6 +2151,7 @@ void needbuffer()
       //zprintf(PSTR("%d\n"), fi(mctr));
     }
     //zprintf(PSTR("Done\n"));
+    inwaitbuffer=false;
     LOOP_OUT(1)
 
 #ifdef output_enable

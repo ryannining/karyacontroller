@@ -26,6 +26,7 @@ void IR_setup() {
 }
 void IR_end() {
   IRLremote.end(IR_KEY);
+  IR_ok=0;
 }
 
 extern void wifi_push(char c); // we use WIFI GCODE Command buffer to inject gcode
@@ -58,7 +59,7 @@ int getRemoteKey() {
 }
 
 
-void IR_loop() {
+void IR_loop(int mode=0) {
 
   if (!IR_ok)return;
   int xcmd=getRemoteKey();
@@ -201,12 +202,14 @@ void IR_loop() {
       }
     }
 
-  } else ir_oled_loop(0);
+  } else {
+      if (mode==0)ir_oled_loop(0);
+  }
 }
 
 #else
 void IR_setup() {}
 void IR_end() {}
-void  IR_loop() {}
+void  IR_loop(int mode=0) {}
 #endif
 

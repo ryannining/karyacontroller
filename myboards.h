@@ -630,7 +630,55 @@
 #define DRIVE_XYYZ
 /*
   ============================================================================================
-     BOARD_ST3DV1 XYYZ
+     BOARD_STM32 CNC ONLY
+  ============================================================================================
+*/
+#elif defined(BOARD_STM32_CNC)
+
+//#define xenable PB9
+//#define xenable PA11
+#define xdirection PB7
+#define xstep PB8
+
+//#define yenable PB9
+#define ydirection PB5
+#define ystep PB6
+
+//#define zenable PB9
+#define zdirection PB3
+#define zstep PB4
+
+//#define e0enable PB13
+//#define e0direction PB14
+//#define e0step PB15
+
+
+
+#define limit_pin PB12
+#define spindle_pin D8
+
+
+//#define INVERTENDSTOP // uncomment for normally open
+
+/*
+  #define temp_pin PB1
+  #define temp2_pin PB0
+  #define fan_pin PA3
+  #define heater2_pin PA1
+*/
+//#define heater_pin PA0
+//#define laser_pin PA0
+
+//#define fan_pin PA0 // laser PIN
+
+//#define SDCARD_CS PA4
+//#define KBOX_PIN PA3
+
+#define NUMBUFFER 20
+
+/*
+  ============================================================================================
+     BOARD_ST33DV1_CNC_STM32
   ============================================================================================
 */
 #elif defined(BOARD_ST33DV1_CNC_STM32)

@@ -29,7 +29,7 @@
 
 */
 
-#if defined(ESP8266) || defined(ESP32)
+#if defined(ESP8266) || defined(ESP32) || defined(SDCARD_CS)
 #define fdebug
 
 #include <WiFiClient.h>
@@ -48,7 +48,9 @@
 #include "eprom.h"   // Include the SPIFFS library
 #include "common.h"   // Include the SPIFFS library
 #include "timer.h"   // Include the SPIFFS library
-
+#ifdef IR_OLED_MENU
+#include "ir_oled.h"
+#endif
 #define NOINTS timerPause();
 #define INTS timerResume();
 
@@ -300,7 +302,9 @@ void enduncompress() {
   zprintf(PSTR("End Uncompress Gcode\n"));
   waitbufferempty();
   lastjobt=millis()-lastjobt0;
-  
+  #ifdef IR_OLED_MENU
+  xdisplay.Reset();
+  #endif  
 }
 int ispause = 0;
 
@@ -467,11 +471,17 @@ void uncompressaline() {
   if (h & (1 << 7)) {
     x = 0;
     fsGcode.read((uint8_t *)&x, eSize);gcodepos+=eSize;
-    //zprintf(PSTR("E%d "), fi(x));
-    next_target.seen_E = 1;
-    AE += float(x - eLimit) / eScale;
-    next_target.target.axis[nE] = AE;
-  }
+    
+    if (next_target.seen_M) {
+		//zprintf(PSTR("E%d "), fi(x));
+		next_target.seen_P = 1;
+		next_target.target.P = x*100;
+    } else {
+		next_target.seen_E = 1;
+		AE += float(x - eLimit) / eScale;
+		next_target.target.axis[nE] = AE;
+	}
+  } 
   //zprintf(PSTR("\n"));
 
   if (!dummy_uncompress)process_gcode_command();

@@ -84,7 +84,7 @@ typedef struct {
 #ifdef __AVR__
 #define g_str_len 64
 #elif defined( __ARM__)
-#define g_str_len 2000
+#define g_str_len 512
 #else
 #define g_str_len 14000
 #endif

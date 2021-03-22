@@ -142,16 +142,22 @@ void set_pwm(int v) { // 0-255
   if (v > 255)v = 255;
   if (v<0)v=0;
   next_l=micros();
-  if (v >= 0) {
+  {
     spindle_pct=v*0.39; // 0 - 100
     //if (! RPM_PID_MODE)
     lastS=v;
     extern float Lscale;
-    if (Lscale>0)v=255-v;
-    if (Lscale==0)v=v>30?255:0;
-    float vf=fabs(v*Lscale);
-    spindle_pwm = fmin(20000,vf*39.2156*2);
+    float vf;
+    if (int(100*Lscale)==0){
+        vf=v>5?0:255;
+    } else {
+        vf=fabs(v*Lscale);
+    }
+    spindle_pwm = fmin(20000,vf*39.216*2);
+    if (Lscale>=0)spindle_pwm=20000-spindle_pwm; // flip if inverse
+    #ifdef spindle_pin
     xdigitalWrite(spindle_pin, LOW);
+    #endif
     #ifdef PCA9685
     pwm.setPWM(spindle_servo_pin, 0,pulseWidth(0.009*spindle_pwm)); // set 0 - 4095
     return;
@@ -167,7 +173,7 @@ void pause_pwm(bool v){
 	in_pwm_loop=v;
 }
 
-void ICACHE_RAM_ATTR pwm_loop() {
+void THEISR pwm_loop() {
 
 #ifdef RPM_COUNTER
 	get_RPM();
@@ -475,10 +481,10 @@ void timer_init()
 inline int THEISR timercode() {
   if (ndelay2)
   {
+    LASER(!LASERON);
     // turn off laser , laser constant burn mode
     ndelay = ndelay2;
     ndelay2 = 0;
-    LASER(!LASERON);
   } else {
     if (ndelay < 30000) {
       ndelay = MINDELAY;
@@ -505,7 +511,7 @@ inline int THEISR timercode() {
 void THEISR timer_set2(int32_t delay, int32_t delayL)
 {
   //  if (delayL) {
-  if ((delayL > 0) && (delayL < delay)) {
+  if ((delayL > 0)) {
     if (delayL < delay)
         ndelay2 = delay - delayL; // the rest delay after laser on
     ndelay = delayL; // laser on delay

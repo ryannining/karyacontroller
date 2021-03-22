@@ -408,12 +408,13 @@ void setupwifi(int num)
             xprintf(PSTR("Access Point Mode\n"));
             WiFi.mode(WIFI_AP);
             ISWIFIOK = 0;
-            const char* ssid = "yourAP";
+             
+            const char* ssid = "cnc1-9";
             const char* password = "123456789";
-            WiFi.softAP(ssid, password);
+            WiFi.softAP((' '<wifi_dns[0]<'Z')?wifi_dns:ssid, password);
             ip = WiFi.softAPIP();
-            xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), ssid, fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]));
-            ipa = String(ssid) + " : " + String(ip[2]);
+            //xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), ((' '<wifi_dns[0]<'Z')?wifi_dns:ssid), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]));
+            ipa = String((' '<wifi_dns[0]<'Z')?wifi_dns:ssid) + " : " + String(ip[2]);
             ipa += ".";
             ipa += String(ip[3]);
         }
@@ -1003,7 +1004,7 @@ void loop()
         for (int ff = FASTBUFFERFILL + 1; ff; ff--)
 #endif
             char c = gcode_loop();
-        IR_loop();
+        IR_loop(0);
 #ifdef WIFISERVER
         wifi_loop();
         if (c == 0)

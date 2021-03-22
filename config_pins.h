@@ -64,9 +64,10 @@
 //#define BOARD_ST33DV1_STM32
 //#define BOARD_ST33DV11_STM32
 //#define BOARD_ST33DV1_STM32_3DPLEX
-#define BOARD_ST33DV1_XYYZ_STM32
+//#define BOARD_ST33DV1_XYYZ_STM32
 //#define BOARD_ST33DV1_CNC_STM32
 //#define BOARD_STM32F0
+#define BOARD_STM32_CNC
 
 #define ANALOGSHIFT 2 // 12bit adc
 //#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel // set 1 to disable but can be adjust using M291 Sxx
@@ -172,7 +173,7 @@
 #endif
 // ==========================================================
 
-#if defined(ESP8266)
+#if true //defined(ESP8266)
 // ESP8266
 // using TX RX as SDA SCL for I2C or SPI LCD
 
@@ -184,6 +185,27 @@
 #define IR_OLED_MENU
 #endif
 
+#ifdef __ARM__
+#define IR_OLED_MENU
+#define LCD_OLED_SSD
+#define SDCARD_CS PC7
+#define SDCARD_CLK PA5
+#define SDCARD_MISO PA6
+#define SDCARD_MOSI PA7
+
+#define IR_KEY PB10
+#define LCD_SDA PB10
+#define LCD_SCL PB11
+#define LCD_CS PB11
+#endif
+
+#ifdef ESP8266
+#define LCD_SDA TX
+#define LCD_SCL RX
+#define LCD_CMD D1
+#define LCD_CS RX
+
+#endif
 
 #ifdef IR_OLED_MENU
     #undef LCD_OLED
@@ -212,10 +234,15 @@
 
         //#undef AC_SPINDLE
         //#define PCA9685
-        #define HAS_CS D2
-        #define LCD_NK1661
-        //#define LCD_NK1202
-        #define IR_KEY TX //share with SDA pin
+        #define HAS_CS LCD_CS
+        #ifdef ESP8266      
+            #define LCD_NK1661
+            //#define LCD_NK1202
+            //#define HAS_CS D2
+        #else
+            #define LCD_OLED_SSD
+        #endif
+        #define IR_KEY LCD_SDA //share with SDA pin
     #endif
 
 #endif
@@ -271,6 +298,7 @@
 #ifdef LASERBIG
 #define LASERON HIGH
 #define laser_pin D1
+#define HAS_CS D2
 #endif
 
 #ifndef LASERWIFI
@@ -408,9 +436,9 @@
 
 #ifdef CNCBIG
 // just for new cnc BIG with custom gear
-#define XSTEPPERMM 334.014 // gear 10:47 htd5m drv8825
-#define YSTEPPERMM 334.014 // gear 10:47 htd5m drv8825
-#define ZSTEPPERMM 800.000
+#define XSTEPPERMM -334.014 // gear 10:47 htd5m drv8825
+#define YSTEPPERMM 334.460 // gear 10:47 htd5m drv8825
+#define ZSTEPPERMM -400.000
 #endif
 
 #ifdef MYLASER

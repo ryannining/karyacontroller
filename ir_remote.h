@@ -62,6 +62,6 @@
 
 extern void IR_setup();
 extern void IR_end();
-extern void IR_loop();
+extern void IR_loop(int mode);
 extern bool IR_ok;
 extern String jobnum;

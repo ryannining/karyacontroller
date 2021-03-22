@@ -1,5 +1,7 @@
 #include "config_pins.h"
+#ifdef WIFISERVER
 #include <ESP8266WiFi.h>
+#endif
 
 #if defined(IR_OLED_MENU)
 
@@ -12,36 +14,41 @@ static String jobnum;
 
 //#define OLEDDISPLAY_REDUCE_MEMORY
 
+#ifndef LCD_SDA
+#define LCD_SDA TX
+#define LCD_SCL RX
+#define LCD_CMD D1
+#endif
+
 #ifdef LCD_OLED
 #include "SH1106Wire.h"
-SH1106Wire xdisplay(0x3c, TX, RX); // d6,d5
+SH1106Wire xdisplay(0x3c, LCD_SDA, LCD_SCL); // d6,d5
 #endif
 
 #ifdef LCD_OLED_SSD
 #include "SSD1306Wire.h"
-SSD1306Wire xdisplay(0x3c, TX, RX); // d6,d5
+SSD1306Wire xdisplay(0x3c, LCD_SDA, LCD_SCL); // d6,d5
 #endif
 
 #ifdef LCD_UC1609
 #include "UC1609Wire.h"
-UC1609Wire xdisplay(TX, RX, D1);
+UC1609Wire xdisplay(LCD_SDA, LCD_SCL, LCD_CMD);
 #endif
 
 #ifdef LCD_NK1202
 #include "NK1202Wire.h"
-#ifdef HAS_CS
-NK1202Wire xdisplay(TX, RX,HAS_CS);
-#else
-NK1202Wire xdisplay(TX, RX);
-#endif
+
+NK1202Wire xdisplay(LCD_SDA, LCD_SCL,HAS_CS);
+
+
 #endif
 
 #ifdef LCD_NK1661
 #define USERGB12
 #include "NK1661Wire.h"
-#define HAS_CS RX
+//#define HAS_CS D2
 
-NK1661Wire xdisplay(TX, RX, HAS_CS, 20); // 
+NK1661Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS, 20); // 
 
 #endif
 
@@ -162,11 +169,15 @@ void draw_info(void)
     d_setcolor(WHITE);
     extern int ISWIFIOK;
 
+    #ifdef WIFISERVER
     if (ISWIFIOK && (WiFi.status() != WL_CONNECTED))
         d_text(0, 0, "Wifi disconnect"); // write something to the internal memory
     else
         d_text(0, 0, IPA); // write something to the internal memory
-
+    #else
+        d_text(0, 0, "Karyacontroller"); // write something to the internal memory
+    #endif
+    
     d_frect(0, LCD_Y - 1, d_w() * LCD_X, LCD_Y);
     d_setcolor(BLACK);
     d_text(1, 1, String(info_x)); // write something to the internal memory
@@ -645,10 +656,18 @@ void menu_4_click(int a)
 
 */
 // Jobs menu, display files
+#ifdef __ARM__
+#define NUMJOBS 20
+#endif
+#ifdef ESP8266
+#define NUMJOBS 50
+#endif
+
 int menu_2_pos = 0;
 int menu_2_page = 0;
-String menu_2_t[100 * 2];
+String menu_2_t[NUMJOBS * 2];
 
+#ifdef ESP8266
 #include <FS.h>
 int getJobs(void)
 {
@@ -670,6 +689,31 @@ int getJobs(void)
 
     return i * 2 + 2;
 }
+#endif
+
+#ifdef __ARM__
+#include <SdFat.h>
+int getJobs(void)
+{
+    Dir dir = SPIFFS.openDir("/");
+    menu_2_t[0] = "File name";
+    menu_2_t[1] = "Kb";
+    int i = 0;
+    while (dir.next()) {
+        String s = dir.fileName();
+        if (s.endsWith(".gcode")) {
+            s.remove(0, 1);
+            s.remove(s.length() - 6);
+            //s.remove(0,1);
+            menu_2_t[i * 2 + 2] = s;
+            menu_2_t[i * 2 + 3] = String(dir.fileSize() / 1000);
+            i++;
+        }
+    }
+
+    return i * 2 + 2;
+}
+#endif
 
 void draw_menu(void)
 {
@@ -775,6 +819,7 @@ extern int ISWIFIOK;
 void RESTARTESP(int a)
 {
     if (a) {
+    #ifdef ESP8266
         //eepromwrite(EE_softreset, 111);
         //eepromcommit();
         //delay(200);
@@ -782,6 +827,7 @@ void RESTARTESP(int a)
             connectWifi();
             LOADINFO();
         } else ESP.restart();
+    #endif
     }
     else
         LOADMENU(0);
@@ -1072,7 +1118,7 @@ static int IR_UIloop(int icommand)
 int ir_oled_loop(int icommand)
 {
     if (icommand)rmkey=icommand;
-    if (icommand == 0 && (millis() - mili > (uncompress ? 500 : 500))) {
+    if (icommand == 0 && (millis() - mili > (uncompress ? 2500 : 1000))) {
         mili = millis();
         if (menu_index == 99)
             menu_f();
