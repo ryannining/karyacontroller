@@ -255,8 +255,14 @@ int curveloop() {
   bresenham(2);
   bresenham(3);
 
+  // laser
+  if (lctx -= lcdx < 0) {
+    cmd0 |=32;
+    lctx += totalstep;
+  }
+  
   // push T=CLOCK/V to timer command buffer
-  cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
+  cmd0 |= dlp << 6; // cmd0 is 32bit data contain all motor movement and the timing
   pushcmd();
 
   // lets save the data for display too

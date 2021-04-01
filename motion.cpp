@@ -286,6 +286,7 @@ void preparecalc()
 }
 
 int32_t mcx[NUMAXIS];
+int32_t lctx,lcdx;
 /*
   =================================================================================================================================================
   MOTOR CLASS
@@ -435,6 +436,8 @@ void newdircommand(int laserval)
   if (bsdx[3] > 0)cmd0 |= 256;
   ldelay = 0;
   pushcmd();
+  cmd0 = stepdivL;
+  pushcmd();
 
 }
 
@@ -559,7 +562,7 @@ void planner(int32_t h)
   //curru[4] = 1; // ???
   // set the large first, we want to get the minimum acceleration and speed
   float ac = accel;
-  float fn = 10000;
+  float fn = curr->fn;
   for (int i = 0; i < 4; i++) {
     curru[i] = 0;
     if (curr->dx[i] != 0) {
@@ -578,8 +581,8 @@ void planner(int32_t h)
   curr->ac = 2 * ac;
   curr->delta = fabs(curr->ac * curr->dis);
   // current speed is the minimum
-  curr->fn = sqr(fmin(fn, curr->fn));
-
+  curr->fn = sqr(fn);
+  /**  
   // ==================================
   // Centripetal corner max speed calculation, copy from other firmware
   float MINSPEED = MINCORNERSPEED; //pow(xyjerk,0.06667);//
@@ -607,6 +610,18 @@ void planner(int32_t h)
                  (fmin(curr->fn, lastf)),
                  max_f);
   lastf = curr->fn;
+  **/               
+  curr->maxs=fmin(curr->fn,lastf);
+  lastf=curr->fn;
+  if (bufflen>1) {
+    float junc_cos = -prevu[MX] * curru[MX] - prevu[MY] * curru[MY] - prevu[MZ] * curru[MZ];
+    if (junc_cos*junc_cos < 0.9999) {
+      float sin_theta_d2 = sqrt(0.5 * (1.0 - junc_cos)); // Trig half angle identity. Always positive.
+      curr->maxs=fmin(curr->maxs,0.5+(ucorner * ucorner* sin_theta_d2 / (1.0 - sin_theta_d2) ));
+    }
+  }
+    
+                 
 #ifdef output_enable
   zprintf(PSTR("maxs. %f\n"), ff(curr->maxs));
 #endif
@@ -1032,17 +1047,20 @@ void dographics();
   =================================================================================================================================================
 */
 void otherloop(int r);
-uint32_t cm, ocm,  mctr2, dlmin, dlmax, laser_step, cmd_mul;
+uint32_t cm, ocm,  mctr2, dlmin, dlmax, cmd_mul;
 int32_t timing = 0;
+int32_t laser_step;
 
 
 // ======================================= COMMAND BUFFER ===========================================
 int maincmdlaserval = 0;
+int32_t laser_accum;
+uint32_t laser_mul;
 static THEISR void decodecmd()
 {
   if (cmdempty) {
     RUNNING = 1;
-    //LASER(!LASERON);
+    LASER(!LASERON);
     return;
   }
 
@@ -1081,7 +1099,7 @@ static THEISR void decodecmd()
     // if nothing to move then turn off laser , its end of the move
     // inform if non move is in the buffer
     //if (cmcmd && (cmbit==0))zprintf(PSTR("X"));
-    cmdly = (cmd >> 5);
+    cmdly = (cmd >> 6);
   } else {
     // this is motion header command, contain the motor direction and the laser on/off
     cmbit = (cmd >> 1) & 255;
@@ -1090,14 +1108,17 @@ static THEISR void decodecmd()
 
     cmdlaserval = maincmdlaserval = (cmd >> 9) & 255;
     laserwason = (Setpoint == 0) && (maincmdlaserval > 0);
-    laser_step = 0;
+    laser_step = 100000;
+    laser_accum=0;
+    cmtail = nextbuffm(cmtail);
+    laser_mul = cmddelay[cmtail];
     if (laserwason) {
       if ((cmdlaserval < 255)) { //if less than 255 mean laser on for defined time
         // laser step is the laser delay ( constant burn laser)
         // the delay can be adjusted by GCODE Svalue, and can be calibrated using
         // eeprom Lscale
-        laser_step = cmdlaserval * stepdivL; // 254
-        if (cmdlaserval && (laser_step<0))laser_step=1;
+        laser_step = cmdlaserval * laser_mul; // 254
+        if (cmdlaserval && (laser_step<10))laser_step=10;
       }
     }
   }
@@ -1118,8 +1139,18 @@ static THEISR void decodecmd()
   // but since, all hardware have use hardwaretimer, i think maybe its
   // good time to remove the non hardware timer code, and clean up the source code
   //laser_step=1;
-  timer_set2(cmdly, laser_step);
-  if (!cmcmd || laser_step)LASER(laserwason ? LASERON : !LASERON);
+  // lets do dithering here
+  
+  if (cmcmd){
+      if (laser_accum>-1000000) laser_accum-=laser_step;
+      if (laser_accum<0){
+          LASER(laserwason? LASERON : !LASERON);
+          laser_accum+=cmdly;
+      } else {
+          LASER(!LASERON);
+      }
+  }
+  timer_set2(cmdly,0);
 #ifdef heater_pin
   HEATER(HEATING);
 #endif
@@ -1181,6 +1212,9 @@ void THEISR coreloopm()
         yctstep++;
         info_y_s-=y_dir;    
         motor_1_STEP();
+        #ifdef COPY_Y_TO_Z
+        motor_2_STEP();
+        #endif
 #ifdef DRIVE_XZY2
         // copy motion on motor E
         motor_3_STEP();
@@ -1188,9 +1222,12 @@ void THEISR coreloopm()
       }
       // AXIS 3
       if (cmbit & 4) {
+        #ifdef COPY_Y_TO_Z
+        #else
         zctstep++;
         info_z_s-=z_dir;    
         motor_2_STEP();
+        #endif
       }
       pinCommit();
       // after commit the PIN, send the LOW signal.
@@ -1225,7 +1262,6 @@ void THEISR coreloopm()
       // header command, we set the motor driver direction
       e_dir = 0;
       if (cmbit & 2) motor_0_DIR(x_dir=(cmbit & 1) ? -1 : 1);
-      if (cmbit & 8) motor_1_DIR(y_dir=(cmbit & 4) ? -1 : 1);
       if (cmbit & 32) motor_2_DIR(z_dir=(cmbit & 16) ? -1 : 1);
       if (cmbit & 128) {
 #ifndef DRIVE_XZY2
@@ -1234,6 +1270,13 @@ void THEISR coreloopm()
         //zprintf(PSTR("E:%d\n"), fi(e_dir));
 #endif
       }
+      if (cmbit & 8) {
+          int d1=(y_dir=(cmbit & 4)) ? -1 : 1;
+          motor_1_DIR(d1);
+          #ifdef COPY_Y_TO_Z
+          motor_2_DIR(odir[2]*d1);
+          #endif
+      }  
 
       pinCommit();
 
@@ -1616,7 +1659,8 @@ void calculate_delta_steps()
   // modify the sx?? m->mcx and totalstep for this segment
   // STEP 5 FINAL
   mcx[0] = mcx[1] = mcx[2] = mcx[3] = 0;
-
+  lctx=0;
+  
   // convert from virtual step/mm value to original step/mm value
   stepdiv2 = wstepdiv2 * rampv;
 
@@ -1661,6 +1705,7 @@ void calculate_delta_steps()
     totalstep *= u;
     stepdiv2 /= u;
     stepdiv /= u;
+    stepdivL /=u;
     dln /= u;
     //if (m->laserval < 255)m->laserval = m->laserval / u + 1;
 #ifdef NONLINEAR
@@ -1671,8 +1716,6 @@ void calculate_delta_steps()
   //zprintf(PSTR(" %d\n"),fi(dln));
 #endif
   //
-  stepdivL = (stepdiv2 * 0.000001) * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
-  //stepdivL = 5 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
   mctr = totalstep ;
   newdircommand(!isG0 ? m->laserval : 0);
   //zprintf(PSTR("int %d\n"), fi(m->laserval));
@@ -1772,6 +1815,10 @@ int32_t startmove()
 
   stepdiv = CLOCKCONSTANT * m->dis / totalstep;
   stepdiv2 = wstepdiv2 = stepdiv;
+  stepdivL = (stepdiv2) * Lscale * 0.00004; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
+  lcdx=totalstep*0.00393*m->laserval;
+  //stepdivL = 5 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
+
   m->status &= ~3;
   m->status |= 2;
 

@@ -362,6 +362,8 @@ void gcodereadnet(uint8_t * addr, int len) {
 
 float dMax,fMax,lF,lF0,lF1,xMin,xMax,yMin,yMax,zMin,zMax,tMax;
 int sMax;
+byte repeatheader;
+byte repeatsame;
 // version, old is using eSize 1
 void uncompressaline() {
   if (ispause)return;
@@ -372,8 +374,16 @@ void uncompressaline() {
     enduncompress();
     return;
   }  
-  fsGcode.read((uint8_t *)&h, 1); gcodepos++;
-
+  if (repeatheader==0){
+	fsGcode.read((uint8_t *)&h, 1); gcodepos++;
+	if (repeatsame) {
+		repeatheader=h;
+	}
+  }	else {
+	h=repeatheader;
+	repeatsame--;
+	if (repeatsame==0)repeatheader=0;
+  }
   uctr++;
   //if (uctr>10) return enduncompress();
   if (h & 1) {
@@ -381,7 +391,13 @@ void uncompressaline() {
     switch ((h >> 1) & 3) {
       case 0: next_target.M = 3; break;
       case 1: next_target.M = 109; break;
-      case 2: enduncompress(); return; break;
+      case 2: 
+		// special  for laser, this will inform how many data with same header but will flip and flop G0 G1
+		s = 0;
+		fsGcode.read((uint8_t *)&s, 1); gcodepos++;
+		repeatsame=s;
+		repeatheader=0;
+      return; break;
     }
     //zprintf(PSTR("%d H%d M%d S%d\n"), fi(uctr), fi(h), fi(next_target.M), fi(s));
   } else {
@@ -475,7 +491,7 @@ void uncompressaline() {
     if (next_target.seen_M) {
 		//zprintf(PSTR("E%d "), fi(x));
 		next_target.seen_P = 1;
-		next_target.target.P = x*100;
+		next_target.P = x*100;
     } else {
 		next_target.seen_E = 1;
 		AE += float(x - eLimit) / eScale;

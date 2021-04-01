@@ -1150,8 +1150,10 @@ void process_gcode_command()
 #ifdef AC_SPINDLE
         // sometimes ac spindle need a boost at first ON
         if (next_target.P > 1000) {
+          #ifdef spindle_pin
           digitalWrite(spindle_pin, HIGH);
           delay(1000);
+          #endif  
         }
         SPINDLE(next_target.S);
 #else

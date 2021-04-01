@@ -105,7 +105,7 @@
 
 //#define BOARD_WEMOSCNC
 
-//#define MYLASER
+#define MYLASER
 //#define LASERMINI
 //#define LASERBIG
 
@@ -125,14 +125,18 @@
 #undef MK4CNC
 #undef BOARD_WEMOS3D_COREXY
 #undef BOARD_WEMOS_CNC_XZYY
-#define BOARD_WEMOSCNC
+//#define BOARD_WEMOSCNC
+#define BOARD_WEMOSCNC_ONLY_V2
+#define COPY_Y_TO_Z
 #endif
 
 #ifdef MK4CNC
-#undef laser_pin
+//#undef laser_pin
 #undef BOARD_WEMOS3D_COREXY
 #undef BOARD_WEMOS_CNC_XZYY
-#define BOARD_WEMOSCNC_ONLY
+//#define BOARD_WEMOSCNC_ONLY
+#define BOARD_WEMOSCNC_ONLY_V2
+
 #define IR_OLED_MENU
 #endif
 
@@ -282,8 +286,8 @@
 #define LASERON LOW
 
 #ifdef MYLASER
-#define LASERON LOW
-#define laser_pin D2
+#define LASERON HIGH
+#define laser_pin D1
 #undef spindle_pin
 #define BAUDRATE 115200*2
 //LOW
@@ -298,7 +302,7 @@
 #ifdef LASERBIG
 #define LASERON HIGH
 #define laser_pin D1
-#define HAS_CS D2
+//#define HAS_CS D2
 #endif
 
 #ifndef LASERWIFI
@@ -312,7 +316,7 @@
 #endif
 
 
-//#define NUMBUFFER 50
+#define NUMBUFFER 100
 
 //#define USE_EEPROM
 

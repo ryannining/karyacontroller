@@ -356,7 +356,7 @@ void timer_init()
 // -------------------------------------   ESP8266  ----------------------------------------------------------
 #ifdef ESP8266
 #define USETIMEROK
-#define MINDELAY 1000
+#define MINDELAY 100
 #define usetmr1
 
 

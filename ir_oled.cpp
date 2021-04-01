@@ -1118,7 +1118,7 @@ static int IR_UIloop(int icommand)
 int ir_oled_loop(int icommand)
 {
     if (icommand)rmkey=icommand;
-    if (icommand == 0 && (millis() - mili > (uncompress ? 2500 : 1000))) {
+    if (icommand == 0 && (millis() - mili > (uncompress ? 250000 : 1000))) {
         mili = millis();
         if (menu_index == 99)
             menu_f();
