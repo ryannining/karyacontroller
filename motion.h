@@ -98,7 +98,7 @@ extern int32_t xyjerk, zjerk, xycorner, zcorner;
 extern int zaccel, accel;
 extern int  maxf[4];
 extern int  maxa[4];
-extern int32_t dlp;
+extern int32_t dlp,info_x_s,info_y_s,info_z_s;
 extern float stepmmx[4], Lscale;
 extern float retract_in, retract_out;
 extern float info_x,info_y,info_z,info_e,perstepx,perstepy,perstepz;

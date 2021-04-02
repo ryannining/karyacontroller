@@ -211,6 +211,8 @@
 
 #endif
 
+#undef IR_OLED_MENU
+
 #ifdef IR_OLED_MENU
     #undef LCD_OLED
     #define LCD_OLED_SSD
@@ -315,8 +317,6 @@
 #define NUMBUFFER 40
 #endif
 
-
-#define NUMBUFFER 100
 
 //#define USE_EEPROM
 

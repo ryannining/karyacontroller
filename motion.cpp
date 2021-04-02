@@ -1436,11 +1436,14 @@ void doHardStop(){
       if (!RUNNING) {
 #ifdef HARDSTOP
         float p = mctr;
-        cx1 = info_x_s*perstepx;
-        cy1 = info_y_s*perstepy;
-        cz1 = info_z_s*perstepz;
+        info_x=cx1 = info_x_s*perstepx;
+        info_y=cy1 = info_y_s*perstepy;
+        info_z=cz1 = info_z_s*perstepz;
         ce01 = 0;//m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
         //zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
+		extern void setXYZservo(float x,float y,float z);
+		setXYZservo(info_x,info_y,info_z);
+        
 #endif
       }
       endstopstatus = 0;
@@ -1535,11 +1538,6 @@ void otherloop(int r)
   if ((cm - last_c0 > 20000)) { // update every 20ms
     last_c0 = cm;
 #ifdef HARDSTOP
-    info_x = info_x_s*perstepx;
-    info_y = info_y_s*perstepy;
-    info_z = info_z_s*perstepz;
-    extern void setXYZservo(float x,float y,float z);
-    setXYZservo(info_x,info_y,info_z);
 #endif
   }
   // NON TIMER
