@@ -568,9 +568,9 @@ void addlaserxy(float x,float y, uint8_t bit)
 }
 
 void testLaser(void){
-  LASER(LASERON)
 #ifndef ISPC
   for (int j = 0; j <= 30; j++) {
+    LASER(LASERON)
     delay(1);
     domotionloop
   }

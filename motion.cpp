@@ -426,13 +426,27 @@ void newdircommand(int laserval)
   cmd0 = (laserval << 9);
   //zprintf(PSTR("int %d\n"), fi(laserval));
   if (sx[0] > 0)cmd0 |= 2;
-  if (sx[1] > 0)cmd0 |= 8;
+  if (sx[1] > 0){
+      cmd0 |= 8;
+      #ifdef COPY_Y_TO_Z
+      cmd0 |= 32;
+      #endif
+  }
+  #ifndef COPY_Y_TO_Z
   if (sx[2] > 0)cmd0 |= 32;
+  #endif  
   if (sx[3] > 0)cmd0 |= 128;
   // TO know whether axis is moving
   if (bsdx[0] > 0)cmd0 |= 4;
-  if (bsdx[1] > 0)cmd0 |= 16;
+  #ifndef COPY_Y_TO_Z
   if (bsdx[2] > 0)cmd0 |= 64;
+  #endif
+  if (bsdx[1] > 0){
+      cmd0 |= 16;
+      #ifdef COPY_Y_TO_Z
+      cmd0 |= 64;
+      #endif
+  }
   if (bsdx[3] > 0)cmd0 |= 256;
   ldelay = 0;
   pushcmd();
@@ -582,8 +596,8 @@ void planner(int32_t h)
   curr->delta = fabs(curr->ac * curr->dis);
   // current speed is the minimum
   curr->fn = sqr(fn);
-  /**  
-  // ==================================
+  //**  
+// ==================================
   // Centripetal corner max speed calculation, copy from other firmware
   float MINSPEED = MINCORNERSPEED; //pow(xyjerk,0.06667);//
   float max_f = MINSPEED;
@@ -591,9 +605,9 @@ void planner(int32_t h)
     // if already more than 1 vector, lets calculate the maximum junction speed using
     // centripetal formula
     float junc_cos = -prevu[MX] * curru[MX] - prevu[MY] * curru[MY] - prevu[MZ] * curru[MZ];
-    if (junc_cos > 0.99999) {
+    if (junc_cos > 0.999) {
       max_f = MINSPEED; // reversal case, angle is 180'
-    } else if (junc_cos < -0.99999) {
+    } else if (junc_cos < -0.999) {
       max_f = 10000000; // straight line, set a large value
     } else {
       // using cheap mathematical formula, check GRBL for the full code
@@ -610,16 +624,23 @@ void planner(int32_t h)
                  (fmin(curr->fn, lastf)),
                  max_f);
   lastf = curr->fn;
-  **/               
-  curr->maxs=fmin(curr->fn,lastf);
-  lastf=curr->fn;
+  //**/
+   /*             
   if (bufflen>1) {
+    curr->maxs=fmin(curr->fn,lastf);
     float junc_cos = -prevu[MX] * curru[MX] - prevu[MY] * curru[MY] - prevu[MZ] * curru[MZ];
-    if (junc_cos*junc_cos < 0.9999) {
+    if (junc_cos > 0.9999) {
+      // turn 180' = almost stop
+      curr->maxs = MINCORNERSPEED; // reversal case, angle is 180'
+    } else if (junc_cos < -0.9999) {
+      // straight = same speed
+    } else {
       float sin_theta_d2 = sqrt(0.5 * (1.0 - junc_cos)); // Trig half angle identity. Always positive.
       curr->maxs=fmin(curr->maxs,0.5+(ucorner * ucorner* sin_theta_d2 / (1.0 - sin_theta_d2) ));
     }
   }
+  lastf=curr->fn;
+  */
     
                  
 #ifdef output_enable
@@ -1056,13 +1077,16 @@ int32_t laser_step;
 int maincmdlaserval = 0;
 int32_t laser_accum;
 uint32_t laser_mul;
+bool lastmove;
 static THEISR void decodecmd()
 {
   if (cmdempty) {
     RUNNING = 1;
-    LASER(!LASERON);
+    if (lastmove) LASER(!LASERON);
+    lastmove=false;
     return;
   }
+  lastmove=true;
 
   // if on pause we need to decelerate until command buffer empty
 
@@ -1262,7 +1286,9 @@ void THEISR coreloopm()
       // header command, we set the motor driver direction
       e_dir = 0;
       if (cmbit & 2) motor_0_DIR(x_dir=(cmbit & 1) ? -1 : 1);
+      #ifndef COPY_Y_TO_Z
       if (cmbit & 32) motor_2_DIR(z_dir=(cmbit & 16) ? -1 : 1);
+      #endif
       if (cmbit & 128) {
 #ifndef DRIVE_XZY2
         
@@ -1271,10 +1297,10 @@ void THEISR coreloopm()
 #endif
       }
       if (cmbit & 8) {
-          int d1=(y_dir=(cmbit & 4)) ? -1 : 1;
-          motor_1_DIR(d1);
+          y_dir=(cmbit & 4)? -1 : 1;
+          motor_1_DIR(y_dir);
           #ifdef COPY_Y_TO_Z
-          motor_2_DIR(odir[2]*d1);
+          motor_2_DIR(odir[2]*y_dir);
           #endif
       }  
 
@@ -1538,6 +1564,20 @@ void otherloop(int r)
   if ((cm - last_c0 > 20000)) { // update every 20ms
     last_c0 = cm;
 #ifdef HARDSTOP
+if (m) {
+      float p = mctr;
+      p /= totalstep;
+      //p=1-p;
+      info_x = info_x_s*perstepx;
+      info_y = info_y_s*perstepy;
+      info_z = info_z_s*perstepz;
+
+      //zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
+    } else {
+      info_x = cx1;
+      info_y = cy1;
+      info_z = cz1;
+    }
 #endif
   }
   // NON TIMER

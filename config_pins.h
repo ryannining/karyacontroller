@@ -211,7 +211,7 @@
 
 #endif
 
-#undef IR_OLED_MENU
+//#undef IR_OLED_MENU
 
 #ifdef IR_OLED_MENU
     #undef LCD_OLED

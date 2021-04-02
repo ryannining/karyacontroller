@@ -966,9 +966,7 @@ void menu_3_click(int a)
         testLaser();
         break;
     case 2:
-        if ((ax_home[0] == 0) && (ax_home[1] == 0) && (ax_home[2] == 0)) {
-            addmove(100, 0, 0, 10, 0, 1, 1);
-            addmove(100, 0, 0, 10, 0, 1, 0);
+        if ((ax_home[0] < 1) && (ax_home[1] < 1) && (ax_home[2] < 1)) {
             addmove(100, 0, 0, 0, 0, 1, 0);
         }
         else {
@@ -1118,7 +1116,7 @@ static int IR_UIloop(int icommand)
 int ir_oled_loop(int icommand)
 {
     if (icommand)rmkey=icommand;
-    if (icommand == 0 && (millis() - mili > (uncompress ? 250000 : 1000))) {
+    if (icommand == 0 && (millis() - mili > (uncompress ? 5000 : 1000))) {
         mili = millis();
         if (menu_index == 99)
             menu_f();
