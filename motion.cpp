@@ -1099,7 +1099,7 @@ static THEISR void decodecmd()
     // if nothing to move then turn off laser , its end of the move
     // inform if non move is in the buffer
     //if (cmcmd && (cmbit==0))zprintf(PSTR("X"));
-    cmdly = (cmd >> 6);
+    cmdly = (cmd >> 5);
   } else {
     // this is motion header command, contain the motor direction and the laser on/off
     cmbit = (cmd >> 1) & 255;
@@ -1150,7 +1150,7 @@ static THEISR void decodecmd()
           LASER(!LASERON);
       }
   }
-  timer_set2(cmdly,0);
+  timer_set(cmdly);
 #ifdef heater_pin
   HEATER(HEATING);
 #endif

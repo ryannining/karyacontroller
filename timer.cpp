@@ -275,7 +275,7 @@ int feedthedog()
 #define timerResume()
 
 int busy1 = 0;
-volatile uint32_t ndelay = 0, ndelay2 = 0;
+volatile uint32_t ndelay = 0;
 uint32_t next_step_time;
 #ifdef USETIMER1
 
@@ -479,13 +479,6 @@ void timer_init()
 
 
 inline int THEISR timercode() {
-  if (ndelay2)
-  {
-    LASER(!LASERON);
-    // turn off laser , laser constant burn mode
-    ndelay = ndelay2;
-    ndelay2 = 0;
-  } else {
     if (ndelay < 30000) {
       ndelay = MINDELAY;
       coreloopm();
@@ -495,7 +488,6 @@ inline int THEISR timercode() {
     } else {
       ndelay -= 30000;
     }
-  }
   //pwm_loop();
   return ndelay >= 30000 ? 30000 : ndelay;
 }
@@ -508,20 +500,11 @@ inline int THEISR timercode() {
 //#elif defined(__ARM__)//avr
 
 // Laser constant burn timer
-void THEISR timer_set2(int32_t delay, int32_t delayL)
+void THEISR timer_set(int32_t delay)
 {
-  //  if (delayL) {
-  if ((delayL > 0)) {
-    if (delayL < delay)
-        ndelay2 = delay - delayL; // the rest delay after laser on
-    ndelay = delayL; // laser on delay
-  } else {
-    //ndelay2=0;
-    ndelay = delay;
-  }
+	ndelay = delay;
 }
 
-#define timer_set(a) timer_set2(a,0)
 
 #ifndef USETIMEROK
 #undef USETIMER1

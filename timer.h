@@ -33,7 +33,6 @@ extern volatile uint32_t ndelay, ndelay2;
 extern uint32_t	next_step_time;
 extern void timer_init();
 extern  void timer_set(int32_t delay);
-extern  void timer_set2(int32_t delay, int32_t delayL);
 extern void servo_loop();
 extern void servo_set(int angle);
 
