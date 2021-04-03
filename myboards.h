@@ -1249,6 +1249,7 @@
 #define INDEX "/cnc.html"
 #define xdirection D5
 #define xstep D6
+
 #define zdirection D0
 #define zstep D3
 

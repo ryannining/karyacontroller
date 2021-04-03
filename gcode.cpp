@@ -473,8 +473,11 @@ void stopmachine() {
 #ifdef IR_OLED_MENU
     xdisplay.Reset();
 #endif
-    
-    //waitbufferempty();
+    waitbufferempty();
+    #ifdef spindle_pin
+    xdigitalWrite(spindle_pin, LOW);
+    #endif
+    set_pwm(0);        
     //printposition();
     //printbufflen();
   }
@@ -569,7 +572,7 @@ void addlaserxy(float x,float y, uint8_t bit)
 
 void testLaser(void){
 #ifndef ISPC
-  for (int j = 0; j <= 30; j++) {
+  for (int j = 0; j <= 100; j++) {
     LASER(LASERON)
     delay(1);
     domotionloop

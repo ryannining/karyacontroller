@@ -28,7 +28,7 @@ extern uint32_t get_RPM();
 
 extern void set_pwm(int v);
 extern void pause_pwm(bool v);
-extern volatile uint32_t ndelay, ndelay2;
+extern volatile uint32_t ndelay;
 
 extern uint32_t	next_step_time;
 extern void timer_init();

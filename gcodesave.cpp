@@ -287,12 +287,11 @@ void beginuncompress(String fn) {
   xyLimit = datasize(xySize);
   zLimit = datasize(zSize);
   eLimit = datasize(eSize);
-  AX = cx1 =0;
-  AY = cy1 =0;
-  AZ = ocz1=0;
-  info_x_s = info_y_s = info_z_s  = 0;
-  
+  AX = cx1;
+  AY = cy1;
+  AZ = ocz1;
   AE = 0;
+
   uncompress = 1;
   cntg28 = 2;
   zprintf(PSTR("Begin Uncompress Gcode %d bytes\n"), fi(fsGcode.size()));

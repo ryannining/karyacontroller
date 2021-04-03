@@ -62,7 +62,7 @@ typedef struct {
   int32_t fs, fn; // all are in square ! needed to calc real accell
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
-  float dtx[NUMAXIS]; // keep the original coordinate before transform
+//  float dtx[NUMAXIS]; // keep the original coordinate before transform
 
 #ifdef ISPC
   // for graphics

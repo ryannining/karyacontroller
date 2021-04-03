@@ -967,6 +967,8 @@ void menu_3_click(int a)
         break;
     case 2:
         if ((ax_home[0] < 1) && (ax_home[1] < 1) && (ax_home[2] < 1)) {
+            addmove(100, cx1, cy1, 5, 0, 1, 0);
+            addmove(100, 0, 0, 5, 0, 1, 0);
             addmove(100, 0, 0, 0, 0, 1, 0);
         }
         else {
@@ -1116,7 +1118,7 @@ static int IR_UIloop(int icommand)
 int ir_oled_loop(int icommand)
 {
     if (icommand)rmkey=icommand;
-    if (icommand == 0 && (millis() - mili > (uncompress ? 5000 : 1000))) {
+    if (icommand == 0 && (millis() - mili > (uncompress ? 2000 : 1000))) {
         mili = millis();
         if (menu_index == 99)
             menu_f();

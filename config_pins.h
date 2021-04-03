@@ -292,6 +292,8 @@
 #define laser_pin D1
 #undef spindle_pin
 #define BAUDRATE 115200*2
+#define NUMBUFFER 40
+
 //LOW
 //#undef USEOTA
 #undef TCPSERVER
@@ -314,7 +316,6 @@
 
 #undef heater_pin
 #undef temp_pin
-#define NUMBUFFER 40
 #endif
 
 

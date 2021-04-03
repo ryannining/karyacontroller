@@ -374,11 +374,13 @@ int32_t rampseg, rampup, rampdown;
 //#define nextbuffm(x) ((x) < NUMCMDBUF ? (x) + 1 : 0)
 #define nextbuffm(x) ((x+1)&NUMCMDBUF)
 #define nextbuffmV(x,v) ((x+v)&NUMCMDBUF)
+#define prevbuffm(x) ((x-1)&NUMCMDBUF)
 
 static volatile uint32_t cmddelay[(NUMCMDBUF+1)], cmd0;
 static volatile uint8_t   cmcmd, cmbit = 0;
 static volatile uint32_t cmhead = 0, cmtail = 0, cmdlaserval = 0;
 
+#define cmdfull2 (nextbuffm(cmhead)==prevbuffm(cmtail))
 #define cmdfull (nextbuffm(cmhead)==cmtail)
 #define cmdnotfull (nextbuffm(cmhead)!=cmtail)
 #define cmdempty (cmhead==cmtail)
@@ -421,9 +423,18 @@ static void pushcmd()
 }
 void newdircommand(int laserval)
 {
+/*
+  while (cmdlen > (NUMCMDBUF-2)) {
+#ifdef USETIMER1
+    MEMORY_BARRIER();
+#else
+    CORELOOP
+#endif
+  }    
+*/
   // change dir command
   //cmd0 = 0;//DIRDELAY << 6;
-  cmd0 = (laserval << 9);
+  cmd0 = (laserval>>7) << 9;
   //zprintf(PSTR("int %d\n"), fi(laserval));
   if (sx[0] > 0)cmd0 |= 2;
   if (sx[1] > 0){
@@ -449,9 +460,9 @@ void newdircommand(int laserval)
   }
   if (bsdx[3] > 0)cmd0 |= 256;
   ldelay = 0;
+  cmd0 |= (uint32_t(laserval*stepdivL))<<10;
   pushcmd();
-  cmd0 = stepdivL;
-  pushcmd();
+  //pushcmd();
 
 }
 
@@ -894,11 +905,11 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     planner(head);
     //#ifdef NONLINEAR
     // we keep the original target coordinate, to get correct stop position when a HARDSTOP performed
-    cx1 = curr->dtx[0] = cx2; // save the target, not the original
-    cy1 = curr->dtx[1] = cy2;
-    cz1 = curr->dtx[2] = cz2;
+    cx1 = cx2; // save the target, not the original
+    cy1 = cy2;
+    cz1 = cz2;
     ocz1 = ocz2;
-    ce01 = curr->dtx[3] = ce02;
+    ce01  = ce02;
 
   }
 
@@ -1074,7 +1085,6 @@ int32_t laser_step;
 
 
 // ======================================= COMMAND BUFFER ===========================================
-int maincmdlaserval = 0;
 int32_t laser_accum;
 uint32_t laser_mul;
 bool lastmove;
@@ -1130,21 +1140,11 @@ static THEISR void decodecmd()
     cmdly = DIRDELAY;
 
 
-    cmdlaserval = maincmdlaserval = (cmd >> 9) & 255;
-    laserwason = (Setpoint == 0) && (maincmdlaserval > 0);
-    laser_step = 100000;
+    cmdlaserval = (cmd >> 9) & 1;
+    laser_step = (cmd >> 10);
+    laserwason = (Setpoint == 0) && ((laser_step > 0) || cmdlaserval);
     laser_accum=0;
-    cmtail = nextbuffm(cmtail);
-    laser_mul = cmddelay[cmtail];
-    if (laserwason) {
-      if ((cmdlaserval < 255)) { //if less than 255 mean laser on for defined time
-        // laser step is the laser delay ( constant burn laser)
-        // the delay can be adjusted by GCODE Svalue, and can be calibrated using
-        // eeprom Lscale
-        laser_step = cmdlaserval * laser_mul; // 254
-        if (cmdlaserval && (laser_step<10))laser_step=10;
-      }
-    }
+    //cmtail = nextbuffm(cmtail);
   }
   // calculate the total motion delay
   cmdly = (cmdly
@@ -1164,16 +1164,17 @@ static THEISR void decodecmd()
   // good time to remove the non hardware timer code, and clean up the source code
   //laser_step=1;
   // lets do dithering here
-  
+  #ifdef laser_pin
   if (cmcmd){
       if (laser_accum>-1000000) laser_accum-=laser_step;
-      if (laser_accum<0){
+      if ((laser_accum<0) || cmdlaserval){
           LASER(laserwason? LASERON : !LASERON);
           laser_accum+=cmdly;
       } else {
           LASER(!LASERON);
       }
   }
+  #endif
   timer_set(cmdly);
 #ifdef heater_pin
   HEATER(HEATING);
@@ -1205,13 +1206,7 @@ void THEISR coreloopm()
   cm = micros();
   if (cm - nextmicros >= ndelay) {
     nextmicros = cm;
-    if (ndelay2) {
-      // turn off laser , laser constant burn mode
-      ndelay = ndelay2;
-      ndelay2 = 0;
-      LASER(!LASERON);
-      return;
-    }
+
 #endif
     // execute motion command
     if (cmcmd) { // 1: move
@@ -1469,7 +1464,6 @@ void doHardStop(){
         //zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
 		extern void setXYZservo(float x,float y,float z);
 		setXYZservo(info_x,info_y,info_z);
-        
 #endif
       }
       endstopstatus = 0;
@@ -1667,7 +1661,7 @@ void calculate_delta_steps()
 
   // STEP 1
   xtotalseg --;
-  memcpy(xc, m->dtx, sizeof xc);
+  //memcpy(xc, m->dtx, sizeof xc);
   memcpy(x1, x2, sizeof x1);
 
   // STEP 2
@@ -1853,7 +1847,7 @@ int32_t startmove()
 
   stepdiv = CLOCKCONSTANT * m->dis / totalstep;
   stepdiv2 = wstepdiv2 = stepdiv;
-  stepdivL = (stepdiv2) * Lscale * 0.00004; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
+  stepdivL = (stepdiv2) * Lscale * 0.0004; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
   lcdx=totalstep*0.00393*m->laserval;
   //stepdivL = 5 * Lscale; // this value tuned manually to get my 60W laser work from 5% to99%, but its better 25% for engraving
 
@@ -2287,12 +2281,12 @@ void init_pos()
   cmhead = 0;
   cmtail = 0;
   info_e=ce01;
-  info_x=cx1;
-  info_y=cy1;
-  info_z=cz1;
-  info_x_s=info_x*stepmmx[0];
-  info_y_s=info_y*stepmmx[1];
-  info_z_s=info_z*stepmmx[2];
+  info_x=cx1=0;
+  info_y=cy1=0;
+  info_z=cz1=0;
+  info_x_s=0;
+  info_y_s=0;
+  info_z_s=0;
   set_pwm(0);
 }
 void initmotion()
