@@ -1003,7 +1003,7 @@ void loop()
 #ifdef FASTBUFFERFILL
         for (int ff = FASTBUFFERFILL + 1; ff; ff--)
 #endif
-            char c = gcode_loop();
+        char c = gcode_loop();
         IR_loop(0);
 #ifdef WIFISERVER
         wifi_loop();

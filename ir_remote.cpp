@@ -21,6 +21,8 @@ int wait_job = 0;
 int wait_spindle = 0;
 String jobnum;
 void IR_setup() {
+  pinMode(IR_KEY,INPUT);  
+  pinMode(IR_KEY,OUTPUT);  
   IR_ok = IRLremote.begin(IR_KEY);
   //if (IR_ok) zprintf(PSTR("IR Key OK.\n"));
 }
@@ -58,10 +60,15 @@ int getRemoteKey() {
   return 0;
 }
 
-
+int lastirok=0;
 void IR_loop(int mode=0) {
-
+  if (millis()-lastirok>4000){
+    lastirok=millis();
+    IR_end();
+    IR_setup();
+  }  
   if (!IR_ok)return;
+  lastirok=millis();
   int xcmd=getRemoteKey();
   extern int rmkey;
   //rmkey=xcmd;
