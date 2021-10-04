@@ -1,3 +1,4 @@
+#pragma once
 
 /** \file
   \brief Serial subsystem, AVR specific part.

@@ -427,8 +427,8 @@ uint8_t gcode_parse_char(uint8_t c)
     okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
 
     uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
-    
-    process_gcode_command();    
+
+    process_gcode_command();
     if (ok)zprintf(PSTR("ok\n")); // response quick !!
     if (reset_command()) return 2;
     return 1;
@@ -474,10 +474,10 @@ void stopmachine() {
     xdisplay.Reset();
 #endif
     waitbufferempty();
-    #ifdef spindle_pin
+#ifdef spindle_pin
     xdigitalWrite(spindle_pin, LOW);
-    #endif
-    set_pwm(0);        
+#endif
+    set_pwm(0);
     //printposition();
     //printbufflen();
   }
@@ -537,40 +537,40 @@ void str_wait()
 //int32_t mvc = 0;
 
 typedef struct {
-    float pX,pY;
-    uint8_t bit;
+  float pX, pY;
+  uint8_t bit;
 } tlaserdata;
 
-bool collectLaser=false;
-bool runLaser=false;
-int laseridx=0;
-int laseridxrun=0;
+bool collectLaser = false;
+bool runLaser = false;
+int laseridx = 0;
+int laseridxrun = 0;
 tlaserdata laserdata[200];
 tlaserdata laserdatarun[200];
-void runlasernow(){
-        // if still running, lets wait
-        while (runLaser) {
-            motionloop();
-        }
-        laseridxrun=0;
-        runLaser=1;
-        memcpy(&laserdatarun,&laserdata,sizeof(laserdata));
+void runlasernow() {
+  // if still running, lets wait
+  while (runLaser) {
+    motionloop();
+  }
+  laseridxrun = 0;
+  runLaser = 1;
+  memcpy(&laserdatarun, &laserdata, sizeof(laserdata));
 }
 
-void addlaserxy(float x,float y, uint8_t bit)
+void addlaserxy(float x, float y, uint8_t bit)
 {
-    laserdata[laseridx].pX=x;
-    laserdata[laseridx].pY=y;
-    laserdata[laseridx].bit=bit;
-    
-    
-    laseridx++;
-    if (laseridx>199){
-        runlasernow();
-    }
+  laserdata[laseridx].pX = x;
+  laserdata[laseridx].pY = y;
+  laserdata[laseridx].bit = bit;
+
+
+  laseridx++;
+  if (laseridx > 199) {
+    runlasernow();
+  }
 }
 
-void testLaser(void){
+void testLaser(void) {
 #ifndef ISPC
   for (int j = 0; j <= 100; j++) {
     LASER(LASERON)
@@ -852,9 +852,22 @@ void process_gcode_command()
         // WE NEED TO REIMPLEMENT THE G7 COMMAND
         break;
       case 28:
+#ifdef PLASMA_MODE
+        // Gcode G28 Z40 mean
+        // Probe at this point then ready to cut
+        // Z 40 mean distance between float Z idle and hit the limit switch is 40mm
+        if (next_target.seen_Z) {
+          //MESHLEVELING = 0;
+          //addmove(4000, next_target.target.axis[nX], next_target.target.axis[nY], ocz1, ce01, 1, 0);
+          extern float pointProbing(float floatdis);
+          float zz = pointProbing(next_target.target.axis[nZ]);
+          //zprintf(PSTR("%f\n"), ff(zz));
+        }
+#else
         homing();
         update_pos();
         printposition();
+#endif
         break;
 #ifdef MESHLEVEL
       case 29:
@@ -1144,19 +1157,17 @@ void process_gcode_command()
         if (next_target.S > 4000)next_target.S = next_target.S / 100; // convert 33K RPM max to 255
         //if (fi(next_target.S) == lastS)break;
         lastS = fi(next_target.S);
-        if (!next_target.seen_P) {
-          //next_target.seen_P = 1; next_target.P = 100;
-            waitbufferempty();
-        }
+        if (!next_target.seen_P) next_target.P = 0;
+        waitbufferempty();
 #ifndef ISPC
 
 #ifdef AC_SPINDLE
         // sometimes ac spindle need a boost at first ON
         if (next_target.P > 1000) {
-          #ifdef spindle_pin
-          digitalWrite(spindle_pin, HIGH);
-          delay(1000);
-          #endif  
+#ifdef spindle_pin
+          //digitalWrite(spindle_pin, HIGH);
+          //delay(1000);
+#endif
         }
         SPINDLE(next_target.S);
 #else
@@ -1168,6 +1179,11 @@ void process_gcode_command()
         laserOn = S1 > 0;
         constantlaserVal = next_target.S;
         //if (laserOn) zprintf(PSTR("LASERON\n"));
+#ifdef ANALOG_THC
+        extern void thc_init();
+        thc_init();
+#endif
+
         if (next_target.seen_P) {
           waitbufferempty();
           //zprintf(PSTR("PULSE LASER\n"));
@@ -1186,6 +1202,8 @@ void process_gcode_command()
 #endif
           // after some delay turn off laser
           LASER(!LASERON);
+          extern int thcokval;
+          //thcokval=analogRead(A0)+50;
         }
         break;
         /*      case 101:
@@ -1491,10 +1509,10 @@ void process_gcode_command()
 
         break;
       case 290: // m290 baby step in X Y Z E in milimeter
-        if (next_target.seen_X) babystep[0] = next_target.target.axis[nX] * 1000;
-        if (next_target.seen_Y) babystep[1] = next_target.target.axis[nY] * 1000;
-        if (next_target.seen_Z) babystep[2] = next_target.target.axis[nZ] * 1000;
-        if (next_target.seen_E) babystep[3] = next_target.target.axis[nE] * 1000;
+        if (next_target.seen_X) babystep[0] = next_target.target.axis[nX] * 4000;
+        if (next_target.seen_Y) babystep[1] = next_target.target.axis[nY] * 4000;
+        if (next_target.seen_Z) babystep[2] = next_target.target.axis[nZ] * 4000;
+        if (next_target.seen_E) babystep[3] = next_target.target.axis[nE] * 4000;
         break;
       case 291:
 #ifdef SUBPIXELMAX

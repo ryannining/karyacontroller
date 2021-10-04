@@ -1,3 +1,4 @@
+#pragma once
 
 #ifdef ARDUINO
 #include<Arduino.h>
@@ -51,7 +52,7 @@ extern int HEATING;
 
 
 #ifdef spindle_pin
-#define SPINDLE(v) {extern int set_pwm(int x);set_pwm(v); }
+#define SPINDLE(v) {set_pwm(v); }
 #else
 #define SPINDLE(v) {}
 #endif

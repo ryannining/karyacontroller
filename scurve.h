@@ -1,3 +1,4 @@
+#pragma once
 
 float ja, a1x, a1, a2, as3, as7, T, V, S, Sdest, itstep, tstep, tstepS;
 

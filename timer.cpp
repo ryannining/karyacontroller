@@ -8,7 +8,7 @@
 
 long spindle_pwm = 0;
 extern int lastS;
-bool RPM_PID_MODE=false;
+bool RPM_PID_MODE = false;
 
 
 #ifdef RPM_COUNTER
@@ -20,43 +20,43 @@ double rSetpoint, rInput, rOutput;
 
 PID RPM_PID(&rInput, &rOutput, &rSetpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 
-uint32_t rev=0;
-uint32_t lastMillis=0;
-uint32_t RPM=0;
-int avgpw=0;
-int avgcnt=0;
-void ICACHE_RAM_ATTR isr_RPM() {
+uint32_t rev = 0;
+uint32_t lastMillis = 0;
+uint32_t RPM = 0;
+int avgpw = 0;
+int avgcnt = 0;
+void THEISR isr_RPM() {
   rev++;
 }
 
-uint32_t get_RPM(){
-	uint32_t milli=millis();
-	uint32_t delta=milli-lastMillis;
-	if (delta>100){		
-		lastMillis=milli;
-		RPM=(rev*60*1000/delta);
-		rev=0;
-		if (RPM_PID_MODE) {
-			rSetpoint=lastS*100;
-			rInput=RPM;
-			RPM_PID.Compute();
-			if (lastS==0)rOutput=0;
-			avgpw=(avgpw+rOutput*0.01);
-			avgcnt++;
-			#ifdef AC_SPINDLE
-			spindle_pwm = 10000 - pow(rOutput * 0.0001, 2) * 10000;
-			#else
-			spindle_pwm = rOutput;
-			#endif
-		}
-	}
-	return RPM;
+uint32_t get_RPM() {
+  uint32_t milli = millis();
+  uint32_t delta = milli - lastMillis;
+  if (delta > 100) {
+    lastMillis = milli;
+    RPM = (rev * 60 * 1000 / delta);
+    rev = 0;
+    if (RPM_PID_MODE) {
+      rSetpoint = lastS * 100;
+      rInput = RPM;
+      RPM_PID.Compute();
+      if (lastS == 0)rOutput = 0;
+      avgpw = (avgpw + rOutput * 0.01);
+      avgcnt++;
+#ifdef AC_SPINDLE
+      spindle_pwm = 10000 - pow(rOutput * 0.0001, 2) * 10000;
+#else
+      spindle_pwm = rOutput;
+#endif
+    }
+  }
+  return RPM;
 }
-void setup_RPM(){
-	attachInterrupt(digitalPinToInterrupt (RPM_COUNTER), isr_RPM, RISING);
-	lastMillis=millis();
-    RPM_PID.SetMode(AUTOMATIC);
-	RPM_PID.SetOutputLimits(0, 10000);	
+void setup_RPM() {
+  attachInterrupt(digitalPinToInterrupt (RPM_COUNTER), isr_RPM, RISING);
+  lastMillis = millis();
+  RPM_PID.SetMode(AUTOMATIC);
+  RPM_PID.SetOutputLimits(0, 10000);
 }
 
 #endif
@@ -67,7 +67,7 @@ uint32_t next_l = 0;
 bool spindle_state = LOW;
 int spindle_pct;
 
-//PWM Freq is 1000000/20000 = 50Hz , 20mms pulse  
+//PWM Freq is 1000000/20000 = 50Hz , 20mms pulse
 // for servo, the LSCALE at least 10%
 
 
@@ -87,129 +87,131 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
 #define EQ_S (FREQUENCY*4096.0/1000000)
 #define EQ_A (EQ_S*MIN_PULSE_WIDTH)
 #define EQ_B (EQ_S*(MAX_PULSE_WIDTH-MIN_PULSE_WIDTH)/180.0)
-void setupPwm() 
+void setupPwm()
 {
-  Wire.begin(D2,D1);
+  Wire.begin(D2, D1);
   Wire.setClock(700000);
   pwm.begin();
   pwm.setPWMFreq(FREQUENCY);
-  pwm.setPWM(8, 0,MIN_PULSE_WIDTH);
+  pwm.setPWM(8, 0, MIN_PULSE_WIDTH);
 }
 int pulseWidth(int angle)
 {
   //int pulse_wide, analog_value;
   //pulse_wide = map(angle, 0, 180, MIN_PULSE_WIDTH, MAX_PULSE_WIDTH);
   //analog_value = int(float(pulse_wide) / 1000000 * FREQUENCY * 4096);
-  return EQ_A+EQ_B*angle;
+  return EQ_A + EQ_B * angle;
 }
-long lzc=0;
-void setXYZservo(float x,float y,float z){
-    //long m=millis();
-    //if (m-lzc>20){
-    //    lzc=m;
-        //pwm.setPWM(0, 0,pulseWidth(x)); // set 180 = 40mm then
-        //pwm.setPWM(1, 0,pulseWidth(y)); // set 180 = 40mm then
-        //pwm.setPWM(2, 0,pulseWidth((25+z)*4.5)); // set 180 = 40mm then
-    //}
+long lzc = 0;
+void setXYZservo(float x, float y, float z) {
+  //long m=millis();
+  //if (m-lzc>20){
+  //    lzc=m;
+  //pwm.setPWM(0, 0,pulseWidth(x)); // set 180 = 40mm then
+  //pwm.setPWM(1, 0,pulseWidth(y)); // set 180 = 40mm then
+  //pwm.setPWM(2, 0,pulseWidth((25+z)*4.5)); // set 180 = 40mm then
+  //}
 }
 #else
 
 #ifdef  ZERO_CROSS_PIN
-void ICACHE_RAM_ATTR zero_cross(){
-    in_pwm_loop=false;
-    next_l = micros();
-    spindle_state = LOW;
-    xdigitalWrite(spindle_pin, LOW);
-    
+void THEISR zero_cross() {
+  in_pwm_loop = false;
+  next_l = micros();
+  spindle_state = LOW;
+  xdigitalWrite(spindle_pin, LOW);
+
 }
 #endif
 
 void setupPwm() {
 #ifdef  ZERO_CROSS_PIN
-      attachInterrupt(ZERO_CROSS_PIN, zero_cross, RAISING);
+  attachInterrupt(ZERO_CROSS_PIN, zero_cross, RAISING);
 #endif
-    }
-int pulseWidth(int angle){}
-void setXYZservo(float x,float y,float z){}
+}
+int pulseWidth(int angle) {
+  return 0;
+}
+void setXYZservo(float x, float y, float z) {}
 // cannot use servo
 #undef servo_pin
 #endif
 
 
 
-bool in_pwm_loop=false;
+bool in_pwm_loop = false;
 void set_pwm(int v) { // 0-255
   if (v > 255)v = 255;
-  if (v<0)v=0;
-  next_l=micros();
+  if (v < 0)v = 0;
+  next_l = micros();
   {
-    spindle_pct=v*0.39; // 0 - 100
+    spindle_pct = v * 0.39; // 0 - 100
     //if (! RPM_PID_MODE)
-    lastS=v;
+    lastS = v;
     extern float Lscale;
     float vf;
-    if (int(100*Lscale)==0){
-        vf=v>5?0:255;
+    if (int(100 * Lscale) == 0) {
+      vf = v > 5 ? 0 : 255;
     } else {
-        vf=fabs(v*Lscale);
+      vf = fabs(v * Lscale);
     }
-    spindle_pwm = fmin(20000,vf*39.216*2);
-    if (Lscale>=0)spindle_pwm=20000-spindle_pwm; // flip if inverse
-    #ifdef spindle_pin
+    spindle_pwm = fmin(20000, vf * 39.216 * 2);
+    if (Lscale >= 0)spindle_pwm = 20000 - spindle_pwm; // flip if inverse
+#ifdef spindle_pin
     xdigitalWrite(spindle_pin, LOW);
-    #endif
-    #ifdef PCA9685
-    pwm.setPWM(spindle_servo_pin, 0,pulseWidth(0.009*spindle_pwm)); // set 0 - 4095
+#endif
+#ifdef PCA9685
+    pwm.setPWM(spindle_servo_pin, 0, pulseWidth(0.009 * spindle_pwm)); // set 0 - 4095
     return;
-    #endif
+#endif
   }
   if (in_pwm_loop)return;
 #ifdef spindle_pin
-  pinMode(spindle_pin,OUTPUT);
+  pinMode(spindle_pin, OUTPUT);
   //xdigitalWrite(spindle_pin, HIGH);
 #endif
 }
-void pause_pwm(bool v){
-	in_pwm_loop=v;
+void pause_pwm(bool v) {
+  in_pwm_loop = v;
 }
 
 void THEISR pwm_loop() {
 
 #ifdef RPM_COUNTER
-	get_RPM();
+  get_RPM();
 #endif
 
 
 
 #ifdef spindle_pin
   if (in_pwm_loop)return;
-  in_pwm_loop=true;
+  in_pwm_loop = true;
   uint32_t pwmc = micros(); // next_l contain last time target for 50Hz
-  if ((pwmc - next_l > spindle_pwm)  && (spindle_pwm<20000)) { // if  current time - next time > delta time pwm, then turn it on
+  if ((pwmc - next_l > spindle_pwm)  && (spindle_pwm < 20000)) { // if  current time - next time > delta time pwm, then turn it on
     if (!spindle_state) {
       spindle_state = HIGH;
       xdigitalWrite(spindle_pin, HIGH);
     }
   }
 
-// if use zero_cross then in_pwm_loop will be true until a trigger happened
-// basically replace all below using interrupt trigger  
-#ifndef ZERO_CROSS_PIN 
+  // if use zero_cross then in_pwm_loop will be true until a trigger happened
+  // basically replace all below using interrupt trigger
+#ifndef ZERO_CROSS_PIN
   if (pwmc - next_l > 19999) { // 50hz on wemos then turn off
     next_l = pwmc;
     spindle_state = LOW;
     xdigitalWrite(spindle_pin, LOW);
   }
-  in_pwm_loop=false;
+  in_pwm_loop = false;
 #endif
 #endif
 }
 
 
-void servo_set(int angle){
+void servo_set(int angle) {
 #ifdef servo_pin
-    pwm.setPWM(servo_pin, 0,spindle_pwm*0.205); // set 0 - 4095
-    return;
+  pwm.setPWM(servo_pin, 0, spindle_pwm * 0.205); // set 0 - 4095
+  return;
 #endif
 }
 void servo_loop() {
@@ -360,7 +362,7 @@ void timer_init()
 #define usetmr1
 
 
-void ICACHE_RAM_ATTR tm()
+void THEISR tm()
 {
   noInterrupts();
   int d = timercode();
@@ -387,9 +389,9 @@ void timer_init()
   timer0_attachInterrupt(tm);
   timer0_write(ESP.getCycleCount() + 16 * 1000); //120000 us
 #endif
-  #ifdef RPM_COUNTER
+#ifdef RPM_COUNTER
   setup_RPM();
-  #endif
+#endif
   setupPwm();
   set_pwm(0);
   interrupts();
@@ -479,15 +481,15 @@ void timer_init()
 
 
 inline int THEISR timercode() {
-    if (ndelay < 30000) {
-      ndelay = MINDELAY;
-      coreloopm();
+  if (ndelay < 30000) {
+    ndelay = MINDELAY;
+    coreloopm();
 #ifdef __AVR__
-      TCNT1 = 0;
+    TCNT1 = 0;
 #endif
-    } else {
-      ndelay -= 30000;
-    }
+  } else {
+    ndelay -= 30000;
+  }
   //pwm_loop();
   return ndelay >= 30000 ? 30000 : ndelay;
 }
@@ -502,7 +504,7 @@ inline int THEISR timercode() {
 // Laser constant burn timer
 void THEISR timer_set(int32_t delay)
 {
-	ndelay = delay;
+  ndelay = delay;
 }
 
 

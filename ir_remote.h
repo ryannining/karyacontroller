@@ -1,4 +1,4 @@
-
+#pragma once
 
 #define  IRK_1 0x45
 #define  IRK_2 0x46
@@ -20,6 +20,10 @@
 
 
 #define RM4(n) (n + 1024)
+#define IRK4_I_II RM4(10)
+#define  IRK4_QMENU RM4(69)
+#define  IRK4_REVEAL RM4(42)
+
 #define  IRK4_OK RM4(68)
 #define  IRK4_PAUSE RM4(186)
 #define  IRK4_PLAY RM4(176)

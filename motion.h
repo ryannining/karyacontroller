@@ -1,11 +1,11 @@
-
+#pragma once
 
 
 #ifndef MOTION_H
 #define MOTION_H
 
 
-#define UPDATE_V_EVERY 4 // must be 1<<n  16 =1<<4
+#define UPDATE_V_EVERY 3 // must be 1<<n  16 =1<<4
 #define DELAYBETWEENSTEP 3
 #define nX 0
 #define MX 0
@@ -15,21 +15,21 @@
 //#define FASTBUFFERFILL 10 // if need faster buffer filling.
 //#define FASTBUFFERFILL2 10 // if need faster buffer filling.
 // Centripetal
-#define MINCORNERSPEED 4 // minimum cornering speed
+#define MINCORNERSPEED 2 // minimum cornering speed
 #define MINSTEP 0
 //#define TSTEP 0.0005 // time stepping to get the velocity
 #define TSTEP 0.001 // time stepping to get the velocity
 
 #ifdef DRIVE_XYYZ
-  #define MZ 1
-  #define MY 2
-  #define nY 2
-  #define nZ 1
+#define MZ 1
+#define MY 2
+#define nY 2
+#define nZ 1
 #else
-  #define MZ 2
-  #define MY 1
-  #define nY 1
-  #define nZ 2
+#define MZ 2
+#define MY 1
+#define nY 1
+#define nZ 2
 #endif
 
 #define D_CARTESIAN 0
@@ -44,9 +44,9 @@
 #define NUMAXIS 4
 
 #ifdef __AVR__
-#define LOWESTDELAY 540 // IF LESS than this microsec then do the subpixel
+#define LOWESTDELAY 440 // IF LESS than this microsec then do the subpixel
 #else
-#define LOWESTDELAY 120 // IF LESS than this microsec then do the subpixel
+#define LOWESTDELAY 50 // IF LESS than this microsec then do the subpixel
 #endif
 
 
@@ -62,7 +62,7 @@ typedef struct {
   int32_t fs, fn; // all are in square ! needed to calc real accell
 #endif
   int32_t dx[NUMAXIS]; //original delta before transform
-//  float dtx[NUMAXIS]; // keep the original coordinate before transform
+  //  float dtx[NUMAXIS]; // keep the original coordinate before transform
 
 #ifdef ISPC
   // for graphics
@@ -76,7 +76,7 @@ typedef struct {
 extern int XCount, YCount;
 extern int ZValues[40][40];
 
-extern float pointProbing();
+extern float pointProbing(float floatdis);
 extern int MESHLEVELING;
 #endif
 
@@ -98,10 +98,10 @@ extern int32_t xyjerk, zjerk, xycorner, zcorner;
 extern int zaccel, accel;
 extern int  maxf[4];
 extern int  maxa[4];
-extern int32_t dlp,info_x_s,info_y_s,info_z_s;
+extern int32_t dlp, info_x_s, info_y_s, info_z_s;
 extern float stepmmx[4], Lscale;
 extern float retract_in, retract_out;
-extern float info_x,info_y,info_z,info_e,perstepx,perstepy,perstepz;
+extern float info_x, info_y, info_z, info_e, perstepx, perstepy, perstepz;
 extern float retract_in_f, retract_out_f;
 extern tmove moves[NUMBUFFER];
 extern float cx1, cy1, cz1, ocz1, ce01;
@@ -130,7 +130,7 @@ extern uint32_t ectstep;
 extern int32_t motionrunning;
 extern int32_t mctr;
 extern int motionloop();
-extern int laserOn,home_cnt;
+extern int laserOn, home_cnt;
 extern void init_pos();
 extern int coreloop();
 extern void coreloopm();

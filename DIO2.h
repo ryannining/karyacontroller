@@ -1,3 +1,5 @@
+#pragma once
+
 /*
   DIO2.h
 

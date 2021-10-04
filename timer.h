@@ -1,3 +1,5 @@
+#pragma once
+
 #include "motion.h"
 #include "config_pins.h"
 

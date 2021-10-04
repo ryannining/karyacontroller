@@ -98,10 +98,10 @@ void reload_eeprom() {
   zaccel = maxa[2];
 
   stepmmx[3] = (float)eepromread(EE_estepmm)   * 0.001;
-  perstepx=1.0/(stepmmx[0]=(float)eepromread(EE_xstepmm)  * 0.001);
-  perstepy=1.0/(stepmmx[1]=(float)eepromread(EE_ystepmm)  * 0.001);
-  perstepz=1.0/(stepmmx[2]=(float)eepromread(EE_zstepmm)  * 0.001);
-  
+  perstepx = 1.0 / (stepmmx[0] = (float)eepromread(EE_xstepmm)  * 0.001);
+  perstepy = 1.0 / (stepmmx[1] = (float)eepromread(EE_ystepmm)  * 0.001);
+  perstepz = 1.0 / (stepmmx[2] = (float)eepromread(EE_zstepmm)  * 0.001);
+
   xycorner = eepromread(EE_corner);
   xyjerk = eepromread(EE_jerk);
   homingspeed = eepromread(EE_homing);

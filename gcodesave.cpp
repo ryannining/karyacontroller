@@ -57,8 +57,8 @@
 File fsGcode;
 extern GCODE_COMMAND next_target;
 int cntg28;
-long lastjobt=0;
-long lastjobt0=0;
+long lastjobt = 0;
+long lastjobt0 = 0;
 int compressing = 0;
 int uncompress = 0;
 float startfrom_X = 0, startfrom_Y = 0;
@@ -223,11 +223,11 @@ int compress_loop() {
 void beginuncompress(String fn);
 void enduncompress();
 void deletejob(String fn) {
-        SPIFFS.remove(fn);
-        SPIFFS.remove(fn + ".jpg");
+  SPIFFS.remove(fn);
+  SPIFFS.remove(fn + ".jpg");
 }
 // ============================================= uncompress ===============================================
-bool dummy_uncompress=false;
+bool dummy_uncompress = false;
 int uctr = 0;
 long eE = 0;
 int gxver = 1;
@@ -243,8 +243,8 @@ void beginuncompress(String fn) {
   mediaY = 0;
   uctr = 1;
   eE = 0;
-  lastjobt0=millis();
-  
+  lastjobt0 = millis();
+
   fsGcode = SPIFFS.open(fn, "r");
   if (!fsGcode) {
     zprintf(PSTR("File not found\n"));
@@ -287,6 +287,7 @@ void beginuncompress(String fn) {
   xyLimit = datasize(xySize);
   zLimit = datasize(zSize);
   eLimit = datasize(eSize);
+  cx1 = cy1 = ce01 = cz1 = ocz1 = 0;
   AX = cx1;
   AY = cy1;
   AZ = ocz1;
@@ -302,10 +303,12 @@ void enduncompress() {
   uncompress = 0;
   zprintf(PSTR("End Uncompress Gcode\n"));
   waitbufferempty();
-  lastjobt=millis()-lastjobt0;
-  #ifdef IR_OLED_MENU
+  lastjobt = millis() - lastjobt0;
+#ifdef IR_OLED_MENU
+  extern void load_info();
+  load_info();
   xdisplay.Reset();
-  #endif  
+#endif
 }
 int ispause = 0;
 
@@ -361,7 +364,7 @@ void gcodereadnet(uint8_t * addr, int len) {
   }
 }
 
-float dMax,fMax,lF,lF0,lF1,xMin,xMax,yMin,yMax,zMin,zMax,tMax;
+float dMax, fMax, lF, lF0, lF1, xMin, xMax, yMin, yMax, zMin, zMax, tMax;
 int sMax;
 byte repeatheader;
 byte repeatsame;
@@ -374,16 +377,16 @@ void uncompressaline() {
   if (!fsGcode.available()) {
     enduncompress();
     return;
-  }  
-  if (repeatheader==0){
-	fsGcode.read((uint8_t *)&h, 1); gcodepos++;
-	if (repeatsame) {
-		repeatheader=h;
-	}
+  }
+  if (repeatheader == 0) {
+    fsGcode.read((uint8_t *)&h, 1); gcodepos++;
+    if (repeatsame) {
+      repeatheader = h;
+    }
   }	else {
-	h=repeatheader;
-	repeatsame--;
-	if (repeatsame==0)repeatheader=0;
+    h = repeatheader;
+    repeatsame--;
+    if (repeatsame == 0)repeatheader = 0;
   }
   uctr++;
   //if (uctr>10) return enduncompress();
@@ -392,13 +395,13 @@ void uncompressaline() {
     switch ((h >> 1) & 3) {
       case 0: next_target.M = 3; break;
       case 1: next_target.M = 109; break;
-      case 2: 
-		// special  for laser, this will inform how many data with same header but will flip and flop G0 G1
-		s = 0;
-		fsGcode.read((uint8_t *)&s, 1); gcodepos++;
-		repeatsame=s;
-		repeatheader=0;
-      return; break;
+      case 2:
+        // special  for laser, this will inform how many data with same header but will flip and flop G0 G1
+        s = 0;
+        fsGcode.read((uint8_t *)&s, 1); gcodepos++;
+        repeatsame = s;
+        repeatheader = 0;
+        return; break;
     }
     //zprintf(PSTR("%d H%d M%d S%d\n"), fi(uctr), fi(h), fi(next_target.M), fi(s));
   } else {
@@ -408,14 +411,14 @@ void uncompressaline() {
       case 1: next_target.G = 1; break;
       case 2:
         next_target.G = 28;
-        cntg28--;
+        //cntg28--;
         break;
       case 3: next_target.G = 92; eE = 0; break;
     }
   }
   // read the parameter
   //zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
-  if (h & (1 << 3)) {
+  if (h & (1 << 3)) { //F or S
     s = 0;
     fsGcode.read((uint8_t *)&s, 1); gcodepos++;
     // F and S is same in M code
@@ -423,25 +426,25 @@ void uncompressaline() {
     {
       next_target.seen_S = 1;
       next_target.S = s;
-      sMax=fmax(sMax,s);
+      sMax = fmax(sMax, s);
     } else { //else its F
       next_target.seen_F = 1;
-      lF=next_target.target.F = s * fScale;
-      if (next_target.G==1){
-          lF1=lF;
-      }else lF0=lF;
-      
+      lF = next_target.target.F = s * fScale;
+      if (next_target.G == 1) {
+        lF1 = lF;
+      } else lF0 = lF;
+
     }
 
     //zprintf(PSTR("F%d "), fi(s));
   }
-  lF=(next_target.G==1)?lF1:lF0;
+  lF = (next_target.G == 1) ? lF1 : lF0;
 
-  
-    float D=0;
-    float d;
 
-  if (h & (1 << 4)) {
+  float D = 0;
+  float d;
+
+  if (h & (1 << 4)) { // X
     x = 0;
     fsGcode.read((uint8_t *)&x, xySize); gcodepos += xySize;
     //zprintf(PSTR("X%d "), fi(x));
@@ -451,8 +454,8 @@ void uncompressaline() {
       mediaX = x;
       next_target.target.axis[nX] = x;
     } else {
-      d=float(x - xyLimit) / xyScale;
-      D+=d*d;
+      d = float(x - xyLimit) / xyScale;
+      D += d * d;
       AX += d;
       next_target.target.axis[nX] = AX;
       //next_target.target.axis[nX] *= xyscale;
@@ -468,8 +471,8 @@ void uncompressaline() {
       next_target.target.axis[nY] = x;
     } else {
       //zprintf(PSTR("Y%d "), fi(x));
-      d=float(x - xyLimit) / xyScale;
-      D+=d*d;
+      d = float(x - xyLimit) / xyScale;
+      D += d * d;
       AY += d;
       next_target.target.axis[nY] = AY;
     }
@@ -477,45 +480,50 @@ void uncompressaline() {
   }
   if (h & (1 << 6)) {
     x = 0;
-    fsGcode.read((uint8_t *)&x, zSize);gcodepos+=xySize;
+    fsGcode.read((uint8_t *)&x, zSize); gcodepos += xySize;
     //zprintf(PSTR("Z%d "), fi(x));
     next_target.seen_Z = 1;
-    d=float(x - zLimit) / zScale;
-    D+=d*d;
-    AZ += d;
-    next_target.target.axis[nZ] = AZ;
+    d = float(x - zLimit) / zScale;
+    if (next_target.G == 28) {
+      // G28 Z1 -> probe Z and set Z 1 after success
+      next_target.target.axis[nZ] = d;
+    } else {
+      D += d * d;
+      AZ += d;
+      next_target.target.axis[nZ] = AZ;
+    }
   }
   if (h & (1 << 7)) {
     x = 0;
-    fsGcode.read((uint8_t *)&x, eSize);gcodepos+=eSize;
-    
+    fsGcode.read((uint8_t *)&x, eSize); gcodepos += eSize;
+
     if (next_target.seen_M) {
-		//zprintf(PSTR("E%d "), fi(x));
-		next_target.seen_P = 1;
-		next_target.P = x*100;
+      //zprintf(PSTR("E%d "), fi(x));
+      next_target.seen_P = 1;
+      next_target.P = x * 100;
     } else {
-		next_target.seen_E = 1;
-		AE += float(x - eLimit) / eScale;
-		next_target.target.axis[nE] = AE;
-	}
-  } 
+      next_target.seen_E = 1;
+      AE += float(x - eLimit) / eScale;
+      next_target.target.axis[nE] = AE;
+    }
+  }
   //zprintf(PSTR("\n"));
 
   if (!dummy_uncompress)process_gcode_command();
   else {
-        xMin=fmin(xMin,AX);
-        xMax=fmax(xMax,AX);
-        yMin=fmin(yMin,AY);
-        yMax=fmax(yMax,AY);        
-        zMin=fmin(zMin,AZ);
-        zMax=fmax(zMax,AZ);
-        if (AZ<=0 && D>0){
-            D=sqrt(D);
-            dMax+=D;
-            tMax+=D/lF;
-        }
-  }  
-  lastjobt=millis()-lastjobt0;
+    xMin = fmin(xMin, AX);
+    xMax = fmax(xMax, AX);
+    yMin = fmin(yMin, AY);
+    yMax = fmax(yMax, AY);
+    zMin = fmin(zMin, AZ);
+    zMax = fmax(zMax, AZ);
+    if (AZ <= 0 && D > 0) {
+      D = sqrt(D);
+      dMax += D;
+      tMax += D / lF;
+    }
+  }
+  lastjobt = millis() - lastjobt0;
   reset_command();
   if (!cntg28) {
     enduncompress();
@@ -523,21 +531,21 @@ void uncompressaline() {
   }
 }
 
-void dummy_beginuncompress(String fn){
-    dummy_uncompress=true;
-    zMin=xMin=yMin=10000;
-    zMax=xMax=yMax=-10000;
-    dMax=lF=lF0=lF1=sMax=fMax=0;
-    tMax=0;
-    
-    beginuncompress(fn);
-    while (uncompress){
-        uncompressaline();
-        
-    }
-    enduncompress();
-    dummy_uncompress=false;
-    
+void dummy_beginuncompress(String fn) {
+  dummy_uncompress = true;
+  zMin = xMin = yMin = 10000;
+  zMax = xMax = yMax = -10000;
+  dMax = lF = lF0 = lF1 = sMax = fMax = 0;
+  tMax = 0;
+
+  beginuncompress(fn);
+  while (uncompress) {
+    uncompressaline();
+
+  }
+  enduncompress();
+  dummy_uncompress = false;
+
 }
 
 

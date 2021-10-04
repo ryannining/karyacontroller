@@ -1,3 +1,5 @@
+#pragma once
+
 #include "pid.h"
 
 extern double Setpoint, Input, xInput, Output;

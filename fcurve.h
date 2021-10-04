@@ -1,3 +1,4 @@
+#pragma once
 
 float acup, acdn, ja, a1x, a1, a2, as3, as7, T, V;
 int Sdest;
@@ -254,7 +255,7 @@ int curveloop() {
   bresenham(1);
   bresenham(2);
   bresenham(3);
-  
+
   // push T=CLOCK/V to timer command buffer
   cmd0 |= dlp << 5; // cmd0 is 32bit data contain all motor movement and the timing
   pushcmd();

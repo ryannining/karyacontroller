@@ -1,3 +1,5 @@
+#pragma once
+
 #include "config_pins.h"
 
 #if defined( IR_OLED_MENU )
@@ -69,34 +71,34 @@ extern LiquidCrystal_PCF8574 xdisplay;
 
 #ifdef LCD_2004
 #define INITDISPLAY { xdisplay.begin(20,4);xdisplay.setBacklight(255) }
-#define d_rect(a,b,c,d) 
-#define d_frect(a,b,c,d) 
-#define d_line(a,b,c,d) 
+#define d_rect(a,b,c,d)
+#define d_frect(a,b,c,d)
+#define d_line(a,b,c,d)
 
 #define d_w() 200
 #define d_h() 64
 #define d_clear() xdisplay.home();xdisplay.clear();
-#define d_show() 
-#define d_setcolor(x) 
+#define d_show()
+#define d_setcolor(x)
 #define d_text(x,y,s) xdisplay.setCursor(x,y);xdisplay.print(s);
 #define d_t_width(s) (s.length()*10)
 #else
 
 
 #ifdef LCD_UC1609
-    //xdisplay.Initial();xdisplay.setContrast(190,false);xdisplay.setRotate(true)
-    #ifdef LCD_UC1609DARK
-        #define INITDISPLAY xdisplay.init();xdisplay.setContrast(190,false);xdisplay.setRotate(true); xdisplay.setFont(xfont);
-        #else
-        #define INITDISPLAY xdisplay.init();xdisplay.setContrast(140,false);xdisplay.setRotate(true);xdisplay.setFont(xfont);
-    #endif
+//xdisplay.Initial();xdisplay.setContrast(190,false);xdisplay.setRotate(true)
+#ifdef LCD_UC1609DARK
+#define INITDISPLAY xdisplay.init();xdisplay.setContrast(190,false);xdisplay.setRotate(true); xdisplay.setFont(xfont);
 #else
-    #ifdef LCD_NK1202
-        #define INITDISPLAY xdisplay.init();xdisplay.setContrast(200,false);xdisplay.setFont(xfont);
-    #else
-        // other oled here
-        #define INITDISPLAY xdisplay.init();xdisplay.setFont(xfont);
-    #endif
+#define INITDISPLAY xdisplay.init();xdisplay.setContrast(140,false);xdisplay.setRotate(true);xdisplay.setFont(xfont);
+#endif
+#else
+#ifdef LCD_NK1202
+#define INITDISPLAY xdisplay.init();xdisplay.setContrast(200,false);xdisplay.setFont(xfont);
+#else
+// other oled here
+#define INITDISPLAY xdisplay.init();xdisplay.setFont(xfont);
+#endif
 #endif
 
 #define d_rect(a,b,c,d) xdisplay.drawRect(a,b,c,d)
@@ -125,8 +127,9 @@ extern int ir_oled_loop(int icommand);
 #define setup_oled() {}
 #define ir_oled_loop(i) {}
 #define d_clear()
-#define d_show() 
-#define d_setcolor(x) 
+#define d_show()
+#define d_setcolor(x)
 #define d_text(x,y,s)
+#define REINIT
 
 #endif

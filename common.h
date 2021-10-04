@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef COMMON_H
 #define COMMON_H
 #include "platform.h"
@@ -61,7 +63,7 @@ extern uint8_t serial_available();
 #else
 
 //#ifdef __ARM__
-static bool hasSerial=true;
+static bool hasSerial = true;
 #ifdef WIFISERVER
 extern void wifiwr(uint8_t s);
 static void serialwr(uint8_t s) {
