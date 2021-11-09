@@ -29,7 +29,7 @@
 
 */
 
-#if defined(ESP8266) || defined(ESP32) || defined(SDCARD_CS)
+#if defined(ESP8266) || defined(ESP32) 
 #define fdebug
 
 #include <WiFiClient.h>
@@ -44,13 +44,15 @@
 
 
 #include <FS.h>   // Include the SPIFFS library
+#include "common.h"   // Include the SPIFFS library
 #include "gcode.h"   // Include the SPIFFS library
 #include "eprom.h"   // Include the SPIFFS library
-#include "common.h"   // Include the SPIFFS library
 #include "timer.h"   // Include the SPIFFS library
+
 #ifdef IR_OLED_MENU
 #include "ir_oled.h"
 #endif
+
 #define NOINTS timerPause();
 #define INTS timerResume();
 
@@ -71,154 +73,6 @@ void checkuncompress() {
   zprintf(PSTR("Gcode %d bytes\n"), fi(fsGcode.size()));
   fsGcode.close();
 }
-
-#ifdef compression
-void begincompress(String fn) {
-  if (uncompress)return;
-  fsGcode = SPIFFS.open(fn, "w");
-  if (!fsGcode) {
-    zprintf(PSTR("Cant open file\n"));
-  } else {
-    /*    byte wr=10;
-        fsGcode.write((uint8_t *)&wr,1);
-        int x=20;
-        fsGcode.write((uint8_t *)&x,2);
-    */
-    compressing = 1;
-    cntg28 = 2;
-    zprintf(PSTR("Begin Compress Gcode\n"));
-  }
-}
-void endcompress() {
-  if (!compressing)return;
-  /*
-    byte h = 1;
-    h |= 2 << 1;
-    zprintf(PSTR("End Compress Gcode\n"));
-    fsGcode.write((uint8_t *)&h, 1);
-    fsGcode.close();
-  */
-  compressing = 0;
-}
-
-void addgcode()
-{
-  if (!compressing)return;
-  /*  char h = 0;
-    byte f, s;
-    int x;
-    if (next_target.seen_M) {
-      h = 1;
-      switch (next_target.M) {
-        case 3: h |= 0; break;
-        case 109: h |= 1 << 1; break;
-        case 2: h |= 2 << 1; break; // final
-        default: return; // not implemented
-      }
-      s = next_target.S;
-      h |= 1 << 3;
-      fsGcode.write((uint8_t *)&h, 1);
-      fsGcode.write((uint8_t *)&s, 1);
-      //zprintf(PSTR("M%d S%d\n"), fi(next_target.M), fi(s));
-    }
-    if (next_target.seen_G) {
-      h = 0;
-      switch (next_target.G) {
-        case 0: h |= 0; break;
-        case 1: h |= 1 << 1; break;
-        case 28:
-          h |= 2 << 1;
-          cntg28--;
-          break;
-        case 92: h |= 3 << 1; break;
-        default: return; // not implemented
-      }
-      if (next_target.seen_F)h |= 1 << 3;
-      if (next_target.seen_X)h |= 1 << 4;
-      if (next_target.seen_Y)h |= 1 << 5;
-      if (next_target.seen_Z)h |= 1 << 6;
-      if (next_target.seen_E)h |= 1 << 7;
-
-      fsGcode.write((uint8_t *)&h, 1);
-      //zprintf(PSTR("H%d G%d "), fi(h), fi(next_target.G));
-      // write the parameter if exist
-      if (next_target.seen_F) {
-        f = fmin(next_target.target.F, 250);
-        fsGcode.write((uint8_t *)&f, 1);
-        //zprintf(PSTR("F%d "), fi(f));
-      }
-      if (next_target.seen_X) {
-        x = (next_target.target.axis[nX] + 160) * 100;
-        fsGcode.write((uint8_t *)&x, 2);
-        //zprintf(PSTR("X%d "), fi(x));
-      }
-      if (next_target.seen_Y) {
-        x = (next_target.target.axis[nY] + 160) * 100;
-        fsGcode.write((uint8_t *)&x, 2);
-        //zprintf(PSTR("Y%d "), fi(x));
-      }
-      if (next_target.seen_Z) {
-        x = (next_target.target.axis[nZ] + 50) * 100;
-        fsGcode.write((uint8_t *)&x, 2);
-        //zprintf(PSTR("Z%d "), fi(x));
-      }
-      if (next_target.seen_E) {
-        x = next_target.target.axis[nE] * 1000;
-        fsGcode.write((uint8_t *)&x, 3);
-        //zprintf(PSTR("E%d "), fi(x));
-      }
-    }
-    if (!cntg28) {
-      endcompress();
-      cntg28 = 2;
-    }
-    //zprintf(PSTR("\n"));
-  */
-}
-int compress_loop() {
-  if (uncompress)return 0;
-  if (next_target.seen_M) {
-    switch (next_target.M) {
-      /*case 130: checkuncompress(); goto ret;
-        case 131: begincompress(); goto ret;
-        case 132: endcompress(); goto ret;
-        case 133: beginuncompress(); goto ret;
-        case 134: enduncompress(); goto ret;*/
-      case 135: SPIFFS.format(); goto ret;
-    }
-  }
-  /*
-    if (compressing && (next_target.seen_M || next_target.seen_G)) {
-    if (next_target.seen_G && (next_target.G == 90)) {
-      next_target.option_all_relative = 0;
-      zprintf(PSTR("Abs\n"));
-    } else if (next_target.seen_G && (next_target.G == 91)) {
-      next_target.option_all_relative = 1;
-      zprintf(PSTR("Rel\n"));
-    }
-    addgcode();
-    return 1;
-    }*/
-ret:
-  return 0;
-}
-#else
-int compress_loop() {
-  if (uncompress)return 0;
-  if (next_target.seen_M) {
-    switch (next_target.M) {
-      /*case 130: checkuncompress(); goto ret;
-        case 131: begincompress(); goto ret;
-        case 132: endcompress(); goto ret;
-        case 133: beginuncompress(); goto ret;
-        case 134: enduncompress(); goto ret;*/
-      case 135: SPIFFS.format(); break;
-    }
-  }
-  return 0;
-}
-
-#endif
 
 void beginuncompress(String fn);
 void enduncompress();
@@ -370,7 +224,7 @@ byte repeatheader;
 byte repeatsame;
 // version, old is using eSize 1
 void uncompressaline() {
-  if (ispause)return;
+  //if (ispause)return;
   byte h;
   byte s;
   int32_t x = 0;
@@ -417,7 +271,7 @@ void uncompressaline() {
     }
   }
   // read the parameter
-  //zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
+  // zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
   if (h & (1 << 3)) { //F or S
     s = 0;
     fsGcode.read((uint8_t *)&s, 1); gcodepos++;
@@ -545,7 +399,6 @@ void dummy_beginuncompress(String fn) {
   }
   enduncompress();
   dummy_uncompress = false;
-
 }
 
 
@@ -553,7 +406,12 @@ void dummy_beginuncompress(String fn) {
 void uncompress_loop() {
   if (uncompress) {
     // do the uncompress job
-    uncompressaline();
+    for (int j=15;j--;){
+		if (nextbuff(head) != tail) {
+			uncompressaline();
+			domotionloop
+		};
+	}
   }
 }
 

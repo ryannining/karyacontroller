@@ -3,8 +3,7 @@
 #ifndef GCODE_H
 #define GCODE_H
 #include <stdint.h>
-#include "motion.h"
-#include "config_pins.h"
+
 #define nX 0
 #define nY 1
 #define nZ 2
@@ -13,17 +12,6 @@
 #define nE1 4
 
 //#define DEBUG
-
-#if defined(USE_SDCARD) && defined(SDCARD_CS)
-// generic sdcard add about 800uint8_t ram and 8kb code
-#ifdef ESP8266 || __ARM__
-#include <SPI.h>
-#include <SD.h>
-#else
-#include "SdFat.h"
-extern SdFat SD;
-#endif
-#endif
 
 typedef struct {
   uint32_t	mantissa;		///< the actual digits of our floating point number
@@ -83,28 +71,20 @@ typedef struct {
   //uint8_t						checksum_calculated;	///< checksum we calculated
 } GCODE_COMMAND;
 
-#ifdef __AVR__
-#define g_str_len 64
-#elif defined( __ARM__)
-#define g_str_len 512
-#else
-#define g_str_len 14000
-#endif
+
+#define g_str_len 2000
+
 
 extern int32_t linecount, lineprocess;
 extern int waitforline, overridetemp;
 extern char g_str[g_str_len];
-
+extern bool waitexecute;
+extern int tryexecute();
 extern int lastB;
 extern void str_wait();
 
 extern int g_str_c;
-#ifdef USE_SDCARD
-extern File myFile;
-extern void demoSD();
-#else
-static void demoSD() {}
-#endif
+
 extern void loadmeshleveling();
 extern void changefilament(float l);
 extern void process_gcode_command();

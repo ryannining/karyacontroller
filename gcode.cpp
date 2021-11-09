@@ -1,10 +1,9 @@
-#include "gcode.h"
+
+
 #include "common.h"
-#include "motion.h"
-#include "config_pins.h"
+#include "gcode.h"
 #include "timer.h"
 #include "temp.h"
-#include "motors.h"
 #include "eprom.h"
 #include "gcodesave.h"
 
@@ -29,87 +28,13 @@ extern IPAddress ip ;
 
 #endif
 
-#if defined(USE_SDCARD) && defined( _CS)
-// generic sdcard add about 800uint8_t ram and 8kb code
-
-//================
-#ifdef ESP8266 || __ARM__
-#include "SdFat.h"
-SdFat SD;
-//================
-#else
-#include "SdFat.h"
-SdFat SD;
-//================
-#endif
-
-
-#endif
 int32_t linecount, lineprocess;
-#if defined(USE_SDCARD) && defined(SDCARD_CS)
 
-// SD card chip select pin.
-const uint8_t SD_CS_PIN = SDCARD_CS;
-
-File myFile;
-void demoSD()
-{
-#if defined( ESP8266) || defined(ESP32)
-  if (!SD.begin(SD_CS_PIN)) {
-#else
-  if (!SD.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
-#endif
-    zprintf(PSTR("SDFAIL\n"));
-    sdcardok = 0;
-    return;
-  }
-  zprintf(PSTR("SDOK\n"));
-
-  // open the file. note that only one file can be open at a time,
-  // so you have to close this one before opening another.
-  // re-open the file for reading:
-  myFile = SD.open("print.gco");
-  if (myFile) {
-    // calc total length
-    char c;
-    linecount = 1000;
-    lineprocess = 1;
-#ifdef POWERFAILURE
-    // continue from last line if needed
-    int32_t ll = eepromread(EE_lastline);
-    if (ll > 0) {
-      linecount = 1;
-      while (linecount < ll) {
-        c = myFile.read();
-
-        // todo : parse the last X Y Z E
-        //        need faster reading
-
-        if (c == '\n')linecount++;
-      }
-      // close the file:
-      myFile.close();
-      myFile = SD.open("print.gco");
-    }
-    zprintf(PSTR("Resume %d\n"), linecount);
-#endif
-    sdcardok = 1;
-  } else {
-    zprintf(PSTR("no gco\n"));
-  }
-}
-#endif
-#ifdef USETIMER1
 #define MLOOP
-#else
-#define MLOOP coreloopm();
-#endif
+
 
 #include<stdint.h>
-#ifndef ISPC
 #include<Arduino.h>
-#endif
-#include "eprom.h"
 /// crude crc macro
 #define crc(a, b)		(a ^ b)
 decfloat read_digit;
@@ -173,6 +98,7 @@ void changefilament(float l)
   ocz1 = backupZ;
 #endif
 }
+bool waitexecute=false;
 
 int reset_command() {
   // reset variables
@@ -196,7 +122,26 @@ int reset_command() {
   if (next_target.option_all_relative || next_target.option_e_relative) {
     next_target.target.axis[nE] = 0;
   }
-  return 1;
+  return 2;
+}
+int tryexecute(){
+	if (nextbuff(head) == tail) { // pending operation if buffer is full
+		return 0;
+	}
+
+    MLOOP
+
+    okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
+
+    uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
+	
+    if (ok){
+		process_gcode_command();
+		zprintf(PSTR("ok\n")); // response quick !!
+		reset_command();
+    }
+	waitexecute=false;
+    return 1;
 }
 void update_pos(void) {
   next_target.target.axis[nX] = cx1;
@@ -204,7 +149,6 @@ void update_pos(void) {
   next_target.target.axis[nZ] = ocz1;
   next_target.target.axis[nE] = ce01;
 }
-
 uint8_t gcode_parse_char(uint8_t c)
 {
   uint8_t checksum_char = c;
@@ -413,25 +357,7 @@ uint8_t gcode_parse_char(uint8_t c)
 
   // end of line
   if ((c == 10) || (c == 13)) {
-
-    // Assume G1 for unspecified movements.
-    /*    if ( ! next_target.seen_G && ! next_target.seen_M && ! next_target.seen_T &&
-             (next_target.seen_X || next_target.seen_Y || next_target.seen_Z ||
-              next_target.seen_E || next_target.seen_F)) {
-          next_target.seen_G = 1;
-          next_target.G = 1;
-        }
-    */
-    MLOOP
-
-    okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
-
-    uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
-
-    process_gcode_command();
-    if (ok)zprintf(PSTR("ok\n")); // response quick !!
-    if (reset_command()) return 2;
-    return 1;
+	  waitexecute=true;
   }
 
   return 0;
@@ -445,8 +371,8 @@ int overridetemp = 0;
 void printposition()
 {
   zprintf(PSTR("X:%f Y:%f Z:%f E:%f\n"),
-          ff(cx1), ff(cy1),
-          ff(ocz1), ff(ce01));
+          ff(info_x), ff(info_y),
+          ff(info_z), ff(ce01));
 
 }
 void printbufflen()
@@ -483,19 +409,17 @@ void stopmachine() {
   }
 }
 
-#define queue_wait() needbuffer()
+//#define queue_wait() needbuffer()
+#define queue_wait() 
 
 void delay_ms(uint32_t d)
 {
-#ifndef ISPC
+
   while (d) {
     d--;
     somedelay(1000);
   }
-#else
-  // delay on pc,
 
-#endif
 
 }
 void temp_wait(void)
@@ -524,9 +448,7 @@ int lastB = 0;
 void str_wait()
 {
 
-#ifdef ISPC
-  if (lastB > 5) zprintf(PSTR("Wait bitmap buffer %d\n"), fi(lastB));
-#endif
+
   //uint32_t c = millis();
   while (lastB > 5) {
     domotionloop
@@ -571,13 +493,12 @@ void addlaserxy(float x, float y, uint8_t bit)
 }
 
 void testLaser(void) {
-#ifndef ISPC
-  for (int j = 0; j <= 100; j++) {
+
+  for (int j = 3000; j--;) {
     LASER(LASERON)
-    delay(1);
     domotionloop
   }
-#endif
+
   // after some delay turn off laser
   LASER(!LASERON);
 }
@@ -683,16 +604,6 @@ void process_gcode_command()
   else
     next_target.target.e_relative = 0;
 
-  // The GCode documentation was taken from http://reprap.org/wiki/Gcode .
-#if defined(ESP32) || defined(ESP8266)
-  if (compress_loop()) {
-    cx1 = next_target.target.axis[nX]; //startpoint.axis[nX];
-    cy1 = next_target.target.axis[nY]; //startpoint.axis[nY];
-    ocz1 = next_target.target.axis[nZ]; //startpoint.axis[nZ];
-    ce01 = next_target.target.axis[nE]; //startpoint.axis[nE];
-    return;
-  }
-#endif
   if (next_target.seen_T) {
     //? --- T: Select Tool ---
     //?
@@ -752,9 +663,6 @@ void process_gcode_command()
         constantlaserVal = S1;
         enqueue(&next_target, 0);
         if (laserOn) {
-#ifndef ISPC
-          //xpinMode(laser_pin, OUTPUT);
-#endif
         }
         break;
 
@@ -800,20 +708,7 @@ void process_gcode_command()
         break;
 
       case 4:
-        //? --- G4: Dwell ---
-        //?
-        //? Example: G4 P200
-        //?
-        //? In this case sit still doing nothing for 200 milliseconds.  During delays the state of the machine (for example the temperatures of its extruders) will still be preserved and controlled.
-        //?
-        waitbufferempty();
-        // delay
-        if (next_target.seen_P) {
-          for (; next_target.P > 0; next_target.P--) {
-            MLOOP
-            delay_ms(5);
-          }
-        }
+ 
         break;
 #ifdef output_enable
       case 5:
@@ -1159,51 +1054,43 @@ void process_gcode_command()
         lastS = fi(next_target.S);
         if (!next_target.seen_P) next_target.P = 0;
         waitbufferempty();
-#ifndef ISPC
 
-#ifdef AC_SPINDLE
         // sometimes ac spindle need a boost at first ON
-        if (next_target.P > 1000) {
-#ifdef spindle_pin
-          //digitalWrite(spindle_pin, HIGH);
-          //delay(1000);
-#endif
+		//SPINDLE(next_target.S)
+		set_pwm(next_target.S);
+        if (next_target.P >= 10000) {
+			extern void dopause(int tm=0);
+			next_target.P=0;
+			next_target.seen_P=0;
+			dopause(5000);
         }
-        SPINDLE(next_target.S);
-#else
-        SPINDLE(next_target.S)
-#endif
-#endif
+
         // if no S defined then full power
         S1 = next_target.S;
         laserOn = S1 > 0;
         constantlaserVal = next_target.S;
         //if (laserOn) zprintf(PSTR("LASERON\n"));
-#ifdef ANALOG_THC
-        extern void thc_init();
-        thc_init();
-#endif
+
 
         if (next_target.seen_P) {
           waitbufferempty();
           //zprintf(PSTR("PULSE LASER\n"));
-#ifndef ISPC
+
           delay(100);
           //xpinMode(laser_pin, OUTPUT);
-#endif
+
           LASER(LASERON)
 
-#ifndef ISPC
+
           int rep = next_target.P / 10;
           for (int j = 0; j <= rep; j++) {
             delay(10);
             domotionloop
           }
-#endif
+
           // after some delay turn off laser
           LASER(!LASERON);
-          extern int thcokval;
-          //thcokval=analogRead(A0)+50;
+
         }
         break;
         /*      case 101:
@@ -1362,18 +1249,19 @@ void process_gcode_command()
 
               eprom_wr(51, EE_accel, S_I);
 
-              eprom_wr(67, EE_jerk, S_I);
+
               eprom_wr(177, EE_homing, S_I);
               eprom_wr(181, EE_corner, S_I);
               eprom_wr(185, EE_Lscale, S_F);
-#ifdef NONLINEAR
-              eprom_wr(157, EE_rod_length, S_F);
-              eprom_wr(161, EE_hor_radius, S_F);
-#endif
+
               eprom_wr(165, EE_towera_ofs, S_F);
               eprom_wr(169, EE_towerb_ofs, S_F);
               eprom_wr(173, EE_towerc_ofs, S_F);
 
+#ifdef ANALOG_THC
+              eprom_wr(157, EE_thc_up, S_I);
+              eprom_wr(161, EE_thc_ofs, S_I);
+#endif
               eprom_wr(300, EE_retract_in, S_F);
               eprom_wr(304, EE_retract_in_f, S_F);
               eprom_wr(308, EE_retract_out, S_F);
@@ -1435,13 +1323,15 @@ void process_gcode_command()
 
         zprintf(PSTR("EPR:3 181 %d Corner\n"), fi(xycorner));
         zprintf(PSTR("EPR:3 51 %d Acl\n"), fi(accel));
-        zprintf(PSTR("EPR:3 67 %d Jerk\n"), fi(xyjerk));
+
         zprintf(PSTR("EPR:3 177 %d HomeF\n"), fi(homingspeed));
         zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
-#ifdef NONLINEAR
-        zprintf(PSTR("EPR:3 157 %f RodL\n"), ff(delta_diagonal_rod));
-        zprintf(PSTR("EPR:3 161 %f RodH\n"), ff(delta_radius));
+
+#ifdef ANALOG_THC
+        zprintf(PSTR("EPR:3 157 %d THCRef\n"), fi(thc_up));
+        zprintf(PSTR("EPR:3 161 %d THCOfs\n"), fi(thc_ofs));
 #endif
+
         zprintf(PSTR("EPR:3 165 %f Xofs\n"), ff(axisofs[0]));
 #ifdef DRIVE_XYYZ
         zprintf(PSTR("EPR:3 169 %f Y1ofs\n"), ff(axisofs[1]));
@@ -1514,12 +1404,7 @@ void process_gcode_command()
         if (next_target.seen_Z) babystep[2] = next_target.target.axis[nZ] * 4000;
         if (next_target.seen_E) babystep[3] = next_target.target.axis[nE] * 4000;
         break;
-      case 291:
-#ifdef SUBPIXELMAX
-        vSUBPIXELMAX = next_target.seen_S ? next_target.S : SUBPIXELMAX;
-        zprintf(PSTR("Subpixel max:%d\n"), fi(vSUBPIXELMAX));
-#endif
-        break;
+
       case 221:
         //? --- M220: Set speed factor override percentage ---
         if ( ! next_target.seen_S)

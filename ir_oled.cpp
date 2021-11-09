@@ -1,4 +1,5 @@
-#include "config_pins.h"
+#include "common.h"
+
 #ifdef WIFISERVER
 #include <ESP8266WiFi.h>
 #endif
@@ -20,10 +21,6 @@ static String jobnum;
 #define LCD_CMD D1
 #endif
 
-#ifdef LCD_OLED
-#include "SH1106Wire.h"
-SH1106Wire xdisplay(0x3c, LCD_SDA, LCD_SCL); // d6,d5
-#endif
 
 #ifdef LCD_OLED_SSD
 #include "SSD1306Wire.h"
@@ -61,7 +58,6 @@ LiquidCrystal_PCF8574 xdisplay(IR_OLED_MENU); // set the LCD address to 0x27 for
 #include "fonts.h"
 #include "gcodesave.h"
 #include "gcode.h"
-#include "motion.h"
 #include "eprom.h"
 #include <math.h>
 
@@ -160,53 +156,73 @@ extern long lastjobt;
 extern int spindle_pct, lastS;
 extern long spindle_pwm;
 uint8_t LCDturn;
+int oldindex=0;
 void draw_info(void)
 {
   extern bool inwaitbuffer;
-  if (inwaitbuffer)return;
+  //if (inwaitbuffer)return;
 
-  d_clear(); // clear the internal memory
+  //if (oldindex!=menu_index){
+	  d_clear(); // clear the internal memory
+  //  oldindex=menu_index;
+  //}	
   d_setcolor(WHITE);
   extern int ISWIFIOK;
-
 #ifdef WIFISERVER
-  if (ISWIFIOK && (WiFi.status() != WL_CONNECTED))
-    d_text(0, 0, "Wifi disconnect"); // write something to the internal memory
-  else
+//  if (ISWIFIOK && (WiFi.status() != WL_CONNECTED))
+//    d_text(0, 0, "Wifi disconnect"); // write something to the internal memory
+//  else
     d_text(0, 0, IPA); // write something to the internal memory
 #else
-  d_text(0, 0, "Karyacontroller"); // write something to the internal memory
+    d_text(0, 0, "Karyacontroller"); // write something to the internal memory
 #endif
-  d_text(15, 0, String(rmkey)); // write something to the internal memory
 
-  d_frect(0, LCD_Y - 1, d_w() * LCD_X, LCD_Y);
-  d_setcolor(BLACK);
+//  d_text(15, 0, String(rmkey)); // write something to the internal memory
+//  extern int thcread;
+  
+//  d_text(15, 0, String(thcread)); // write something to the internal memory
+  d_text(13, 0, "S:"+String(info_ve)); // write something to the internal memory
+
+
+  //d_frect(0, LCD_Y - 1, d_w() * LCD_X, LCD_Y);
+  d_setcolor(WHITE);
   d_text(1, 1, String(info_x)); // write something to the internal memory
   d_text(8, 1, String(info_y)); // write something to the internal memory
   d_text(15, 1, String(info_z)); // write something to the internal memory
-  d_setcolor(WHITE);
+  extern int laserwason;
+
 
 #ifdef RPM_COUNTER
-  extern uint32_t get_RPM();
-  uint32_t r = get_RPM();
-  int pw;
-  extern bool RPM_PID_MODE;
-  if (RPM_PID_MODE) {
-    if (avgcnt > 0) {
-      pw = avgpw / avgcnt;
-      avgpw = 0;
-      avgcnt = 1;
-    }
-  }
-  else
-    pw = spindle_pct;
+	  extern uint32_t get_RPM();
+	  uint32_t r = get_RPM();
+	  int pw;
+	  extern bool RPM_PID_MODE;
+	  if (RPM_PID_MODE) {
+		if (avgcnt > 0) {
+		  pw = avgpw / avgcnt;
+		  avgpw = 0;
+		  avgcnt = 1;
+		}
+	  }
+	  else
+		pw = spindle_pct;
 
-  d_text(0, 2, "SPD  " + String(r) + "/" + String(pw) + "%"); // write something to the internal memory
+	  d_text(0, 2, "SPDL  " + String(r) + "/" + String(pw) + "%"); // write something to the internal memory
+
 #else
-#define r spindle_pct
-  d_text(0, 2, "SPD% " + String(r)); // write something to the internal memory
-  d_text(10, 2, "RT% " + String(int(f_multiplier * 100))); // write something to the internal memory
+	#define r spindle_pct
+	#ifdef ANALOG_THC
+	  d_text(0, 2, laserwason?"PLSM ON":"PLSM OFF"); // write something to the internal memory
+	#else
+	  #ifdef laser_pin 
+	  #warning "LASER PIN ?"
+		d_text(0, 2, String("LSR  ") + (laserwason?String(r)+"%":"OFF")); // write something to the internal memory
+	  #else
+		d_text(0, 2, "SPDL " + String(r)+"%"); // write something to the internal memory
+	  #endif
+	#endif
 #endif
+  d_text(10, 2, "RT% " + String(int(f_multiplier * 100))); // write something to the internal memory
   String L1, L2, L3;
   if (uncompress) {
     if (PAUSE)L1 = "Paused !"; else
@@ -314,13 +330,26 @@ void menu_80_click(int a)
 
 int menu_4_pos = 0;
 int menu_4_page = 0;
-String menu_4_t[] = { "Settings", "1. Speed", "2. Acceleration", "3. Backlash", "4. Step/mm", "5. Homing", "Save to EEPROM", "Update firmware" };
+
+String menu_4_t[] = { "Settings", "1. Speed", "2. Acceleration", "3. Backlash", "4. Step/mm", "5. Homing", 
+#ifdef ANALOG_THC
+	"6. THC",
+	
+#endif	
+	"Save to EEPROM", "Update firmware" };
+
 
 // Standar menu is index 0: title, rest is the menu
 int menu_41_pos = 0;
 int menu_41_page = 0;
-String menu_41_t[] = { "Max Speed", "mm/s", "Axis X", "50", "Axis Y", "50", "Axis Z", "5", "Spindle %", "1" };
-int xyzspeed[4] = { 10, 20, 30, 1 };
+String menu_41_t[] = { "Max Speed", "mm/s", "Axis X", "50", "Axis Y", "50", "Axis Z", "5", 
+    #ifdef laser_pin 
+        "Laser %", 
+    #else
+        "Spindle %", 
+    #endif
+    "1" };
+int xyzspeed[4];
 
 int getSpeed(void)
 {
@@ -395,11 +424,11 @@ void LOADMENU41(void)
 int menu_42_pos = 0;
 int menu_42_page = 0;
 String menu_42_t[] = { "Accel", "mm/s~", "Jerk", "0", "Accel", "250", "Corner", "15" };
-int xyzaccel[3] = { 8000, 220, 30 };
+int xyzaccel[3];
 
 int getAccel(void)
 {
-  xyzaccel[0] = xyjerk;
+  xyzaccel[0] = 0;
   xyzaccel[1] = accel;
   xyzaccel[2] = xycorner;
   menu_42_t[3] = xyzaccel[0];
@@ -413,17 +442,12 @@ void menu_42_click(int a)
   if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2)
     LOADMENU(4);
   if (a == IRK_OK || a == IRK4_OK) {
-    // save config and back to menu 4
-    /*
-      eprom_wr(51, EE_accel, S_I);
-      eprom_wr(67, EE_jerk, S_I);
-      eprom_wr(181, EE_corner, S_I);
-    */
-    xyjerk = xyzaccel[0];
+
+
     accel = xyzaccel[1];
     xycorner = xyzaccel[2];
     eepromwrite(EE_accel, xyzaccel[1]); // accell
-    eepromwrite(EE_jerk, xyzaccel[0]); // accell
+    //eepromwrite(EE_jerk, xyzaccel[0]); // accell
     eepromwrite(EE_corner, xyzaccel[2]); // accell
     LOADMENU(4);
   }
@@ -508,7 +532,7 @@ void LOADMENU43(void)
 int menu_44_pos = 0;
 int menu_44_page = 0;
 String menu_44_t[] = { "1 mm =", "Step", "X", "0", "Y", "250", "Z", "15" };
-int xyzsteps[3] = { 19512, 19512, 230400 };
+int xyzsteps[3];
 
 int getSteps(void)
 {
@@ -560,8 +584,8 @@ void LOADMENU44(void)
 int menu_45_pos = 0;
 int menu_45_page = 0;
 String menu_45_t[] = { "Home Pos", "mm", "X", "0", "Y", "250", "Z", "15" };
-int xyzhome[3] = { 19512, 19512, 230400 };
 
+int xyzhome[3];
 int getHomes(void)
 {
   xyzhome[0] = ax_home[0];
@@ -618,35 +642,92 @@ void UPDATEESP(int a)
   }
   LOADMENU(0);
 }
+
+#ifdef ANALOG_THC
+int menu_46_pos=0;
+int menu_46_page=0;
+String menu_46_t[] = { "THC", "v", "V.Ref", "0", "Ofset", "0"};
+int thcVal[2];
+int getThc(void){
+  menu_46_t[3] = thc_up;
+  menu_46_t[5] = thc_ofs;
+  thcVal[0]=thc_up;
+  thcVal[1]=thc_ofs;
+  return 6;
+}
+
+void menu_46_click(int a){
+if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
+    LOADMENU(4);
+    reload_eeprom();
+  }
+  if (a == IRK_OK || a == IRK4_OK) {
+    // save config and back to menu 4
+    //EE_xhome
+    thc_up = thcVal[0];
+    thc_ofs = thcVal[1];
+    eepromwrite(EE_thc_up, thc_up);
+    eepromwrite(EE_thc_ofs, thc_ofs);
+    LOADMENU(4);
+  }
+  int v = menu_setvalue(a);
+  if (v != 0) {
+	if (v == -1000)
+      thcVal[*menu_pos] = -thcVal[*menu_pos];
+    else
+      thcVal[*menu_pos] += v;
+      
+    menu_46_t[(*menu_pos) * 2 + 3] = thcVal[*menu_pos];
+    draw_menu();
+  }
+}
+void LOADMENU46(void)
+{
+  col2pos = 14;
+  load_menu(46, menu_46_t,
+            getThc(),
+            2,
+            &menu_46_pos, &menu_46_page, draw_menu, menu_46_click);
+}
+#endif
+
 void menu_4_click(int a)
 {
+  static int menu4L=LEN(menu_4_t)-2;
   extern bool RPM_PID_MODE;
   if (a == IRK_LF  || a == IRK4_LF || a == IRK4_BACK2)
     LOADMENU(0);
-  else if (a == IRK_OK || a == IRK4_OK)
-    switch (*menu_pos) {
-      case 0:
-        LOADMENU41();
-        break;
-      case 1:
-        LOADMENU42();
-        break;
-      case 2:
-        LOADMENU43();
-        break;
-      case 3:
-        LOADMENU44();
-        break;
-      case 4:
-        LOADMENU45();
-        break;
-      case 5:
-        reload_eeprom();
-        LOADMENU(0);
-        break;
-      case 6:
-        LOADCONFIRM(("UPDATE FIRMWARE ?"), UPDATEESP);
-    }
+  else if (a == IRK_OK || a == IRK4_OK) 
+	{
+		switch (*menu_pos) {
+		  case 0:
+			LOADMENU41();
+			break;
+		  case 1:
+			LOADMENU42();
+			break;
+		  case 2:
+			LOADMENU43();
+			break;
+		  case 3:
+			LOADMENU44();
+			break;
+		  case 4:
+			LOADMENU45();
+			break;
+	#ifdef ANALOG_THC
+		  case 5:
+			LOADMENU46();
+			break;
+	#endif    
+		}    
+		if (*menu_pos==menu4L-1){
+			reload_eeprom();
+			LOADMENU(0);
+		} else if (*menu_pos==menu4L){
+			LOADCONFIRM(("UPDATE FIRMWARE ?"), UPDATEESP);
+		}
+	}
 }
 /*
  *  * ============================================================================================
@@ -728,7 +809,7 @@ int getJobs(void)
 void draw_menu(void)
 {
   extern bool inwaitbuffer;
-  if (inwaitbuffer)return;
+  //if (inwaitbuffer)return;
 
   d_clear(); // clear the internal memory
   d_setcolor(WHITE);
@@ -902,29 +983,49 @@ void runpreview()
   float rx = cx1;
   float ry = cy1;
   float rz = ocz1;
+  #ifndef PLASMA_MODE
   set_pwm(150);
+  #endif
   addmove(100, xMin, yMin, 2, 0, 1, 1); // ke kiri atas
   addmove(100, 0, 0, 0.5, 0, 0, 1);
 
-  addmove(100, xMax - xMin, 0, 0, 0, 1, 1); // ke kanan atas
+  float dx=(xMax-xMin)/4;
+  float dy=(yMax-yMin)/4;
+    
+  addmove(100, dx, 0, 0, 0, 1, 1); // ke kanan atas
+  addmove(100, dx, 0, 0, 0, 1, 1); // ke kanan atas
+  addmove(100, dx, 0, 0, 0, 1, 1); // ke kanan atas
+  addmove(100, dx, 0, 0, 0, 1, 1); // ke kanan atas
 
   addmove(100, 0, 0, -0.5, 0, 0, 1);
 
-  addmove(100, 0, yMax - yMin, 0, 0, 1, 1); // kanan bawah
+  addmove(100, 0, dy, 0, 0, 1, 1); // kanan bawah
+  addmove(100, 0, dy, 0, 0, 1, 1); // kanan bawah
+  addmove(100, 0, dy, 0, 0, 1, 1); // kanan bawah
+  addmove(100, 0, dy, 0, 0, 1, 1); // kanan bawah
+
   addmove(100, 0, 0, 0.5, 0, 0, 1);
 
-  addmove(100, xMin - xMax, 0, 0, 0, 1, 1); // kiri bawah
+  addmove(100, -dx, 0, 0, 0, 1, 1); // ke kanan atas
+  addmove(100, -dx, 0, 0, 0, 1, 1); // ke kanan atas
+  addmove(100, -dx, 0, 0, 0, 1, 1); // ke kanan atas
+  addmove(100, -dx, 0, 0, 0, 1, 1); // ke kanan atas
+  
   addmove(100, 0, 0, -0.5, 0, 0, 1);
 
   //addmove(100, 0, yMin-yMax, 0, 0, 1, 1);
   //addmove(100, 0, 0, 0.5, 0, 0, 1);
+  addmove(100, 0, -dy, 0, 0, 1, 1); // kanan bawah
+  addmove(100, 0, -dy, 0, 0, 1, 1); // kanan bawah
+  addmove(100, 0, -dy, 0, 0, 1, 1); // kanan bawah
+  addmove(100, 0, -dy, 0, 0, 1, 1); // kanan bawah
 
   //addmove(100, 0, 0, -2.5, 0, 1, 1);
   laserOn = 0;
   constantlaserVal = 255;
   addmove(400, rx, ry, rz, 0, 1, 0);
-
 }
+
 void PREVIEWJOB(int a)
 {
   if (a == 4) {
@@ -943,7 +1044,8 @@ void runjob(int a)
   if (a == 0) {
     // jobname
     beginuncompress("/" + jobname);
-    LOADINFO();
+    //LOADINFO();
+    LOADMENU(0);
   }
   else if (a == 1) {
     // jobname
@@ -1026,25 +1128,32 @@ void setup_oled(void)
 
 int xlaserOn, xconstantlaserVal;
 long lastpause;
-void dopause() {
-  if (uncompress && (millis() - lastpause > 5000)) {
+uint32_t autoresume;
+void dopause(int tm=0) {
+  uint32_t mm=millis();  
+  if (uncompress && (mm - lastpause > 500)) {
     ispause = ispause == 0 ? 1 : 0;
+    autoresume=0;
+      extern int laserwason, cmdlaserval;    
     if (ispause) {
-      extern int laserOn, constantlaserVal;
-      xlaserOn = laserOn;
-      xconstantlaserVal = constantlaserVal;
+
+      //xlaserOn = laserwason;
+      //xconstantlaserVal = cmdlaserval;
+      if (tm>0)autoresume=mm+tm;;
     } else {
-      laserOn = xlaserOn;
-      constantlaserVal = xconstantlaserVal;
+      //laserwason = xlaserOn;
+      //cmdlaserval = xconstantlaserVal;
     }
     extern int8_t PAUSE;
     PAUSE = ispause;
-    lastpause = millis();
+    lastpause = mm;
   }
+  mili = 0;  
 }
 static int IR_UIloop(int icommand)
 {
   // handle special keys
+  
   extern float f_multiplier;
   switch (icommand) {
     case IRK4_JOBINDEX:
@@ -1055,14 +1164,14 @@ static int IR_UIloop(int icommand)
       mili = 0;
       break;
     case IRK4_SLOWDOWN:
-      if (f_multiplier > 0.3)f_multiplier -= 0.125;
+      if (f_multiplier > 0.3)f_multiplier -= 0.25;
       mili = 0;
       break;
     case IRK4_PLAY:
       if (ispause) {
         dopause();
-      } else f_multiplier = 1;
-      mili = 0;
+      }
+
       break;
     case IRK4_EXIT:
       LOADINFO();
@@ -1159,14 +1268,20 @@ int ir_oled_loop(int icommand)
   if (icommand)rmkey = icommand;
   extern int8_t RUNNING;
   extern uint32_t cm;
-
-  if (icommand == 0 && (cm - mili > (RUNNING ? 3000000 : 1000000))) {
+  extern bool cmddepleted();
+  
+  if (autoresume>0 && ispause && millis()>autoresume){
+      dopause();
+      return 0;
+  } // resume
+  
+  // update lcd every 30ms if nothing pressed
+  if (icommand == 0 && ((cm - mili) > (RUNNING?1000000:300000)) ) {
     mili = cm;
-    if (menu_index == 99)
-      menu_f();
+    if (menu_index == 99) menu_f();
+    return 0;
   }
-  if (icommand)mili = millis();
-
+  if (icommand)mili = cm;
   return IR_UIloop(icommand);
 }
 
@@ -1174,4 +1289,5 @@ void load_info() {
   LOADINFO();
 }
 #else
+void dopause(int tm=0){}
 #endif

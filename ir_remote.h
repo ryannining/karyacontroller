@@ -1,4 +1,6 @@
 #pragma once
+#ifndef irremote_H
+#define irremote_H
 
 #define  IRK_1 0x45
 #define  IRK_2 0x46
@@ -69,3 +71,4 @@ extern void IR_end();
 extern void IR_loop(int mode);
 extern bool IR_ok;
 extern String jobnum;
+#endif

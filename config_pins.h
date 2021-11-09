@@ -1,10 +1,7 @@
-#pragma once
+//#pragma once
 
-/*
-  ============================================================================================
-    AVR
-  ============================================================================================
-*/
+#ifndef configpin_H
+#define configpin_H
 
 
 
@@ -12,153 +9,114 @@
 
 
 
-#include "platform.h"
-#define THEISR
 
-#ifdef ISPC
-	#define LOW false
-	#define HIGH true
-#endif
+#define THEISR
 
 #define LASERON HIGH
 #define SPINDLEON HIGH
 
-#ifndef ISPC
-	#include<Arduino.h>
+#include<Arduino.h>
 
-	//Known board in boards.h
-	#define xenable -1
-	#define yenable -1
-	#define zenable -1
-	#define e0enable -1
+//Known board in boards.h
+#define xenable -1
+#define yenable -1
+#define zenable -1
+#define e0enable -1
 
-	#define ISRTEMP // 120bytes check board.h
-	#define INDEX "/3d.html"
+#define ISRTEMP // 120bytes check board.h
+#define INDEX "/3d.html"
 
+#define MAXTEMP 249
+
+
+#if defined(ESP32)
+	#warning CPU ESP32 
+	#define BOARD_ESP32VN3D
+	#define THEISR IRAM_ATTR
+	#define EMULATETEMP
+	#define BAUDRATE 115200*2
+	#define NUMBUFFER 30
+
+
+// ====== ESP8266 ====================================================
+#elif defined(ESP8266)
+	#warning CPU ESP8266
 	#define MAXTEMP 249
+	#define THEISR IRAM_ATTR
+	#define ANALOGSHIFT 0 // 10bit adc ??
+	#define BAUDRATE 115200*2
+	#define NUMBUFFER 30
 
-	// ========== AVR ================================================
-	#if defined(__AVR__)
-		#define BOARD_CHCSHIELDV3
-		//#define BOARD_TARANTHOLE
-		//#define BOARD_SEMEDIYNANO
-		//#define BOARD_NANONANO
-		//#define BOARD_NANONANO_DELTA
-		//#define BOARD_NANONANO_DELTA_NOSD
-		//#define BOARD_NANONANO_SDCARD
-		//#define BOARD_GEN7
-		//#define BOARD_RAMP13
-		//#define BOARD_RAMP13_DELTA
-		//#define BOARD_RAMP13_3DPLEX
-		//#define BOARD_NANO_3DPLEX
-		//#define BOARD_DIY_4XI
-		//#define BOARD_DIY_CNC1
-		//#define BOARD_SEMEDIY128AU
-		#define ANALOGSHIFT 0 // 10bit adc
-		//#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
-		#define BAUDRATE 115200
-
-	// ======= STM32F103 ===================================================
-	#elif defined(__ARM__)
-		//#define SUBPIXELMAX 6  // multiple axis smoothing / AMASS maximum subpixel
-		//#define BOARD_NANONANO_STM32
-		//#define BOARD_ST33DV1_STM32
-		//#define BOARD_ST33DV11_STM32
-		//#define BOARD_ST33DV1_STM32_3DPLEX
-		//#define BOARD_ST33DV1_XYYZ_STM32
-		//#define BOARD_ST33DV1_CNC_STM32
-		//#define BOARD_STM32F0
-		#define BOARD_STM32_CNC
-
-		#define ANALOGSHIFT 2 // 12bit adc
-		//#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel // set 1 to disable but can be adjust using M291 Sxx
-		//#define EMULATETEMP
-		#define BAUDRATE 115200*1
+	//#define BOARD_NANONANO_WEMOS
+	//#define BOARD_WEMOS3D
+	//#define BOARD_ESPUNO_COREXY
+	//#define BOARD_WEMOS3D_COREXY
+	//#define BOARD_WEMOS_CNC_XZYY
+	//#define BOARD_WEMOS3DCOREXY
+	//#define BOARD_WEMOSCNC
+	
+	//#define MYLASER
+	//#define LASERMINI
+	//#define LASERBIG
+	//#define LASERMERAH
+	//#define LCLASER
 
 
-	// ====== ESP32 ====================================================
-	#elif defined(ESP32)
-		#define BOARD_ESP32VN3D
-		#define THEISR IRAM_ATTR
-		//#define SUBPIXELMAX 1  // multiple axis smoothing / AMASS maximum subpixel
-		#define EMULATETEMP
-		#define BAUDRATE 115200*2
-		#define NUMBUFFER 30
-
-
-	// ====== ESP8266 ====================================================
-	#elif defined(ESP8266)
-		#define MAXTEMP 249
-		#define THEISR IRAM_ATTR
-		//#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
-		#define ANALOGSHIFT 0 // 10bit adc ??
-		#define BAUDRATE 115200*2
-		#define NUMBUFFER 30
-
-		//#define BOARD_NANONANO_WEMOS
-		//#define BOARD_WEMOS3D
-		//#define BOARD_ESPUNO_COREXY
-		//#define BOARD_WEMOS3D_COREXY
-		//#define BOARD_WEMOS_CNC_XZYY
-		//#define BOARD_WEMOS3DCOREXY
-		//#define BOARD_WEMOSCNC
-		//#define MYLASER
-		//#define LASERMINI
-		//#define LASERBIG
-		//#define LASERMERAH
-		//#define LCLASER
-
-
+	#ifndef MYLASER
 		#define MK4CNC
 		// subset cnc, if not dfault to mini cnc
-		//#define CNCBIG
+		#define CNCBIG
 		//#define M115
 		//#define LCHI1224
 		//#define LC_PLASMA
+	#endif
+	
+	#define EMULATETEMP
 
-		#define EMULATETEMP
-
-		#ifdef MYLASER
-			#undef MK4CNC
-			#undef BOARD_WEMOS3D_COREXY
-			#undef BOARD_WEMOS_CNC_XZYY
-			//#define BOARD_WEMOSCNC
-			#ifdef LASERBIG
-				#define BOARD_WEMOSCNC_ONLY
-			#else
-				#define BOARD_WEMOSCNC_ONLY_V2
-				#define COPY_Y_TO_Z
-			#endif
-		#endif
-
-
-		#ifdef MK4CNC
-			#define IR_OLED_MENU
-			#undef BOARD_WEMOS3D_COREXY
-			#undef BOARD_WEMOS_CNC_XZYY
-			#ifdef CNCBIG
-				#define BOARD_WEMOSCNC_ONLY_V2
-			#else
-				#define BOARD_WEMOSCNC_ONLY_V2
-			#endif
-		#endif
-
-		#ifdef LC_PLASMA
+	#ifdef MYLASER
+		#undef MK4CNC
+		#define IR_OLED_MENU
+		#undef BOARD_WEMOS3D_COREXY
+		#undef BOARD_WEMOS_CNC_XZYY
+		//#define BOARD_WEMOSCNC
+		#ifdef LASERBIG
+			#define BOARD_WEMOSCNC_ONLY
+		#else
 			#define BOARD_WEMOSCNC_ONLY_V2
-			#define PLASMA_MODE
-			#define limit_pin D2 // for Z probe
+			#define COPY_Y_TO_Z
 		#endif
-
 	#endif
 
-	#include "myboards.h"
-	#define USE_EEPROM
 
-	// custom
-	//#define spindle_pin D1
-	//#define ANALOG_THC
+	#ifdef MK4CNC
+		#undef laser_pin
+		#define IR_OLED_MENU
+		#undef BOARD_WEMOS3D_COREXY
+		#undef BOARD_WEMOS_CNC_XZYY
+		#ifdef CNCBIG
+			#define BOARD_WEMOSCNC_ONLY_V2
+		#else
+			#define BOARD_WEMOSCNC_ONLY_V2
+		#endif
+	#endif
+
+	#ifdef LC_PLASMA
+
+		#define BOARD_WEMOSCNC_ONLY_V2
+		#define PLASMA_MODE
+		//#define limit_pin D2 // for Z probe
+		#define ANALOG_THC
+	#endif
 
 #endif
+
+//#define BOARD_WEMOSCNC_ONLY
+#include "myboards.h"
+
+#define USE_EEPROM
+
+// custom
+//#define spindle_pin D1
 
 
 #ifdef MK4CNC
@@ -168,6 +126,7 @@
 #ifdef MYLASER
 	#undef zstep
 	#undef zdirection
+	#undef spindle_pin	
 #endif
 
 /*
@@ -176,91 +135,65 @@
   ============================================================================================
 */
 
-#ifdef __AVR__
-	//#define USEDIO // 750bytes this can save almost 20us each bresenham step, is a MUST if not using timer!
-	#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-	#define CORESERIAL // smaller footprint 500byte, only AVR
-	#define SAVE_RESETMOTION  // 1000 bytes code, no reset motion, need EEPROM
-	//#define USE_BACKLASH  // 400bytes code
-	//#define MESHLEVEL // 4Kb
-	// ==========================================================
-	// Basic arduino AVR, cant use LCD
-#else
-	//#define MESHLEVEL
-	#define ARC_SUPPORT // 3kb
-	#define USE_BACKLASH  // 400bytes code
-	#define USETIMER1 // Work in progress // 98 bytes// FLASH SAVING
-	//#define CHANGEFILAMENT //580byte
-	#define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-	//#define WIFISERVER
-	//#define TOUCHSERVER  // Karyacnc WEB SERVER ?
-	//#define TRUESCURVE // more complicated calculation for JERK motion smoothing
+//#define PLOTTING
+//#define MESHLEVEL
+#define ARC_SUPPORT // 3kb
+#define USE_BACKLASH  // 400bytes code
+//#define CHANGEFILAMENT //580byte
+#define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
+//#define WIFISERVER
+//#define TOUCHSERVER  // Karyacnc WEB SERVER ?
 
-	// enable LCD on this machine
-	#if defined(M115) || defined(LASERMINI) || defined(LASERBIG)|| defined(LCLASER)
-		#define IR_OLED_MENU
-	#endif
+// enable LCD on this machine
+#if defined(M115) || defined(LASERMINI) || defined(LASERBIG)|| defined(LCLASER)
+	#define IR_OLED_MENU
+#endif
 
-	// define pins for LCD	
-	#ifdef __ARM__
-		#define LCD_OLED_SSD
-		#define SDCARD_CS PC7
-		#define SDCARD_CLK PA5
-		#define SDCARD_MISO PA6
-		#define SDCARD_MOSI PA7
+#ifdef ESP8266
+	#define LCD_SDA TX
+	#define LCD_SCL RX
+	#define LCD_CMD D1
+	#define LCD_CS RX
 
-		#define IR_KEY PB10
-		#define LCD_SDA PB10
-		#define LCD_SCL PB11
-		#define LCD_CS PB11
-	#endif
+	#define USEOTA
+	//#define TCPSERVER // Old style for Repetier ??
+	#define WEBSOCKSERVER
+	#define WIFISERVER
 
-	#ifdef ESP8266
-		#define LCD_SDA TX
-		#define LCD_SCL RX
-		#define LCD_CMD D1
-		#define LCD_CS RX
+#endif
 
-		#define USEOTA
-		//#define TCPSERVER // Old style for Repetier ??
-		#define WEBSOCKSERVER
-		#define WIFISERVER
+#if defined(ESP32)
+	#define LCD_SDA TX
+	#define LCD_SCL RX
+	#define LCD_CMD D1
+	#define LCD_CS RX
 
-	#endif
-	
-	#if defined(ESP32)
-		#define LCD_SDA TX
-		#define LCD_SCL RX
-		#define LCD_CMD D1
-		#define LCD_CS RX
+	#define USEOTA
+	//#define TCPSERVER
+	#define WIFISERVER
+	#define WEBSOCKSERVER  // need wifiserver
+#endif
 
-		#define USEOTA
-		//#define TCPSERVER
-		#define WIFISERVER
-		#define WEBSOCKSERVER  // need wifiserver
-	#endif
+#ifdef IR_OLED_MENU
+	// pick LCD model
+	// to debug
+	//#undef IR_OLED_MENU
+	//FOR quick dev test 1661
+	#undef LCD_OLED_SSD
+	#undef LCD_OLED
+	#undef LCD_UC1609
+	#undef LCD_NK1661
+	#undef LCD_NK1202
+	#define LCD_NK1661
+	#define HAS_CS LCD_CS
+	#define IR_KEY LCD_SDA //share remote data pin with LCD SDA pin
 
-	#ifdef IR_OLED_MENU
-		// pick LCD model
-		// to debug
-		//#undef IR_OLED_MENU
-		//FOR quick dev test 1661
-		#undef LCD_OLED_SSD
-		#undef LCD_OLED
-		#undef LCD_UC1609
-		#undef LCD_NK1661
-		#undef LCD_NK1202
-		#define LCD_NK1661
-		#define HAS_CS LCD_CS
-		#define IR_KEY LCD_SDA //share remote data pin with LCD SDA pin
-
-	#endif
+#endif
 
 
 
-	#ifndef temp_pin
-		#define EMULATETEMP
-	#endif
+#ifndef temp_pin
+	#define EMULATETEMP
 #endif
 
 
@@ -269,28 +202,27 @@
 #endif
 
 
-
+//#define POMPA
 ///* DEBUG
-//#undef IR_KEY
+#ifdef POMPA
+#undef ANALOG_THC
+#undef IR_KEY
 //#define IR_KEY D2
-//#undef IR_OLED_MENU
+#undef IR_OLED_MENU
 //*/
-
-
-
-
-#if defined(__ARM__)
-	#undef MESHLEVEL // Arm cannot save mesh level ??
 #endif
+
+
 
 #define LASERON LOW // depends on laser machine
 
 #ifdef MYLASER
 	#define LASERON HIGH
-	#define laser_pin D8
+	#define laser_pin D1
+	#warning "is LASER ?"
 	#undef spindle_pin
 	#define BAUDRATE 115200*2
-	#define NUMBUFFER 40
+	#define NUMBUFFER 65
 
 	//LOW
 
@@ -302,13 +234,13 @@
 	#ifdef LASERBIG
 		#define LASERON HIGH
 		#define laser_pin D1
-		#define HAS_CS D2
+		//#define HAS_CS D2
 	#endif
 
 	#ifdef LCLASER
 		#define LASERON HIGH
 		#define laser_pin D1
-		#define HAS_CS D2
+		//#define HAS_CS D2
 	#endif
 
 	#undef heater_pin
@@ -334,19 +266,6 @@
 #endif
 
 
-#ifndef ISPC
-	#define SUBPIXELMAX 0  // multiple axis smoothing / AMASS maximum subpixel
-#else
-	//#define SUBPIXELMAX 0
-	#undef SUBPIXELMAX
-#endif
-
-
-//#undef SDCARD_CS
-#ifdef SDCARD_CS
-	#define USE_SDCARD
-#endif
-
 
 // ESP8266
 #ifdef SHARE_EZ
@@ -355,49 +274,10 @@
 
 
 #if defined(__AVR__) || defined (__ARM__)
-#undef WIFISERVER
-
+	#warning Doesnot support ARM/AVR
 #endif
-
-#ifndef __AVR__
-
-	// not implemented on non AVR
-	#undef USEDIO
-	#undef ISRTEMP
-	#undef CORESERIAL
-	//#undef USE_EEPROM
-	//#undef USETIMER1
-
-#endif
-
-#ifdef ISPC
-	// not implemented on PC
-	#undef USETIMER1
-	#undef LASERMODE
-	#undef SAVE_RESETMOTION
-
-
-	//#define DRIVE_XYYZ  // dual Y individual homing
-	//#define DRIVE_COREXY
-	//#define DRIVE_COREXZ
-
-	#define DRIVE_DELTA
-	//#define DRIVE_DELTASIAN
-
-#endif
-
 
 //#define motortimeout 10000000 // 10 seconds
-
-
-
-#ifdef DRIVE_DELTA
-	#define NONLINEAR
-#endif
-
-#ifdef DRIVE_DELTASIAN
-	#define NONLINEAR
-#endif
 
 
 #define TOWER_X_ANGLE_DEG        210
@@ -409,7 +289,7 @@
 
 
 #ifdef BOARD_WEMOS3D_COREXY
-	#define XYJERK 600
+
 	#define XYCORNER 45
 	#define XACCELL 1600
 	#define XMAXFEEDRATE 400
@@ -439,26 +319,41 @@
 
 #ifdef CNCBIG
 	// just for new cnc BIG with custom gear
-	#define XSTEPPERMM -334.014 // gear 10:47 htd5m drv8825
-	#define YSTEPPERMM 334.460 // gear 10:47 htd5m drv8825
-	#define ZSTEPPERMM -400.000
+	#define XSTEPPERMM 255.965 // gear 10:47 htd5m drv8825
+	#define YSTEPPERMM 401.191 // gear 10:47 htd5m drv8825
+	#define ZSTEPPERMM 400.000
+#endif
+#ifdef LC_PLASMA
+	// just for new cnc BIG with custom gear
+	#define spindle_pin D1
+	#undef laser_pin
+	#define XSTEPPERMM 262.049 // gear 10:47 htd5m drv8825
+	#define YSTEPPERMM 188.32 // gear 10:47 htd5m drv8825
+	#define ZSTEPPERMM 400.000
 #endif
 
 #ifdef LCHI1224
 	// just for new cnc BIG with custom gear
-	#define XSTEPPERMM -255.875 // gear 10:47 htd5m drv8825
-	#define YSTEPPERMM -255.899 // gear 10:47 htd5m drv8825
-	#define ZSTEPPERMM 804.580
-	#define XYJERK 0
-	#define XYCORNER 25
-	#define XACCELL 200
+	#ifdef OLDLCHI1224
+		#define XSTEPPERMM -255.875 // gear 10:47 htd5m drv8825
+		#define YSTEPPERMM -255.899 // gear 10:47 htd5m drv8825
+		#define ZSTEPPERMM 800
+	#else
+		#define XSTEPPERMM -240.280 // gear 10:47 htd5m drv8825
+		#define YSTEPPERMM -240.280 // gear 10:47 htd5m drv8825
+		#define ZSTEPPERMM 800
+	#endif
+	
+
+	#define XYCORNER 30
+	#define XACCELL 400
 	#define XMAXFEEDRATE 60
 	#define YMAXFEEDRATE 60
 	#define ZMAXFEEDRATE 20
 #endif
 
 #ifdef MYLASER
-	#define XYJERK 0
+
 	#define XYCORNER 25
 	#define XACCELL 4000
 	#define XMAXFEEDRATE 230
@@ -476,7 +371,7 @@
 		#define XSTEPPERMM -255.875 // gear 10:47 htd5m drv8825
 		#define YSTEPPERMM -255.899 // gear 10:47 htd5m drv8825
 		#define ZSTEPPERMM 804.580
-		#define XYJERK 0
+
 		#define XYCORNER 25
 		#define XACCELL 2000
 		#define XMAXFEEDRATE 300
@@ -489,7 +384,7 @@
 		#define XSTEPPERMM -157.480 // gear 10:47 htd5m drv8825
 		#define YSTEPPERMM -157.068 // gear 10:47 htd5m drv8825
 		#define ZSTEPPERMM 50.0
-		#define XYJERK 0
+
 		#define XYCORNER 25
 		#define XACCELL 2000
 		#define XMAXFEEDRATE 170
@@ -544,7 +439,7 @@
 #endif
 
 #ifndef XACCELL
-	#define XYJERK 9000
+
 	#define XYCORNER 35
 	#define XACCELL 200
 #endif
@@ -601,3 +496,8 @@
 
 #define ENDSTOP_MOVE 3   //2mm move back after endstop hit, warning, must
 #define HOMING_MOVE 2000
+
+#include "platform.h"
+#include "motors.h"
+
+#endif

@@ -1,8 +1,7 @@
-#include "config_pins.h"
+
 #include "common.h"
 #include "temp.h"
-#include "timer.h"
-#include "motion.h"
+
 #include "pid.h"
 
 
@@ -37,7 +36,7 @@ void setfan_val(int val) {
 }
 
 
-#if defined(heater_pin) && !defined(ISPC)
+#if defined(heater_pin)
 #include "pid.h"
 
 
@@ -48,30 +47,6 @@ PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 //PID myPID(&Input, &Output, &Setpoint, 1, 2, 13, DIRECT); //2, 5, 1, DIRECT);
 
 
-
-#if defined(__AVR__) && defined(ISRTEMP)
-int vanalog[8];
-int adcpin;
-
-ISR (ADC_vect)
-{
-  uint8_t low, high;
-
-  // we have to read ADCL first; doing so locks both ADCL
-  // and ADCH until ADCH is read.  reading ADCL second would
-  // cause the results of each conversion to be discarded,
-  // as ADCL and ADCH would be locked when it completed.
-  low = ADCL;
-  high = ADCH;
-
-  vanalog[adcpin] = (high << 8) | low;
-  /*Serial.print(adcpin);
-    Serial.print(":");
-    Serial.print(vanalog[adcpin]);
-    Serial.write('\n');
-  */
-}  // end of ADC_vect
-#endif
 
 int WindowSize = 1500;
 unsigned long windowStartTime;
@@ -95,12 +70,8 @@ void init_temp()
   set_temp(0);
 #ifdef temp_pin
 
-#if defined( __AVR__) && defined(ISRTEMP)
-
-  ADCREAD(temp_pin)
-#else
   pinMode(temp_pin, INPUT);
-#endif
+
 #endif
 
 }
@@ -193,14 +164,9 @@ void temp_loop(uint32_t cm)
 #else
     // real hardware sensor
 
-#if defined( __AVR__) && defined(ISRTEMP)
-    // automatic in ESR
-    ADCREAD(temp_pin)
-    v = vanalog[temp_pin];
-#else
+
     v = analogRead(temp_pin) >> ANALOGSHIFT;
-    //zprintf(PSTR("%d\n"),fi(v));
-#endif
+
 
 #ifdef ESP8266
 

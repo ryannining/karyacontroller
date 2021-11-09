@@ -1,4 +1,6 @@
-#pragma once
+//#pragma once
+#ifndef platform_H
+#define platform_H
 
 #ifdef ARDUINO
 #include<Arduino.h>
@@ -8,16 +10,6 @@
 //#define ESP32
 //#define ESP8266
 
-
-#if defined(STM32) || defined(__STM32F1__) || defined(__STM32F0__) || defined(STM32_SERIES_F1)
-#undef _VARIANT_ARDUINO_STM32_
-#warning Detected ARM
-#define __ARM__
-#endif
-
-#if defined(_VARIANT_ARDUINO_STM32_)
-#define __ARM__
-#endif
 
 #ifdef ESP8266
 #define D0    16
@@ -40,10 +32,10 @@
 //#define ESP8266
 #endif
 
-#if defined(__AVR__) || defined(ESP8266)|| defined(ESP32)  || defined (__ARM__)
+#if  defined(ESP32)  || defined (ESP8266)
 
 extern int HEATING;
-#include "motors.h"
+//#include "motors.h"
 #ifdef laser_pin
 #define LASER(x) {xdigitalWrite(laser_pin,x);}
 #else
@@ -62,9 +54,10 @@ extern int HEATING;
 #else
 #define HEATER(x) {}
 #endif
+
 #else
-#warning Detected as PC
-#define LASER(x) {}
-#define ISPC
-#define PROGMEM
+#warning Unsupported CPU
+
+#endif
+
 #endif

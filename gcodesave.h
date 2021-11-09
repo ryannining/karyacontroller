@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(ESP8266) || defined (ESP32) || defined (SDCARD_CS)
+#if defined(ESP8266) || defined (ESP32)
 extern int compress_loop();
 extern void uncompress_loop();
 

@@ -1,23 +1,11 @@
 #pragma once
+#ifndef eprom_H
+#define eprom_H
 
-#ifndef EEPROM_H
-#define EEPROM_H
+#ifdef USE_EEPROM
 
-#include "platform.h"
-#include "common.h"
 #include "timer.h"
 
-
-
-#if defined( __AVR__)
-#include <avr/eeprom.h>
-
-#define eepromread(p) eeprom_read_dword((uint32_t)&p)
-#define eepromwrite(p,val) eeprom_write_dword((uint32_t)&p,(int32_t)val)
-#define eepromcommit()
-#define eeprominit
-
-#elif defined(ESP8266) || defined(ESP32) ///end avr
 
 #include <EEPROM.h>
 #define EEPROM_SIZE 512
@@ -63,49 +51,10 @@ static void eepromcommit() {
 
 #define eeprominit EEPROM.begin(512)
 
-#elif defined(__ARM__) // esp8266
-#include <EEPROM.h>
-#define EEMEM
+
+extern int thc_ofs,thc_up;
 
 
-static int32_t eepromread(int p)
-{
-  int32_t r;
-#ifdef _VARIANT_ARDUINO_STM32_
-  r = EEPROM.read(p);
-#else
-  uint16_t* b;
-  b = (uint16_t*)&r;
-  EEPROM.read(p, b); p += 2; b++;
-  EEPROM.read(p, b);
-#endif
-  zprintf(PSTR("Read eeprom %d %d\n"), fi(p), fi(r));
-  return r;
-}
-static void eepromwrite(int p, int32_t val)
-{
-#ifdef _VARIANT_ARDUINO_STM32_
-  EEPROM.put(p, val);
-#else
-  uint16_t* b;
-  b = (uint16_t*)&val;
-  EEPROM.update(p, *b); p += 2; b++;
-  EEPROM.update(p, *b);
-#endif
-  zprintf(PSTR("Write eeprom %d %d\n"), fi(p), fi(val));
-}
-
-#define eepromcommit()
-
-#ifdef _VARIANT_ARDUINO_STM32_
-#define eeprominit
-#else
-#define eeprominit EEPROM.PageBase0 = 0x801F000; EEPROM.PageBase1 = 0x801F800; EEPROM.PageSize  = 0x400;EEPROM.init();
-#endif //
-#endif //
-
-
-#ifndef __AVR__
 /*
   #define EE_home 145
   #define EE_home 149
@@ -161,9 +110,11 @@ static void eepromwrite(int p, int32_t val)
 #define EE_towera_ofs 140
 #define EE_towerb_ofs 145
 #define EE_towerc_ofs 150
-#ifdef NONLINEAR
-#define EE_hor_radius 155
-#define EE_rod_length 160
+
+
+#ifdef ANALOG_THC
+#define EE_thc_up 155
+#define EE_thc_ofs 160
 #endif
 
 #define EE_corner 165
@@ -194,64 +145,6 @@ static void eepromwrite(int p, int32_t val)
 #define EE_un_microstep 350
 #define EE_softreset 490
 
-#else
-extern float EEMEM EE_xhome;
-extern float EEMEM EE_yhome;
-extern float EEMEM EE_zhome;
-extern int32_t EEMEM EE_homing;
-extern int32_t EEMEM EE_corner;
-extern float EEMEM EE_Lscale;
-
-extern int32_t EEMEM EE_accel;
-
-extern int32_t EEMEM EE_jerk;
-
-extern int32_t EEMEM EE_max_x_feedrate;
-extern int32_t EEMEM EE_max_y_feedrate;
-extern int32_t EEMEM EE_max_z_feedrate;
-extern int32_t EEMEM EE_max_e_feedrate;
-
-extern float EEMEM EE_xstepmm;
-extern float EEMEM EE_ystepmm;
-extern float EEMEM EE_zstepmm;
-extern float EEMEM EE_estepmm;
-
-#ifdef NONLINEAR
-extern float EEMEM EE_hor_radius;
-extern float EEMEM EE_rod_length;
-#endif
-extern float EEMEM EE_towera_ofs;
-extern float EEMEM EE_towerb_ofs;
-extern float EEMEM EE_towerc_ofs;
-
-#ifdef USE_BACKLASH
-extern int32_t EEMEM EE_xbacklash;
-extern int32_t EEMEM EE_ybacklash;
-extern int32_t EEMEM EE_zbacklash;
-extern int32_t EEMEM EE_ebacklash;
-#endif
-
-
-#ifdef POWERFAILURE
-extern int32_t EEMEM EE_lastline;
-#endif
-
-extern float EEMEM EE_retract_in;
-extern float EEMEM EE_retract_out;
-extern float EEMEM EE_retract_in_f;
-extern float EEMEM EE_retract_out_f;
-
-
-extern float EEMEM EE_pid_p;
-extern float EEMEM EE_pid_i;
-extern float EEMEM EE_pid_d;
-extern float EEMEM EE_pid_bang;
-extern float EEMEM EE_pid_HS;
-
-extern float EEMEM EE_ext_adv;
-extern int32_t  EE_un_microstep;
-#endif
-
 
 extern void reload_eeprom();
 extern void reset_eeprom();
@@ -260,4 +153,6 @@ extern char wifi_pwd[20];
 extern char wifi_dns[30];
 extern int wifi_gcode;
 
-#endif // EEPROM_H
+#endif
+
+#endif

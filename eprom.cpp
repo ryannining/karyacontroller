@@ -1,5 +1,4 @@
-#include "platform.h"
-#include "config_pins.h"
+
 #include "common.h"
 #include "temp.h"
 
@@ -8,70 +7,11 @@ char wifi_ap[50] = "myap";
 char wifi_pwd[20] = "pwd";
 char wifi_dns[30] = "karyacnc";
 
+int thc_up;
+int thc_ofs;
 
 #ifdef USE_EEPROM
 #include "eprom.h"
-
-
-
-#ifdef __AVR__
-float EEMEM EE_xhome;
-float EEMEM EE_yhome;
-float EEMEM EE_zhome;
-int32_t EEMEM EE_homing;
-int32_t EEMEM EE_corner;
-
-
-int32_t EEMEM EE_accel;
-int32_t EEMEM EE_jerk;
-
-
-int32_t EEMEM EE_max_x_feedrate;
-int32_t EEMEM EE_max_y_feedrate;
-int32_t EEMEM EE_max_z_feedrate;
-int32_t EEMEM EE_max_e_feedrate;
-
-float EEMEM EE_xstepmm;
-float EEMEM EE_ystepmm;
-float EEMEM EE_zstepmm;
-float EEMEM EE_estepmm;
-float EEMEM EE_Lscale;
-
-#ifdef USE_BACKLASH
-int32_t EEMEM EE_xbacklash;
-int32_t EEMEM EE_ybacklash;
-int32_t EEMEM EE_zbacklash;
-int32_t EEMEM EE_ebacklash;
-#endif
-
-#ifdef NONLINEAR
-float EEMEM EE_hor_radius;
-float EEMEM EE_rod_length;
-#endif
-float EEMEM EE_towera_ofs;
-float EEMEM EE_towerb_ofs;
-float EEMEM EE_towerc_ofs;
-
-
-#ifdef POWERFAILURE
-int32_t EEMEM EE_lastline;
-#endif
-
-float EEMEM EE_retract_in;
-float EEMEM EE_retract_out;
-float EEMEM EE_retract_in_f;
-float EEMEM EE_retract_out_f;
-
-float EEMEM EE_pid_p;
-float EEMEM EE_pid_i;
-float EEMEM EE_pid_d;
-float EEMEM EE_pid_bang;
-float EEMEM EE_pid_HS;
-
-float EEMEM EE_ext_adv;
-int32_t EEMEM EE_un_microstep;
-
-#endif
 
 
 
@@ -101,17 +41,23 @@ void reload_eeprom() {
   perstepx = 1.0 / (stepmmx[0] = (float)eepromread(EE_xstepmm)  * 0.001);
   perstepy = 1.0 / (stepmmx[1] = (float)eepromread(EE_ystepmm)  * 0.001);
   perstepz = 1.0 / (stepmmx[2] = (float)eepromread(EE_zstepmm)  * 0.001);
+extern int odir[4];
+  odir[0] = stepmmx[0] < 0 ? -1 : 1;
+  odir[1] = stepmmx[1] < 0 ? -1 : 1;
+  odir[2] = stepmmx[2] < 0 ? -1 : 1;
+  odir[3] = stepmmx[3] < 0 ? -1 : 1;
 
-  xycorner = eepromread(EE_corner);
-  xyjerk = eepromread(EE_jerk);
-  homingspeed = eepromread(EE_homing);
-  zcorner = fmin(homingspeed / 3, xycorner);
-  zjerk = xyjerk * zcorner / xycorner;
-  Lscale = (float)eepromread(EE_Lscale) * 0.001;
-#ifdef NONLINEAR
-  delta_radius = (float)eepromread(EE_hor_radius)   * 0.001;
-  delta_diagonal_rod = (float)eepromread(EE_rod_length)   * 0.001;
+
+#ifdef ANALOG_THC
+  thc_up=eepromread(EE_thc_up);
+  thc_ofs=eepromread(EE_thc_ofs);
 #endif
+
+  xycorner = eepromread(EE_corner);  
+  homingspeed = eepromread(EE_homing);
+
+  Lscale = (float)eepromread(EE_Lscale) * 0.001;
+
   axisofs[0] = (float)eepromread(EE_towera_ofs)   * 0.001;
   axisofs[1] = (float)eepromread(EE_towerb_ofs)   * 0.001;
   axisofs[2] = (float)eepromread(EE_towerc_ofs)   * 0.001;
@@ -150,7 +96,7 @@ void reload_eeprom() {
   HEATINGSCALE = eepromread(EE_pid_HS) * 0.001;
   extadv = eepromread(EE_ext_adv) * 0.001;
   //unms = eepromread(EE_un_microstep);
-  preparecalc();
+
 }
 
 void reset_eeprom() {
@@ -166,7 +112,7 @@ void reset_eeprom() {
 
   eepromwrite(EE_accel, fi(accel));
 
-  eepromwrite(EE_jerk, fi(xyjerk));
+
 
   eepromwrite(EE_max_x_feedrate, fi(maxf[0]));
   eepromwrite(EE_max_y_feedrate, fi(maxf[1]));
@@ -181,10 +127,7 @@ void reset_eeprom() {
   eepromwrite(EE_homing, homingspeed);
   eepromwrite(EE_corner, xycorner);
   eepromwrite(EE_Lscale, ff(Lscale));
-#ifdef NONLINEAR
-  eepromwrite(EE_hor_radius, ff(delta_radius));
-  eepromwrite(EE_rod_length, ff(delta_diagonal_rod));
-#endif
+
   eepromwrite(EE_towera_ofs, ff(axisofs[0]));
   eepromwrite(EE_towerb_ofs, ff(axisofs[1]));
   eepromwrite(EE_towerc_ofs, ff(axisofs[2]));
@@ -215,8 +158,8 @@ void reset_eeprom() {
 #endif
   eepromwrite(EE_ext_adv, ff(0));
   eepromwrite(EE_un_microstep, fi(0));
-  eepromcommit();
 #endif
+  eepromcommit();
 }
 #else
 void reload_eeprom() {}

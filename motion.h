@@ -1,9 +1,7 @@
-#pragma once
-
-
-#ifndef MOTION_H
-#define MOTION_H
-
+//#pragma once
+#ifndef motion_H
+#define motion_H
+#include "config_pins.h"
 
 #define UPDATE_V_EVERY 3 // must be 1<<n  16 =1<<4
 #define DELAYBETWEENSTEP 3
@@ -12,13 +10,10 @@
 #define nE 3
 
 // Corner deviation Setting
-//#define FASTBUFFERFILL 10 // if need faster buffer filling.
-//#define FASTBUFFERFILL2 10 // if need faster buffer filling.
+
 // Centripetal
-#define MINCORNERSPEED 2 // minimum cornering speed
+#define MINCORNERSPEED 0.25 // minimum cornering speed
 #define MINSTEP 0
-//#define TSTEP 0.0005 // time stepping to get the velocity
-#define TSTEP 0.001 // time stepping to get the velocity
 
 #ifdef DRIVE_XYYZ
 #define MZ 1
@@ -37,37 +32,28 @@
 #define D_COREXZ 2
 #define D_XYYZ 3
 
-#include "platform.h"
+//#include "platform.h"
 #include<math.h>
 #include<stdint.h>
-#include "config_pins.h"
+//#include "config_pins.h"
 #define NUMAXIS 4
 
-#ifdef __AVR__
-#define LOWESTDELAY 440 // IF LESS than this microsec then do the subpixel
-#else
+
 #define LOWESTDELAY 50 // IF LESS than this microsec then do the subpixel
-#endif
+
 
 
 typedef struct {
   int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
   int laserval;
   float dis; // max start speed, maxcorner
-#ifdef __AVR__
-  int16_t ac; // needed for backplanner
-  uint16_t fs, fn, delta, maxs; // all are in square ! needed to calc real accell
-#else
+
   int32_t ac, delta, maxs; // needed for backplanner
   int32_t fs, fn; // all are in square ! needed to calc real accell
-#endif
+
   int32_t dx[NUMAXIS]; //original delta before transform
   //  float dtx[NUMAXIS]; // keep the original coordinate before transform
 
-#ifdef ISPC
-  // for graphics
-  int col;
-#endif
 } tmove;
 
 
@@ -81,10 +67,8 @@ extern int MESHLEVELING;
 #endif
 
 extern float e_multiplier, f_multiplier;
-#ifdef ISPC
-extern float tick, tickscale, fscale, graphscale;
-#endif
-extern int vSUBPIXELMAX;
+
+
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
 extern int babystep[4];
@@ -94,14 +78,14 @@ extern int mm_ctr;
 extern int xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
-extern int32_t xyjerk, zjerk, xycorner, zcorner;
+extern int32_t xycorner;
 extern int zaccel, accel;
 extern int  maxf[4];
 extern int  maxa[4];
 extern int32_t dlp, info_x_s, info_y_s, info_z_s;
 extern float stepmmx[4], Lscale;
 extern float retract_in, retract_out;
-extern float info_x, info_y, info_z, info_e, perstepx, perstepy, perstepz;
+extern float info_x, info_y, info_z, info_ve, info_e, perstepx, perstepy, perstepz;
 extern float retract_in_f, retract_out_f;
 extern tmove moves[NUMBUFFER];
 extern float cx1, cy1, cz1, ocz1, ce01;
@@ -136,7 +120,7 @@ extern int coreloop();
 extern void coreloopm();
 extern void otherloop(int r);
 extern void waitbufferempty();
-extern void needbuffer();
+//extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();
 #ifdef ARC_SUPPORT
@@ -147,55 +131,6 @@ extern void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g
 
 extern float axisofs[4];
 
-#ifdef NONLINEAR
-extern float delta_diagonal_rod;
-extern float DELTA_DIAGONAL_ROD_2;
-extern float delta_radius;
-
-
-// Compile-time trigonometric functions. See Taylor series.
-// Converts degrees to radians.
-#define DegToRad(angleDegrees) ((angleDegrees) * M_PI / 180.0)
-//Make an angle (in radian) coterminal (0 >= x > 2pi).
-//#define COTERMINAL(x) (fmod((x), M_PI*2)) //This causes error since fmod() implementation is different from i386 compiler.
-//TODO: Solve coterminality
-#define COTERMINAL(x) (x)
-// Get quadrant of an angle in radian.
-#define QUADRANT(x) ((uint8_t)((COTERMINAL((x))) / M_PI_2) + 1)
-//Calculate sine of an angle in radians.
-//Formula will be adjusted accordingly to the angle's quadrant.
-//Don't worry about pow() function here as it will be optimized by the compiler.
-#define SIN0(x) (x)
-#define SIN1(x) (SIN0(x) - (pow ((x), 3) / 6))
-#define SIN2(x) (SIN1(x) + (pow ((x), 5) /  120))
-#define SIN3(x) (SIN2(x) - (pow ((x), 7) /  5040))
-#define SIN4(x) (SIN3(x) + (pow ((x), 9) /  362880))
-//*
-#define SIN(x) (QUADRANT((x)) == 1 ? (SIN4(COTERMINAL((x)))) : \
-                (QUADRANT((x)) == 2 ? (SIN4(M_PI - COTERMINAL((x)))) : \
-                 (QUADRANT((x)) == 3 ? -(SIN4(COTERMINAL((x)) - M_PI)) : \
-                  -(SIN4(M_PI*2 - COTERMINAL((x)))))))
-//               */
-//#define SIN(x) (SIN4(x))
-//Calculate cosine of an angle in radians.
-//Formula will be adjusted accordingly to the angle's quadrant.
-//Don't worry about pow() function here as it will be optimized by the compiler.
-#define COS0(x) 1
-#define COS1(x) (COS0(x) - (pow ((x), 2) /  2))
-#define COS2(x) (COS1(x) + (pow ((x), 4) /  24))
-#define COS3(x) (COS2(x) - (pow ((x), 6) /  720))
-#define COS4(x) (COS3(x) + (pow ((x), 8) /  40320))
-//*
-#define COS(x) (QUADRANT((x)) == 1 ? (COS4(COTERMINAL((x)))) : \
-                (QUADRANT((x)) == 2 ? -(COS4(M_PI - COTERMINAL((x)))) : \
-                 (QUADRANT((x)) == 3 ? -(COS4(COTERMINAL((x)) - M_PI)) : \
-                  (COS4(M_PI*2 - COTERMINAL((x)))))))
-//               */
-//#define COS(x) COS4((x))
-//Must scale by 16 because 2^32 = 4,294,967,296 - giving a maximum squareroot of 65536
-//If scaled by 8, maximum movement is 65,536 * 8 = 524,288um, 65,536 * 16 = 1,048,576um
-
-#endif
 
 
 #define amove addmove
@@ -205,7 +140,7 @@ extern void homing();
 
 void docheckendstop(int m);
 extern void reset_motion();
-extern void preparecalc();
+
 extern tmove* m;
 #define fmax(a,b) a<b?b:a
 #define fmin(a,b) a>b?b:a

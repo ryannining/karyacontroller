@@ -1,7 +1,7 @@
 #pragma once
+#ifndef timer_H
+#define timer_H
 
-#include "motion.h"
-#include "config_pins.h"
 
 #include <stdint.h>
 #define TMSCALE 1024L
@@ -11,9 +11,7 @@ extern int feedthedog();
 
 #define TEMPTICK 100000 //500ms
 #define timescale 1000000L
-#ifdef ISPC
-extern uint32_t micros();
-#else
+
 
 #if defined(ESP8266) && defined(WIFISERVER)
 #define usetmr1
@@ -23,7 +21,6 @@ extern uint32_t micros();
 extern uint32_t get_RPM();
 
 
-#endif // ISPC
 
 #define SUBMOTION 1
 #define timescaleLARGE timescale*TMSCALE
@@ -44,24 +41,6 @@ extern void servo_set(int angle);
 #endif
 
 
-#ifdef USETIMER1
-#ifdef __AVR__
-#define MEMORY_BARRIER() __asm volatile( "" ::: "memory" );
-#define CLI cli();
-#define SEI sei();
-
-#define ATOMIC_START { \
-    uint8_t save_reg = SREG; \
-    cli(); \
-    MEMORY_BARRIER();
-
-#define ATOMIC_END   MEMORY_BARRIER(); \
-  SREG = save_reg; \
-  }
-#endif
-#endif
-
-
 #ifndef CLI
 #define CLI
 #define SEI
@@ -78,3 +57,5 @@ extern void THEISR timerResume();
 #define timerPause()
 #define timerResume()
 #endif
+#endif
+

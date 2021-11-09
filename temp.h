@@ -62,16 +62,5 @@ extern int vanalog[8];
 extern int adcpin;
 extern PID myPID;
 extern float tbang;
-#ifdef __AVR__
-#ifdef MUX5
-#define ADCREAD(pin) adcpin=pin;\
-  ADMUX = bit (REFS0) | (pin);\
-  if(pin>8)ADCSRB |= _BV(MUX5);else ADCSRB &= ~_BV(MUX5);\
-  ADCSRA |= bit (ADSC) | bit (ADIE);
-#else
-#define ADCREAD(pin) adcpin=pin;\
-  ADMUX = bit (REFS0) | (pin);\
-  ADCSRA |= bit (ADSC) | bit (ADIE);
-#endif
-#endif
+
 

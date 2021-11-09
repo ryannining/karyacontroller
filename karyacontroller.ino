@@ -5,27 +5,28 @@
 //#define VERSION "Firmware 1.0.0" // first to have firmware update
 #define VERSION "Firmware 1.0.1" // new remote, able to control more on remote
 #define VERSION "Firmware 1.0.2" // fix lots issues with remote, LCD
-#define VERSION "Firmware 1.0.3" // fix lots issues with remote, LCD, PLASMA THC
+#define VERSION "Firmware 1.0.3" // fix lots issues with remote, LCD, PLASMA THC,Better Loop
 
-#include "platform.h"
-#include "config_pins.h"
 #include "common.h"
 #include "gcode.h"
 #include "temp.h"
 #include "timer.h"
 #include "eprom.h"
-#include "motion.h"
 #include "gcodesave.h"
 #include "ir_remote.h"
 #include "ir_oled.h"
+#include <stdint.h>
 
+
+#ifndef WIFISERVER
+// provide empty implementation
+inline void wifi_loop() {}
+inline void setupwifi(int num) {}
+#else
 #ifdef USEOTA
 #include <ArduinoOTA.h>
 #endif
-#include <stdint.h>
-
-#ifdef WIFISERVER
-//#include <WiFiClient.h>
+#include <FS.h> // Include the SPIFFS library
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -46,10 +47,9 @@ WebServer server(80);
 #endif
 // ==============================
 
+#ifdef TCPSERVER
 #include <WiFiClient.h>
-
-#include <FS.h> // Include the SPIFFS library
-
+#endif
 #ifdef WEBSOCKSERVER
 #include <WebSocketsServer.h>
 #endif
@@ -71,7 +71,7 @@ WebSocketsServer webSocket = WebSocketsServer(81); // create a websocket server 
 #endif
 
 IPAddress ip;
-
+// Server
 #define IOT_IP_ADDRESS "172.245.97.171"
 long lm = 0;
 int ISWIFIOK = 0;
@@ -79,7 +79,7 @@ void touchserver(int v, String info)
 {
 #ifndef TOUCHSERVER
   return;
-#endif
+#else
   if (uncompress)
     return;
   if (WiFi.status() != WL_CONNECTED)
@@ -141,6 +141,7 @@ void touchserver(int v, String info)
     //p("\n");
     lm = m;
   }
+#endif
 }
 
 File fsUploadFile;
@@ -167,7 +168,7 @@ String getContentType(String filename)
 }
 bool handleFileRead(String path)
 { // send the right file to the client (if it exists)
-  motionloop();
+
   //NOINTS
   if (SPIFFS.exists(path + ".html"))
     path += ".html";
@@ -318,8 +319,9 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t lenght)
       break;
   }
 }
-
 #endif
+
+
 void wifiwr(uint8_t s)
 {
   wfb[wfl] = s;
@@ -345,9 +347,9 @@ void wifi_push(char c)
 
 void connectWifi(int ret = 1)
 {
-  if (ret){
-      WiFi.reconnect();
-      return;
+  if (ret) {
+    WiFi.reconnect();
+    return;
   }
   xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
   WiFi.mode(WIFI_STA);
@@ -396,10 +398,12 @@ void setupwifi(int num)
     else {
       String("cnc").toCharArray(wifi_dns, 29);
       String("Tenda_AD26C0").toCharArray(wifi_ap, 49);
-      String("x45712319").toCharArray(wifi_pwd, 19);
+      String("45712319").toCharArray(wifi_pwd, 19);
       eepromwritestring(470, wifi_dns);
       eepromwritestring(400, wifi_ap);
       eepromwritestring(450, wifi_pwd);
+      // reset factory
+      reset_eeprom();
       c = 'a';
     }
     if (c != 0) connectWifi(0);
@@ -417,9 +421,9 @@ void setupwifi(int num)
     else {
       xprintf(PSTR("Access Point Mode\n"));
       /*IPAddress local_IP(192, 168, 4, 1);
-      IPAddress gateway(192, 168, 4, 9);
-      IPAddress subnet(255, 255, 255, 0);
-      WiFi.softAPConfig(local_IP, gateway, subnet);
+        IPAddress gateway(192, 168, 4, 9);
+        IPAddress subnet(255, 255, 255, 0);
+        WiFi.softAPConfig(local_IP, gateway, subnet);
       */
       WiFi.mode(WIFI_AP);
       ISWIFIOK = 0;
@@ -427,7 +431,7 @@ void setupwifi(int num)
       const char* ssid = "cnc1-9";
       const char* password = "123456789";
       WiFi.softAP(wifi_dns);
-      
+
       //ip = WiFi.softAPIP();
       //xprintf(PSTR("AP:%s Ip:%d.%d.%d.%d\n"), ((' '<wifi_dns[0]<'Z')?wifi_dns:ssid), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]));
       ipa = String((' ' < wifi_dns[0] < 'Z') ? wifi_dns : ssid) + " : 4.1";
@@ -511,7 +515,18 @@ void setupwifi(int num)
       res += "]";
       server.send(200, "text/html", res);
     });
-
+#ifdef ANALOG_THC
+    server.on("/thc", HTTP_GET, []() {
+      extern String formatthc();
+      String res = formatthc();
+      server.send(200, "text/html", res);
+    });
+#endif
+    server.on("/velo", HTTP_GET, []() {
+      extern String formatvelo();
+      String res = formatvelo();
+      server.send(200, "text/html", res);
+    });
     server.on("/pauseprint", HTTP_GET, []() { // if the client requests the upload page
       //NOINTS
       if (uncompress) {
@@ -775,33 +790,55 @@ extern int sendwait;
 boolean alreadyConnected = false;
 uint32_t wmc = 0;
 extern uint32_t cm;
+
+uint32_t i_l_c=0;
+extern bool cmddepleted();
+void important_loop(){
+	
+  if (cm - wmc < (uncompress?1000000:200000)) {
+    return;
+  }
+  IR_loop(0);
+  motionloop();
+  server.handleClient();
+    motionloop();
+ #ifdef WEBSOCKSERVER 
+  webSocket.loop();
+motionloop();
+#endif //webserver
+  wmc = cm;
+}
 void wifi_loop()
 {
 
-  if (cm - wmc < 50000) {
+  if (cm - wmc < (uncompress?1000000:200000)) {
     return;
   }
+
   server.handleClient();
+    motionloop();
   MDNS.update();
+    motionloop();
 #ifdef WEBSOCKSERVER
   webSocket.loop();
+    motionloop();
 #endif //webserver
 #ifdef USEOTA
-  ArduinoOTA.handle();
+  if (!uncompress) ArduinoOTA.handle();
+    motionloop();
 #endif
-  wmc = cm;
+
 #ifdef TOUCHSERVER
   if (sendwait == 1)
     touchserver(0, String(wifi_dns));
 #endif // touch
-
+  wmc = cm;
   if (ISWIFIOK) {
     if (WiFi.status() != WL_CONNECTED) {
       //connectWifi();
       //return;
     }
   }
-
 #ifdef TCPSERVER
   // wait for a new client:
 
@@ -822,23 +859,19 @@ void wifi_loop()
         // echo the bytes back to the client:
       }
     }
+    motionloop();
     else
       client.stop();
   }
 #endif // tcp server
 }
-#else
-void wifi_loop() {}
-void setupwifi(int num) {}
 #endif
 
 int line_done, ack_waiting = 0;
 int ct = 0;
 uint32_t gt = 0;
 int n = 0;
-uint32_t kctr = 0;
-int akey = 0, lkey = 0;
-int kdl = 200;
+
 
 /*
 
@@ -851,15 +884,25 @@ int kdl = 200;
       =========================================================================================================================================================
 */
 int tmax, tmin;
-uint32_t dbtm, dbcm = 0;
 char gcode_loop()
 {
 
 #ifndef ISPC
 
-  motionloop();
 
   char c = 0;
+  if (waitexecute) {
+    if (tryexecute()) {
+      ack_waiting = 1;
+      if (ack_waiting) {
+        //zprintf(PSTR("ok\n"));
+        ack_waiting = 0;
+      }
+#ifdef timingG
+      zprintf(PSTR("Gcode:%dus\n"), fi(micros() - gt));
+#endif
+    }
+  } else
   {
     if (ack_waiting) {
       //zprintf(PSTR("ok\n"));
@@ -911,17 +954,7 @@ char gcode_loop()
 #ifdef echoserial
       serialwr(c);
 #endif
-      line_done = gcode_parse_char(c);
-      if (line_done) {
-        ack_waiting = line_done - 1;
-        if (ack_waiting) {
-          //zprintf(PSTR("ok\n"));
-          ack_waiting = 0;
-        }
-#ifdef timingG
-        zprintf(PSTR("Gcode:%dus\n"), fi(micros() - gt));
-#endif
-      }
+      gcode_parse_char(c);
     }
     //motionloop();
   }
@@ -933,7 +966,7 @@ int setupok = 0;
 
 void setupother()
 {
-  
+
 #ifdef USE_SDCARD
   demoSD();
 #endif
@@ -974,6 +1007,18 @@ void setupother()
 uint32_t t1;
 void setup()
 {
+  // lets put all on INPUT_PULLUP
+  pinMode(D0, INPUT_PULLUP);
+  pinMode(D1, INPUT_PULLUP);
+  pinMode(D2, INPUT_PULLUP);
+  pinMode(D3, INPUT_PULLUP);
+  pinMode(D4, INPUT_PULLUP);
+  pinMode(D5, INPUT_PULLUP);
+  pinMode(D6, INPUT_PULLUP);
+  pinMode(RX, INPUT_PULLUP);
+  pinMode(TX, INPUT_PULLUP);
+  pinMode(A0, INPUT_PULLUP);
+
   // put your setup code here, to run once:
   //  Serial.setDebugOutput(true);
 #ifdef USE_EEPROM
@@ -991,21 +1036,21 @@ void setup()
   setupother();
 }
 
+bool pumpon = true;
+int llaserOn = 0;
+long tm1 = 0;
 void loop()
 {
-  //demo();
-
-  if (setupok) {
-#ifdef FASTBUFFERFILL
-    for (int ff = FASTBUFFERFILL + 1; ff; ff--)
-#endif
-    char c=0;
+    motionloop();
+    char c = 0;
     c = gcode_loop();
+    motionloop();
+    if (c == 0 && !waitexecute) uncompress_loop();
+    motionloop();
     IR_loop(0);
+    motionloop();
 #ifdef WIFISERVER
     wifi_loop();
-    if (c == 0)
-      uncompress_loop();
+    motionloop();
 #endif
-  }
 }

@@ -1,17 +1,12 @@
-#pragma once
+//#pragma once
+#ifndef common_H
+#define common_H
 
-#ifndef COMMON_H
-#define COMMON_H
-#include "platform.h"
 #include "motion.h"
-#include "config_pins.h"
-//#include "Arduino.h"
 
-#ifdef __AVR__
-#define BUFSIZE     64
-#else
+
 #define BUFSIZE     256
-#endif
+
 #define buf_canread(buffer)     ((buffer ## head - buffer ## tail ) & \
                                  (BUFSIZE - 1))
 
@@ -41,26 +36,10 @@ const int32_t PROGMEM powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 1000
 #define POWERS(e) (int32_t)pgm_read_dword(&(powers[e]))
 #define DECFLOAT_EXP_MAX 6
 
-#ifndef ISPC
-//#define output_enable
-// AVR specific code here
-//#include <avr/pgmspace.h>
+
 #include <Arduino.h>
 
 
-#ifdef CORESERIAL
-extern uint8_t serial_popchar();
-extern void serial_writechar(uint8_t data);
-extern void serial_init(float  BAUD);
-extern uint8_t serial_available();
-
-
-#define serialwr serial_writechar
-#define serialrd(s) s=serial_popchar()
-#define serialav() serial_available()
-#define serialinit(baud) serial_init(baud)
-
-#else
 
 //#ifdef __ARM__
 static bool hasSerial = true;
@@ -86,12 +65,9 @@ static void serialwr0(uint8_t s) {
 #define serialav() Serial.available()
 #define serialinit(baud) Serial.begin(baud)
 
-#endif
-
 
 void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...);
 // No __attribute__ ((format (printf, 1, 2)) here because %q isn't supported.
-
 
 //#define xprintf(...) sendf_P(serial_writechar, __VA_ARGS__)
 //#define sersendf_P(...) sendf_P(serial_writechar, __VA_ARGS__)
@@ -103,30 +79,4 @@ void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...);
 #define fg(f) int32_t(100.f*f)
 #define fi(f) (int32_t)f
 
-
-#else // ispc
-//#define output_enable
-#include<stdio.h>
-#include<stdint.h>
-#define PROGMEM
-#define PGM_P const char *
-#define PSTR(s) ((const PROGMEM char *)(s))
-#define pgm_read_byte(x) (*((uint8_t *)(x)))
-#define pgm_read_word(x) (*((uint16_t *)(x)))
-#define pgm_read_dword(x) (*((uint32_t *)(x)))
-#define pgm_read_float(x) (*((float *)(x)))
-
-static void serial_writechar(uint8_t data) {
-  printf("%c", (char)data);
-}
-
-#define ff(f) (float(f))
-#define fg(f) (int32_t(f))
-#define fi(f) int32_t(f)
-#define sersendf_P printf
-#define xprintf printf
-#define zprintf printf
 #endif
-
-
-#endif // common_h

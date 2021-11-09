@@ -1,17 +1,13 @@
 #include "common.h"
-#include "motion.h"
 #include "timer.h"
 
-#ifndef ISPC
+
 // functions for sending decimal
 #include<Arduino.h>
 #include <stdarg.h>
 
 
 
-#ifdef CORESERIAL
-#include "serial_avr.h"
-#endif
 
 #define write_uint8(v, w)  write_uint32(v, w)
 #define write_int8(v, w)   write_int32(v, w)
@@ -156,5 +152,5 @@ void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...) {
   va_end(args);
   //interrupts();
 }
-#endif
+
 

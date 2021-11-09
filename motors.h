@@ -1,36 +1,15 @@
-#pragma once
 
-#include "motion.h"
+#ifndef motors_H
+#define motors_H
 
-#ifndef MOTOR_H
-#define MOTOR_H
-#include "config_pins.h"
-#ifndef ISPC
 #include<Arduino.h>
-#else
-#include <stdlib.h>
-#endif
+
 
 //static int8_t lsx[4] = {0, 0, 0, 0};
 
-
-
-#ifndef ISPC
-
-
-
-#if defined(USEDIO) && defined(__AVR__)
-#include "DIO2.h"
-#define dwrite(pin,v) digitalWrite2(pin,v)
-#define dread(pin) digitalRead2(pin)
-#define pinmode(pin,m) pinMode2(pin,m)
-#else
 #define dwrite(pin,v) digitalWrite(pin,v)
 #define dread(pin) digitalRead(pin)
 #define pinmode(pin,m) pinMode(pin,m)
-#endif
-#endif //ispc
-
 
 
 #ifdef USE_SHIFTREG
@@ -76,9 +55,6 @@ static ThEISR void pinCommit() {
   inline void motor_##AX##_STEP(){}\
   inline void motor_##AX##_UNSTEP(){}
 
-#ifndef ISPC
-
-
 //static uint8_t bsteps = 0;
 
 #define STEPDELAY
@@ -88,7 +64,7 @@ static ThEISR void pinCommit() {
 
 #define MOTOR(AX,PDIR,PSTEP)\
   inline void motor_##AX##_INIT(){xpinMode(PDIR, OUTPUT);xpinMode(PSTEP, OUTPUT);}\
-  inline void motor_##AX##_STEP(){  xdigitalWrite(PSTEP,1);}\
+  inline void motor_##AX##_STEP(){xdigitalWrite(PSTEP,1);}\
   inline void motor_##AX##_UNSTEP(){  xdigitalWrite(PSTEP,0);}\
   inline void motor_##AX##_DIR(int d){ if(!d)return;motor_##AX##_ON();xdigitalWrite(PDIR,d>0);STEPDIRDELAY;}\
 
@@ -102,25 +78,6 @@ static ThEISR void pinCommit() {
   inline void motor_##AX##_OFF() {}\
   inline void motor_##AX##_INIT2() {}\
 
-  /*
-  #else
-  #define STEPDELAY
-  #define STEPDIRDELAY
-
-// PC just use dummy
-#define MOTOR(AX,PDIR,PSTEP)\
-  inline void motor_##AX##_INIT(){zprintf(PSTR("Motor ##AX## Init\n"));}\
-  inline void motor_##AX##_STEP(){  zprintf(PSTR("Motor ##AX## step\n"));}\
-  inline void motor_##AX##_UNSTEP(){  zprintf(PSTR("Motor ##AX## unstep"\n));}\
-  inline void motor_##AX##_DIR(int d){ zprintf(PSTR("Motor ##AX## Dir %d\n"),d);}\
-
-#define MOTOREN(AX,PENABLE)\
-  inline void motor_##AX##_ON(){ zprintf(PSTR("Motor ##AX## Enable\n"));}\
-  inline void motor_##AX##_OFF() { zprintf(PSTR("Motor ##AX## Disable\n"));}\
-
-  */
-#endif
-
 
 #ifdef xstep
 #ifdef xenable
@@ -128,8 +85,10 @@ MOTOREN(0, xenable)
 #else
 MOTOREN0(0)
 #endif
+#warning Motor X good
 MOTOR(0,  xdirection, xstep)
 #else
+#warning Dummy Motor 0 
 DUMMYMOTOR(0, 0, 0, 0)
 #endif
 
@@ -141,6 +100,7 @@ MOTOREN0(1)
 #endif
 MOTOR(1,  ydirection, ystep)
 #else
+
 DUMMYMOTOR(1, 0, 0, 0)
 #endif
 
@@ -154,6 +114,7 @@ MOTOREN0(2)
 #endif
 MOTOR(2, zdirection, zstep)
 #else
+
 DUMMYMOTOR(2, 0, 0, 0)
 #endif
 
@@ -165,12 +126,11 @@ MOTOREN0(3)
 #endif
 MOTOR(3, e0direction, e0step)
 #else
+
 DUMMYMOTOR(3, 0, 0, 0)
 #endif
 
-#ifndef ISPC
+
+
+
 #endif
-
-
-
-#endif //mototh
