@@ -4,7 +4,7 @@
 extern int compress_loop();
 extern void uncompress_loop();
 
-extern void enduncompress();
+extern void enduncompress(bool force=false);
 extern void beginuncompress(String fn);
 extern void dummy_beginuncompress(String fn);
 

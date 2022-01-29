@@ -29,6 +29,27 @@ void IR_end() {
   IRLremote.end(IR_KEY);
   IR_ok = 0;
 }
+bool canrepeat(int n){
+	return (n == IRK4_OK ||
+	    n == IRK4_UP ||
+	    n == IRK4_DN ||
+	    n == IRK4_LF ||
+	    n == IRK4_RG ||
+	    n == IRK4_DN ||
+	    n == IRK4_1 ||
+	    n == IRK4_7 ||
+	    n == IRK4_3 ||
+	    n == IRK4_9 
+	    /* || 
+	    (menu_index==99 && (
+			n == IRK4_4 ||
+			n == IRK4_6 ||
+			n == IRK4_8 ||
+			n == IRK4_2 	    
+			)
+	    )*/
+	    );
+}
 
 extern void wifi_push(char c); // we use WIFI GCODE Command buffer to inject gcode
 const char *gc92 = "G92\n";
@@ -47,6 +68,7 @@ THEISR int getRemoteKey() {
     int ad = data.address & 255;
     if (ok == 0 && ad == 255)
     {
+	  if (!canrepeat((lad * 256) + lok))return 0;
       if (cm - lastIR < 200000)return 0;
       rep++;
     } else {

@@ -44,9 +44,15 @@ NK1202Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS);
 #define USERGB12
 #include "NK1661Wire.h"
 //#define HAS_CS D2
+#ifdef laser_pin
+#define HAS_RS D8
+#else
+#define HAS_RS D1
+#endif
 
-NK1661Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS, 20); //
-
+//NK1661Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS, HAS_RS, 20); //
+NK1661Wire xdisplay(LCD_SDA, LCD_SCL, 255, HAS_RS, 20); //
+//NK1661Wire xdisplay(LCD_SDA, LCD_SCL, D1, 255, 20); // RS using capacitor, CS using real PIN
 #endif
 
 #ifdef LCD_2004
@@ -285,7 +291,7 @@ String menu_0_t[] = { "Main Menu", "1. Set Zero", "2. My jobs", "3. Tools", "4. 
 // Standar menu is index 0: title, rest is the menu
 int menu_3_pos = 0;
 int menu_3_page = 0;
-String menu_3_t[] = { "Tools",  "1. Homing" };
+String menu_3_t[] = { "Tools",  "1. To zero",  "2. To job zero" };
 
 /*
    ONCLICK
@@ -877,7 +883,6 @@ extern int uncompress;
 void LOADMENU2FAIL(int a)
 {
   if (a) {
-    enduncompress();
     extern void stopmachine();
     stopmachine();
   }
@@ -1092,14 +1097,22 @@ void menu_3_click(int a)
   switch (*menu_pos) {
     case 0:
       if ((ax_home[0] < 1) && (ax_home[1] < 1) && (ax_home[2] < 1)) {
-        addmove(100, cx1, cy1, 5, 0, 1, 0);
-        addmove(100, 0, 0, 5, 0, 1, 0);
+        addmove(100, cx1, cy1, 10, 0, 1, 0);
+        addmove(100, 0, 0, 10, 0, 1, 0);
         addmove(100, 0, 0, 0, 0, 1, 0);
       }
       else {
         homing();
         update_pos();
       }
+      LOADINFO();
+      break;
+    case 1:
+      extern float OAX,OAY;  
+      addmove(100, cx1, cy1, 10, 0, 1, 0);
+      addmove(100, OAX, OAY, 10, 0, 1, 0);
+      addmove(100, OAX, OAY, 0, 0, 1, 0);
+      
       LOADINFO();
       break;
   }
@@ -1116,9 +1129,9 @@ void setup_oled(void)
   //resetInfo = ESP.getResetInfoPtr();
   //tmul=ESP.getResetReason().toInt();
   //oledready=tmul!=0;
+
   if (!oledready)
     INITDISPLAY
-
     mili = 0;
 
   //+String(ip[1])+"."+String(ip[2])+"."+String(ip[3]);
@@ -1128,27 +1141,34 @@ void setup_oled(void)
 
 int xlaserOn, xconstantlaserVal;
 long lastpause;
+extern int8_t PAUSE;
 uint32_t autoresume;
 void dopause(int tm=0) {
-  uint32_t mm=millis();  
-  if (uncompress && (mm - lastpause > 500)) {
+  if (uncompress) {
     ispause = ispause == 0 ? 1 : 0;
     autoresume=0;
-      extern int laserwason, cmdlaserval;    
-    if (ispause) {
+    extern int laserwason, cmdlaserval;    
 
+   if (ispause) {
+      PAUSE = ispause;
       //xlaserOn = laserwason;
       //xconstantlaserVal = cmdlaserval;
-      if (tm>0)autoresume=mm+tm;;
+      if (tm>0)autoresume=millis()+tm;
+      waitbufferempty(false);
     } else {
+      extern bool FULLSPEED;
+      FULLSPEED=false;
+      PAUSE = ispause;      
       //laserwason = xlaserOn;
       //cmdlaserval = xconstantlaserVal;
     }
-    extern int8_t PAUSE;
-    PAUSE = ispause;
-    lastpause = mm;
   }
   mili = 0;  
+}
+void restartLCD(){
+  IR_end();
+  REINIT;
+  IR_setup();
 }
 static int IR_UIloop(int icommand)
 {
@@ -1186,14 +1206,13 @@ static int IR_UIloop(int icommand)
       LOADMENU(4);
       break;
     case IRK4_POWER:
-      IR_end();
-      REINIT;
-      IR_setup();
+      restartLCD();
       break;
     case IRK4_STOP:
+      dopause();
       extern void stopmachine();
       stopmachine();
-      enduncompress();
+      ispause=PAUSE=0;
       break;
     case IRK4_SPINDLEDN:
 #ifdef laser_pin
@@ -1268,7 +1287,7 @@ int ir_oled_loop(int icommand)
   if (icommand)rmkey = icommand;
   extern int8_t RUNNING;
   extern uint32_t cm;
-  extern bool cmddepleted();
+
   
   if (autoresume>0 && ispause && millis()>autoresume){
       dopause();

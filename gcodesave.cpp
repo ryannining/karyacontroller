@@ -75,7 +75,7 @@ void checkuncompress() {
 }
 
 void beginuncompress(String fn);
-void enduncompress();
+void enduncompress(bool force=false);
 void deletejob(String fn) {
   SPIFFS.remove(fn);
   SPIFFS.remove(fn + ".jpg");
@@ -86,11 +86,12 @@ int uctr = 0;
 long eE = 0;
 int gxver = 1;
 int xySize, zSize, eSize, xyLimit, zLimit, eLimit;
-float xyScale, zScale, eScale, fScale, AX, AY, AZ, AE;
+float xyScale, zScale, eScale, fScale, AX, AY, AZ, AE,OAX,OAY;
 int mediaX, mediaY;
 
 #define datasize(n) ((1 << (n*8-1))-2)
 int gcodesize, gcodepos;
+String fjob;
 void beginuncompress(String fn) {
   if (uncompress)return;
   mediaX = 0;
@@ -100,6 +101,7 @@ void beginuncompress(String fn) {
   lastjobt0 = millis();
 
   fsGcode = SPIFFS.open(fn, "r");
+  fjob=fn;
   if (!fsGcode) {
     zprintf(PSTR("File not found\n"));
     return;
@@ -142,27 +144,22 @@ void beginuncompress(String fn) {
   zLimit = datasize(zSize);
   eLimit = datasize(eSize);
   cx1 = cy1 = ce01 = cz1 = ocz1 = 0;
-  AX = cx1;
-  AY = cy1;
+  
+  OAX=AX = cx1;
+  OAY=AY = cy1;
   AZ = ocz1;
   AE = 0;
 
   uncompress = 1;
+  //repeatheader=0;
   cntg28 = 2;
   zprintf(PSTR("Begin Uncompress Gcode %d bytes\n"), fi(fsGcode.size()));
 }
-void enduncompress() {
-  if (!uncompress)return;
+void enduncompress(bool force) {
+  if (uncompress!=1)return;
   fsGcode.close();
-  uncompress = 0;
-  zprintf(PSTR("End Uncompress Gcode\n"));
-  waitbufferempty();
-  lastjobt = millis() - lastjobt0;
-#ifdef IR_OLED_MENU
-  extern void load_info();
-  load_info();
-  xdisplay.Reset();
-#endif
+  uncompress = 2;
+
 }
 int ispause = 0;
 
@@ -230,6 +227,10 @@ void uncompressaline() {
   int32_t x = 0;
   if (!fsGcode.available()) {
     enduncompress();
+    // auto remove file if start with _
+    if (fjob.startsWith("/_")){
+		SPIFFS.remove(fjob);
+	}
     return;
   }
   if (repeatheader == 0) {
@@ -363,8 +364,10 @@ void uncompressaline() {
   }
   //zprintf(PSTR("\n"));
 
-  if (!dummy_uncompress)process_gcode_command();
-  else {
+  if (!dummy_uncompress){
+	  waitexecute=true;
+	  //process_gcode_command();
+  } else {
     xMin = fmin(xMin, AX);
     xMax = fmax(xMax, AX);
     yMin = fmin(yMin, AY);
@@ -376,13 +379,9 @@ void uncompressaline() {
       dMax += D;
       tMax += D / lF;
     }
+    reset_command();
   }
   lastjobt = millis() - lastjobt0;
-  reset_command();
-  if (!cntg28) {
-    enduncompress();
-    cntg28 = 2;
-  }
 }
 
 void dummy_beginuncompress(String fn) {
@@ -393,24 +392,38 @@ void dummy_beginuncompress(String fn) {
   tMax = 0;
 
   beginuncompress(fn);
-  while (uncompress) {
+  while (uncompress==1) {
     uncompressaline();
-
+	//feedthedog();
   }
-  enduncompress();
+  //enduncompress();
+  uncompress=0;
+  reset_command();
+  waitexecute=false;
   dummy_uncompress = false;
 }
 
 
 // ========================== LOOP =============================
 void uncompress_loop() {
-  if (uncompress) {
+  if (uncompress==1) {
     // do the uncompress job
-    for (int j=15;j--;){
-		if (nextbuff(head) != tail) {
-			uncompressaline();
-			domotionloop
-		};
+    for (int j=15;j>0;j--){
+		tryexecute();
+		if (uncompress==1 && !waitexecute && RUNNING && !PAUSE &&  nextbuff(head) != tail) uncompressaline();
+		domotionloop
+	}
+  } else if (uncompress==2){
+	if (head==tail) {
+		uncompress=0;
+	  //zprintf(PSTR("End Uncompress Gcode\n"));
+	  //if (!force)waitbufferempty();
+	  lastjobt = millis() - lastjobt0;
+	#ifdef IR_OLED_MENU
+	  extern void load_info();
+	  load_info();
+	  xdisplay.Reset();
+	#endif
 	}
   }
 }

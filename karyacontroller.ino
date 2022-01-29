@@ -6,6 +6,7 @@
 #define VERSION "Firmware 1.0.1" // new remote, able to control more on remote
 #define VERSION "Firmware 1.0.2" // fix lots issues with remote, LCD
 #define VERSION "Firmware 1.0.3" // fix lots issues with remote, LCD, PLASMA THC,Better Loop
+#define VERSION "Firmware 1.0.4" // fix pause, stop, smooth stop on pause/stop, reduce use of waitbufferempty
 
 #include "common.h"
 #include "gcode.h"
@@ -334,7 +335,7 @@ void wifiwr(uint8_t s)
     }
 #endif
 #ifdef WEBSOCKSERVER
-    webSocket.broadcastTXT(wfb);
+    if (!uncompress)webSocket.broadcastTXT(wfb);
 #endif
     wfl = 0;
   }
@@ -351,10 +352,11 @@ void connectWifi(int ret = 1)
     WiFi.reconnect();
     return;
   }
+  
   xprintf(PSTR("Try connect wifi AP:%s \n"), wifi_ap);
   WiFi.mode(WIFI_STA);
   WiFi.begin(wifi_ap, wifi_pwd);
-
+  restartLCD();
   int cntr = 30;
 #ifdef IR_OLED_MENU
   d_clear();
@@ -371,6 +373,7 @@ void connectWifi(int ret = 1)
     //xprintf(PSTR("."));
     //Serial.print(".");
   }
+
   //WiFi.setAutoReconnect(true);
   //WiFi.persistent(true);
 
@@ -402,6 +405,7 @@ void setupwifi(int num)
       eepromwritestring(470, wifi_dns);
       eepromwritestring(400, wifi_ap);
       eepromwritestring(450, wifi_pwd);
+      
       // reset factory
       reset_eeprom();
       c = 'a';
@@ -486,6 +490,10 @@ void setupwifi(int num)
       tailok = tail + 5; // need to replanning all moves
       server.send(200, "text/html", "OK");
 
+    });
+    server.on("/updatefirmware", HTTP_GET, []() { // if the client requests the upload page
+      server.send(200, "text/html", "OK");
+      updateFirmware();
     });
 
     server.on("/getconfig", HTTP_GET, []() { // if the client requests the upload page
@@ -659,7 +667,6 @@ void setupwifi(int num)
       }
       else {
         server.send(200, "text/html", "OK");
-        enduncompress();
         extern void stopmachine();
         stopmachine();
       }
@@ -792,20 +799,21 @@ uint32_t wmc = 0;
 extern uint32_t cm;
 
 uint32_t i_l_c=0;
-extern bool cmddepleted();
+
 void important_loop(){
-	
   if (cm - wmc < (uncompress?1000000:200000)) {
     return;
   }
   IR_loop(0);
+  //server.handleClient();
+	/*
   motionloop();
-  server.handleClient();
     motionloop();
  #ifdef WEBSOCKSERVER 
-  webSocket.loop();
+  if (!uncompress) webSocket.loop();
 motionloop();
 #endif //webserver
+  */
   wmc = cm;
 }
 void wifi_loop()
@@ -817,10 +825,10 @@ void wifi_loop()
 
   server.handleClient();
     motionloop();
-  MDNS.update();
+    MDNS.update();
     motionloop();
 #ifdef WEBSOCKSERVER
-  webSocket.loop();
+  if (!uncompress)webSocket.loop();
     motionloop();
 #endif //webserver
 #ifdef USEOTA
@@ -1041,11 +1049,14 @@ int llaserOn = 0;
 long tm1 = 0;
 void loop()
 {
+    extern bool stopping;
+    extern void stopmachine2();
+    if (stopping) stopmachine2();
     motionloop();
     char c = 0;
-    c = gcode_loop();
+    if (!uncompress)c = gcode_loop();
     motionloop();
-    if (c == 0 && !waitexecute) uncompress_loop();
+    if (c == 0) uncompress_loop();
     motionloop();
     IR_loop(0);
     motionloop();

@@ -31,8 +31,8 @@ void reload_eeprom() {
   maxf[3] = eepromread(EE_max_e_feedrate);
 
   maxa[0] = accel;
-  maxa[1] = accel * maxf[1] / maxf[0] * 0.3;
-  maxa[2] = accel * maxf[2] / maxf[0] * 0.3;
+  maxa[1] = accel * 0.5;//maxf[1] / maxf[0] * 0.3;
+  maxa[2] = accel * 0.8;//maxf[2] / maxf[0] * 0.3;
   maxa[3] = accel;
 
   zaccel = maxa[2];

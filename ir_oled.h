@@ -58,7 +58,7 @@ extern NK1661Wire xdisplay;
 
 
 extern void IR_setup();
-
+extern void restartLCD();
 #ifdef LCD_2004
 	#include "LiquidCrystal_PCF8574.h"
 	extern LiquidCrystal_PCF8574 xdisplay;

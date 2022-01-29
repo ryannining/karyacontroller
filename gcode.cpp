@@ -125,10 +125,18 @@ int reset_command() {
   return 2;
 }
 int tryexecute(){
+  
+  if (!waitexecute)return 0;
 	if (nextbuff(head) == tail) { // pending operation if buffer is full
 		return 0;
 	}
-
+  if ((head!=tail) || (cmhead !=cmtail)){ // still have moves, some gcodes need to wait until trully empty
+    #ifndef laser_pin
+    if (next_target.seen_M && next_target.M==3) return 0;// M3 need buffer to be empty for cnc
+    #endif
+    if (next_target.seen_M && next_target.G==109) return 0;// G92 need buffer to be empty
+    if (next_target.seen_G && next_target.G==92) return 0;// G92 need buffer to be empty
+  }
     MLOOP
 
     okxyz = next_target.seen_X || next_target.seen_Y || next_target.seen_Z || next_target.seen_E || next_target.seen_F;
@@ -136,11 +144,11 @@ int tryexecute(){
     uint8_t ok = next_target.seen_G || next_target.seen_M || next_target.seen_T || okxyz;
 	
     if (ok){
-		process_gcode_command();
-		zprintf(PSTR("ok\n")); // response quick !!
-		reset_command();
+      process_gcode_command();
+      zprintf(PSTR("ok\n")); // response quick !!
+      reset_command();
     }
-	waitexecute=false;
+    waitexecute=false;
     return 1;
 }
 void update_pos(void) {
@@ -389,24 +397,23 @@ void pausemachine()
 #ifdef IR_OLED_MENU
 #include "ir_oled.h"
 #endif
-
-void stopmachine() {
-  RUNNING = 0;
-  if (m) {
-    PAUSE = 0;
-    extern void doHardStop();
-    doHardStop();
-#ifdef IR_OLED_MENU
-    xdisplay.Reset();
-#endif
-    waitbufferempty();
-#ifdef spindle_pin
-    xdigitalWrite(spindle_pin, LOW);
-#endif
-    set_pwm(0);
-    //printposition();
-    //printbufflen();
-  }
+bool stopping=false;
+void stopmachine(){
+  stopping=true;
+}
+void stopmachine2() {
+  // soft stop
+  //PAUSE = 1;
+  //waitbufferempty(false);
+  extern void doHardStop();
+  doHardStop();
+  enduncompress(true);
+  PAUSE=0;
+  stopping=false;
+  set_pwm(0);
+#ifdef laser_pin
+LASER(!LASERON);
+#endif    
 }
 
 //#define queue_wait() needbuffer()
@@ -942,7 +949,7 @@ void process_gcode_command()
         //?
         //? Allows programming of absolute zero point, by reseting the current position to the values specified.  This would set the machine's X coordinate to 10, and the extrude coordinate to 90. No physical motion will occur.
         //?
-        waitbufferempty();
+        //waitbufferempty();
         queue_wait();
         float lx;
         lx = cx1;
@@ -1053,7 +1060,7 @@ void process_gcode_command()
         //if (fi(next_target.S) == lastS)break;
         lastS = fi(next_target.S);
         if (!next_target.seen_P) next_target.P = 0;
-        waitbufferempty();
+        //waitbufferempty();
 
         // sometimes ac spindle need a boost at first ON
 		//SPINDLE(next_target.S)
@@ -1073,7 +1080,7 @@ void process_gcode_command()
 
 
         if (next_target.seen_P) {
-          waitbufferempty();
+          //waitbufferempty();
           //zprintf(PSTR("PULSE LASER\n"));
 
           delay(100);
@@ -1112,7 +1119,7 @@ void process_gcode_command()
         */
 #ifdef servo_pin
       case 300:
-        waitbufferempty();
+        //waitbufferempty();
         setfan_val(255); // turn on power
         zprintf(PSTR("Servo:%d\n"), fi(next_target.S));
         servo_set(next_target.S);
@@ -1146,7 +1153,7 @@ void process_gcode_command()
         //zprintf(PSTR("B:%d/%d\n"), fi(bufflen),NUMBUFFER));
         break;
       case 109:
-        waitbufferempty();
+        //waitbufferempty();
         if (overridetemp)next_target.S = overridetemp;
         overridetemp = 0;
         set_temp(next_target.S + 8);

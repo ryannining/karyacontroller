@@ -84,7 +84,7 @@ extern int lastB;
 extern void str_wait();
 
 extern int g_str_c;
-
+extern bool stopping;
 extern void loadmeshleveling();
 extern void changefilament(float l);
 extern void process_gcode_command();

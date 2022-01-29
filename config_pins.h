@@ -55,19 +55,19 @@
 	//#define BOARD_WEMOS3DCOREXY
 	//#define BOARD_WEMOSCNC
 	
-	//#define MYLASER
+	#define MYLASER
 	//#define LASERMINI
 	//#define LASERBIG
 	//#define LASERMERAH
-	//#define LCLASER
+	#define LCLASER
 
 
 	#ifndef MYLASER
 		#define MK4CNC
 		// subset cnc, if not dfault to mini cnc
-		#define CNCBIG
+		//#define CNCBIG
 		//#define M115
-		//#define LCHI1224
+		#define LCHI1224
 		//#define LC_PLASMA
 	#endif
 	
@@ -87,14 +87,15 @@
 		#endif
 	#endif
 
+	//#define OLD_BLUE_BOARD
 
 	#ifdef MK4CNC
 		#undef laser_pin
 		#define IR_OLED_MENU
 		#undef BOARD_WEMOS3D_COREXY
 		#undef BOARD_WEMOS_CNC_XZYY
-		#ifdef CNCBIG
-			#define BOARD_WEMOSCNC_ONLY_V2
+		#ifdef OLD_BLUE_BOARD
+			#define BOARD_WEMOSCNC_ONLY
 		#else
 			#define BOARD_WEMOSCNC_ONLY_V2
 		#endif

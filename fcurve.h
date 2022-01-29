@@ -112,7 +112,6 @@ int curveloop() {
 }
 
 int coreloopscurve() {
- 
   if (!ok) {
 #ifdef output_enable
     if (sg == 0) {

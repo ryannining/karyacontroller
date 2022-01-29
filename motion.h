@@ -48,12 +48,12 @@ typedef struct {
   int laserval;
   float dis; // max start speed, maxcorner
 
-  int32_t ac, delta, maxs; // needed for backplanner
+  int32_t maxv, ac, delta, maxs; // needed for backplanner
   int32_t fs, fn; // all are in square ! needed to calc real accell
 
   int32_t dx[NUMAXIS]; //original delta before transform
   //  float dtx[NUMAXIS]; // keep the original coordinate before transform
-
+  
 } tmove;
 
 
@@ -104,7 +104,7 @@ extern String hstatus;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 extern float Interpolizer(int zX, int zY);
-
+extern int cmhead, cmtail, cmdlaserval;
 
 #define degtorad(x) x*22/(7*180);
 
@@ -119,7 +119,7 @@ extern void init_pos();
 extern int coreloop();
 extern void coreloopm();
 extern void otherloop(int r);
-extern void waitbufferempty();
+extern void waitbufferempty(bool fullspeed=true);
 //extern void needbuffer();
 extern int32_t startmove();
 extern void initmotion();

@@ -159,13 +159,13 @@ void reset_motion()
   maxf[nE] = E0MAXFEEDRATE;
 
   maxa[MX] = XACCELL;
-  maxa[MY] = XACCELL * YMAXFEEDRATE / XMAXFEEDRATE;
-  maxa[MZ] = XACCELL * ZMAXFEEDRATE / XMAXFEEDRATE;
+  maxa[MY] = XACCELL * 0.5;//YMAXFEEDRATE / XMAXFEEDRATE;
+  maxa[MZ] = XACCELL * 0.8;//ZMAXFEEDRATE / XMAXFEEDRATE;
   maxa[nE] = XACCELL;
 
 
   accel = XACCELL;
-  zaccel = accel * ZMAXFEEDRATE / XMAXFEEDRATE;
+  zaccel = maxa[MZ];//ZMAXFEEDRATE / XMAXFEEDRATE;
 
 
   stepmmx[nE] = fabs(E0STEPPERMM);
@@ -567,6 +567,7 @@ void planner(int32_t h)
   // set the large first, we want to get the minimum acceleration and speed
   int32_t ac = accel;
   int32_t fn = pcurr->fn;
+  int minaxis=0;
   for (int i = 0; i < 3; i++) {
     curru[i] = 0;
     if (pcurr->dx[i] != 0) {
@@ -575,7 +576,12 @@ void planner(int32_t h)
       // real accel and speed each axis, we want to know the maximum value of each axis, and get
       // the minimum from all axis , so no axis will move more than the maximum value configured
       ac = fmin(ac, fabs(maxa[i] / curru[i]));
-      fn = fmin(fn, fabs(maxf[i] / curru[i]));
+      int32_t fx=fabs(maxf[i] / curru[i]);
+      if (fx<fn){
+        fn=fx;
+        minaxis=i;
+        pcurr->maxv=maxf[i]/fx; // maximum speed multiplier
+      }
     }
   }
   // xycorner is value configured at eeprom
@@ -592,9 +598,9 @@ void planner(int32_t h)
   pcurr->maxs = MINCORNERSPEED;
   if (bufflen > 1) {
     float junc_cos = -prevu[MX] * curru[MX] - prevu[MY] * curru[MY] - prevu[MZ] * curru[MZ];
-    if (junc_cos < 1) {
+    if (junc_cos < 0.999) {
       pcurr->maxs=fmin(pcurr->fn, lastf);
-      if (junc_cos > -1){
+      if (junc_cos > -0.999){
         float sin_theta_d2 = sqrt(0.5 * (1 - junc_cos)); // Trig half angle identity. Always positive.
 // from klipper
         float R = (0.001 * xycorner * sin_theta_d2) / (1.0 - sin_theta_d2);
@@ -794,6 +800,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   }
 
   // if no axis movement then dont multiply by multiplier
+  // lets handle multiplier differently
   if (g0 || ishoming || ((x2[0] == 0) && (x2[1] == 0) && (x2[2] == 0)) ) {} else cf *= f_multiplier;
 
 
@@ -1021,15 +1028,12 @@ int32_t laser_accum;
 uint32_t laser_mul;
 uint32_t cve,pve,ppve;
 bool lastmove;
-bool cmddepleted(){
-  //        true       !false       true 
-  return (RUNNING) && (cmd_ctr<600);
-}
 
+bool FULLSPEED=true;
 static THEISR void decodecmd()
 { 
   if (cmdempty) {
-    RUNNING = 1;
+    //RUNNING = 1;
     if (lastmove) {
       #ifdef laser_pin
       LASER(!LASERON);
@@ -1038,8 +1042,6 @@ static THEISR void decodecmd()
     cmd_ctr = 0;
     lastmove = false;
     cmdve=cve=pve=ppve=0;
-    //laserwason=
-    //     
     return;
   }
   lastmove = true;
@@ -1054,23 +1056,7 @@ static THEISR void decodecmd()
   uint32_t cmd = cmddelay[cmtail];
   // cmcmd is the 1st bit of the command
   cmcmd = cmd & 1;
-#define SLOWDOWNING
 
-#ifdef SLOWDOWNING
-
-  if ((cmtail & 15) == 0) {
-    //
-    cmd_mul = 0;
-    int bl = cmdlen;
-
-    // every 15 command, slowdown if buffer is low
-    if (bl < (NUMCMDBUF >> 4)) cmd_mul = 1;
-    else if (bl < (NUMCMDBUF >> 3)) cmd_mul = 2;
-    else if (bl < (NUMCMDBUF >> 2)) cmd_mul = 4;
-    else if (bl < (NUMCMDBUF >> 1)) cmd_mul = 5;
-
-  }
-#endif
   if (cmcmd) {
       // 1st bit is set then this is the motion command
       cmbit = (cmd >> 1) & 15;
@@ -1085,11 +1071,18 @@ static THEISR void decodecmd()
       //   32         16          8
       //   * 73 / 64 (shr 6)
       // stepdiv * 7 
+      // fast interpolation beetwen moves
       cmdve = (((cmdve >>1 ) + (cve >>1 ) + (pve >> 2) + (ppve >> 3))*93)>>7;  
+      // slow down based on the buffer left
+      if (!FULLSPEED){
+        cmdve=((cmdve*cmd_ctr)>>11)+50;
+        // back to full speed
+        if (RUNNING && !PAUSE && (cmd_ctr>(NUMCMDBUF -500))) FULLSPEED=true; 
+      }
       //Serial.print(stepdiv3);Serial.print("/");
       //Serial.println(cve/64.0);
       cmdly = stepdiv3/cmdve;
-
+      
   } else {
       // this is motion header command, contain the motor direction and the laser on/off
       cmbit = (cmd >> 1) & 255;
@@ -1113,9 +1106,6 @@ static THEISR void decodecmd()
 
   }
   
-#ifdef SLOWDOWNING
-  cmdly += (cmd_mul > 0 ? (cmdly ) >> (cmd_mul) : 0);
-#endif
 
   nextok = 1;
   // point next command
@@ -1281,7 +1271,7 @@ void readpixel2() {
 }
 
 void doHardStop() {
-  if (!RUNNING) {
+
 #ifdef HARDSTOP
     float p = mctr;
     info_x = cx1 = info_x_s * perstepx;
@@ -1292,17 +1282,15 @@ void doHardStop() {
     extern void setXYZservo(float x, float y, float z);
     setXYZservo(info_x, info_y, info_z);
 #endif
-  }
+
   endstopstatus = 0;
   checkendstop = 0;
-  m->status = 0;
-  mctr = 0;
-  m = pcurr = 0;
-  head = tail;
-  cmhead = cmtail = 0;
+  babystep[0] = babystep[1] = babystep[2] = babystep[3] = 0;
+  lastf = MINCORNERSPEED;  
+  m =0;
+  pcurr =0;
+  mctr = tailok = cmd_ctr = ok =   cmhead = cmtail = head = tail = 0;
   laserwason = 0;
-  SPINDLE(0);
-  
 }
 
 int coreloop1()
@@ -1318,7 +1306,7 @@ int coreloop1()
 
     if ((endstopstatus < 0) || (!RUNNING)) {
 
-      doHardStop();
+      //doHardStop();
       return 0;
     }
   }
@@ -1331,10 +1319,13 @@ int cctr = 0;
 int motionloop()
 {
   // prevent wait
-  if (busy)return 0;
   cm = micros();
+#if defined(ESP32) || defined(ESP8266)
+  feedthedog();
+#endif  
+  if (busy)return 0;
 
-  if (PAUSE){
+  if (!RUNNING || PAUSE){
       #ifndef ANALOG_THC
        servo_loop();
       #endif
@@ -1342,7 +1333,7 @@ int motionloop()
   }
   busy = 1;
 
-  int  r;    
+  int  r=0;
   if (!m ) {
     r=startmove();
   } else
@@ -1357,7 +1348,6 @@ int motionloop()
         r=startmove();
     }
   }
-  
   otherloop(0);
   servo_loop();  
   busy = 0;
@@ -1398,9 +1388,7 @@ void otherloop(int r)
   }
 #endif // motortimeout
 
-#if defined(ESP32) || defined(ESP8266)
-  feedthedog();
-#endif
+
   if (!wait_for_temp && !ishoming) {
     if (sendwait > 0) {
       sendwait -= delaywait;
@@ -1408,7 +1396,7 @@ void otherloop(int r)
         zprintf(PSTR("wait\n"));
         cmdve=cve=pve=ppve=0;
         delaywait = 1;
-        RUNNING = 1;
+        //RUNNING = 1;
       }
     }
   }
@@ -1782,10 +1770,14 @@ void waitloop(){
     zprintf(PSTR("->H%d T%d cH%d cT%d\n"), fi(head), fi(tail), fi(cmhead), fi(cmtail));
 #endif
 }
-void waitbufferempty()
+void waitbufferempty(bool fullspeed)
 {
+  FULLSPEED=fullspeed;
   //if (head != tail)prepareramp(head);
-  startmove();
+  if (fullspeed){
+    startmove();
+  } else {
+  }
   //#define output_enable1
 #ifdef output_enable1
   zprintf(PSTR("Wait %d\n"), fi(mctr));
@@ -1793,9 +1785,16 @@ void waitbufferempty()
   LOOP_IN(2)
   inwaitbuffer = true;
   while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0)) { //(tail == otail) //
-    waitloop();
-    if (PAUSE)break;
-    if (!RUNNING)break;
+    if (fullspeed) {
+      waitloop(); 
+    } else {
+      // command buffer is empty
+      if (cmhead == cmtail)break; // if this pause loop, then break when no command moves
+      feedthedog();
+    }
+    if (stopping)break;
+    //if (PAUSE)break;
+    //if (!RUNNING)break;
   }
   inwaitbuffer = false;
   cmdve=cve=pve=ppve=0;
