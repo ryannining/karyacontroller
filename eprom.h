@@ -52,7 +52,7 @@ static void eepromcommit() {
 #define eeprominit EEPROM.begin(512)
 
 
-extern int thc_ofs,thc_up;
+extern int thc_ofs,thc_up,thc_enable;
 
 
 /*
@@ -80,7 +80,7 @@ extern int thc_ofs,thc_up;
   #define EE_zbacklash 88
   #define EE_ebacklash 92
 */
-
+/*
 #define EE_xhome 0
 #define EE_yhome 5
 #define EE_zhome 10
@@ -111,7 +111,6 @@ extern int thc_ofs,thc_up;
 #define EE_towerb_ofs 145
 #define EE_towerc_ofs 150
 
-
 #ifdef ANALOG_THC
 #define EE_thc_up 155
 #define EE_thc_ofs 160
@@ -119,6 +118,8 @@ extern int thc_ofs,thc_up;
 
 #define EE_corner 165
 #define EE_Lscale 170
+*/
+
 
 #ifdef POWERFAILURE
 #define EE_lastline 200

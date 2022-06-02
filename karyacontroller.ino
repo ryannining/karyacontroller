@@ -7,6 +7,9 @@
 #define VERSION "Firmware 1.0.2" // fix lots issues with remote, LCD
 #define VERSION "Firmware 1.0.3" // fix lots issues with remote, LCD, PLASMA THC,Better Loop
 #define VERSION "Firmware 1.0.4" // fix pause, stop, smooth stop on pause/stop, reduce use of waitbufferempty
+#define VERSION "Firmware 1.0.5" // new feature: resume job
+#define VERSION "Firmware 1.1.0" // 1 firmware for all machine, config.ini based configuration
+
 
 #include "common.h"
 #include "gcode.h"
@@ -71,6 +74,157 @@ WiFiServer servertcp(82);
 WebSocketsServer webSocket = WebSocketsServer(81); // create a websocket server on port 81
 #endif
 
+
+void downloadFile(String durl,String outf){
+//        String durl = "http://172.245.97.171/download?act=Download&gid=" + par;
+    HTTPClient http;
+
+    if (SPIFFS.exists(outf))return; // if exist, just exit
+    File f = SPIFFS.open(outf, "w");
+    if (f) {
+      http.begin(durl);
+      int httpCode = http.GET();
+      if (httpCode > 0) {
+        if (httpCode == HTTP_CODE_OK) {
+          http.writeToStream(&f);
+        }
+      }
+      http.end();
+      f.close();
+    }
+}
+
+int strToPin(String s2){
+    if(s2=="D1")return D1;    
+    if(s2=="D2")return D2;    
+    if(s2=="D3")return D3;    
+    if(s2=="D4")return D4;    
+    if(s2=="D5")return D5;    
+    if(s2=="D6")return D6;    
+    if(s2=="D7")return D7;    
+    if(s2=="D8")return D8;    
+    if(s2=="D0")return D0;    
+    if(s2=="TX")return TX;    
+    if(s2=="RX")return RX;    
+    if(s2=="A0")return A0;   
+    return -1;
+}
+void readConfig(String fn){
+  if (!SPIFFS.exists(fn))return;
+  File f1;
+  f1 = SPIFFS.open(fn, "r");
+  if (!f1) {
+    zprintf(PSTR("File Config found\n"));
+    return;
+  }
+  String s1,s2,s3,s4,s5,s6;
+
+  while  (f1.available()) {
+    s1=f1.readStringUntil('=');
+    if (s1==";"){
+        s1=f1.readStringUntil('\n');
+        if (s1=="end")break;
+    } else 
+    if (s1=="motor"){
+        // no,step/mm,speed
+        s2=f1.readStringUntil(',');
+        int mt=0;
+        if (s2=="X")mt=0;
+        if (s2=="Y")mt=1;
+        if (s2=="Z")mt=2;
+        
+        stepmmx[mt]=String(f1.readStringUntil(',')).toFloat(); // stepmmx
+        maxf[mt]=String(f1.readStringUntil(',')).toFloat(); // maxf
+        maxa[mt]=String(f1.readStringUntil(',')).toFloat(); // maxa
+        xback[mt]=String(f1.readStringUntil('\n')).toFloat(); // xback  
+    }else    
+    if (s1=="home"){        
+        ax_home[0]=String(f1.readStringUntil(',')).toFloat(); // maxf
+        ax_home[1]=String(f1.readStringUntil(',')).toFloat(); // maxa
+        ax_home[2]=String(f1.readStringUntil('\n')).toFloat(); // xback  
+    }else    
+    if (s1=="home_feed"){
+        homingspeed=f1.readStringUntil('\n').toFloat();    
+    }else 
+    if (s1=="limit_pin"){
+        limit_pin=strToPin(f1.readStringUntil('\n'));    
+    }else 
+    if (s1=="mode"){
+        s2=f1.readStringUntil('\n');
+        if (s2=="router")lasermode=0;
+        if (s2=="laser")lasermode=1;
+        if (s2=="plasma")lasermode=2;
+    }else 
+    if (s1=="lcd_rst"){
+        lcd_rst=strToPin(f1.readStringUntil('\n'));   
+        if (lcd_rst==-1)lcd_rst=255; 
+    }else     
+    if (s1=="tool_pin"){
+        atool_pin=strToPin(f1.readStringUntil('\n'));    
+    }else 
+    if (s1=="lscale"){
+        Lscale=f1.readStringUntil('\n').toFloat();    
+    }else 
+    if (s1=="thc_up"){
+        thc_up=f1.readStringUntil('\n').toFloat();    
+    }else 
+    if (s1=="thc_ofs"){
+        thc_ofs=f1.readStringUntil('\n').toFloat(); 
+    }else 
+    if (s1=="water"){
+        if (f1.readStringUntil('\n')=="Y"){
+            water_pin=A0;
+            pinMode(water_pin,INPUT_PULLUP);
+        } else water_pin=-1;
+    }else 
+    if (s1=="thc"){
+        thc_enable=f1.readStringUntil('\n')=="Y";
+    }else 
+    if (s1=="temp_pin"){
+        ltemp_pin=strToPin(f1.readStringUntil('\n'));    
+    }else 
+    if (s1=="temp_limit"){
+        temp_limit=f1.readStringUntil('\n').toInt();    
+    }else 
+    if (s1=="buzzer"){
+        BUZZER_ERR=strToPin(f1.readStringUntil('\n'));   
+        pinmode(BUZZER_ERR,OUTPUT); 
+    }else
+    {} 
+  }
+  f1.close();
+}
+void printmotor(File f1,int mt){
+  f1.print(stepmmx[mt],3);f1.print(",");
+  f1.print(float(maxf[mt]));f1.print(",");
+  f1.print(float(maxa[mt]));f1.print(",");
+  f1.println(xback[mt],3);
+}
+void saveconfigs(){
+  File f1;
+  f1 = SPIFFS.open("/custom.ini", "w");
+  f1.print("motor=X,"); printmotor(f1,0);
+  f1.print("motor=Y,"); printmotor(f1,1);
+  f1.print("motor=Z,"); printmotor(f1,2);
+  f1.print("corner=");f1.println(float(xycorner));
+  f1.print("lscale=");f1.println(Lscale,2);
+  f1.print("thc_up=");f1.println(thc_up,2);
+  f1.print("thc_ofs=");f1.println(thc_ofs,2);
+  f1.print("home=");f1.print(ax_home[0],2);f1.print(",");
+                    f1.print(ax_home[1],2);f1.print(",");
+                    f1.println(ax_home[2],2);
+  f1.close();
+  pre_motion_set();
+}
+void readconfigs(){
+  readConfig("/config.ini");
+  readConfig("/custom.ini");
+  // calculate something
+  pre_motion_set();
+  restartLCD();  
+  pinmode(atool_pin,OUTPUT);
+  xdigitalWrite(atool_pin,!TOOLON);
+}
 IPAddress ip;
 // Server
 #define IOT_IP_ADDRESS "172.245.97.171"
@@ -137,7 +291,7 @@ void touchserver(int v, String info)
       }
       extern int8_t RUNNING;
       RUNNING = 1;
-      beginuncompress("/gcode.gcode");
+      beginuncompress("/gcode.gcode",false,0);
     }
     //p("\n");
     lm = m;
@@ -357,7 +511,7 @@ void connectWifi(int ret = 1)
   WiFi.mode(WIFI_STA);
   WiFi.begin(wifi_ap, wifi_pwd);
   restartLCD();
-  int cntr = 30;
+  int cntr = 90;
 #ifdef IR_OLED_MENU
   d_clear();
   d_text(0, 0, VERSION);
@@ -400,7 +554,8 @@ void setupwifi(int num)
     }
     else {
       String("cnc").toCharArray(wifi_dns, 29);
-      String("Tenda_AD26C0").toCharArray(wifi_ap, 49);
+//      String("Tenda_AD26C0").toCharArray(wifi_ap, 49);
+      String("usaha karya").toCharArray(wifi_ap, 49);
       String("45712319").toCharArray(wifi_pwd, 19);
       eepromwritestring(470, wifi_dns);
       eepromwritestring(400, wifi_ap);
@@ -408,6 +563,8 @@ void setupwifi(int num)
       
       // reset factory
       reset_eeprom();
+      SPIFFS.remove("/custom.ini");
+      readconfigs();
       c = 'a';
     }
     if (c != 0) connectWifi(0);
@@ -530,11 +687,18 @@ void setupwifi(int num)
       server.send(200, "text/html", res);
     });
 #endif
+#ifdef PLOTTING
+    server.on("/temp", HTTP_GET, []() {
+      extern String formattemp();
+      String res = formattemp();
+      server.send(200, "text/html", res);
+    });
     server.on("/velo", HTTP_GET, []() {
       extern String formatvelo();
       String res = formatvelo();
       server.send(200, "text/html", res);
     });
+#endif
     server.on("/pauseprint", HTTP_GET, []() { // if the client requests the upload page
       //NOINTS
       if (uncompress) {
@@ -580,7 +744,7 @@ void setupwifi(int num)
       }
       else {
         server.send(200, "text/html", "OK");
-        beginuncompress("/gcode.gcode");
+        beginuncompress("/gcode.gcode",false,0);
       }
       INTS
     });
@@ -590,7 +754,7 @@ void setupwifi(int num)
         server.send(200, "text/html", "FAIL, STILL PRINTING");
       }
       else {
-        beginuncompress(server.arg("jobname"));
+        beginuncompress(server.arg("jobname"),false,0);
         server.send(200, "text/html", "Start Ok");
       }
       INTS
@@ -747,17 +911,23 @@ void setupwifi(int num)
 
     if (num)
       return;
-#ifdef ESP32
-    SPIFFS.begin(true);
-#else
-    SPIFFS.begin();
-#endif
     loadmeshleveling();
 
     touchserver(1, String(wifi_dns));
 #ifdef DISABLESERIAL
     //Serial.end();
 #endif
+
+
+  if (ip[2]==1){
+    downloadFile("http://192.168.1.13:8888/esp/websocket.js","/websocket.js");
+    downloadFile("http://192.168.1.13:8888/esp/jobs.html","/jobs.html");
+    downloadFile("http://192.168.1.13:8888/esp/cnc.html","/cnc.html");
+    downloadFile("http://192.168.1.13:8888/esp/karyaconfig.html","/karyaconfig.html");        
+    downloadFile("http://192.168.1.13:8888/esp/test.gcode","/test.gcode");        
+    downloadFile("http://192.168.1.13:8888/esp/config.ini","/config.ini");        
+  }
+
 
 #ifdef USEOTA
     ArduinoOTA.onStart([]() {
@@ -975,6 +1145,12 @@ int setupok = 0;
 void setupother()
 {
 
+#ifdef ESP32
+    SPIFFS.begin(true);
+#else
+    SPIFFS.begin();
+#endif
+
 #ifdef USE_SDCARD
   demoSD();
 #endif
@@ -986,10 +1162,10 @@ void setupother()
   timer_init();
   zprintf(PSTR("Init Gcode\n"));
   init_gcode();
-  zprintf(PSTR("Init Temp\n"));
-  init_temp();
   zprintf(PSTR("Init eeprom\n"));
   reload_eeprom();
+  zprintf(PSTR("Init Temp\n"));
+  init_temp();
 #else
   initmotion();
   init_gcode();
@@ -997,13 +1173,9 @@ void setupother()
   reload_eeprom();
   timer_init();
 #endif
-#ifdef spindle_pin
-  //delay(1000);
-  pinMode(spindle_pin, OUTPUT);
-  xdigitalWrite(spindle_pin, LOW);
-#endif
   // important for KARYACNC to know the scale
   //zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
+  readconfigs();
 
 #ifdef WIFISERVER
   setupwifi(0);
@@ -1040,7 +1212,6 @@ void setup()
 #endif
   t1 = millis();
   //while (!Serial.available())continue;
-
   setupother();
 }
 
@@ -1060,6 +1231,7 @@ void loop()
     motionloop();
     IR_loop(0);
     motionloop();
+    servo_loop();
 #ifdef WIFISERVER
     wifi_loop();
     motionloop();

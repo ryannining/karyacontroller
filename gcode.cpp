@@ -131,9 +131,9 @@ int tryexecute(){
 		return 0;
 	}
   if ((head!=tail) || (cmhead !=cmtail)){ // still have moves, some gcodes need to wait until trully empty
-    #ifndef laser_pin
-    if (next_target.seen_M && next_target.M==3) return 0;// M3 need buffer to be empty for cnc
-    #endif
+    if (!lasermode) {
+      if (next_target.seen_M && next_target.M==3) return 0;// M3 need buffer to be empty for cnc
+    }
     if (next_target.seen_M && next_target.G==109) return 0;// G92 need buffer to be empty
     if (next_target.seen_G && next_target.G==92) return 0;// G92 need buffer to be empty
   }
@@ -410,10 +410,10 @@ void stopmachine2() {
   enduncompress(true);
   PAUSE=0;
   stopping=false;
-  set_pwm(0);
-#ifdef laser_pin
-LASER(!LASERON);
-#endif    
+  //set_tool(0);
+if (lasermode)
+  TOOL1(!TOOLON);
+
 }
 
 //#define queue_wait() needbuffer()
@@ -431,7 +431,6 @@ void delay_ms(uint32_t d)
 }
 void temp_wait(void)
 {
-
 #ifdef heater_pin
   wait_for_temp = 1;
   uint32_t c = millis();
@@ -447,14 +446,12 @@ void temp_wait(void)
   }
   wait_for_temp = 0;
 #endif
-
 }
 
 int lastB = 0;
 
 void str_wait()
 {
-
 
   //uint32_t c = millis();
   while (lastB > 5) {
@@ -502,12 +499,12 @@ void addlaserxy(float x, float y, uint8_t bit)
 void testLaser(void) {
 
   for (int j = 3000; j--;) {
-    LASER(LASERON)
+    TOOL1(TOOLON)
     domotionloop
   }
 
   // after some delay turn off laser
-  LASER(!LASERON);
+  TOOL1(!TOOLON);
 }
 
 static void enqueue(GCODE_COMMAND *) __attribute__ ((always_inline));
@@ -646,8 +643,8 @@ void process_gcode_command()
         //?
         //? In this case move rapidly to X = 12 mm.  In fact, the RepRap firmware uses exactly the same code for rapid as it uses for controlled moves (see G1 below), as - for the RepRap machine - this is just as efficient as not doing so.  (The distinction comes from some old machine tools that used to move faster if the axes were not driven in a straight line.  For them G0 allowed any movement in space to get to the destination as fast as possible.)
         //?
-        laserOn = 0;
-        constantlaserVal = 0;
+        //laserOn = 0;
+        //constantlaserVal = 0;
         enqueue(&next_target, 1);
         break;
 
@@ -1056,47 +1053,42 @@ void process_gcode_command()
         next_target.S = 0;
       case 3:
         if (!next_target.seen_S)next_target.S = 255;
-        if (next_target.S > 4000)next_target.S = next_target.S / 100; // convert 33K RPM max to 255
+        //if (next_target.S > 4000)next_target.S = next_target.S / 100; // convert 33K RPM max to 255
         //if (fi(next_target.S) == lastS)break;
-        lastS = fi(next_target.S);
+        //lastS = fi(next_target.S);
         if (!next_target.seen_P) next_target.P = 0;
-        //waitbufferempty();
-
-        // sometimes ac spindle need a boost at first ON
-		//SPINDLE(next_target.S)
-		set_pwm(next_target.S);
+        #ifdef PLASMA_MODE
+        if (next_target.S>10)next_target.S=255;
+        #endif 
+        set_tool(next_target.S);
         if (next_target.P >= 10000) {
-			extern void dopause(int tm=0);
-			next_target.P=0;
-			next_target.seen_P=0;
-			dopause(5000);
+          extern void dopause(int tm=0);
+          next_target.P=0;
+          next_target.seen_P=0;
+          dopause(5000);
         }
 
         // if no S defined then full power
         S1 = next_target.S;
-        laserOn = S1 > 0;
-        constantlaserVal = next_target.S;
-        //if (laserOn) zprintf(PSTR("LASERON\n"));
 
 
         if (next_target.seen_P) {
           //waitbufferempty();
           //zprintf(PSTR("PULSE LASER\n"));
 
-          delay(100);
-          //xpinMode(laser_pin, OUTPUT);
+          //delay(100);
+          //xpinMode(tool1_pin, OUTPUT);
 
-          LASER(LASERON)
-
-
-          int rep = next_target.P / 10;
-          for (int j = 0; j <= rep; j++) {
-            delay(10);
+          TOOL1(TOOLON)
+          
+          int w1=millis();
+          while (millis()-w1<next_target.P) {
+            //delay(10);
             domotionloop
           }
 
           // after some delay turn off laser
-          LASER(!LASERON);
+          //TOOL1(!TOOLON);
 
         }
         break;
@@ -1240,6 +1232,7 @@ void process_gcode_command()
     eepromwrite(pos, val);\
     break;\
   }
+  /*
               eprom_wr(145, EE_xhome, S_F);
               eprom_wr(149, EE_yhome, S_F);
               eprom_wr(153, EE_zhome, S_F);
@@ -1260,6 +1253,13 @@ void process_gcode_command()
               eprom_wr(177, EE_homing, S_I);
               eprom_wr(181, EE_corner, S_I);
               eprom_wr(185, EE_Lscale, S_F);
+
+#ifdef USE_BACKLASH
+              eprom_wr(80, EE_xbacklash, S_F);
+              eprom_wr(84, EE_ybacklash, S_F);
+              eprom_wr(88, EE_zbacklash, S_F);
+              eprom_wr(92, EE_ebacklash, S_F);
+#endif
 
               eprom_wr(165, EE_towera_ofs, S_F);
               eprom_wr(169, EE_towerb_ofs, S_F);
@@ -1284,12 +1284,7 @@ void process_gcode_command()
 #endif
               eprom_wr(332, EE_ext_adv, S_F);
               eprom_wr(336, EE_un_microstep, S_I);
-#ifdef USE_BACKLASH
-              eprom_wr(80, EE_xbacklash, S_F);
-              eprom_wr(84, EE_ybacklash, S_F);
-              eprom_wr(88, EE_zbacklash, S_F);
-              eprom_wr(92, EE_ebacklash, S_F);
-#endif
+*/
 #ifdef WIFISERVER
             case 400:
               eepromwritestring(400, g_str);
@@ -1312,7 +1307,7 @@ void process_gcode_command()
         reload_eeprom();
 #endif
       case 503:
-
+/*
         zprintf(PSTR("EPR:3 145 %f X Home Pos\n"), ff(ax_home[0]));
         zprintf(PSTR("EPR:3 149 %f Y\n"), ff(ax_home[1]));
         zprintf(PSTR("EPR:3 153 %f Z\n"), ff(ax_home[2]));
@@ -1333,6 +1328,14 @@ void process_gcode_command()
 
         zprintf(PSTR("EPR:3 177 %d HomeF\n"), fi(homingspeed));
         zprintf(PSTR("EPR:3 185 %f Lscale\n"), ff(Lscale));
+#ifdef USE_BACKLASH
+        zprintf(PSTR("EPR:3 80 %f X Backlash\n"), fi(xback[0]));
+        zprintf(PSTR("EPR:3 84 %f Y\n"), fi(xback[1]));
+        zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
+        zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
+#endif
+
+
 
 #ifdef ANALOG_THC
         zprintf(PSTR("EPR:3 157 %d THCRef\n"), fi(thc_up));
@@ -1353,12 +1356,6 @@ void process_gcode_command()
         zprintf(PSTR("EPR:3 308 %f Out\n"), ff(retract_out));
         zprintf(PSTR("EPR:3 312 %f F\n"), ff(retract_out_f));
 
-#ifdef USE_BACKLASH
-        zprintf(PSTR("EPR:3 80 %f X Backlash\n"), fi(xback[0]));
-        zprintf(PSTR("EPR:3 84 %f Y\n"), fi(xback[1]));
-        zprintf(PSTR("EPR:3 88 %f Z\n"), fi(xback[2]));
-        zprintf(PSTR("EPR:3 92 %f E\n"), fi(xback[3]));
-#endif
 #if defined(heater_pin)
         zprintf(PSTR("EPR:3 316 %f P\n"), ff(myPID.GetKp()));
         zprintf(PSTR("EPR:3 320 %f I\n"), ff(myPID.GetKi()));
@@ -1379,6 +1376,7 @@ void process_gcode_command()
 #ifdef WIFISERVER
         zprintf(PSTR("EPR:3 380 %d GCODE\n"), fi(wifi_gcode));
 #endif
+*/
         break;
 #ifdef WIFISERVER
       // show wifi

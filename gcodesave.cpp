@@ -48,6 +48,7 @@
 #include "gcode.h"   // Include the SPIFFS library
 #include "eprom.h"   // Include the SPIFFS library
 #include "timer.h"   // Include the SPIFFS library
+#include "gcodesave.h"   // Include the SPIFFS library
 
 #ifdef IR_OLED_MENU
 #include "ir_oled.h"
@@ -55,6 +56,13 @@
 
 #define NOINTS timerPause();
 #define INTS timerResume();
+
+
+int shapes_ctr;
+tshapes shapes[SHAPESNUM+1] __attribute__ ((aligned (4)));
+float PZ=0;
+int lastSv=0;
+bool singleobj;
 
 File fsGcode;
 extern GCODE_COMMAND next_target;
@@ -74,7 +82,7 @@ void checkuncompress() {
   fsGcode.close();
 }
 
-void beginuncompress(String fn);
+void beginuncompress(String fn,bool resume,int pos);
 void enduncompress(bool force=false);
 void deletejob(String fn) {
   SPIFFS.remove(fn);
@@ -86,13 +94,27 @@ int uctr = 0;
 long eE = 0;
 int gxver = 1;
 int xySize, zSize, eSize, xyLimit, zLimit, eLimit;
-float xyScale, zScale, eScale, fScale, AX, AY, AZ, AE,OAX,OAY;
+float xyScale, zScale, eScale, fScale, AX, AY, AZ, AE,OAX,OAY,OAZ;
 int mediaX, mediaY;
 
 #define datasize(n) ((1 << (n*8-1))-2)
 int gcodesize, gcodepos;
 String fjob;
-void beginuncompress(String fn) {
+float dMax, fMax, lF, lF0, lF1, xMin, xMax, yMin, yMax, zMin, zMax, tMax;
+int sMax;
+byte repeatheader;
+byte repeatsame;
+
+void prepareposition(){
+	  OAX=cx1;
+	  OAY=cy1;
+	  OAZ=ocz1;
+	  AX = 0;
+	  AY = 0;
+	  AZ = 0;
+	  AE = 0;
+}
+void beginuncompress(String fn,bool resume,int pos) {
   if (uncompress)return;
   mediaX = 0;
   mediaY = 0;
@@ -126,7 +148,6 @@ void beginuncompress(String fn) {
     zSize = 1;
     eSize = 1;
     fScale = 2;
-
   } else {
     /*    xyScale=1/0.005;
         zScale=1/0.1;
@@ -143,18 +164,35 @@ void beginuncompress(String fn) {
   xyLimit = datasize(xySize);
   zLimit = datasize(zSize);
   eLimit = datasize(eSize);
-  cx1 = cy1 = ce01 = cz1 = ocz1 = 0;
   
-  OAX=AX = cx1;
-  OAY=AY = cy1;
-  AZ = ocz1;
-  AE = 0;
 
+  ///*
+  if (!resume) {
+	prepareposition();
+	singleobj=false;
+  } else {
+	//
+	uint32_t pp=shapes[pos].pos;
+	uint8_t val=255;
+	
+	reset_command();
+	gcodepos=pp;
+	//prepareposition();
+	AX=shapes[pos].px;
+	AY=shapes[pos].py;
+	AZ=shapes[pos].pz;
+
+	fsGcode.seek(gcodepos);
+	laserOn = val > 0;
+    constantlaserVal = val;
+  }
+  //*/
   uncompress = 1;
   //repeatheader=0;
   cntg28 = 2;
   zprintf(PSTR("Begin Uncompress Gcode %d bytes\n"), fi(fsGcode.size()));
 }
+
 void enduncompress(bool force) {
   if (uncompress!=1)return;
   fsGcode.close();
@@ -215,11 +253,9 @@ void gcodereadnet(uint8_t * addr, int len) {
   }
 }
 
-float dMax, fMax, lF, lF0, lF1, xMin, xMax, yMin, yMax, zMin, zMax, tMax;
-int sMax;
-byte repeatheader;
-byte repeatsame;
+
 // version, old is using eSize 1
+
 void uncompressaline() {
   //if (ispause)return;
   byte h;
@@ -233,6 +269,7 @@ void uncompressaline() {
 	}
     return;
   }
+  int qpos=fsGcode.position();
   if (repeatheader == 0) {
     fsGcode.read((uint8_t *)&h, 1); gcodepos++;
     if (repeatsame) {
@@ -271,6 +308,18 @@ void uncompressaline() {
       case 3: next_target.G = 92; eE = 0; break;
     }
   }
+  
+  if (dummy_uncompress && next_target.seen_G && next_target.G<=1 && AZ>0){
+    int q=shapes_ctr;
+    shapes[q].pos=qpos;
+    shapes[q].px=AX;
+    shapes[q].py=AY;
+    shapes[q].pz=AZ;
+    PZ=AZ;
+  } else if (singleobj && AZ<=0){
+	PZ=AZ;
+  }
+  
   // read the parameter
   // zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
   if (h & (1 << 3)) { //F or S
@@ -282,6 +331,7 @@ void uncompressaline() {
       next_target.seen_S = 1;
       next_target.S = s;
       sMax = fmax(sMax, s);
+      lastSv=s;
     } else { //else its F
       next_target.seen_F = 1;
       lF = next_target.target.F = s * fScale;
@@ -294,7 +344,7 @@ void uncompressaline() {
     //zprintf(PSTR("F%d "), fi(s));
   }
   lF = (next_target.G == 1) ? lF1 : lF0;
-
+  if (lF<3)lF=3;
 
   float D = 0;
   float d;
@@ -312,7 +362,7 @@ void uncompressaline() {
       d = float(x - xyLimit) / xyScale;
       D += d * d;
       AX += d;
-      next_target.target.axis[nX] = AX;
+      next_target.target.axis[nX] = AX+OAX;
       //next_target.target.axis[nX] *= xyscale;
     }
   }
@@ -329,7 +379,7 @@ void uncompressaline() {
       d = float(x - xyLimit) / xyScale;
       D += d * d;
       AY += d;
-      next_target.target.axis[nY] = AY;
+      next_target.target.axis[nY] = AY+OAY;
     }
     //next_target.target.axis[nY] *= xyscale;
   }
@@ -345,7 +395,22 @@ void uncompressaline() {
     } else {
       D += d * d;
       AZ += d;
-      next_target.target.axis[nZ] = AZ;
+      
+      if (dummy_uncompress && AZ<=0 && PZ>0){ // detect plunge and add to shape database
+		  if (shapes_ctr<SHAPESNUM)shapes_ctr++;
+		  PZ=AZ;
+	  } else if (singleobj && AZ>0 && PZ<=0){
+		// this is up, so its the last
+		enduncompress();
+		//waitbufferempty();
+		//addmove(100, 0, 0, d, 0, 1, 1);
+		addmove(100, cx1, cy1, OAZ, 0, 1, 0);		
+		//addmove(100, OAX, OAY, OAZ, 0, 1, 0);
+		//waitbufferempty();		
+		return;
+	  }
+	  
+      next_target.target.axis[nZ] = AZ+OAZ;
     }
   }
   if (h & (1 << 7)) {
@@ -359,7 +424,7 @@ void uncompressaline() {
     } else {
       next_target.seen_E = 1;
       AE += float(x - eLimit) / eScale;
-      next_target.target.axis[nE] = AE;
+      next_target.target.axis[nE] = AE ;
     }
   }
   //zprintf(PSTR("\n"));
@@ -368,39 +433,53 @@ void uncompressaline() {
 	  waitexecute=true;
 	  //process_gcode_command();
   } else {
-    xMin = fmin(xMin, AX);
-    xMax = fmax(xMax, AX);
-    yMin = fmin(yMin, AY);
-    yMax = fmax(yMax, AY);
-    zMin = fmin(zMin, AZ);
-    zMax = fmax(zMax, AZ);
+	waitexecute=false;
+
+    xMin = min(xMin, AX);
+    
+    xMax = max(xMax, AX);
+    
+    yMin = min(yMin, AY);
+    
+    yMax = max(yMax, AY);
+    
+    zMin = min(zMin, AZ);
+    
+    zMax = max(zMax, AZ);
+    reset_command();
+    
     if (AZ <= 0 && D > 0) {
       D = sqrt(D);
       dMax += D;
       tMax += D / lF;
     }
-    reset_command();
   }
   lastjobt = millis() - lastjobt0;
 }
 
 void dummy_beginuncompress(String fn) {
   dummy_uncompress = true;
-  zMin = xMin = yMin = 10000;
-  zMax = xMax = yMax = -10000;
+  singleobj=false;
+  shapes_ctr=0;
+  PZ=0;
+  zMin = xMin = yMin = 15000;
+  zMax = xMax = yMax = -15000;
   dMax = lF = lF0 = lF1 = sMax = fMax = 0;
   tMax = 0;
 
-  beginuncompress(fn);
+  beginuncompress(fn,false,0);
+  int fc=100;
   while (uncompress==1) {
     uncompressaline();
-	//feedthedog();
+	//if (fc--<10){fc=100;feedthedog();}
   }
-  //enduncompress();
+  enduncompress();
   uncompress=0;
   reset_command();
   waitexecute=false;
   dummy_uncompress = false;
+  // let the min and max relative
+
 }
 
 
@@ -414,8 +493,9 @@ void uncompress_loop() {
 		domotionloop
 	}
   } else if (uncompress==2){
-	if (head==tail) {
+	if (head==tail && cmhead==cmtail) {
 		uncompress=0;
+
 	  //zprintf(PSTR("End Uncompress Gcode\n"));
 	  //if (!force)waitbufferempty();
 	  lastjobt = millis() - lastjobt0;

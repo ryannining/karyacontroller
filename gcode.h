@@ -72,7 +72,7 @@ typedef struct {
 } GCODE_COMMAND;
 
 
-#define g_str_len 2000
+#define g_str_len 100
 
 
 extern int32_t linecount, lineprocess;
@@ -82,7 +82,7 @@ extern bool waitexecute;
 extern int tryexecute();
 extern int lastB;
 extern void str_wait();
-
+extern int lasermode;
 extern int g_str_c;
 extern bool stopping;
 extern void loadmeshleveling();

@@ -44,6 +44,7 @@ extern NK1202Wire xdisplay;
 #define USERGB12
 #include "NK1661Wire.h"
 extern NK1661Wire xdisplay;
+extern int lcd_rst;
 #define LCD_Y 21
 #define LCD_X 7.75
 #define YOFS 1

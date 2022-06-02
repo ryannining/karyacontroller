@@ -86,6 +86,42 @@ uint32_t lastirok = 0;
 int tmul = 100;
 int rmkey;
 extern uint32_t cm; // check micros
+void special_loop(int xcmd){
+
+	  if (uncompress && ispause){
+		switch (xcmd){
+			#ifdef PLASMA_MODE
+			case IRK_1: case IRK4_1: thc_ofs0 += 20; break;
+			case IRK_7: case IRK4_7: thc_ofs0 -= 20; break;
+			case IRK_3: case IRK4_3: thc_ofs0 += 10; break;
+			case IRK_9: case IRK4_9: thc_ofs0 += -10; break;
+			#else
+			case IRK_1: case IRK4_1: babystep[2] += 250; break;
+			case IRK_7: case IRK4_7: babystep[2] -= 250; break;
+			case IRK_3: case IRK4_3: babystep[2] += 100; break;
+			case IRK_9: case IRK4_9: babystep[2] -= 100; break;
+			#endif
+		}  
+		// do the z step
+		extern int32_t autoresume;
+		extern int odir[];
+		autoresume=0;
+		int steps=babystep[2]*stepmmx[2]/500;
+		motor_2_DIR((odir[2]*((steps<0)?-1:1)));
+		for (int i=abs(steps);i>0;i--){
+			if (i&1) {
+				motor_2_UNSTEP();
+				delay(1);
+			} else { 
+				motor_2_STEP();
+			}
+		}
+		// return to last dir
+		extern int z_dir;
+		motor_2_DIR(z_dir);
+		babystep[2]=0;
+	  }  
+}
 void IR_loop(int mode = 0) {
   if (cm - lastirok > 10000000) {
     lastirok = cm;
@@ -101,6 +137,7 @@ void IR_loop(int mode = 0) {
     lastirok = cm;
     rmkey = xcmd;
     int ok = ir_oled_loop(xcmd);
+    special_loop(xcmd);
     if (ok)return; // the key is consumed by the display
     //zprintf(PSTR("Key:%d \n"),fi(data.command));
     extern int8_t RUNNING;
@@ -132,8 +169,8 @@ void IR_loop(int mode = 0) {
           case IRK_7: case IRK4_7: z = -1; break;
           case IRK_3: case IRK4_3: z = 0.5; break;
           case IRK_9: case IRK4_9: z = -0.5; break;
-          case IRK4_ZUP: z = 0.25; break;
-          case IRK4_ZDN: z = -0.25; break;
+          case IRK4_ZUP: z = 0.1; break;
+          case IRK4_ZDN: z = -0.1; break;
           case IRK_5: case IRK4_5: tmul = tmul == 100 ? 500 : 100; break;
 
 
@@ -151,7 +188,7 @@ void IR_loop(int mode = 0) {
             */
             return;
         }
-
+	  	
       addmove(100, x * tmul * 0.01, y * tmul * 0.01, z, 0, 1, 1);
       switch (xcmd) {
         case IRK_H: case IRK4_H: //#
@@ -172,17 +209,6 @@ void IR_loop(int mode = 0) {
         case IRK_H: case IRK4_H:
           wait_spindle = 1;	break;
         // baby step is change the XYZ small value while its running job
-        #ifdef PLASMA_MODE
-        case IRK_1: case IRK4_1: thc_ofs0 += 20; break;
-        case IRK_7: case IRK4_7: thc_ofs0 -= 20; break;
-        case IRK_3: case IRK4_3: thc_ofs0 += 10; break;
-        case IRK_9: case IRK4_9: thc_ofs0 += -10; break;
-        #else
-        case IRK_1: case IRK4_1: babystep[2] += 250; break;
-        case IRK_7: case IRK4_7: babystep[2] -= 250; break;
-        case IRK_3: case IRK4_3: babystep[2] += 100; break;
-        case IRK_9: case IRK4_9: babystep[2] += -100; break;
-		#endif
         case IRK_2: case IRK4_2: babystep[1] -= 250; break;
         case IRK_8: case IRK4_8: babystep[1] += 250; break;
         case IRK_4: case IRK4_4: babystep[0] -= 250; break;
@@ -192,8 +218,7 @@ void IR_loop(int mode = 0) {
         case IRK_DN: case IRK4_DN: babystep[1] += 100; break;
         case IRK_LF: case IRK4_LF: babystep[0] -= 100; break;
         case IRK_RG: case IRK4_RG: babystep[0] += 100; break;
-      }
-
+      }	  	
     }
     int num = -1;
     if (wait_job || wait_spindle  ) {
@@ -212,7 +237,7 @@ void IR_loop(int mode = 0) {
     }
     if (num >= 0) {
       if (wait_spindle) {
-        set_pwm(num * 28.3);
+        set_tool(num * 28.3);
         wait_spindle = 0;
         return;
       }

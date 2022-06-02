@@ -1,13 +1,12 @@
 
 #include "common.h"
 
-#ifdef ANALOG_THC
-#define NUMTHCBUF 511
+#define NUMTHCBUF 63
 #define nextthc(x) ((x+1)&NUMTHCBUF)
 #define prevthc(x) ((x-1)&NUMTHCBUF)
 
 int16_t thcbuff[NUMTHCBUF+1];
-
+bool thc_enable=false;
 int thcstep = 0;
 int thcstepmax = 0;
 int thcread = 0;
@@ -40,6 +39,7 @@ int laston=0;
 void thc_loop(uint32_t m)
 {
   extern int laserwason;
+  if (!thc_enable)return;
   if (laston==0 && laserwason){
     thchead=0;
     thctail=0;
@@ -89,12 +89,3 @@ String formatthc(){
 	return res;
 	
 }
-
-#else
-
-int thc_init() {
-}
-void thc_loop(uint32_t m)
-{
-}
-#endif

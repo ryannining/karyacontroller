@@ -24,7 +24,6 @@
 // Include guard
 #pragma once
 
-
 #include <Arduino.h> // pinMode()
 #define THEISR IRAM_ATTR
 // Software version

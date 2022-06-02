@@ -4,7 +4,7 @@
 
 #include "motion.h"
 
-
+#define TEMPTICK 100000 //500ms
 #define BUFSIZE     256
 
 #define buf_canread(buffer)     ((buffer ## head - buffer ## tail ) & \
@@ -41,7 +41,6 @@ const int32_t PROGMEM powers[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 1000
 
 
 
-//#ifdef __ARM__
 static bool hasSerial = true;
 #ifdef WIFISERVER
 extern void wifiwr(uint8_t s);
@@ -58,9 +57,7 @@ static void serialwr0(uint8_t s) {
   if (hasSerial)Serial.write(s);
 }
 
-//#else
-//#define serialwr Serial.write
-//#endif
+
 #define serialrd(s) s=Serial.read()
 #define serialav() Serial.available()
 #define serialinit(baud) Serial.begin(baud)

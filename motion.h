@@ -48,8 +48,9 @@ typedef struct {
   int laserval;
   float dis; // max start speed, maxcorner
 
-  int32_t maxv, ac, delta, maxs; // needed for backplanner
-  int32_t fs, fn; // all are in square ! needed to calc real accell
+  //int32_t maxv; 
+  int32_t ac, delta, maxs; // needed for backplanner
+  int32_t fs, fn,fr,stepdiv2; // all are in square ! needed to calc real accell
 
   int32_t dx[NUMAXIS]; //original delta before transform
   //  float dtx[NUMAXIS]; // keep the original coordinate before transform
@@ -79,7 +80,7 @@ extern int xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
 extern int32_t xycorner;
-extern int zaccel, accel;
+extern int zaccel, accel,limit_pin;
 extern int  maxf[4];
 extern int  maxa[4];
 extern int32_t dlp, info_x_s, info_y_s, info_z_s;
@@ -104,7 +105,8 @@ extern String hstatus;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 extern float Interpolizer(int zX, int zY);
-extern int cmhead, cmtail, cmdlaserval;
+extern int volatile cmhead, cmtail;
+extern int cmdlaserval;
 
 #define degtorad(x) x*22/(7*180);
 
@@ -140,10 +142,11 @@ extern void homing();
 
 void docheckendstop(int m);
 extern void reset_motion();
-
+extern void pre_motion_set();
 extern tmove* m;
-#define fmax(a,b) a<b?b:a
-#define fmin(a,b) a>b?b:a
+#define fmax(a,b) ((a<b)?b:a)
+#define fmin(a,b) ((a>b)?b:a)
+
 #define fmax3(a,b,c) fmax(a,fmax(b,c))
 #define fmin3(a,b,c) fmin(a,fmin(b,c))
 #define bufflen (head >= tail ? head - tail : (NUMBUFFER + head) - tail)

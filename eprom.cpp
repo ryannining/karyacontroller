@@ -18,6 +18,7 @@ int thc_ofs;
 
 void reload_eeprom() {
   eepromcommit();
+  /*
 
   ax_home[0] = ((float)eepromread(EE_xhome)) * 0.001;
   ax_home[1] = ((float)eepromread(EE_yhome)) * 0.001;
@@ -29,14 +30,15 @@ void reload_eeprom() {
   maxf[1] = eepromread(EE_max_y_feedrate);
   maxf[2] = eepromread(EE_max_z_feedrate);
   maxf[3] = eepromread(EE_max_e_feedrate);
-
+	*/
+  /*
   maxa[0] = accel;
   maxa[1] = accel * 0.5;//maxf[1] / maxf[0] * 0.3;
   maxa[2] = accel * 0.8;//maxf[2] / maxf[0] * 0.3;
   maxa[3] = accel;
-
+  */
   zaccel = maxa[2];
-
+/*
   stepmmx[3] = (float)eepromread(EE_estepmm)   * 0.001;
   perstepx = 1.0 / (stepmmx[0] = (float)eepromread(EE_xstepmm)  * 0.001);
   perstepy = 1.0 / (stepmmx[1] = (float)eepromread(EE_ystepmm)  * 0.001);
@@ -47,12 +49,13 @@ extern int odir[4];
   odir[2] = stepmmx[2] < 0 ? -1 : 1;
   odir[3] = stepmmx[3] < 0 ? -1 : 1;
 
-
 #ifdef ANALOG_THC
   thc_up=eepromread(EE_thc_up);
   thc_ofs=eepromread(EE_thc_ofs);
 #endif
+*/
 
+/*
   xycorner = eepromread(EE_corner);  
   homingspeed = eepromread(EE_homing);
 
@@ -61,7 +64,9 @@ extern int odir[4];
   axisofs[0] = (float)eepromread(EE_towera_ofs)   * 0.001;
   axisofs[1] = (float)eepromread(EE_towerb_ofs)   * 0.001;
   axisofs[2] = (float)eepromread(EE_towerc_ofs)   * 0.001;
+*/
 
+/*
 #ifdef USE_BACKLASH
   xback[0] = eepromread(EE_xbacklash);
   xback[1] = eepromread(EE_ybacklash);
@@ -69,6 +74,7 @@ extern int odir[4];
   xback[3] = eepromread(EE_ebacklash);
 
 #endif
+*/
 
   retract_in = (float)eepromread(EE_retract_in)   * 0.001;
   retract_out = (float)eepromread(EE_retract_out)   * 0.001;
@@ -106,6 +112,8 @@ void reset_eeprom() {
   retract_out = 1;
   retract_in_f = 6;
   retract_out_f = 4;
+  
+  /*
   eepromwrite(EE_xhome, ff(ax_home[0]));
   eepromwrite(EE_yhome, ff(ax_home[1]));
   eepromwrite(EE_zhome, ff(ax_home[2]));
@@ -123,11 +131,8 @@ void reset_eeprom() {
   eepromwrite(EE_ystepmm, ff(stepmmx[1]));
   eepromwrite(EE_zstepmm, ff(stepmmx[2]));
   eepromwrite(EE_estepmm, ff(stepmmx[3]));
-
-  eepromwrite(EE_homing, homingspeed);
-  eepromwrite(EE_corner, xycorner);
-  eepromwrite(EE_Lscale, ff(Lscale));
-
+*/
+	
   eepromwrite(EE_towera_ofs, ff(axisofs[0]));
   eepromwrite(EE_towerb_ofs, ff(axisofs[1]));
   eepromwrite(EE_towerc_ofs, ff(axisofs[2]));
@@ -141,13 +146,14 @@ void reset_eeprom() {
   eepromwrite(EE_retract_in_f, 10000);
   eepromwrite(EE_retract_out_f, 10000);
 
-
+/*
 #ifdef USE_BACKLASH
   eepromwrite(EE_xbacklash, fi(xback[0]));
   eepromwrite(EE_ybacklash, fi(xback[1]));
   eepromwrite(EE_zbacklash, fi(xback[2]));
   eepromwrite(EE_ebacklash, fi(xback[3]));
 #endif
+*/
 
 #if defined(heater_pin)
   eepromwrite(EE_pid_p, ff(8.0));

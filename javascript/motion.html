@@ -2199,7 +2199,7 @@ function waitbufferempty()
   while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0)) { //(tail == otail) //
 
     domotionloop
-    servo_loop();
+    //servo_loop();
     MEMORY_BARRIER()
     //zprintf(PSTR(".%d\n"), fi(mctr));
   }

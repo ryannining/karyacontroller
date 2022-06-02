@@ -4,6 +4,9 @@
 
 extern double Setpoint, Input, xInput, Output;
 extern void setfan_val(int val);
+extern void BuzzError(bool v);
+extern int water_pin,ltemp_pin,temp_limit;
+extern int BUZZER_ERR;
 extern int HEATING;
 #ifdef EMUTEMP
 extern float HEATINGSCALE;
@@ -62,5 +65,3 @@ extern int vanalog[8];
 extern int adcpin;
 extern PID myPID;
 extern float tbang;
-
-

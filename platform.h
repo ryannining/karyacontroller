@@ -36,18 +36,8 @@
 
 extern int HEATING;
 //#include "motors.h"
-#ifdef laser_pin
-#define LASER(x) {xdigitalWrite(laser_pin,x);}
-#else
-#define LASER(x) {}
-#endif
-
-
-#ifdef spindle_pin
-#define SPINDLE(v) {set_pwm(v); }
-#else
-#define SPINDLE(v) {}
-#endif
+extern int atool_pin;
+#define TOOL1(x) {xdigitalWrite(atool_pin,x);}
 
 #ifdef heater_pin
 #define HEATER(x) {xdigitalWrite(heater_pin,x);}

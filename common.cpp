@@ -152,5 +152,3 @@ void sendf_P(void (*writechar)(uint8_t), PGM_P format_P, ...) {
   va_end(args);
   //interrupts();
 }
-
-
