@@ -41,7 +41,7 @@ void setfan_val(int val) {
 }
 
 
-#if defined(heater_pin) || defined(DS18B20)
+#if defined(DS18B20)
 #include "pid.h"
 
 
@@ -56,11 +56,6 @@ PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 int WindowSize = 1500;
 unsigned long windowStartTime;
 void set_temp(float set) {
-  if (set > MAXTEMP)set = MAXTEMP;
-  Setpoint = set;
-  windowStartTime = millis();
-
-  HEATER(LOW);
 }
 void BuzzError(bool v){
 	if (BUZZER_ERR>-1){
@@ -70,15 +65,9 @@ void BuzzError(bool v){
 void init_temp()
 {
   //initialize the variables we're linked to
-
   //turn the PID on
-
   myPID.SetMode(AUTOMATIC);
-
   next_temp = micros();
-#ifdef heater_pin
-  xpinMode(heater_pin, OUTPUT);
-#endif
   set_temp(0);
 // have temp sensor (and water and buzzer error)
 

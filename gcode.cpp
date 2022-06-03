@@ -411,8 +411,8 @@ void stopmachine2() {
   PAUSE=0;
   stopping=false;
   //set_tool(0);
-if (lasermode)
-  TOOL1(!TOOLON);
+  if (lasermode)
+    TOOL1(!TOOLON);
 
 }
 
@@ -431,21 +431,7 @@ void delay_ms(uint32_t d)
 }
 void temp_wait(void)
 {
-#ifdef heater_pin
-  wait_for_temp = 1;
-  uint32_t c = millis();
-  while (wait_for_temp && !temp_achieved()) {
-    domotionloop
-    wifi_loop();
-    //report each second
-    if (millis() - c > 1000) {
-      c = millis();
-      zprintf(PSTR("T:%f\n"), ff(Input));
-      //zprintf(PSTR("Heating\n"));
-    }
-  }
-  wait_for_temp = 0;
-#endif
+
 }
 
 int lastB = 0;
@@ -1299,10 +1285,9 @@ void process_gcode_command()
           }
         reload_eeprom();
         break;
-#ifndef SAVE_RESETMOTION
       case 502:
-        reset_eeprom();
-#endif
+        extern void reset_factory();
+        reset_factory();
       case 205:
         reload_eeprom();
 #endif
@@ -1392,8 +1377,7 @@ void process_gcode_command()
         //zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
         break;
 #endif
-#ifdef USE_EEPROM
-#endif
+
       case 220:
         //? --- M220: Set speed factor override percentage ---
         if ( ! next_target.seen_S)

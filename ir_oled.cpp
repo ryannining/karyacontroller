@@ -5,6 +5,7 @@
 #endif
 
 #if defined(IR_OLED_MENU)
+bool oledready = false;
 
 static int wait_job = 0;
 static int wait_spindle = 0;
@@ -34,6 +35,8 @@ UC1609Wire xdisplay(LCD_SDA, LCD_SCL, LCD_CMD);
 #if defined(LCD_NK1202) || defined(LCD_NK1661)
 
     int lcd_rst=D1;
+    int lcd_sda=TX;
+    int lcd_scl=RX;
       #define HAS_RS D1
 
     //#define HAS_RS 255
@@ -42,7 +45,8 @@ UC1609Wire xdisplay(LCD_SDA, LCD_SCL, LCD_CMD);
 
     #ifdef LCD_NK1202
         #include "NK1202Wire.h"
-        NK1202Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS,HAS_RS);
+        NK1202Wire xdisplay();
+        //LCD_SDA, LCD_SCL, HAS_CS,HAS_RS);
     #endif
 
     #ifdef LCD_NK1661
@@ -112,7 +116,7 @@ void load_menu(int index, String* menu, int le, int col, int* pos, int* page, vo
   //REINIT;
   if (menu_exit)menu_exit();
   menu_exit = default_exit;
-  f();
+  if (oledready)f();
 }
 void draw_menu(void);
 void menu_0_click(int a);
@@ -754,6 +758,8 @@ void check_job() {
   }
 }
 
+void clearJobs(void){
+}
 int getJobs(void)
 {
   Dir dir = SPIFFS.openDir("/");
@@ -772,7 +778,6 @@ int getJobs(void)
       i++;
     }
   }
-
   return i * 2 + 2;
 }
 #endif
@@ -1036,7 +1041,7 @@ void PREVIEWJOB(int a)
 String menu_91_t[] = { "Obj", "Obj", "Obj", "0","Exec","All"}; 
 int menu_91_pos=0;
 int menu_91_page=0;
-int exec_all=0;
+int exec_all=1;
 int rpos;
 extern int shapes_ctr;
 void updaterpos(){
@@ -1046,7 +1051,7 @@ void updaterpos(){
     float pz=shapes[rpos].pz;
     addmove(100, 0,0,10, 0, 1, 1);
     addmove(100, shapes[rpos].px+OAX, shapes[rpos].py+OAY, ocz1, 0, 1, 0);
-    addmove(100, 0,0,-10, 0, 0, 1);
+    addmove(100, 0,0,-10, 0, 1, 1);
     if (exec_all==0) menu_91_t[5]="Single";
     if (exec_all==1) menu_91_t[5]="All";
 }
@@ -1054,7 +1059,7 @@ void updaterpos(){
 void menu_91_exit(){
     addmove(100, 0,0,10, 0, 1, 1);
     addmove(100, OAX, OAY, ocz1, 0, 1, 0);
-    addmove(100, 0,0,-10, 0, 0, 1);  
+    addmove(100, 0,0,-10, 0, 1, 1);  
 }
 void menu_91_click(int a)
 {
@@ -1065,6 +1070,7 @@ void menu_91_click(int a)
     extern bool singleobj;
     singleobj=exec_all==0;
     beginuncompress("/" + jobname,true,rpos);
+    menu_exit=default_exit;
     LOADMENU(0);
     LOADINFO();
   }
@@ -1139,6 +1145,25 @@ void menu_2_click(int a)
     check_job();
     runpreview();
   }
+  
+  float x, y, z;
+  x = 0;
+  y = 0;
+  z = 0;
+  switch (a) {
+    case IRK_1: case IRK4_1: z = 1; break;
+    case IRK_7: case IRK4_7: z = -1; break;
+    case IRK_3: case IRK4_3: z = 0.5; break;
+    case IRK_9: case IRK4_9: z = -0.5; break;
+
+    case IRK_2: case IRK4_2: y = -1; break;
+    case IRK_4: case IRK4_4: x = -1; break;
+    case IRK_6: case IRK4_6: x = 1; break;
+    case IRK_8: case IRK4_8: y = 1; break;
+    return;
+  }
+  addmove(100, x, y, z, 0, 1, 1);
+  
 }
 
 void menu_3_click(int a)
@@ -1173,7 +1198,6 @@ void menu_3_click(int a)
 uint32_t mili;
 #include <WiFiClient.h>
 extern IPAddress ip;
-bool oledready = false;
 void setup_oled(void)
 {
   //oledready=eepromread(EE_softreset)==111;
@@ -1188,7 +1212,6 @@ void setup_oled(void)
 
   //+String(ip[1])+"."+String(ip[2])+"."+String(ip[3]);
   LOADINFO();
-  oledready = true;
 }
 
 
@@ -1223,8 +1246,10 @@ void dopause(int tm) {
   mili = 0;  
 }
 void restartLCD(){
-  xdisplay._rs=lcd_rst;
-  
+  xdisplay.setparam(lcd_sda, lcd_scl, 255,lcd_rst);
+  xdisplay._rs=lcd_rst;  
+  oledready = true;
+
   IR_end();
   REINIT;
   IR_setup();

@@ -176,7 +176,9 @@ void beginuncompress(String fn,bool resume,int pos) {
 	uint8_t val=255;
 	
 	reset_command();
-	gcodepos=pp;
+	gcodepos=pp & ((1<<24)-1);
+	lF1=lF0=lF=next_target.target.F=(pp>>24);
+	next_target.seen_F=1;
 	//prepareposition();
 	AX=shapes[pos].px;
 	AY=shapes[pos].py;
@@ -212,6 +214,7 @@ int connected = 0;
 #define IOT_IP_ADDRESS "172.245.97.171"
 int gid = 0;
 void realreadnet(int s, int l, int bi) {
+	/*
   if (WiFi.status() != WL_CONNECTED)return;
   //wifiConnect();
   WiFiClient client;
@@ -244,6 +247,7 @@ void realreadnet(int s, int l, int bi) {
       } else delay(100);
     }
   }
+  */
 }
 void gcodereadnet(uint8_t * addr, int len) {
   // read
@@ -270,6 +274,8 @@ void uncompressaline() {
     return;
   }
   int qpos=fsGcode.position();
+  fsGcode.read((uint8_t *)&h, 1); gcodepos++;
+  /*
   if (repeatheader == 0) {
     fsGcode.read((uint8_t *)&h, 1); gcodepos++;
     if (repeatsame) {
@@ -279,7 +285,8 @@ void uncompressaline() {
     h = repeatheader;
     repeatsame--;
     if (repeatsame == 0)repeatheader = 0;
-  }
+  }*/
+  
   uctr++;
   //if (uctr>10) return enduncompress();
   if (h & 1) {
@@ -311,7 +318,7 @@ void uncompressaline() {
   
   if (dummy_uncompress && next_target.seen_G && next_target.G<=1 && AZ>0){
     int q=shapes_ctr;
-    shapes[q].pos=qpos;
+    shapes[q].pos=qpos | (int(lF)<<24);
     shapes[q].px=AX;
     shapes[q].py=AY;
     shapes[q].pz=AZ;
@@ -403,9 +410,10 @@ void uncompressaline() {
 		// this is up, so its the last
 		enduncompress();
 		//waitbufferempty();
-		//addmove(100, 0, 0, d, 0, 1, 1);
-		addmove(100, cx1, cy1, OAZ, 0, 1, 0);		
-		//addmove(100, OAX, OAY, OAZ, 0, 1, 0);
+		addmove(100, 0, 0, -10, 0, 1, 1);
+		//addmove(100, cx1, cy1, OAZ, 0, 1, 0);		
+		addmove(100, OAX, OAY, ocz1, 0, 1, 0);
+		addmove(100, 0, 0, 10, 0, 1, 1);
 		//waitbufferempty();		
 		return;
 	  }

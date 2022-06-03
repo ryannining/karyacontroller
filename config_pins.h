@@ -60,13 +60,13 @@
 	#define temp_pin D2
 		
 	#define ANALOG_THC
-
+	#define IR_OLED_MENU
 	// for V3 - Laser and router are using same Output PIN
 	// LCD Reset using same pin
 
 #endif
 
-//#define BOARD_WEMOSCNC_ONLY
+#define BOARD_WEMOSCNC_ONLY_V2
 #include "myboards.h"
 
 #define USE_EEPROM
@@ -80,7 +80,7 @@
   ============================================================================================
 */
 
-//#define PLOTTING
+#define PLOTTING
 //#define MESHLEVEL
 //#define ARC_SUPPORT // 3kb
 #define USE_BACKLASH  // 400bytes code
@@ -168,35 +168,12 @@
 //#define LASERMODE
 
 
-
-// ESP8266
-#ifdef SHARE_EZ
-	#warning Share E and Z direction
-#endif
-
-
 #if defined(__AVR__) || defined (__ARM__)
 	#warning Doesnot support ARM/AVR
 #endif
 
 //#define motortimeout 10000000 // 10 seconds
 
-#define TOWER_X_ANGLE_DEG        210
-#define TOWER_Y_ANGLE_DEG        330
-#define TOWER_Z_ANGLE_DEG        90
-#define DELTA_DIAGONAL_ROD 180
-#define DELTA_RADIUS 85
-
-#ifndef XOFFSET
-#define XOFFSET 0
-#define YOFFSET 0
-#define ZOFFSET 0
-#define EOFFSET 0
-#endif
-
-#ifndef LSCALE
-#define LSCALE 1
-#endif
 
 // Motion configuration
 #ifndef CHECKENDSTOP_EVERY

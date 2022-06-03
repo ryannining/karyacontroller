@@ -376,7 +376,7 @@ inline int THEISR timercode();
 // -------------------------------------   ESP8266  ----------------------------------------------------------
 #ifdef ESP8266
 #define USETIMEROK
-#define MINDELAY 500
+#define MINDELAY 100
 #define usetmr1
 
 int tm_mode=0;

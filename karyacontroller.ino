@@ -94,7 +94,8 @@ void downloadFile(String durl,String outf){
     }
 }
 
-int strToPin(String s2){
+int strToPin(File f1){
+    String s2=f1.readStringUntil('\n');
     if(s2=="D1")return D1;    
     if(s2=="D2")return D2;    
     if(s2=="D3")return D3;    
@@ -107,6 +108,7 @@ int strToPin(String s2){
     if(s2=="TX")return TX;    
     if(s2=="RX")return RX;    
     if(s2=="A0")return A0;   
+    if(s2=="?")return 255;   
     return -1;
 }
 void readConfig(String fn){
@@ -123,9 +125,7 @@ void readConfig(String fn){
     s1=f1.readStringUntil('=');
     if (s1==";"){
         s1=f1.readStringUntil('\n');
-        if (s1=="end")break;
-    } else 
-    if (s1=="motor"){
+    } else if (s1=="motor"){
         // no,step/mm,speed
         s2=f1.readStringUntil(',');
         int mt=0;
@@ -137,60 +137,61 @@ void readConfig(String fn){
         maxf[mt]=String(f1.readStringUntil(',')).toFloat(); // maxf
         maxa[mt]=String(f1.readStringUntil(',')).toFloat(); // maxa
         xback[mt]=String(f1.readStringUntil('\n')).toFloat(); // xback  
-    }else    
-    if (s1=="home"){        
+    } else if (s1=="home"){        
         ax_home[0]=String(f1.readStringUntil(',')).toFloat(); // maxf
         ax_home[1]=String(f1.readStringUntil(',')).toFloat(); // maxa
         ax_home[2]=String(f1.readStringUntil('\n')).toFloat(); // xback  
-    }else    
-    if (s1=="home_feed"){
+    } else if (s1=="home_ofs"){        
+        axisofs[0]=String(f1.readStringUntil(',')).toFloat(); // maxf
+        axisofs[1]=String(f1.readStringUntil(',')).toFloat(); // maxa
+        axisofs[2]=String(f1.readStringUntil('\n')).toFloat(); // xback  
+    } else if (s1=="home_feed"){
         homingspeed=f1.readStringUntil('\n').toFloat();    
-    }else 
-    if (s1=="limit_pin"){
-        limit_pin=strToPin(f1.readStringUntil('\n'));    
-    }else 
-    if (s1=="mode"){
+    } else if (s1=="limit_pin"){
+        limit_pin=strToPin(f1);    
+    } else if (s1=="mode"){
         s2=f1.readStringUntil('\n');
         if (s2=="router")lasermode=0;
         if (s2=="laser")lasermode=1;
         if (s2=="plasma")lasermode=2;
-    }else 
-    if (s1=="lcd_rst"){
-        lcd_rst=strToPin(f1.readStringUntil('\n'));   
-        if (lcd_rst==-1)lcd_rst=255; 
-    }else     
-    if (s1=="tool_pin"){
-        atool_pin=strToPin(f1.readStringUntil('\n'));    
-    }else 
-    if (s1=="lscale"){
+    } else if (s1=="lcd_rst"){
+        lcd_rst=strToPin(f1);   
+    } else if (s1=="lcd_sda"){
+        lcd_sda=strToPin(f1);   
+    } else if (s1=="lcd_scl"){
+        lcd_scl=strToPin(f1);   
+    }  else if (s1=="lcd_cs"){
+        // dont care about CS for now
+        s2=f1.readStringUntil('\n');   
+    }  else if (s1=="lcd_type"){
+        s2=f1.readStringUntil('\n');   
+    }  else if (s1=="tool_pin"){
+        atool_pin=strToPin(f1);    
+    } else if (s1=="corner"){
+        xycorner=f1.readStringUntil('\n').toInt();    
+    } else if (s1=="lscale"){
         Lscale=f1.readStringUntil('\n').toFloat();    
-    }else 
-    if (s1=="thc_up"){
+    } else if (s1=="thc_up"){
         thc_up=f1.readStringUntil('\n').toFloat();    
-    }else 
-    if (s1=="thc_ofs"){
+    } else if (s1=="thc_ofs"){
         thc_ofs=f1.readStringUntil('\n').toFloat(); 
-    }else 
-    if (s1=="water"){
+    } else if (s1=="water"){
         if (f1.readStringUntil('\n')=="Y"){
             water_pin=A0;
             pinMode(water_pin,INPUT_PULLUP);
         } else water_pin=-1;
-    }else 
-    if (s1=="thc"){
+    } else if (s1=="thc"){
         thc_enable=f1.readStringUntil('\n')=="Y";
-    }else 
-    if (s1=="temp_pin"){
-        ltemp_pin=strToPin(f1.readStringUntil('\n'));    
-    }else 
-    if (s1=="temp_limit"){
+    } else if (s1=="temp_pin"){
+        ltemp_pin=strToPin(f1);    
+    } else if (s1=="temp_limit"){
         temp_limit=f1.readStringUntil('\n').toInt();    
-    }else 
-    if (s1=="buzzer"){
-        BUZZER_ERR=strToPin(f1.readStringUntil('\n'));   
+    } else if (s1=="buzzer"){
+        BUZZER_ERR=strToPin(f1);   
         pinmode(BUZZER_ERR,OUTPUT); 
-    }else
-    {} 
+    } else {
+        f1.readStringUntil('\n');
+    }
   }
   f1.close();
 }
@@ -206,17 +207,22 @@ void saveconfigs(){
   f1.print("motor=X,"); printmotor(f1,0);
   f1.print("motor=Y,"); printmotor(f1,1);
   f1.print("motor=Z,"); printmotor(f1,2);
-  f1.print("corner=");f1.println(float(xycorner));
-  f1.print("lscale=");f1.println(Lscale,2);
-  f1.print("thc_up=");f1.println(thc_up,2);
-  f1.print("thc_ofs=");f1.println(thc_ofs,2);
+  f1.print("corner=");f1.println(xycorner);
+  f1.print("lscale=");f1.println(Lscale);
+  f1.print("thc_up=");f1.println(thc_up);
+  f1.print("thc_ofs=");f1.println(thc_ofs);
   f1.print("home=");f1.print(ax_home[0],2);f1.print(",");
                     f1.print(ax_home[1],2);f1.print(",");
                     f1.println(ax_home[2],2);
+  f1.print("home_ofs=");f1.print(axisofs[0],2);f1.print(",");
+                    f1.print(axisofs[1],2);f1.print(",");
+                    f1.println(axisofs[2],2);
   f1.close();
   pre_motion_set();
 }
 void readconfigs(){
+  Lscale=1;
+  xycorner=20;
   readConfig("/config.ini");
   readConfig("/custom.ini");
   // calculate something
@@ -408,6 +414,7 @@ void updateFirmware()
   }
 }
 
+bool isconfig,isfirmware;
 void handleFileUpload()
 { // upload a new file to the SPIFFS
   NOINTS
@@ -422,6 +429,11 @@ void handleFileUpload()
         filename = "/gcode.gcode";
       if (!filename.startsWith("/"))
         filename = "/" + filename;
+      // always rename any config to config.ini, except custom.ini   
+      isconfig=filename.endsWith(".ini");
+      isfirmware=filename.endsWith(".bin");
+      if (isconfig && !filename.startsWith("/custom"))filename="/config.ini";
+      if (isfirmware)filename="/firmware.bin";
       xprintf(PSTR("handleFileUpload Name: %s\n"), filename.c_str());
       fsUploadFile = SPIFFS.open(filename, "w"); // Open the file for writing in SPIFFS (create if it doesn't exist)
       filename = String();
@@ -438,6 +450,7 @@ void handleFileUpload()
         xprintf(PSTR("handleFileUpload Size: %d\n"), upload.totalSize);
         server.sendHeader("Location", "/upload"); // Redirect the client to the success page
         server.send(303);
+        if (isconfig)readconfigs();
       }
       else {
         server.send(500, "text/plain", "500: couldn't create file");
@@ -533,6 +546,11 @@ void connectWifi(int ret = 1)
 
 }
 bool isSTA;
+void reset_factory(){
+  reset_eeprom();
+  SPIFFS.remove("/custom.ini");
+  readconfigs();
+}
 void setupwifi(int num)
 {
   NOINTS
@@ -618,12 +636,7 @@ void setupwifi(int num)
       ESP.restart();
       INTS
     });
-    server.on("/resetlcd", HTTP_GET, []() { // if the client requests the upload page
-      IR_end();
-      REINIT;
-      IR_setup();
-      server.send(200, "text/html", "OK");
-    });
+
     server.on("/gcode", HTTP_GET, []() { // if the client requests the upload page
       if (!uncompress) {
         char gc[100];
@@ -782,6 +795,27 @@ void setupwifi(int num)
       }
       INTS
     });
+    server.on("/getfree",HTTP_GET,[](){
+      if (!uncompress) {
+        FSInfo fs_info;
+        SPIFFS.info(fs_info);
+        int tBytes = fs_info.totalBytes; 
+        int uBytes = fs_info.usedBytes;
+        server.send(200, "text/plain", "["+String(tBytes)+","+String(uBytes)+"]");
+      }
+    });
+    server.on("/clearjobs", HTTP_GET, []() {
+      NOINTS
+        Dir dir = SPIFFS.openDir("/");
+        while (dir.next()) {
+          String s = dir.fileName();
+          if (s.endsWith(".gcode") || s.endsWith(".jpg")) {
+            SPIFFS.remove(s);  
+          }
+        }
+        server.send(200, "text/plain", "Ok");
+        INTS
+    });    
     server.on("/getjobs", HTTP_GET, []() {
       NOINTS
       if (!uncompress) {
@@ -852,27 +886,17 @@ void setupwifi(int num)
         addmove(100, x, y, z, 0, 1, 1);
       }
     });
-    server.on("/heating", HTTP_GET, []() { // if the client requests the upload page
-      int temp = 0;
-      if (server.arg("t0") == "")
-        temp = 180;
-      else
-        temp = server.arg("t0").toInt();
-      server.send(200, "text/html", String(Input));
-      set_temp(180);
-    });
-    server.on("/cooling", HTTP_GET, []() { // if the client requests the upload page
-      server.send(200, "text/html", "Cooling");
-      set_temp(0);
-    });
+
     server.on("/upload", HTTP_GET, []() { // if the client requests the upload page
       //xprintf(PSTR("Handle UPLOAD \n"));
       server.send(200, "text/html", "<form method=\"post\" enctype=\"multipart/form-data\"><input type=\"file\" name=\"name\"> <input class=\"button\" type=\"submit\" value=\"Upload\"></form>");
     });
     server.on("/delete", HTTP_GET, []() { // if the client requests the upload page
       //xprintf(PSTR("Handle UPLOAD \n"));
-      SPIFFS.remove(server.arg("fn"));
+      String s=server.arg("fn");
+      SPIFFS.remove(s);
       server.send(200, "text/html", "Delete " + server.arg("fn"));
+      if (s.endsWith(".ini"))readconfigs();  
     });
     server.on("/rename", HTTP_GET, []() { // if the client requests the upload page
       //xprintf(PSTR("Handle UPLOAD \n"));

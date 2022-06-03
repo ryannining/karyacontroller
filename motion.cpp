@@ -78,8 +78,6 @@ int8_t RUNNING = 1;
 int8_t PAUSE = 0;
 float stepmmx[4];
 int odir[4] = {1, 1, 1, 1};
-float retract_in, retract_out;
-float retract_in_f, retract_out_f;
 float cx1, cy1, cz1, ocz1, ce01, extadv;
 tmove moves[NUMBUFFER];
 
@@ -130,9 +128,11 @@ float perstepx, perstepy, perstepz;
 extern void readconfigs();
 void reset_motion()
 {
+  /*
   homingspeed = HOMINGSPEED;
   xycorner = XYCORNER;
   Lscale = LSCALE;
+*/
   ishoming = 0;
   cmctr = 0;
   e_multiplier = f_multiplier =  1;
@@ -191,12 +191,12 @@ void reset_motion()
   xback[MY] = MOTOR_Y_BACKLASH;
   xback[MZ] = MOTOR_Z_BACKLASH;
   xback[nE] = MOTOR_E_BACKLASH;
-*/
 
   axisofs[MX] = XOFFSET;
   axisofs[MY] = YOFFSET;
   axisofs[MZ] = ZOFFSET;
   axisofs[nE] = EOFFSET;
+*/
 
 #endif
 }
@@ -331,7 +331,7 @@ int cmdlaserval = 0;
 #define cmdnotfull (nextbuffm(cmhead)!=cmtail)
 #define cmdempty (cmhead==cmtail)
 #define cmdlen (cmhead >= cmtail ? cmhead - cmtail : ((NUMCMDBUF+1) + cmhead) - cmtail)
-static volatile uint32_t cmd_ctr=0;
+static volatile int cmd_ctr=0;
 
 #ifdef PLOTTING
 #define NUMVEBUF 255
@@ -595,7 +595,7 @@ void planner(int32_t h)
   int32_t ac = accel;
   int32_t fn = pcurr->fn;
   int minaxis=0;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 2; i++) {
     curru[i] = 0;
     if (pcurr->dx[i] != 0) {
       // vector at axis i is distance of the axis / distance total
@@ -803,6 +803,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   x2[2] = db;
 #endif
 
+/*
 #if defined(DRIVE_XYYZ)
   // copy dZ to dE and  dY to dZ, for CNC with 2 separate Y axis at homing.
   if (ishoming) {
@@ -812,7 +813,6 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     x2[3] = x2[2];
     x2[2] = x2[1];
   }
-
 #endif
   // retract conversion
   if (cf <= 1) {
@@ -827,6 +827,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
       cf = retract_out_f;
     }
   }
+*/
 
   // if no axis movement then dont multiply by multiplier
   // lets handle multiplier differently
@@ -838,7 +839,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   curr->fs = 0;
   int32_t dd = 0;
   int faxis = 0;
-
+/*
 #ifdef SHARE_EZ
   // On Wemos 3D printer, its not enough Direction pin, so we can use SHARE E and Z, and we will skip the E motion when Z motion
   // present
@@ -850,6 +851,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     x2[3] = 0;
   }
 #endif
+*/
 
   // find the largest axis steps
   for (int i = 0; i < NUMAXIS; i++) {
@@ -881,7 +883,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
 
     // Laser
 
-    curr->laserval = (laserOn && (!g0) ? constantlaserVal : 0);
+    curr->laserval = (lasermode && g0) ? 0:constantlaserVal;
     head = nextbuff(head);
     curr->status |= 1; // 0: finish 1:ready
     // planner are based on cartesian coord movement on the motor
@@ -1065,7 +1067,7 @@ const uint16_t PROGMEM slowdownDict[256]={
 //
 //54,76,98,118,138,157,175,193,210,227,243,259,274,288,302,316,329,342,355,367,379,390,402,412,423,433,443,453,463,472,481,490,499,507,515,523,531,539,546,554,561,568,575,581,588,594,601,607,613,619,625,631,636,642,647,652,657,663,668,672,677,682,687,691,696,700,704,709,713,717,721,725,729,733,737,740,744,748,751,755,758,762,765,768,771,775,778,781,784,787,790,793,796,799,801,804,807,810,812,815,818,820,823,825,828,830,832,835,837,839,842,844,846,848,851,853,855,857,859,861,863,865,867,869,871,873,875,877,879,880,882,884,886,887,889,891,893,894,896,898,899,901,902,904,905,907,909,910,912,913,914,916,917,919,920,922,923,924,926,927,928,930,931,932,934,935,936,937,939,940,941,942,943,944,946,947,948,949,950,951,952,954,955,956,957,958,959,960,961,962,963,964,965,966,967,968,969,970,971,972,973,974,975,976,976,977,978,979,980,981,982,983,983,984,985,986,987,988,988,989,990,991,992,992,993,994,995,995,996,997,998,998,999,1000,1001,1001,1002,1003,1004,1004,1005,1006,1006,1007,1008,1008,1009,1010,1010,1011,1012,1012,1013,1014,1014,1015
 
-bool FULLSPEED=true;
+bool FULLSPEED=false;
 static THEISR void decodecmd()
 { 
 
@@ -1130,7 +1132,7 @@ static THEISR void decodecmd()
       cmdly = DIRDELAY;
       stepdiv3 = (cmd >> 13) << 6;  
       cmdlaserval = (cmd >> 7 ) & 63;
-      stepdiv3a=stepdiv3>>8;
+      stepdiv3a=stepdiv3>>12;
 
       laserwason = (Setpoint == 0) && (cmdlaserval>0);
       pwm_val = (Lscale*cmdlaserval);
@@ -1151,10 +1153,6 @@ static THEISR void decodecmd()
   else
     timer_set2(uint32_t(pwm_val*cmdly)>>6,cmdly);
 
-
-#ifdef heater_pin
-  HEATER(HEATING);
-#endif
 
 }
 
@@ -1182,24 +1180,21 @@ void THEISR coreloopm()
       mm_ctr++; // this counter used by probing to calculate real mm
 
       if (lasermode==2) {
-#ifdef ANALOG_THC
-       extern int thcspeed;
-      if ((dirbit & 32)==0 && (mm_ctr & thcspeed)==0 && laserwason) {
-        extern int thcdir,thcstep;
-        if ((thcdir>-10) && (--thcstep>0)) {
-          z_dir=thcdir;
-          motor_2_DIR(z_dir);
-          if (thcdir != 0)cmbit |= 4;
+        if (thc_enable){
+           extern int thcspeed;
+          if ((dirbit & 32)==0 && (mm_ctr & thcspeed)==0 && laserwason) {
+            extern int thcdir,thcstep;
+            if ((thcdir>-10) && (--thcstep>0)) {
+              z_dir=thcdir;
+              motor_2_DIR(z_dir);
+              if (thcdir != 0)cmbit |= 4;
+            }
+          }
         }
-      }
-#endif
       }
       // AXIS 4 - Extruder
       if (cmbit & 8) {
-#ifndef DRIVE_XZY2
-        ectstep += e_dir;
-        motor_3_STEP();
-#endif
+
       };
       // AXIS 1 - X
       
@@ -1214,13 +1209,8 @@ void THEISR coreloopm()
         yctstep++;
         info_y_s -= y_dir;
         motor_1_STEP();
-#if defined(COPY_Y_TO_Z) && !defined(motorz_servo)
-        motor_2_STEP();
-#endif
-#ifdef DRIVE_XZY2
-        // copy motion on motor E
-        motor_3_STEP();
-#endif
+
+
       }
       // AXIS 3
       if (cmbit & 4) {
@@ -1228,9 +1218,8 @@ void THEISR coreloopm()
 #else
         zctstep++;
         info_z_s -= z_dir;
-      #ifndef motorz_servo
-        motor_2_STEP();
-      #endif
+        if (lasermode!=1)motor_2_STEP();
+
 #endif
       }
 
@@ -1241,9 +1230,7 @@ void THEISR coreloopm()
       
       motor_0_UNSTEP();
       motor_1_UNSTEP();
-      #ifndef motorz_servo
-      motor_2_UNSTEP();
-      #endif
+      if (lasermode!=1)motor_2_UNSTEP();
       
       pinCommit();
 
@@ -1264,21 +1251,13 @@ void THEISR coreloopm()
       // header command, we set the motor driver direction
       e_dir = 0;
       if (cmbit & 2) motor_0_DIR(x_dir = (cmbit & 1) ? -1 : 1);
-#ifndef COPY_Y_TO_Z
-      if (cmbit & 32) motor_2_DIR(z_dir = (cmbit & 16) ? -1 : 1);
-#endif
+      if ((lasermode!=1) && (cmbit & 32)) motor_2_DIR(z_dir = (cmbit & 16) ? -1 : 1);
       if (cmbit & 128) {
-#ifndef DRIVE_XZY2
-        motor_3_DIR(e_dir = (cmbit & 64) ? -1 : 1);
-        //zprintf(PSTR("E:%d\n"), fi(e_dir));
-#endif
+
       }
       if (cmbit & 8) {
         y_dir = (cmbit & 4) ? -1 : 1;
         motor_1_DIR(y_dir);
-#if defined(COPY_Y_TO_Z) && !defined(motorz)
-        motor_2_DIR(odir[2]*y_dir);
-#endif
       }
 
       pinCommit();
@@ -1899,8 +1878,8 @@ void initmotion()
 #endif
 
   pinMotorInit
-  atool_pin=tool1_pin;
-  xpinMode(tool1_pin, OUTPUT);
+  atool_pin=D8;
+  xpinMode(atool_pin, OUTPUT);
   TOOL1(!TOOLON);
 
 }

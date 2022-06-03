@@ -84,10 +84,10 @@ extern int zaccel, accel,limit_pin;
 extern int  maxf[4];
 extern int  maxa[4];
 extern int32_t dlp, info_x_s, info_y_s, info_z_s;
-extern float stepmmx[4], Lscale;
-extern float retract_in, retract_out;
+extern float stepmmx[4];
+extern float Lscale;
+
 extern float info_x, info_y, info_z, info_ve, info_e, perstepx, perstepy, perstepz;
-extern float retract_in_f, retract_out_f;
 extern tmove moves[NUMBUFFER];
 extern float cx1, cy1, cz1, ocz1, ce01;
 extern uint8_t head, tail;

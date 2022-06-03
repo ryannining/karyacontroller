@@ -106,19 +106,23 @@ void special_loop(int xcmd){
 		extern int32_t autoresume;
 		extern int odir[];
 		autoresume=0;
-		int steps=babystep[2]*stepmmx[2]/500;
-		motor_2_DIR((odir[2]*((steps<0)?-1:1)));
-		for (int i=abs(steps);i>0;i--){
-			if (i&1) {
-				motor_2_UNSTEP();
-				delay(1);
-			} else { 
-				motor_2_STEP();
+		extern int lasermode;
+		if (lasermode!=1){
+			int steps=babystep[2]*stepmmx[2]/500;
+			motor_2_DIR((odir[2]*((steps<0)?-1:1)));
+			for (int i=abs(steps);i>0;i--){
+				if (i&1) {
+					motor_2_UNSTEP();
+					delay(1);
+				} else { 
+					motor_2_STEP();
+				}
+			
 			}
+			// return to last dir
+			extern int z_dir;
+			motor_2_DIR(z_dir);
 		}
-		// return to last dir
-		extern int z_dir;
-		motor_2_DIR(z_dir);
 		babystep[2]=0;
 	  }  
 }

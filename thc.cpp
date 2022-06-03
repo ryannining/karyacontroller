@@ -11,6 +11,8 @@ int thcstep = 0;
 int thcstepmax = 0;
 int thcread = 0;
 uint32_t lasthcok;
+int thc_up;
+int thc_ofs;
 
 int thctail=0;
 int thchead=0;

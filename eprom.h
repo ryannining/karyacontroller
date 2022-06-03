@@ -118,6 +118,18 @@ extern int thc_ofs,thc_up,thc_enable;
 
 #define EE_corner 165
 #define EE_Lscale 170
+
+
+#define EE_pid_p 320
+#define EE_pid_i 325
+#define EE_pid_d 340
+#define EE_pid_bang 335
+#define EE_pid_HS 355
+
+#define EE_ext_adv 345
+#define EE_un_microstep 350
+#define EE_softreset 490
+
 */
 
 
@@ -130,21 +142,6 @@ extern int thc_ofs,thc_up,thc_enable;
 #define EE_wifi_pwd 450
 #define EE_wifi_dns 470
 
-
-#define EE_retract_in 300
-#define EE_retract_out 305
-#define EE_retract_in_f 310
-#define EE_retract_out_f 315
-
-#define EE_pid_p 320
-#define EE_pid_i 325
-#define EE_pid_d 340
-#define EE_pid_bang 335
-#define EE_pid_HS 355
-
-#define EE_ext_adv 345
-#define EE_un_microstep 350
-#define EE_softreset 490
 
 
 extern void reload_eeprom();

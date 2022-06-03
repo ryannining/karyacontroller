@@ -39,12 +39,6 @@ extern int HEATING;
 extern int atool_pin;
 #define TOOL1(x) {xdigitalWrite(atool_pin,x);}
 
-#ifdef heater_pin
-#define HEATER(x) {xdigitalWrite(heater_pin,x);}
-#else
-#define HEATER(x) {}
-#endif
-
 #else
 #warning Unsupported CPU
 
