@@ -72,7 +72,7 @@ typedef struct {
 } GCODE_COMMAND;
 
 
-#define g_str_len 100
+#define g_str_len 10
 
 
 extern int32_t linecount, lineprocess;

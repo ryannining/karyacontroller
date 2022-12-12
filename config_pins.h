@@ -10,8 +10,6 @@
 
 #define THEISR
 
-#define TOOLON HIGH
-#define SPINDLEON HIGH
 
 #include<Arduino.h>
 
@@ -56,7 +54,7 @@
 
 	//#define EMULATETEMP
 
-	#define DS18B20 D2
+	#define DS18B20
 	#define temp_pin D2
 		
 	#define ANALOG_THC
@@ -69,7 +67,7 @@
 #define BOARD_WEMOSCNC_ONLY_V2
 #include "myboards.h"
 
-#define USE_EEPROM
+//#define USE_EEPROM
 
 // custom
 //#define spindle_pin D1
@@ -80,7 +78,7 @@
   ============================================================================================
 */
 
-#define PLOTTING
+//#define PLOTTING
 //#define MESHLEVEL
 //#define ARC_SUPPORT // 3kb
 #define USE_BACKLASH  // 400bytes code
@@ -152,7 +150,7 @@
 #endif
 
 
-#define TOOLON HIGH // depends on laser machine
+//#define TOOLON HIGH // depends on laser machine
 
 
 //#define USE_EEPROM

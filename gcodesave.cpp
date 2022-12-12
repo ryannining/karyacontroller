@@ -114,6 +114,7 @@ void prepareposition(){
 	  AZ = 0;
 	  AE = 0;
 }
+long realstart;
 void beginuncompress(String fn,bool resume,int pos) {
   if (uncompress)return;
   mediaX = 0;
@@ -129,7 +130,7 @@ void beginuncompress(String fn,bool resume,int pos) {
     return;
   }
   gcodesize = fsGcode.size();
-  gcodepos = 3;
+
   char hdr[3];
   fsGcode.read((uint8_t *)&hdr, 3);
   if (hdr[0] == 'G' && hdr[1] == 'X') {
@@ -139,7 +140,7 @@ void beginuncompress(String fn,bool resume,int pos) {
     fsGcode.close();
     return;
   }
-
+  fScale=2;
   if (gxver == 1) {
     xyScale = 1 / 0.005;
     zScale = 1 / 0.1;
@@ -170,23 +171,31 @@ void beginuncompress(String fn,bool resume,int pos) {
   if (!resume) {
 	prepareposition();
 	singleobj=false;
+	realstart=0;
+	extern bool makezeropoint;
+	set_tool(255);
+	if (!dummy_uncompress){
+		if (makezeropoint){
+			addmove(5, 0, 0, -1, 0, 0, 1); // zero point
+		}	
+		addmove(100, 0, 0, 5, 0, 1, 1); // zero point
+	}
   } else {
 	//
 	uint32_t pp=shapes[pos].pos;
-	uint8_t val=255;
 	
 	reset_command();
-	gcodepos=pp & ((1<<24)-1);
+	realstart=gcodepos=pp & ((1<<24)-1);
 	lF1=lF0=lF=next_target.target.F=(pp>>24);
 	next_target.seen_F=1;
 	//prepareposition();
-	AX=shapes[pos].px;
-	AY=shapes[pos].py;
-	AZ=shapes[pos].pz;
+	AX=0;
+	AY=0;
+	AZ=0;
 
-	fsGcode.seek(gcodepos);
-	laserOn = val > 0;
-    constantlaserVal = val;
+	//fsGcode.seek(gcodepos);
+    set_tool(0);
+    set_tool(255);
   }
   //*/
   uncompress = 1;
@@ -205,6 +214,17 @@ int ispause = 0;
 
 void gcodereadfile(uint8_t * addr, int len) {
 
+}
+
+int dVfunc(int s){
+	if (s<51)return s;
+	if (s<121)return (50+(s-50)*2);
+	return (190+(s-120)*4);
+}
+int eVfunc(int s){
+	if (s<51)return s;
+	if (s<191)return (s+50)/2;
+	return (s+290)/4;
 }
 
 long buffidx = 0;
@@ -273,11 +293,11 @@ void uncompressaline() {
 	}
     return;
   }
-  int qpos=fsGcode.position();
-  fsGcode.read((uint8_t *)&h, 1); gcodepos++;
+  int qpos=gcodepos=fsGcode.position();
+  fsGcode.read((uint8_t *)&h, 1);
   /*
   if (repeatheader == 0) {
-    fsGcode.read((uint8_t *)&h, 1); gcodepos++;
+    fsGcode.read((uint8_t *)&h, 1); 
     if (repeatsame) {
       repeatheader = h;
     }
@@ -297,7 +317,7 @@ void uncompressaline() {
       case 2:
         // special  for laser, this will inform how many data with same header but will flip and flop G0 G1
         s = 0;
-        fsGcode.read((uint8_t *)&s, 1); gcodepos++;
+        fsGcode.read((uint8_t *)&s, 1); 
         repeatsame = s;
         repeatheader = 0;
         return; break;
@@ -307,7 +327,13 @@ void uncompressaline() {
     next_target.seen_G = 1;
     switch ((h >> 1) & 3) {
       case 0: next_target.G = 0; break;
-      case 1: next_target.G = 1; break;
+      case 1: 
+		next_target.G = 1; 
+		// if mode CNC check tool
+		extern int lasermode,lastS;
+		if (lasermode==0 && lastS<30) set_tool(255); 
+
+		break;
       case 2:
         next_target.G = 28;
         //cntg28--;
@@ -331,7 +357,7 @@ void uncompressaline() {
   // zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
   if (h & (1 << 3)) { //F or S
     s = 0;
-    fsGcode.read((uint8_t *)&s, 1); gcodepos++;
+    fsGcode.read((uint8_t *)&s, 1); 
     // F and S is same in M code
     if (next_target.seen_M) // if M then its S
     {
@@ -341,7 +367,7 @@ void uncompressaline() {
       lastSv=s;
     } else { //else its F
       next_target.seen_F = 1;
-      lF = next_target.target.F = s * fScale;
+      lF = next_target.target.F = s*fScale;
       if (next_target.G == 1) {
         lF1 = lF;
       } else lF0 = lF;
@@ -358,7 +384,7 @@ void uncompressaline() {
 
   if (h & (1 << 4)) { // X
     x = 0;
-    fsGcode.read((uint8_t *)&x, xySize); gcodepos += xySize;
+    fsGcode.read((uint8_t *)&x, xySize); 
     //zprintf(PSTR("X%d "), fi(x));
     next_target.seen_X = 1;
     if (next_target.seen_M) {
@@ -375,7 +401,7 @@ void uncompressaline() {
   }
   if (h & (1 << 5)) {
     x = 0;
-    fsGcode.read((uint8_t *)&x, xySize); gcodepos += xySize;
+    fsGcode.read((uint8_t *)&x, xySize); 
     next_target.seen_Y = 1;
     if (next_target.seen_M) {
       x = float(x - xyLimit) * 100 / xyScale;
@@ -392,7 +418,7 @@ void uncompressaline() {
   }
   if (h & (1 << 6)) {
     x = 0;
-    fsGcode.read((uint8_t *)&x, zSize); gcodepos += xySize;
+    fsGcode.read((uint8_t *)&x, zSize);
     //zprintf(PSTR("Z%d "), fi(x));
     next_target.seen_Z = 1;
     d = float(x - zLimit) / zScale;
@@ -410,10 +436,10 @@ void uncompressaline() {
 		// this is up, so its the last
 		enduncompress();
 		//waitbufferempty();
-		addmove(100, 0, 0, -10, 0, 1, 1);
+		addmove(100, 0, 0, 10, 0, 1, 1);
 		//addmove(100, cx1, cy1, OAZ, 0, 1, 0);		
 		addmove(100, OAX, OAY, ocz1, 0, 1, 0);
-		addmove(100, 0, 0, 10, 0, 1, 1);
+		addmove(100, 0, 0, -10, 0, 1, 1);
 		//waitbufferempty();		
 		return;
 	  }
@@ -423,7 +449,7 @@ void uncompressaline() {
   }
   if (h & (1 << 7)) {
     x = 0;
-    fsGcode.read((uint8_t *)&x, eSize); gcodepos += eSize;
+    fsGcode.read((uint8_t *)&x, eSize);
 
     if (next_target.seen_M) {
       //zprintf(PSTR("E%d "), fi(x));
@@ -437,7 +463,7 @@ void uncompressaline() {
   }
   //zprintf(PSTR("\n"));
 
-  if (!dummy_uncompress){
+  if (!dummy_uncompress && qpos>=realstart){
 	  waitexecute=true;
 	  //process_gcode_command();
   } else {
@@ -454,13 +480,24 @@ void uncompressaline() {
     zMin = min(zMin, AZ);
     
     zMax = max(zMax, AZ);
-    reset_command();
     
     if (AZ <= 0 && D > 0) {
       D = sqrt(D);
       dMax += D;
       tMax += D / lF;
     }
+    if (realstart>0){
+		extern float F0,F1;
+		// handle Feedrate
+		if (next_target.seen_F && next_target.seen_G) {
+			if (next_target.G==0)F0 = next_target.target.F; else F1 = next_target.target.F;
+		}
+		// handle Spindle power
+		if (next_target.seen_S) {
+			set_tool(next_target.S);
+		}
+	}
+    reset_command();
   }
   lastjobt = millis() - lastjobt0;
 }
@@ -494,6 +531,7 @@ void dummy_beginuncompress(String fn) {
 // ========================== LOOP =============================
 void uncompress_loop() {
   if (uncompress==1) {
+	  
     // do the uncompress job
     for (int j=15;j>0;j--){
 		tryexecute();
@@ -503,7 +541,6 @@ void uncompress_loop() {
   } else if (uncompress==2){
 	if (head==tail && cmhead==cmtail) {
 		uncompress=0;
-
 	  //zprintf(PSTR("End Uncompress Gcode\n"));
 	  //if (!force)waitbufferempty();
 	  lastjobt = millis() - lastjobt0;
@@ -512,6 +549,10 @@ void uncompress_loop() {
 	  load_info();
 	  xdisplay.Reset();
 	#endif
+		extern String jobname;
+		extern String uptime(long w);
+		extern void sendTelegram(String stext);
+		sendTelegram(wifi_dns+" finish job "+jobname+" Time:"+uptime(lastjobt));
 	}
   }
 }

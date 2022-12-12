@@ -2,9 +2,10 @@
 #ifndef eprom_H
 #define eprom_H
 
+#include "timer.h"
+
 #ifdef USE_EEPROM
 
-#include "timer.h"
 
 
 #include <EEPROM.h>
@@ -43,16 +44,14 @@ static void  eepromreadstring(int p, char* str, int len) {
   str[l] = 0;
 }
 static void eepromcommit() {
-  timerPause();
+  //timerPause();
   //zprintf(PSTR("Commit\n"));
-  EEPROM.commit();
-  timerResume();
+  //EEPROM.commit();
+  //timerResume();
 }
 
 #define eeprominit EEPROM.begin(512)
 
-
-extern int thc_ofs,thc_up,thc_enable;
 
 
 /*
@@ -146,11 +145,18 @@ extern int thc_ofs,thc_up,thc_enable;
 
 extern void reload_eeprom();
 extern void reset_eeprom();
-extern char wifi_ap[50];
-extern char wifi_pwd[20];
-extern char wifi_dns[30];
-extern int wifi_gcode;
+#else
+#define reload_eeprom()
+#define reset_eeprom()
+#define eepromcommit()
+#define eeprominit
 
 #endif
+extern String wifi_ap;
+extern String wifi_pwd;
+extern String wifi_dns;
+extern int wifi_gcode;
+extern int thc_ofs,thc_up,thc_enable;
+
 
 #endif

@@ -24,9 +24,6 @@
     //#define e0direction D6
     //#define e0step D2
 
-    #define TOOLON HIGH
-
-
     #define AC_SPINDLE // 
     //#define INVERTENDSTOP
     #define NUMBUFFER 30

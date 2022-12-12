@@ -6,7 +6,10 @@
 #include "timer.h"
 
 long spindle_pwm = 0;
-
+int min_pwm_clock=0; // 2us to turn on anything
+int zerocrosspin;
+bool TOOLON=HIGH;
+bool TOOLONS[3];
 //#define motorz_servo
 #ifdef motorz_servo
   #define motorz_servo_pin zstep
@@ -90,74 +93,6 @@ int spindle_pct;
 
 int X9pos=100;
 
-#ifdef PCA9685
-	#define FREQPWM 50
-	#ifndef spindle_servo_pin
-	#define spindle_servo_pin 2
-	#endif
-	// dont use classic PWM
-	#undef spindle_pin
-	#include "Wire.h"
-	#include "Adafruit_PWMServoDriver.h"
-	Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
-	#define MIN_PULSE_WIDTH 600
-	#define MAX_PULSE_WIDTH 2600
-	#define FREQUENCY 50
-	#define EQ_S (FREQUENCY*4096.0/1000000)
-	#define EQ_A (EQ_S*MIN_PULSE_WIDTH)
-	#define EQ_B (EQ_S*(MAX_PULSE_WIDTH-MIN_PULSE_WIDTH)/180.0)
-	void setupPwm()
-	{
-	  Wire.begin(D2, D1);
-	  Wire.setClock(700000);
-	  pwm.begin();
-	  pwm.setPWMFreq(FREQUENCY);
-	  pwm.setPWM(8, 0, MIN_PULSE_WIDTH);
-	}
-	int pulseWidth(int angle)
-	{
-	  //int pulse_wide, analog_value;
-	  //pulse_wide = map(angle, 0, 180, MIN_PULSE_WIDTH, MAX_PULSE_WIDTH);
-	  //analog_value = int(float(pulse_wide) / 1000000 * FREQUENCY * 4096);
-	  return EQ_A + EQ_B * angle;
-	}
-	long lzc = 0;
-	void setXYZservo(float x, float y, float z) {
-	  //long m=millis();
-	  //if (m-lzc>20){
-	  //    lzc=m;
-	  //pwm.setPWM(0, 0,pulseWidth(x)); // set 180 = 40mm then
-	  //pwm.setPWM(1, 0,pulseWidth(y)); // set 180 = 40mm then
-	  //pwm.setPWM(2, 0,pulseWidth((25+z)*4.5)); // set 180 = 40mm then
-	  //}
-	}
-	#else
-
-	#ifdef  ZERO_CROSS_PIN
-	void THEISR zero_cross() {
-	  in_pwm_loop = false;
-	  next_l = micros();
-	  spindle_state = LOW;
-	  xdigitalWrite(spindle_pin, LOW);
-
-	}
-	#endif
-
-	void setupPwm() {
-	#ifdef  ZERO_CROSS_PIN
-	  attachInterrupt(ZERO_CROSS_PIN, zero_cross, RAISING);
-	#endif
-	     set_tool(0);
-	}
-	int pulseWidth(int angle) {
-	  return 0;
-	}
-	void setXYZservo(float x, float y, float z) {}
-	// cannot use servo
-	#undef servo_pin
-#endif
-
-
 
 #define PERIODPWM (1000000/FREQPWM)
 #define BYTETOPERIOD PERIODPWM/255
@@ -170,6 +105,12 @@ void set_tool(int v){
   if (v > 255)v = 255;
   if (v < 0)v = 0;
   laserOn = v > 0;
+  // 
+  extern int lasermode,uncompress;
+  // turn on tool pwm pin != tool pin 
+  if (pwm_pin!= atool_pin && !uncompress) {
+    TOOL1((laserOn && lasermode!=1?TOOLON:!TOOLON));
+  }
   constantlaserVal = v;
   lastS = v;
 }
@@ -381,9 +322,37 @@ inline int THEISR timercode();
 
 int tm_mode=0;
 extern int lasermode;
+extern uint32_t pwm_val;
+extern bool toolWasOn;
+bool TMTOOL=false;
+bool TMTOOL0=false;
+void THEISR tm01()
+{
+  noInterrupts();
+  TMTOOL0=!TMTOOL0;
+  uint32_t t0=ESP.getCycleCount();
+  if (pwm_val>0){
+    if (pwm_val>200){
+      TOOLPWM(TOOLON);
+      t0+=100000;
+      // always on
+    } else {
+      TOOLPWM(TMTOOL0);
+      //int v=(pwm_val*pwm_val)>>2;
+      int v=(pwm_val)<<10;
+      t0+=(min_pwm_clock+1)*40+(TMTOOL0?v:300000-v);
+    }
+  } else {
+    TOOLPWM(!TOOLON);
+    t0+=100000;
+  }
+  timer0_write(t0);
+  interrupts();
+}
 void THEISR tm()
 {
   noInterrupts();
+  /*
   int d=0;
   // laser timer
   if (tm_mode==1){
@@ -396,14 +365,13 @@ void THEISR tm()
     d = timercode();
     tm_mode=n1delay>0?1:0;
   } else {     
-    TOOL1(!TOOLON);
-  }
+    //TMTOOL=!TOOLON;
+    //TOOL1(!TOOLON);
+  }*/
+  int d = timercode();
   
-#ifdef usetmr1
-  timer1_write(d < 6 ? 6 : d);
-#else
-  timer0_write(ESP.getCycleCount() + 16 * (d < 6 ? 6 : d));
-#endif
+  timer1_write(d);
+  //TOOL1(TMTOOL)
   interrupts();
 }
 
@@ -411,20 +379,20 @@ void timer_init()
 {
   //Initialize Ticker every 0.5s
   noInterrupts();
-#ifdef usetmr1
+
   timer1_isr_init();
   timer1_attachInterrupt(tm);
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
   timer1_write(1000); //200 us
-#else
+
   timer0_isr_init();
-  timer0_attachInterrupt(tm);
-  timer0_write(ESP.getCycleCount() + 16 * 1000); //120000 us
-#endif
+  timer0_attachInterrupt(tm01);
+  timer0_write(ESP.getCycleCount() + 80 * 10); //10 us
+
+
 #ifdef RPM_COUNTER
   setup_RPM();
 #endif
-  setupPwm();
   set_tool(0);
   interrupts();
 }
@@ -548,13 +516,15 @@ void THEISR timer_set2(int32_t delay1,int32_t delay2)
   // delay1 delay of the laser
   // delay2 delay total
   if (delay1>0){
+    delay1+=min_pwm_clock;
     if (delay1>delay2)delay1=delay2;
     delay2-=delay1;
     n1delay= delay2; // laser on delay
     ndelay = delay1; // rest delay (can be 0)
+    //TMTOOL=TOOLON;
     TOOL1(TOOLON);
   } else {
-    TOOL1(!TOOLON);
+    //TMTOOL=!TOOLON;
     n1delay=0;
     ndelay = delay2; // rest relay (can be 0)
   }  

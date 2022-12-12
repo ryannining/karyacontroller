@@ -40,19 +40,19 @@ void push_thc(int v){
 int laston=0;
 void thc_loop(uint32_t m)
 {
-  extern int laserwason;
+  extern bool toolWasOn;
   if (!thc_enable)return;
-  if (laston==0 && laserwason){
+  if (laston==0 && toolWasOn){
     thchead=0;
     thctail=0;
     push_thc(0);
   }
-  laston=laserwason;
+  laston=toolWasOn;
   if (m - lasthcok < 60000)return;
   lasthcok = m;
   thcread = analogRead(A0);
     
-  if (laserwason>0){
+  if (toolWasOn>0){
       extern int thc_ofs,thc_up,thc_ofs0;
       extern int odir[4];
       thcdir=0; // default no movement

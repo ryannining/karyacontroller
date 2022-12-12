@@ -4,7 +4,6 @@
 #include <ESP8266WiFi.h>
 #endif
 
-#if defined(IR_OLED_MENU)
 bool oledready = false;
 
 static int wait_job = 0;
@@ -15,60 +14,39 @@ static String jobnum;
 
 //#define OLEDDISPLAY_REDUCE_MEMORY
 
-#ifndef LCD_SDA
 #define LCD_SDA TX
 #define LCD_SCL RX
-#define LCD_CMD D1
-#endif
 
+int lcd_rst=D1;
+int lcd_sda=TX;
+int lcd_sda2=D2;
+int lcd_contrast=6;
+int lcd_scl=RX;
+int lcd_addr=0x3c;
+int lcd_kind=KIND_NK1661;
 
-#ifdef LCD_OLED_SSD
-#include "SSD1306Wire.h"
-SSD1306Wire xdisplay(0x3c, LCD_SDA, LCD_SCL); // d6,d5
-#endif
-
-#ifdef LCD_UC1609
-#include "UC1609Wire.h"
-UC1609Wire xdisplay(LCD_SDA, LCD_SCL, LCD_CMD);
-#endif
-
-#if defined(LCD_NK1202) || defined(LCD_NK1661)
-
-    int lcd_rst=D1;
-    int lcd_sda=TX;
-    int lcd_scl=RX;
-      #define HAS_RS D1
-
-    //#define HAS_RS 255
-    #define HAS_CS 255
-
-
-    #ifdef LCD_NK1202
-        #include "NK1202Wire.h"
-        NK1202Wire xdisplay();
-        //LCD_SDA, LCD_SCL, HAS_CS,HAS_RS);
-    #endif
-
-    #ifdef LCD_NK1661
-        #define USERGB12
-        #include "NK1661Wire.h"
-        //NK1661Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS, HAS_RS, 20); //
-
-
-        NK1661Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS, HAS_RS, 20); //
-        //NK1661Wire xdisplay(LCD_SDA, LCD_SCL, D1, 255, 20); // RS using capacitor, CS using real PIN
-    #endif
-
-#endif
-
-
-#ifdef LCD_2004
-#include "LiquidCrystal_PCF8574.h"
-#include <Wire.h> // Only needed for Arduino 1.6.5 and earlier
-LiquidCrystal_PCF8574 xdisplay(IR_OLED_MENU); // set the LCD address to 0x27 for a 16 chars and 2 line display
-#endif
+float LCD_Y=21;
+float LCD_X=7.75;
+int YOFS=1;
+int XOFS=1;
+int LINES=6;
+uint32_t mili;
+#define HAS_RS D1
+#define HAS_CS 255
 
 #include "fonts.h"
+
+//NK1661Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS, HAS_RS, 20); //
+
+
+KaryaLCD xdisplay(KIND_NK1661,0x3c,LCD_SDA,LCD_SDA, LCD_SCL, HAS_CS, HAS_RS, 20); //
+//NK1661Wire xdisplay(LCD_SDA, LCD_SCL, D1, 255, 20); // RS using capacitor, CS using real PIN
+
+
+#include "LiquidCrystal_I2C.h"
+LiquidCrystal_I2C LCD(0x27,20,4); // set the LCD address to 0x27 for a 16 chars and 2 line display
+
+
 #include "gcodesave.h"
 #include "gcode.h"
 #include "eprom.h"
@@ -179,10 +157,13 @@ extern long spindle_pwm;
 extern void BuzzError(bool v);
 uint8_t LCDturn;
 int oldindex=0;
+bool showremotekey=true;
 void dopause(int tm=0);
 void draw_info(void)
 {
   extern bool inwaitbuffer;
+  //extern void update_info();
+  //update_info();
   //if (inwaitbuffer)return;
 
   //if (oldindex!=menu_index){
@@ -200,22 +181,26 @@ void draw_info(void)
     d_text(0, 0, "Karyacontroller"); // write something to the internal memory
 #endif
 
-//  d_text(15, 0, String(rmkey)); // write something to the internal memory
 //  extern int thcread;
-  
 //  d_text(15, 0, String(thcread)); // write something to the internal memory
-  d_text(13, 0, "S:"+String(info_ve)); // write something to the internal memory
-
+  if (!RUNNING)
+    d_text(15, 0, String(rmkey)); // write something to the internal memory
+  else
+    d_text(13, 0, "S:"+String(info_ve)); // write something to the internal memory
+  
+  extern bool isRotary;
+  d_text(11, 0, isRotary?"R":"L"); // write something to the internal memory
 
   //d_frect(0, LCD_Y - 1, d_w() * LCD_X, LCD_Y);
   d_setcolor(WHITE);
   d_text(1, 1, String(info_x)); // write something to the internal memory
-  d_text(8, 1, String(info_y)); // write something to the internal memory
+  d_text(8, 1, String(info_y-info_x*skew_y*0.001)); // write something to the internal memory
   d_text(15, 1, String(info_z)); // write something to the internal memory
-  extern int laserwason,cmdlaserval,constantlaserVal;
-
+  extern int cmdlaserval,constantlaserVal;
+  extern bool toolWasOn;
   
 	int r=((cmdlaserval*100)>>8);
+  if (cmhead==cmtail)r=((constantlaserVal*100)>>8);
 	  if (lasermode){ 
       if (lasermode==1){
         String temp="";
@@ -224,20 +209,19 @@ void draw_info(void)
           extern double Input;
           temp="t "+String(int(Input*10)*0.1)+" ";
         }
-        d_text(0, 2, String("Lsr  ") + (laserwason?String(r)+"% ":"- "))
-        temp=temp+(water>1000?"w !":"w ok"); //String(water);//
-        //temp="w "+String(water/10);
+        d_text(0, 2, "L " + String(r)+"%");
+        //temp+=(water>1000?"w !":"w ok"); //String(water);//
+        temp+="w "+String(water/100);
         d_text(9,2, temp); // write something to the internal memory
       }
       if (lasermode==2){
-	  	  d_text(0, 2, laserwason?"PLSM ON":"PLSM OFF"); // write something to the internal memory
+	  	  d_text(0, 2, toolWasOn?"PLSM ON":"PLSM OFF"); // write something to the internal memory
       }
     } else {
-      if (r==0)r=((constantlaserVal*100)>>8);
-      d_text(0, 2, "Spdl " + String(r)+"%"); // write something to the internal memory
+      d_text(0, 2, "S " + String(r)+"%"); // write something to the internal memory
     }
 
-  d_text(12, 4, ">>"+String(int(f_multiplier * 100))+"%"); // write something to the internal memory
+  d_text(14, (lcd_kind==KIND_LCD2004?2:3), "Fr"+String(int(f_multiplier * 100))); // write something to the internal memory
   String L1, L2, L3;
   if (uncompress) {
     if (PAUSE)L1 = "Paused !"; else
@@ -246,10 +230,10 @@ void draw_info(void)
     L1 += " " + String(100 * gcodepos / gcodesize) + "%";
   }
   else {
-    L1 = "Jog " + String(tmul) +"%";
+    L1 = "+ " + String(tmul) +"%";
   }
   L2 = "On " + uptime(millis());
-  L3 = "Last time" + (lastjobt > 0 ? uptime(lastjobt) : "-");
+  L3 = "T " + (lastjobt > 0 ? uptime(lastjobt) : "-");
 
   if (LINES == 4) {
     LCDturn++;
@@ -346,12 +330,7 @@ void menu_80_click(int a)
 int menu_4_pos = 0;
 int menu_4_page = 0;
 
-String menu_4_t[] = { "Settings", "1. Speed", "2. Acceleration", "3. Backlash", "4. Step/mm", "5. Homing", 
-#ifdef ANALOG_THC
-	"6. THC",
-	
-#endif	
-	"Save to EEPROM", "Update firmware" };
+String menu_4_t[] = { "Settings", "1. Speed", "2. Acceleration", "3. Backlash", "4. Step/mm", "5. Homing", "6. Calibrate","7. THC",	"Save config" };
 
 
 // Standar menu is index 0: title, rest is the menu
@@ -450,10 +429,10 @@ void menu_42_click(int a)
 
 
     accel = xyzaccel[1];
-    float sc=accel/maxa[0];
-    maxa[0]=maxa[0]*sc;
-    maxa[1]=maxa[1]*sc;
-    maxa[2]=maxa[2]*sc;
+    float sc=float(accel)/float(maxa[0]);
+    maxa[0]=fmax(50,maxa[0]*sc);
+    maxa[1]=fmax(50,maxa[1]*sc);
+    maxa[2]=fmax(50,maxa[2]*sc);
     
     xycorner = xyzaccel[2];
     LOADMENU(4);
@@ -484,14 +463,14 @@ void LOADMENU42(void)
 
 int menu_43_pos = 0;
 int menu_43_page = 0;
-String menu_43_t[] = { "De-Backlash", "mm", "X", "0", "Y", "250", "Z", "15" };
+String menu_43_t[] = { "Backlash", "mm", "X", "0", "Y", "250", "Z", "15" };
 int xyzback[3] = { 10, 10, 3 };
 
 int getBacklash(void)
 {
-  xyzback[0] = xback[MX];
-  xyzback[1] = xback[MY];
-  xyzback[2] = xback[MZ];
+  xyzback[0] = xback[MX]*1000;
+  xyzback[1] = xback[MY]*1000;
+  xyzback[2] = xback[MZ]*1000;
 
   menu_43_t[3] = 0.001 * xyzback[0];
   menu_43_t[5] = 0.001 * xyzback[1];
@@ -507,9 +486,9 @@ void menu_43_click(int a)
   if (a == IRK_OK || a == IRK4_OK) {
     // save config and back to menu 4
     //EE_xbacklash
-    xback[MX] = xyzback[0];
-    xback[MY] = xyzback[1];
-    xback[MZ] = xyzback[2];
+    xback[MX] = xyzback[0]*0.001;
+    xback[MY] = xyzback[1]*0.001;
+    xback[MZ] = xyzback[2]*0.001;
 
 
     LOADMENU(4);
@@ -535,19 +514,23 @@ void LOADMENU43(void)
 
 int menu_44_pos = 0;
 int menu_44_page = 0;
-String menu_44_t[] = { "1 mm =", "Step", "X", "0", "Y", "250", "Z", "15" };
-int xyzsteps[3];
+String menu_44_t[] = { "1 mm =", "Step", "X", "0", "Y", "250", "Z", "15", "SkewY/M","0" };
+int xyzsteps[4];
 
+bool cal_skew;
 int getSteps(void)
 {
+
   xyzsteps[0] = stepmmx[0] * 1000;
   xyzsteps[1] = stepmmx[1] * 1000;
   xyzsteps[2] = stepmmx[2] * 1000;
+  xyzsteps[3] = skew_y*1000;
 
   menu_44_t[3] = 0.001 * xyzsteps[0];
   menu_44_t[5] = 0.001 * xyzsteps[1];
   menu_44_t[7] = 0.001 * xyzsteps[2];
-  return 8;
+  menu_44_t[9] = 0.001 * xyzsteps[3];
+  return 10;
 }
 
 void menu_44_click(int a)
@@ -560,6 +543,8 @@ void menu_44_click(int a)
     stepmmx[0] = xyzsteps[0] * 0.001;
     stepmmx[1] = xyzsteps[1] * 0.001;
     stepmmx[2] = xyzsteps[2] * 0.001;
+    
+    skew_y = xyzsteps[3] * 0.001;
 
     LOADMENU(4);
   }
@@ -569,6 +554,7 @@ void menu_44_click(int a)
       xyzsteps[*menu_pos] = -xyzsteps[*menu_pos];
     else
       xyzsteps[*menu_pos] += v * 10;
+      
     menu_44_t[(*menu_pos) * 2 + 3] = 0.001 * xyzsteps[*menu_pos];
     draw_menu();
   }
@@ -633,6 +619,7 @@ void LOADMENU45(void)
             2,
             &menu_45_pos, &menu_45_page, draw_menu, menu_45_click);
 }
+/*
 void UPDATEESP(int a)
 {
   if (a) {
@@ -641,21 +628,71 @@ void UPDATEESP(int a)
   }
   LOADMENU(0);
 }
-
-#ifdef ANALOG_THC
+*/
 int menu_46_pos=0;
 int menu_46_page=0;
-String menu_46_t[] = { "THC", "v", "V.Ref", "0", "Ofset", "0"};
+String menu_46_t[] = { "Actual Pos", "mm", "X", "0", "Y", "0","Z","0","Skew Y","0"};
+int calVal[4];
+float skew_yn;
+int getCal(void){
+  cal_skew=true;
+  calVal[0]=cx1*1000;
+  calVal[1]=cy1*1000;
+  calVal[2]=ocz1*1000;
+  calVal[3]=cy1*1000;
+  skew_yn=skew_y*cx1*0.001;   
+  menu_46_t[3] = cx1;
+  menu_46_t[5] = cy1;
+  menu_46_t[7] = ocz1;
+  menu_46_t[9] = cy1;
+  return 10;
+}
+
+void menu_46_click(int a){
+if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
+    LOADMENU(4);
+    reload_eeprom();
+  }
+  if (a == IRK_OK || a == IRK4_OK) {
+    // save config and back to menu 4
+    extern float stepmmx[4];
+    if (int(cx1*100)!=0)stepmmx[0] *= cx1*1000/calVal[0];
+    if (int(cy1*100)!=0)stepmmx[1] *= cy1*1000/calVal[1];
+    if (int(ocz1*100)!=0)stepmmx[2] *= ocz1*1000/calVal[2];
+    if (int(cx1*100)!=0 && cal_skew)skew_y = (calVal[3]*0.001+skew_yn)*1000.0/float(cx1);
+    LOADMENU(4);
+  }
+  int v = menu_setvalue(a);
+  if (v != 0) {
+    calVal[*menu_pos] += v;
+    cal_skew=false;      
+    menu_46_t[(*menu_pos) * 2 + 3] = 0.001*calVal[*menu_pos];
+    draw_menu();
+  }
+}
+void LOADMENU46(void)
+{
+  col2pos = 14;
+  load_menu(46, menu_46_t,
+            getCal(),
+            2,
+            &menu_46_pos, &menu_46_page, draw_menu, menu_46_click);
+}
+
+#ifdef ANALOG_THC
+int menu_47_pos=0;
+int menu_47_page=0;
+String menu_47_t[] = { "THC", "v", "V.Ref", "0", "Ofset", "0"};
 int thcVal[2];
 int getThc(void){
-  menu_46_t[3] = thc_up;
-  menu_46_t[5] = thc_ofs;
+  menu_47_t[3] = thc_up;
+  menu_47_t[5] = thc_ofs;
   thcVal[0]=thc_up;
   thcVal[1]=thc_ofs;
   return 6;
 }
 
-void menu_46_click(int a){
+void menu_47_click(int a){
 if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
     LOADMENU(4);
     reload_eeprom();
@@ -674,17 +711,17 @@ if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
     else
       thcVal[*menu_pos] += v;
       
-    menu_46_t[(*menu_pos) * 2 + 3] = thcVal[*menu_pos];
+    menu_47_t[(*menu_pos) * 2 + 3] = thcVal[*menu_pos];
     draw_menu();
   }
 }
-void LOADMENU46(void)
+void LOADMENU47(void)
 {
   col2pos = 14;
-  load_menu(46, menu_46_t,
+  load_menu(47, menu_47_t,
             getThc(),
             2,
-            &menu_46_pos, &menu_46_page, draw_menu, menu_46_click);
+            &menu_47_pos, &menu_47_page, draw_menu, menu_47_click);
 }
 #endif
 
@@ -713,19 +750,17 @@ void menu_4_click(int a)
 		  case 4:
 			LOADMENU45();
 			break;
-	#ifdef ANALOG_THC
 		  case 5:
 			LOADMENU46();
 			break;
-	#endif    
-		}    
-		if (*menu_pos==menu4L-1){
+		  case 6:
+			LOADMENU47();
+			break;
+      case 7:
 			reload_eeprom();
       saveconfigs();
 			LOADMENU(0);
-		} else if (*menu_pos==menu4L){
-			LOADCONFIRM(("UPDATE FIRMWARE ?"), UPDATEESP);
-		}
+      }    
 	}
 }
 /*
@@ -746,7 +781,7 @@ void menu_4_click(int a)
 
 int menu_2_pos = 0;
 int menu_2_page = 0;
-String menu_2_t[NUMJOBS * 2];
+String menu_2_t[(NUMJOBS+1) * 2];
 
 #ifdef ESP8266
 #include <FS.h>
@@ -769,7 +804,7 @@ int getJobs(void)
   int i = 0;
   while (dir.next()) {
     String s = dir.fileName();
-    if (s.endsWith(".gcode")) {
+    if (s.endsWith(".gcode") && i<NUMJOBS) {
       s.remove(0, 1);
       s.remove(s.length() - 6);
       //s.remove(0,1);
@@ -826,8 +861,9 @@ void draw_menu(void)
     int j = i + *menu_page;
     if (j > menu_page_le)
       break;
-
-    d_setcolor(j == *menu_pos ? BLACK : WHITE);
+    if (lcd_kind==KIND_LCD2004){
+      d_text(0, i + 1,j == *menu_pos ? ">" : " ");
+    } else d_setcolor(j == *menu_pos ? BLACK : WHITE);
     d_text(1, i + 1, *(menu_t + j * menu_col + menu_col)); // write something to the internal memory
     if (menu_col == 2) {
       String* kb = (menu_t + j * menu_col + menu_col + 1);
@@ -989,9 +1025,7 @@ void runpreview()
   float rx = cx1;
   float ry = cy1;
   float rz = ocz1;
-  #ifndef PLASMA_MODE
-  set_tool(150);
-  #endif
+  set_tool(255);
   addmove(100, xMin, yMin, 2, 0, 1, 1); // ke kiri atas
   addmove(100, 0, 0, 0.5, 0, 0, 1);
 
@@ -1020,16 +1054,17 @@ void runpreview()
 
   //addmove(100, 0, 0, -2.5, 0, 1, 1);
   laserOn = 0;
-  constantlaserVal = 255;
-  addmove(400, rx, ry, rz, 0, 1, 0);
+  addmove(100, rx, ry, ocz1, 0, 1, 0);
+  addmove(100, rx, ry, rz, 0, 1, 0);
+  //waitbufferempty();
+  //set_tool(0);
+
 }
 
 void PREVIEWJOB(int a)
 {
   if (a == 4) {
     runpreview();
-    waitbufferempty();
-    set_tool(0);
   }
   else if (a == -1) {
     LOADCONFIRM1((jobname), runjob);
@@ -1044,14 +1079,15 @@ int menu_91_page=0;
 int exec_all=1;
 int rpos;
 extern int shapes_ctr;
+int checktm1;
 void updaterpos(){
     menu_91_t[3] = rpos;
     menu_91_t[2] = String(shapes[rpos].px+OAX)+","+String(shapes[rpos].py+OAY);
     // goto shape position
     float pz=shapes[rpos].pz;
-    addmove(100, 0,0,10, 0, 1, 1);
+    addmove(100, 0,0,4, 0, 1, 1);
     addmove(100, shapes[rpos].px+OAX, shapes[rpos].py+OAY, ocz1, 0, 1, 0);
-    addmove(100, 0,0,-10, 0, 1, 1);
+    addmove(100, 0,0,-4, 0, 1, 1);
     if (exec_all==0) menu_91_t[5]="Single";
     if (exec_all==1) menu_91_t[5]="All";
 }
@@ -1061,18 +1097,21 @@ void menu_91_exit(){
     addmove(100, OAX, OAY, ocz1, 0, 1, 0);
     addmove(100, 0,0,-10, 0, 1, 1);  
 }
+
 void menu_91_click(int a)
 {
   if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2)
     LOADMENU2();
   if (a == IRK_OK || a == IRK4_OK) {
-    // resume job from here
-    extern bool singleobj;
-    singleobj=exec_all==0;
-    beginuncompress("/" + jobname,true,rpos);
-    menu_exit=default_exit;
-    LOADMENU(0);
-    LOADINFO();
+    if (millis()-checktm1>3000) {
+      // resume job from here
+      extern bool singleobj;
+      singleobj=exec_all==0;
+      beginuncompress("/" + jobname,true,rpos);
+      menu_exit=default_exit;
+      LOADMENU(0);
+      LOADINFO();
+    }
   }
   //vamul=1;
   int v = menu_setvalue(a);
@@ -1103,6 +1142,7 @@ void runjob(int a)
       rpos=0;
       updaterpos();
       menu_91_t[0]=String(shapes_ctr)+" Obj";
+      checktm1=millis();
       load_menu(91, menu_91_t,
             6,2,
             &menu_91_pos, &menu_91_page, draw_menu, menu_91_click);
@@ -1175,7 +1215,7 @@ void menu_3_click(int a)
   switch (*menu_pos) {
     case 0:
       if ((ax_home[0] < 1) && (ax_home[1] < 1) && (ax_home[2] < 1)) {
-        addmove(100, 0, 0, 0, 0, 1, 1);
+        addmove(100, 0, 0, 10, 0, 1, 1);
         addmove(100, 0, 0, ocz1, 0, 1, 0);
         addmove(100, 0, 0, 0, 0, 1, 0);
       }
@@ -1195,24 +1235,9 @@ void menu_3_click(int a)
   }
 }
 
-uint32_t mili;
+
 #include <WiFiClient.h>
 extern IPAddress ip;
-void setup_oled(void)
-{
-  //oledready=eepromread(EE_softreset)==111;
-  //rst_info *resetInfo;
-  //resetInfo = ESP.getResetInfoPtr();
-  //tmul=ESP.getResetReason().toInt();
-  //oledready=tmul!=0;
-  
-  if (!oledready)
-    INITDISPLAY
-    mili = 0;
-
-  //+String(ip[1])+"."+String(ip[2])+"."+String(ip[3]);
-  LOADINFO();
-}
 
 
 int xlaserOn, xconstantlaserVal;
@@ -1223,11 +1248,11 @@ void dopause(int tm) {
   if (uncompress) {
     ispause = ispause == 0 ? 1 : 0;
     autoresume=0;
-    extern int laserwason, cmdlaserval;    
-
+    extern int cmdlaserval;    
+    extern bool toolWasOn;
    if (ispause) {
       PAUSE = ispause;
-      //xlaserOn = laserwason;
+      //xlaserOn = toolWasOn;
       //xconstantlaserVal = cmdlaserval;
       if (tm>0)autoresume=millis()+tm;
       waitbufferempty(false);
@@ -1239,21 +1264,13 @@ void dopause(int tm) {
       extern bool FULLSPEED;
       FULLSPEED=false;//cmhead==cmtail;
       PAUSE = ispause;      
-      //laserwason = xlaserOn;
+      //toolWasOn = xlaserOn;
       //cmdlaserval = xconstantlaserVal;
     }
   }
   mili = 0;  
 }
-void restartLCD(){
-  xdisplay.setparam(lcd_sda, lcd_scl, 255,lcd_rst);
-  xdisplay._rs=lcd_rst;  
-  oledready = true;
 
-  IR_end();
-  REINIT;
-  IR_setup();
-}
 static int IR_UIloop(int icommand)
 {
   // handle special keys
@@ -1264,11 +1281,12 @@ static int IR_UIloop(int icommand)
       LOADMENU2();
       break;
     case IRK4_FASTER:
-      if (f_multiplier < 3)f_multiplier += 0.25;
+    
+      if (menu_index==99 && f_multiplier < 3)f_multiplier += 0.25;
       mili = 0;
       break;
     case IRK4_SLOWDOWN:
-      if (f_multiplier > 0.3)f_multiplier -= 0.25;
+      if (menu_index==99 && f_multiplier > 0.3)f_multiplier -= 0.25;
       mili = 0;
       break;
     case IRK4_PLAY:
@@ -1290,7 +1308,11 @@ static int IR_UIloop(int icommand)
       LOADMENU(4);
       break;
     case IRK4_POWER:
-      restartLCD();
+      //restartLCD();
+      extern void load_info();
+      load_info();
+      xdisplay.Reset();
+      
       break;
     case IRK4_STOP:
       extern void stopmachine();
@@ -1300,11 +1322,11 @@ static int IR_UIloop(int icommand)
       break;
     case IRK4_SPINDLEUP:
     case IRK4_SPINDLEDN:
-      if (lasermode) {
+      if (lasermode==1) {
         extern void testLaser(void);
         testLaser();
       } else {
-        set_tool(lastS +(icommand==IRK4_SPINDLEDN? -4:4) );
+        set_tool(lastS +(icommand==IRK4_SPINDLEDN? -25:25) );
         mili = 0;
       }
       break;
@@ -1384,6 +1406,118 @@ void load_info() {
   menu_exit = default_exit;
   LOADINFO();
 }
-#else
-void dopause(int tm=0){}
-#endif
+
+
+
+
+void restartLCD(){
+  IR_end();
+  oledready = true;
+  if (lcd_kind==KIND_LCD2004){
+    //LCD.begin(lcd_sda,lcd_scl,0x27,20,4);
+    LCD.begin(lcd_sda,lcd_scl,0x27,20,4);
+    LCD.setBacklight(100);
+    oldindex=-1;
+    LCD_Y=1;
+    LCD_X=1;
+    YOFS=0;
+    XOFS=0;
+    LINES=4;    
+  } else {
+    
+    xdisplay.setparam(lcd_kind,lcd_addr,lcd_sda,lcd_sda2, lcd_scl, 255,lcd_rst); 
+    xdisplay.setFont((lcd_kind==KIND_NK1661 || lcd_kind==KIND_ST7735)?BIGFONT:BASICFONT);
+    xdisplay.init();
+    if (lcd_kind==KIND_NK1202){
+      LCD_Y=14;
+      LCD_X=4.8;
+      YOFS=1;
+      XOFS=1;
+      LINES=5;  
+    }
+    if (lcd_kind==KIND_ST7565){
+      LCD_Y=13.2;
+      LCD_X=6.4;
+      YOFS=0;
+      XOFS=0;
+      LINES=5;  
+    }
+    if (lcd_kind==KIND_NK6100){
+      LCD_Y=20;
+      LCD_X=6.2;
+      YOFS=1;
+      XOFS=1;
+      LINES=6;  
+    }
+    if (lcd_kind==KIND_ST7735){
+      LCD_Y=21;
+      LCD_X=7.75;
+      YOFS=1;
+      XOFS=1;
+      LINES=6;  
+    }
+    if (lcd_kind==KIND_NK1661){
+      LCD_Y=21;
+      LCD_X=7.75;
+      YOFS=1;
+      XOFS=1;
+      LINES=6;  
+    }
+    if (lcd_kind==KIND_OLED1306){
+      LCD_Y=16;
+      LCD_X=6.5;
+      YOFS=0;
+      XOFS=0;
+      LINES=4;  
+    }  
+  }
+  
+  mili = 0;
+  //+String(ip[1])+"."+String(ip[2])+"."+String(ip[3]);
+  LOADINFO();
+  IR_setup();
+  
+  
+}
+
+void d_rect(int a,int b,int c,int d) {
+  if (lcd_kind==KIND_LCD2004) return;
+  xdisplay.drawRect(a,b,c,d);
+}
+void d_frect(int a,int b,int c,int d) {
+  if (lcd_kind==KIND_LCD2004) return;
+  xdisplay.fillRect(a,b,c,d);
+}
+void d_line(int a,int b,int c,int d) {
+  if (lcd_kind==KIND_LCD2004) return;
+  xdisplay.drawLine(a,b,c,d);
+}
+void d_clear() {
+  if (lcd_kind==KIND_LCD2004){
+    LCD.home();
+    LCD.clear();
+  } else 
+  xdisplay.clear();
+}
+void d_show() {
+  if (lcd_kind==KIND_LCD2004) return;
+  IR_end();
+  xdisplay.display();
+  IR_setup();
+}
+void d_setcolor(OLEDDISPLAY_COLOR x) {
+  if (lcd_kind==KIND_LCD2004) return;
+  xdisplay.setColor(x);
+}
+void  d_text(int x,int y,String s) {
+  if (lcd_kind==KIND_LCD2004) {
+    LCD.setCursor(x,y);
+    LCD.print(s);
+  } else {
+    xdisplay.drawString((x)*LCD_X+XOFS,(y)*LCD_Y+YOFS,s);
+  }
+}
+int d_t_width(String s) {
+  if (lcd_kind==KIND_LCD2004) return s.length();
+  return xdisplay.getStringWidth(s);
+}

@@ -15,7 +15,6 @@ extern int feedthedog();
 
 #if defined(ESP8266) && defined(WIFISERVER)
 #define usetmr1
-#define TEMPTICK 100000 //100ms
 #endif
 
 extern uint32_t get_RPM();

@@ -17,19 +17,21 @@
 #include "ir_oled.h"
 CNec IRLremote;
 bool IR_ok;
+int lIR_KEY=TX;
 int thc_ofs0=0;
 int wait_job = 0;
 int wait_spindle = 0;
 String jobnum;
 void IR_setup() {
-  IR_ok = IRLremote.begin(IR_KEY);
+  IR_ok = IRLremote.begin(lIR_KEY);
   //if (IR_ok) zprintf(PSTR("IR Key OK.\n"));
 }
 void IR_end() {
-  IRLremote.end(IR_KEY);
+  IRLremote.end(lIR_KEY);
   IR_ok = 0;
 }
 bool canrepeat(int n){
+	extern int menu_index;
 	return (n == IRK4_OK ||
 	    n == IRK4_UP ||
 	    n == IRK4_DN ||
@@ -40,14 +42,14 @@ bool canrepeat(int n){
 	    n == IRK4_7 ||
 	    n == IRK4_3 ||
 	    n == IRK4_9 
-	    /* || 
+	     || 
 	    (menu_index==99 && (
 			n == IRK4_4 ||
 			n == IRK4_6 ||
 			n == IRK4_8 ||
 			n == IRK4_2 	    
 			)
-	    )*/
+	    )
 	    );
 }
 
@@ -87,20 +89,21 @@ int tmul = 100;
 int rmkey;
 extern uint32_t cm; // check micros
 void special_loop(int xcmd){
-
-	  if (uncompress && ispause){
+	  extern int z_dir;
+	  if (uncompress && (ispause || z_dir==0)){
+		if (lasermode==2) 
 		switch (xcmd){
-			#ifdef PLASMA_MODE
 			case IRK_1: case IRK4_1: thc_ofs0 += 20; break;
 			case IRK_7: case IRK4_7: thc_ofs0 -= 20; break;
 			case IRK_3: case IRK4_3: thc_ofs0 += 10; break;
 			case IRK_9: case IRK4_9: thc_ofs0 += -10; break;
-			#else
-			case IRK_1: case IRK4_1: babystep[2] += 250; break;
-			case IRK_7: case IRK4_7: babystep[2] -= 250; break;
-			case IRK_3: case IRK4_3: babystep[2] += 100; break;
-			case IRK_9: case IRK4_9: babystep[2] -= 100; break;
-			#endif
+		} else
+		switch (xcmd){
+			case IRK_1: case IRK4_1: babystep[2] += 500; break;
+			case IRK_7: case IRK4_7: babystep[2] -= 500; break;
+			case IRK_3: case IRK4_3: babystep[2] += 250; break;
+			case IRK_9: case IRK4_9: babystep[2] -= 250; break;
+			
 		}  
 		// do the z step
 		extern int32_t autoresume;
@@ -109,23 +112,24 @@ void special_loop(int xcmd){
 		extern int lasermode;
 		if (lasermode!=1){
 			int steps=babystep[2]*stepmmx[2]/500;
-			motor_2_DIR((odir[2]*((steps<0)?-1:1)));
+			int ddir=(steps>0)?-1:1;
 			for (int i=abs(steps);i>0;i--){
-				if (i&1) {
-					motor_2_UNSTEP();
-					delay(1);
-				} else { 
-					motor_2_STEP();
+				motor_2_DIR(ddir);
+				motor_2_STEP();
+				for (int j=50;j>0;j--){
+					__asm__("nop\n\t");
 				}
+				motor_2_UNSTEP();
 			
 			}
 			// return to last dir
-			extern int z_dir;
 			motor_2_DIR(z_dir);
 		}
 		babystep[2]=0;
 	  }  
 }
+float stepmmy=0;
+bool isRotary;
 void IR_loop(int mode = 0) {
   if (cm - lastirok > 10000000) {
     lastirok = cm;
@@ -133,16 +137,19 @@ void IR_loop(int mode = 0) {
     IR_setup();
     return;
   }
+  int num;
+  float x, y, z;
   if (!IR_ok)return;
   int xcmd = getRemoteKey();
 
   if (xcmd)
   {
+	BuzzError(true);
     lastirok = cm;
     rmkey = xcmd;
     int ok = ir_oled_loop(xcmd);
     special_loop(xcmd);
-    if (ok)return; // the key is consumed by the display
+    if (ok) goto return1; // the key is consumed by the display
     //zprintf(PSTR("Key:%d \n"),fi(data.command));
     extern int8_t RUNNING;
     extern int uncompress;
@@ -150,7 +157,7 @@ void IR_loop(int mode = 0) {
     if (!uncompress) {
       // JOG
 
-      float x, y, z;
+      
       x = 0;
       y = 0;
       z = 0;
@@ -169,6 +176,24 @@ void IR_loop(int mode = 0) {
       // if not waiting job id (* followed by number), we can use number as fast jog and Z jog
       if (!(wait_job || wait_spindle))
         switch (xcmd) {
+		  case IRK4_I_II:
+			if (stepmmy==stepmmx[1]) {
+				isRotary=true;
+				stepmmx[1]=stepmmx[3];
+			} else { 
+				isRotary=false;
+				stepmmx[1]=stepmmy;
+			}
+			break;	
+		  case IRK4_INPUT:
+		  extern int lasermode,lastS;
+			if (lasermode==0)lasermode=1;else 
+			if (lasermode==1)lasermode=0;
+			extern bool TOOLON;
+			extern bool TOOLONS[3];
+			TOOLON=TOOLONS[lasermode];
+			set_tool(lastS);
+			break;
           case IRK_1: case IRK4_1: z = 1; break;
           case IRK_7: case IRK4_7: z = -1; break;
           case IRK_3: case IRK4_3: z = 0.5; break;
@@ -209,22 +234,13 @@ void IR_loop(int mode = 0) {
         case IRK4_STOP: //* stop
           extern int ispause;
           ispause = ispause ? 0 : 1;
-          return;
+          goto return1;
         case IRK_H: case IRK4_H:
           wait_spindle = 1;	break;
-        // baby step is change the XYZ small value while its running job
-        case IRK_2: case IRK4_2: babystep[1] -= 250; break;
-        case IRK_8: case IRK4_8: babystep[1] += 250; break;
-        case IRK_4: case IRK4_4: babystep[0] -= 250; break;
-        case IRK_6: case IRK4_6: babystep[0] += 250; break;
 
-        case IRK_UP: case IRK4_UP: babystep[1] -= 100; break;
-        case IRK_DN: case IRK4_DN: babystep[1] += 100; break;
-        case IRK_LF: case IRK4_LF: babystep[0] -= 100; break;
-        case IRK_RG: case IRK4_RG: babystep[0] += 100; break;
       }	  	
     }
-    int num = -1;
+    num = -1;
     if (wait_job || wait_spindle  ) {
       switch (xcmd) {
         case IRK_1: case IRK4_1: num = 1; break;
@@ -243,17 +259,20 @@ void IR_loop(int mode = 0) {
       if (wait_spindle) {
         set_tool(num * 28.3);
         wait_spindle = 0;
-        return;
+        goto return1;
       }
       else if (wait_job) {
         jobnum += num;
         wait_job++;
       }
     }
-
+  return1:
+  BuzzError(false);
   } else {
     if (mode == 0)ir_oled_loop(0);
   }
+
+
 }
 
 #else

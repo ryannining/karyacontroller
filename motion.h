@@ -50,7 +50,7 @@ typedef struct {
 
   //int32_t maxv; 
   int32_t ac, delta, maxs; // needed for backplanner
-  int32_t fs, fn,fr,stepdiv2; // all are in square ! needed to calc real accell
+  int32_t fs, fn,fr; // all are in square ! needed to calc real accell
 
   int32_t dx[NUMAXIS]; //original delta before transform
   //  float dtx[NUMAXIS]; // keep the original coordinate before transform
@@ -69,6 +69,9 @@ extern int MESHLEVELING;
 
 extern float e_multiplier, f_multiplier;
 
+extern int mdir_pin[4];
+extern int mstep_pin[4];
+extern int lasermode;
 
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
@@ -76,7 +79,7 @@ extern int babystep[4];
 extern int32_t e_ctr;
 extern int mm_ctr;
 //extern int32_t px[4];
-extern int xback[4];
+extern float xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
 extern int32_t xycorner;
@@ -85,6 +88,7 @@ extern int  maxf[4];
 extern int  maxa[4];
 extern int32_t dlp, info_x_s, info_y_s, info_z_s;
 extern float stepmmx[4];
+extern float skew_y;  // y skew/mm X
 extern float Lscale;
 
 extern float info_x, info_y, info_z, info_ve, info_e, perstepx, perstepy, perstepz;

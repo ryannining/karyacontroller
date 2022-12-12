@@ -23,6 +23,7 @@
 
 #define RM4(n) (n + 1024)
 #define IRK4_I_II RM4(10)
+#define IRK4_INPUT RM4(11)
 #define  IRK4_QMENU RM4(69)
 #define  IRK4_REVEAL RM4(42)
 

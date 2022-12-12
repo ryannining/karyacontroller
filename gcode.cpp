@@ -411,9 +411,8 @@ void stopmachine2() {
   PAUSE=0;
   stopping=false;
   //set_tool(0);
-  if (lasermode)
-    TOOL1(!TOOLON);
-
+  extern int32_t pwm_val;
+  if (lasermode) pwm_val=0;
 }
 
 //#define queue_wait() needbuffer()
@@ -481,10 +480,10 @@ void addlaserxy(float x, float y, uint8_t bit)
     runlasernow();
   }
 }
-
+int testlaserdur=3000;
 void testLaser(void) {
 
-  for (int j = 3000; j--;) {
+  for (int j = testlaserdur; j--;) {
     TOOL1(TOOLON)
     domotionloop
   }
@@ -702,8 +701,8 @@ void process_gcode_command()
         break;
 #ifdef output_enable
       case 5:
-        reset_eeprom();
-        reload_eeprom();
+        //reset_eeprom();
+        //reload_eeprom();
       case 6:
         cx1 = 0;
         cy1 = 0;
@@ -737,22 +736,22 @@ void process_gcode_command()
         // WE NEED TO REIMPLEMENT THE G7 COMMAND
         break;
       case 28:
-#ifdef PLASMA_MODE
-        // Gcode G28 Z40 mean
-        // Probe at this point then ready to cut
-        // Z 40 mean distance between float Z idle and hit the limit switch is 40mm
-        if (next_target.seen_Z) {
-          //MESHLEVELING = 0;
-          //addmove(4000, next_target.target.axis[nX], next_target.target.axis[nY], ocz1, ce01, 1, 0);
-          extern float pointProbing(float floatdis);
-          float zz = pointProbing(next_target.target.axis[nZ]);
-          //zprintf(PSTR("%f\n"), ff(zz));
+        if (lasermode==2) {
+          // Gcode G28 Z40 mean
+          // Probe at this point then ready to cut
+          // Z 40 mean distance between float Z idle and hit the limit switch is 40mm
+          if (next_target.seen_Z) {
+            //MESHLEVELING = 0;
+            //addmove(4000, next_target.target.axis[nX], next_target.target.axis[nY], ocz1, ce01, 1, 0);
+            extern float pointProbing(float floatdis);
+            float zz = pointProbing(next_target.target.axis[nZ]);
+            //zprintf(PSTR("%f\n"), ff(zz));
+          }
+        } else {
+          homing();
+          update_pos();
+          printposition();
         }
-#else
-        homing();
-        update_pos();
-        printposition();
-#endif
         break;
 #ifdef MESHLEVEL
       case 29:
@@ -1043,9 +1042,7 @@ void process_gcode_command()
         //if (fi(next_target.S) == lastS)break;
         //lastS = fi(next_target.S);
         if (!next_target.seen_P) next_target.P = 0;
-        #ifdef PLASMA_MODE
-        if (next_target.S>10)next_target.S=255;
-        #endif 
+        if (lasermode==2 && next_target.S>10)next_target.S=255;
         set_tool(next_target.S);
         if (next_target.P >= 10000) {
           extern void dopause(int tm=0);
@@ -1270,7 +1267,6 @@ void process_gcode_command()
 #endif
               eprom_wr(332, EE_ext_adv, S_F);
               eprom_wr(336, EE_un_microstep, S_I);
-*/
 #ifdef WIFISERVER
             case 400:
               eepromwritestring(400, g_str);
@@ -1290,6 +1286,7 @@ void process_gcode_command()
         reset_factory();
       case 205:
         reload_eeprom();
+*/
 #endif
       case 503:
 /*
@@ -1363,21 +1360,6 @@ void process_gcode_command()
 #endif
 */
         break;
-#ifdef WIFISERVER
-      // show wifi
-      case 504:
-
-        zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
-        zprintf(PSTR("%d.%d.%d.%d\n"), fi(ip[0]), fi(ip[1]), fi(ip[2]), fi(ip[3]));
-        //zprintf(PSTR("NGOPO TO !"));
-        break;
-      case 505:
-
-        ESP.restart();
-        //zprintf(PSTR("Wifi AP 400:%s PWD 450:%s mDNS 470:%s\n"), wifi_ap, wifi_pwd, wifi_dns);
-        break;
-#endif
-
       case 220:
         //? --- M220: Set speed factor override percentage ---
         if ( ! next_target.seen_S)
@@ -1387,13 +1369,13 @@ void process_gcode_command()
         MLOOP
 
         break;
+/*        
       case 290: // m290 baby step in X Y Z E in milimeter
         if (next_target.seen_X) babystep[0] = next_target.target.axis[nX] * 4000;
         if (next_target.seen_Y) babystep[1] = next_target.target.axis[nY] * 4000;
         if (next_target.seen_Z) babystep[2] = next_target.target.axis[nZ] * 4000;
         if (next_target.seen_E) babystep[3] = next_target.target.axis[nE] * 4000;
         break;
-
       case 221:
         //? --- M220: Set speed factor override percentage ---
         if ( ! next_target.seen_S)
@@ -1406,6 +1388,7 @@ void process_gcode_command()
       case 600: // change filament M600 Sxxx          S = length mm to unload filament, it will add 10mm when load, click endstop to resume
         changefilament(next_target.S);
         break;
+*/
         //      default:
         //zprintf(PSTR("E:M%d\nok\n"), next_target.M);
     } // switch (next_target.M)
@@ -1416,6 +1399,4 @@ void init_gcode()
 {
   next_target.target.F = 50;
   next_target.option_all_relative = 0;
-
-
 }

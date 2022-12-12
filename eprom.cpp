@@ -4,13 +4,13 @@
 
 
 int wifi_gcode = 0;
-char wifi_ap[50] = "myap";
-char wifi_pwd[20] = "pwd";
-char wifi_dns[30] = "karyacnc";
+String wifi_ap;
+String wifi_pwd;
+String wifi_dns;
 
 
 #ifdef USE_EEPROM
-#include "eprom.h"
+//#include "eprom.h"
 
 
 
@@ -76,7 +76,6 @@ extern int odir[4];
   retract_out = (float)eepromread(EE_retract_out)   * 0.001;
   retract_in_f = (float)eepromread(EE_retract_in_f)   * 0.001;
   retract_out_f = (float)eepromread(EE_retract_out_f)   * 0.001;
-*/
 
 #ifdef WIFISERVER
   wifi_gcode = eepromread(EE_gcode);
@@ -85,6 +84,7 @@ extern int odir[4];
   eepromreadstring(470, wifi_dns, 30);
   //eepromreadstring(500, wifi_gcode, 30);
 #endif
+*/
 
 }
 

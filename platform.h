@@ -36,8 +36,12 @@
 
 extern int HEATING;
 //#include "motors.h"
-extern int atool_pin;
+extern int atool_pin,pwm_pin;
+extern bool TOOLON;
+extern bool TOOLONS[3];
+
 #define TOOL1(x) {xdigitalWrite(atool_pin,x);}
+#define TOOLPWM(x) {xdigitalWrite(pwm_pin,x);}
 
 #else
 #warning Unsupported CPU

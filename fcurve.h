@@ -102,7 +102,7 @@ int curveloop() {
   bresenham(0); //
   bresenham(1);
   bresenham(2);
-  if (NUMAXIS==4)bresenham(3);
+  //if (NUMAXIS==4)bresenham(3);
 
   //Serial.println(dlp);
   // push T=CLOCK/V to timer command buffer
