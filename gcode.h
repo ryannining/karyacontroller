@@ -74,7 +74,7 @@ typedef struct {
 
 #define g_str_len 10
 
-
+extern int cutpause;
 extern int32_t linecount, lineprocess;
 extern int waitforline, overridetemp;
 extern char g_str[g_str_len];
@@ -85,7 +85,6 @@ extern void str_wait();
 extern int lasermode;
 extern int g_str_c;
 extern bool stopping;
-extern void loadmeshleveling();
 extern void changefilament(float l);
 extern void process_gcode_command();
 extern int reset_command();

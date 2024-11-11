@@ -1,4 +1,4 @@
-//#pragma once
+#pragma once
 
 #ifndef configpin_H
 #define configpin_H
@@ -8,7 +8,7 @@
 #define NUMBUFFER 20
 
 
-#define THEISR
+#define THEISR 
 
 
 #include<Arduino.h>
@@ -24,24 +24,29 @@
 
 #define MAXTEMP 249
 
+#define IR_KEY 1
+//#define output_enable
 
 #if defined(ESP32)
 	#warning CPU ESP32 
-	#define BOARD_ESP32VN3D
-	#define THEISR IRAM_ATTR
-	//#define EMULATETEMP
+
+	//#define THEISR IRAM_ATTR
+
 	#define BAUDRATE 115200*2
-	#define NUMBUFFER 30
+	//#define NUMBUFFER 30
+	#define ANALOG_THC
+	#define PREMIUMFEATURE
+	#define DS18B20
 
 
 // ====== ESP8266 ====================================================
 #elif defined(ESP8266)
 	#warning CPU ESP8266
-	#define MAXTEMP 249
-	#define THEISR IRAM_ATTR
+
+	//#define THEISR IRAM_ATTR
 	#define ANALOGSHIFT 0 // 10bit adc ??
 	#define BAUDRATE 115200*2
-	#define NUMBUFFER 30
+	//#define NUMBUFFER 30
 
 
 	#define PREMIUMFEATURE
@@ -55,17 +60,16 @@
 	//#define EMULATETEMP
 
 	#define DS18B20
-	#define temp_pin D2
+
 		
 	#define ANALOG_THC
-	#define IR_OLED_MENU
+
 	// for V3 - Laser and router are using same Output PIN
 	// LCD Reset using same pin
 
 #endif
 
-#define BOARD_WEMOSCNC_ONLY_V2
-#include "myboards.h"
+
 
 //#define USE_EEPROM
 
@@ -81,73 +85,16 @@
 //#define PLOTTING
 //#define MESHLEVEL
 //#define ARC_SUPPORT // 3kb
-#define USE_BACKLASH  // 400bytes code
+
 //#define CHANGEFILAMENT //580byte
 #define HARDSTOP // allow to stop in the middle of movement, and still keep the current position, great for CNC
-//#define WIFISERVER
-//#define TOUCHSERVER  // Karyacnc WEB SERVER ?
-
+#define WIFISERVER
+#define USEOTA
 //#define motorz_servo
 
-// enable LCD on this machine
-#if defined(M115) || defined(LASERMINI) || defined(LASERBIG)|| defined(LCLASER)
-	#define IR_OLED_MENU
-#endif
 
-#ifdef ESP8266
-	#define LCD_SDA TX
-	#define LCD_SCL RX
-	#define LCD_CMD D1
-	#define LCD_CS RX
 
-	#define USEOTA
-	//#define TCPSERVER // Old style for Repetier ??
-	#define WEBSOCKSERVER
-	#define WIFISERVER
 
-#endif
-
-#if defined(ESP32)
-	#define LCD_SDA TX
-	#define LCD_SCL RX
-	#define LCD_CMD D1
-	#define LCD_CS RX
-
-	#define USEOTA
-	//#define TCPSERVER
-	#define WIFISERVER
-	#define WEBSOCKSERVER  // need wifiserver
-#endif
-
-#ifdef IR_OLED_MENU
-	// pick LCD model
-	// to debug
-	//#undef IR_OLED_MENU
-	//FOR quick dev test 1661
-	#undef LCD_OLED_SSD
-	#undef LCD_UC1609
-	#undef LCD_NK1661
-	#undef LCD_NK1202
-	
-	#define LCD_NK1661
-	//#define LCD_NK1202
-	#define HAS_CS LCD_CS
-	#define IR_KEY LCD_SDA //share remote data pin with LCD SDA pin
-
-#endif
-
-//#define temp_pin A0
-//#undef temp_pin
-
-#ifndef temp_pin
-	#define EMULATETEMP
-#else
-	#undef EMULATETEMP
-#endif
-
-#ifdef EMULATETEMP
-	#undef temp_pin
-#endif
 
 
 //#define TOOLON HIGH // depends on laser machine

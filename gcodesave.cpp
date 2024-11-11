@@ -37,25 +37,22 @@
 
 #ifdef ESP32
 #include <WiFi.h>
-#include <SPIFFS.h>   // Include the SPIFFS library
+#include <SPIFFS.h>
 #elif ESP8266
 #include <ESP8266WiFi.h>
 #endif
 
 
-#include <FS.h>   // Include the SPIFFS library
-#include "common.h"   // Include the SPIFFS library
-#include "gcode.h"   // Include the SPIFFS library
-#include "eprom.h"   // Include the SPIFFS library
-#include "timer.h"   // Include the SPIFFS library
-#include "gcodesave.h"   // Include the SPIFFS library
+// #include <SPIFFS.h>   // Include the LittleFS library
+#include "common.h"   
+#include "gcode.h"    
+#include "eprom.h"    
+#include "timer.h"    
+#include "gcodesave.h"    
 
-#ifdef IR_OLED_MENU
+
 #include "ir_oled.h"
-#endif
 
-#define NOINTS timerPause();
-#define INTS timerResume();
 
 
 int shapes_ctr;
@@ -115,14 +112,17 @@ void prepareposition(){
 	  AE = 0;
 }
 long realstart;
+extern int zpausestep;
 void beginuncompress(String fn,bool resume,int pos) {
   if (uncompress)return;
+  zpausestep=0;
+  ispause=0;
   mediaX = 0;
   mediaY = 0;
   uctr = 1;
   eE = 0;
   lastjobt0 = millis();
-
+  zprintf(PSTR("Uncompress %s\n"), fn.c_str());
   fsGcode = SPIFFS.open(fn, "r");
   fjob=fn;
   if (!fsGcode) {
@@ -208,6 +208,7 @@ void enduncompress(bool force) {
   if (uncompress!=1)return;
   fsGcode.close();
   uncompress = 2;
+  zpausestep=0;
 
 }
 int ispause = 0;
@@ -285,16 +286,18 @@ void uncompressaline() {
   byte h;
   byte s;
   int32_t x = 0;
+  
   if (!fsGcode.available()) {
     enduncompress();
     // auto remove file if start with _
-    if (fjob.startsWith("/_")){
+    if (!dummy_uncompress && fjob.startsWith("/_")){
 		SPIFFS.remove(fjob);
 	}
     return;
   }
-  int qpos=gcodepos=fsGcode.position();
+  int32_t qpos=gcodepos=fsGcode.position();
   fsGcode.read((uint8_t *)&h, 1);
+  //zprintf(PSTR("\npos %d h %d"), fi(qpos), fi(h));
   /*
   if (repeatheader == 0) {
     fsGcode.read((uint8_t *)&h, 1); 
@@ -322,7 +325,7 @@ void uncompressaline() {
         repeatheader = 0;
         return; break;
     }
-    //zprintf(PSTR("%d H%d M%d S%d\n"), fi(uctr), fi(h), fi(next_target.M), fi(s));
+    //zprintf(PSTR("M%d S%d\n"), fi(next_target.M), fi(s));
   } else {
     next_target.seen_G = 1;
     switch ((h >> 1) & 3) {
@@ -340,6 +343,7 @@ void uncompressaline() {
         break;
       case 3: next_target.G = 92; eE = 0; break;
     }
+    //zprintf(PSTR("G%d\n"), fi(next_target.G));
   }
   
   if (dummy_uncompress && next_target.seen_G && next_target.G<=1 && AZ>0){
@@ -354,8 +358,9 @@ void uncompressaline() {
   }
   
   // read the parameter
-  // zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
+   //zprintf(PSTR("G%d "),  fi(next_target.G));
   if (h & (1 << 3)) { //F or S
+  
     s = 0;
     fsGcode.read((uint8_t *)&s, 1); 
     // F and S is same in M code
@@ -381,10 +386,11 @@ void uncompressaline() {
 
   float D = 0;
   float d;
-
+  
   if (h & (1 << 4)) { // X
-    x = 0;
-    fsGcode.read((uint8_t *)&x, xySize); 
+  
+  x = 0;
+    fsGcode.read((uint8_t *)&x, xySize);
     //zprintf(PSTR("X%d "), fi(x));
     next_target.seen_X = 1;
     if (next_target.seen_M) {
@@ -400,6 +406,7 @@ void uncompressaline() {
     }
   }
   if (h & (1 << 5)) {
+  //  zprintf(PSTR("rY %d  "), fi(xySize));
     x = 0;
     fsGcode.read((uint8_t *)&x, xySize); 
     next_target.seen_Y = 1;
@@ -418,6 +425,7 @@ void uncompressaline() {
   }
   if (h & (1 << 6)) {
     x = 0;
+    //zprintf(PSTR("rZ %d  "), fi(zSize));
     fsGcode.read((uint8_t *)&x, zSize);
     //zprintf(PSTR("Z%d "), fi(x));
     next_target.seen_Z = 1;
@@ -447,6 +455,7 @@ void uncompressaline() {
       next_target.target.axis[nZ] = AZ+OAZ;
     }
   }
+
   if (h & (1 << 7)) {
     x = 0;
     fsGcode.read((uint8_t *)&x, eSize);
@@ -461,13 +470,15 @@ void uncompressaline() {
       next_target.target.axis[nE] = AE ;
     }
   }
-  //zprintf(PSTR("\n"));
+
 
   if (!dummy_uncompress && qpos>=realstart){
 	  waitexecute=true;
+    //zprintf(PSTR("Wait execute\n"));
 	  //process_gcode_command();
   } else {
-	waitexecute=false;
+
+	  waitexecute=false;  
 
     xMin = min(xMin, AX);
     
@@ -487,16 +498,16 @@ void uncompressaline() {
       tMax += D / lF;
     }
     if (realstart>0){
-		extern float F0,F1;
-		// handle Feedrate
-		if (next_target.seen_F && next_target.seen_G) {
-			if (next_target.G==0)F0 = next_target.target.F; else F1 = next_target.target.F;
-		}
-		// handle Spindle power
-		if (next_target.seen_S) {
-			set_tool(next_target.S);
-		}
-	}
+      extern float F0,F1;
+      // handle Feedrate
+      if (next_target.seen_F && next_target.seen_G) {
+        if (next_target.G==0)F0 = next_target.target.F; else F1 = next_target.target.F;
+      }
+      // handle Spindle power
+      if (next_target.seen_S) {
+        set_tool(next_target.S);
+      }
+  	} 
     reset_command();
   }
   lastjobt = millis() - lastjobt0;
@@ -516,6 +527,8 @@ void dummy_beginuncompress(String fn) {
   int fc=100;
   while (uncompress==1) {
     uncompressaline();
+    domotionloop
+    feedthedog();
 	//if (fc--<10){fc=100;feedthedog();}
   }
   enduncompress();
@@ -535,20 +548,30 @@ void uncompress_loop() {
     // do the uncompress job
     for (int j=15;j>0;j--){
 		tryexecute();
-		if (uncompress==1 && !waitexecute && RUNNING && !PAUSE &&  nextbuff(head) != tail) uncompressaline();
-		domotionloop
+		if (uncompress==1 && !waitexecute && RUNNING && !PAUSE ) {
+      if (nextbuff(head) != tail) {
+        //zprintf(PSTR("Uncompress %d\n"), fi(head));
+        uncompressaline();
+        //zprintf(PSTR("Done %d\n"), fi(head));
+      } else {
+        //zprintf(PSTR("Buffer full\n"));
+      }
+    } 
+    domotionloop
+    feedthedog();
 	}
   } else if (uncompress==2){
 	if (head==tail && cmhead==cmtail) {
 		uncompress=0;
-	  //zprintf(PSTR("End Uncompress Gcode\n"));
+	  zprintf(PSTR("Finish file\n"));
 	  //if (!force)waitbufferempty();
 	  lastjobt = millis() - lastjobt0;
-	#ifdef IR_OLED_MENU
+	  set_tool(0);
+
 	  extern void load_info();
 	  load_info();
 	  xdisplay.Reset();
-	#endif
+
 		extern String jobname;
 		extern String uptime(long w);
 		extern void sendTelegram(String stext);

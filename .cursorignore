@@ -1,0 +1,13 @@
+*.bas
+*.bak
+.*
+old/
+javascript/
+lib/
+gcode/
+data/
+.*/
+*.zip
+*.epr
+
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)

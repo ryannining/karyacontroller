@@ -15,7 +15,10 @@
 #include "IRremote.h"
 #include "ir_remote.h"
 #include "ir_oled.h"
-CNec IRLremote;
+#include "shaper.h"
+extern InputShaper shaper;
+
+
 bool IR_ok;
 int lIR_KEY=TX;
 int thc_ofs0=0;
@@ -23,11 +26,10 @@ int wait_job = 0;
 int wait_spindle = 0;
 String jobnum;
 void IR_setup() {
-  IR_ok = IRLremote.begin(lIR_KEY);
-  //if (IR_ok) zprintf(PSTR("IR Key OK.\n"));
+  IR_ok = IRBegin(lIR_KEY);
 }
 void IR_end() {
-  IRLremote.end(lIR_KEY);
+  IREnd(lIR_KEY);
   IR_ok = 0;
 }
 bool canrepeat(int n){
@@ -53,25 +55,23 @@ bool canrepeat(int n){
 	    );
 }
 
-extern void wifi_push(char c); // we use WIFI GCODE Command buffer to inject gcode
-const char *gc92 = "G92\n";
 int test1 = 0;
 extern int tmul;
 
 int lok, lad, rep;
 uint32_t lastIR;
-THEISR int getRemoteKey() {
+ int getRemoteKey() {
   // put your main code here, to run repeatedly:
   extern uint32_t cm;
-  if (IRLremote.available())
+  if (IRAvailable())
   {
-    auto data = IRLremote.read();
+    auto data = IRRead();
     int ok = data.command & 255;
     int ad = data.address & 255;
     if (ok == 0 && ad == 255)
     {
 	  if (!canrepeat((lad * 256) + lok))return 0;
-      if (cm - lastIR < 200000)return 0;
+      if (cm - lastIR < 50000)return 0; // delay between key
       rep++;
     } else {
       lastIR = cm;
@@ -83,14 +83,30 @@ THEISR int getRemoteKey() {
   }
   return 0;
 }
-
+extern int odir[4];
+extern int x_dir[4];
+void motor2steps(int m,int step){
+	int ddir=(step>0)?odir[m]:-odir[m];
+	step=abs(step);
+	for (int st=0;st<step;st++){
+	  dwrite(mdir_pin[m],ddir>0);
+	  dwrite(mstep_pin[m],1);
+	  for (int j=30;j>0;j--){
+		__asm__("nop\n\t");
+	  }
+	  dwrite(mstep_pin[m],0);
+	  //somedelay(300);
+	  if (st&15==0)feedthedog();
+	}
+	dwrite(mdir_pin[m],x_dir[m]>0);
+}
 uint32_t lastirok = 0;
 int tmul = 100;
 int rmkey;
 extern uint32_t cm; // check micros
-void special_loop(int xcmd){
-	  extern int z_dir;
-	  if (uncompress && (ispause || z_dir==0)){
+void special_loop(int xcmd,bool skipcheck){
+
+	  if (skipcheck || (uncompress && (ispause || x_dir[2]==0))){
 		if (lasermode==2) 
 		switch (xcmd){
 			case IRK_1: case IRK4_1: thc_ofs0 += 20; break;
@@ -99,56 +115,60 @@ void special_loop(int xcmd){
 			case IRK_9: case IRK4_9: thc_ofs0 += -10; break;
 		} else
 		switch (xcmd){
-			case IRK_1: case IRK4_1: babystep[2] += 500; break;
-			case IRK_7: case IRK4_7: babystep[2] -= 500; break;
-			case IRK_3: case IRK4_3: babystep[2] += 250; break;
-			case IRK_9: case IRK4_9: babystep[2] -= 250; break;
-			
+			case IRK_1: case IRK4_1: babystep[2] -= 250; break;
+			case IRK_7: case IRK4_7: babystep[2] += 250; break;
+			case IRK_3: case IRK4_3: babystep[2] -= 100; break;
+			case IRK_9: case IRK4_9: babystep[2] += 100; break;			
+		} 
+		extern bool allowxyjog;
+		if (allowxyjog || ispause || skipcheck) 
+		switch (xcmd){
+			case IRK_4: case IRK4_4: babystep[0] += 100; break;
+			case IRK_6: case IRK4_6: babystep[0] -= 100; break;
+			case IRK_2: case IRK4_2: babystep[1] += 100; break;
+			case IRK_8: case IRK4_8: babystep[1] -= 100; break;			
 		}  
 		// do the z step
 		extern int32_t autoresume;
-		extern int odir[];
 		autoresume=0;
 		extern int lasermode;
-		if (lasermode!=1){
-			int steps=babystep[2]*stepmmx[2]/500;
-			int ddir=(steps>0)?-1:1;
-			for (int i=abs(steps);i>0;i--){
-				motor_2_DIR(ddir);
-				motor_2_STEP();
-				for (int j=50;j>0;j--){
-					__asm__("nop\n\t");
-				}
-				motor_2_UNSTEP();
-			
+		for (int mb=0;mb<3;mb++){
+			if (babystep[mb]!=0){
+				int steps=babystep[mb]*abs(stepmmx[mb]);
+				motor2steps(mb,steps/1000);
+				babystep[mb]=0;
 			}
-			// return to last dir
-			motor_2_DIR(z_dir);
 		}
-		babystep[2]=0;
+		
 	  }  
 }
 float stepmmy=0;
+int steppiny,dirpiny;
 bool isRotary;
+extern void BuzzError(bool v);
 void IR_loop(int mode = 0) {
-  if (cm - lastirok > 10000000) {
+  if (cm - lastirok > 10000000) { // restart IR in case error
     lastirok = cm;
     IR_end();
     IR_setup();
     return;
   }
+
+  
   int num;
   float x, y, z;
   if (!IR_ok)return;
   int xcmd = getRemoteKey();
-
+ 
   if (xcmd)
   {
+    extern bool canuseSerial;
+    if (canuseSerial)Serial.println(xcmd);
 	BuzzError(true);
     lastirok = cm;
     rmkey = xcmd;
     int ok = ir_oled_loop(xcmd);
-    special_loop(xcmd);
+    special_loop(xcmd,false);
     if (ok) goto return1; // the key is consumed by the display
     //zprintf(PSTR("Key:%d \n"),fi(data.command));
     extern int8_t RUNNING;
@@ -176,24 +196,33 @@ void IR_loop(int mode = 0) {
       // if not waiting job id (* followed by number), we can use number as fast jog and Z jog
       if (!(wait_job || wait_spindle))
         switch (xcmd) {
-		  case IRK4_I_II:
-			if (stepmmy==stepmmx[1]) {
-				isRotary=true;
-				stepmmx[1]=stepmmx[3];
-			} else { 
-				isRotary=false;
-				stepmmx[1]=stepmmy;
-			}
-			break;	
-		  case IRK4_INPUT:
-		  extern int lasermode,lastS;
-			if (lasermode==0)lasermode=1;else 
-			if (lasermode==1)lasermode=0;
-			extern bool TOOLON;
-			extern bool TOOLONS[3];
-			TOOLON=TOOLONS[lasermode];
-			set_tool(lastS);
-			break;
+          case IRK4_I_II:
+          if (stepmmy==stepmmx[1]) {
+            isRotary=true;
+            stepmmx[1]=stepmmx[3];
+            mdir_pin[1]=mdir_pin[3];
+            mstep_pin[1]=mstep_pin[3];
+          } else { 
+            isRotary=false;
+            stepmmx[1]=stepmmy;
+            mdir_pin[1]=dirpiny; 
+            mstep_pin[1]=steppiny;
+            
+          }
+          break;	
+          case IRK4_SHAPING:
+            shaper.enabled=!shaper.enabled;
+            shaper_reset_requested=true;
+            break;
+          case IRK4_INPUT:
+            extern int lasermode,lastS;
+            if (lasermode==0)lasermode=1;else 
+            if (lasermode==1)lasermode=0;
+            extern bool TOOLON;
+            extern bool TOOLONS[3];
+            TOOLON=TOOLONS[lasermode];
+            set_tool(lastS);
+            break;
           case IRK_1: case IRK4_1: z = 1; break;
           case IRK_7: case IRK4_7: z = -1; break;
           case IRK_3: case IRK4_3: z = 0.5; break;
@@ -208,7 +237,9 @@ void IR_loop(int mode = 0) {
           case IRK_6: case IRK4_6: x = 10; break;
           case IRK_8: case IRK4_8: y = 10; break;
           case IRK_OK: case IRK4_OK: // sethome pos
-            for (int i = 0; i < strlen(gc92); i++) wifi_push(gc92[i]);
+            extern void zeroall();
+            zeroall();
+            //for (int i = 0; i < strlen(gc92); i++) wifi_push(gc92[i]);
             break;
           case IRK_0: case IRK4_0: // 0 = home return
             /*addmove(100, 0, 0, 10, 0, 1, 1);

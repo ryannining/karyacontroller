@@ -1,4 +1,4 @@
-//#pragma once
+#pragma once
 #ifndef motion_H
 #define motion_H
 #include "config_pins.h"
@@ -45,10 +45,10 @@
 
 typedef struct {
   int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+  uint8_t maxv; 
   int laserval;
   float dis; // max start speed, maxcorner
 
-  //int32_t maxv; 
   int32_t ac, delta, maxs; // needed for backplanner
   int32_t fs, fn,fr; // all are in square ! needed to calc real accell
 

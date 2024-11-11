@@ -1,9 +1,5 @@
 #include "common.h"
 
-#ifdef WIFISERVER
-#include <ESP8266WiFi.h>
-#endif
-
 bool oledready = false;
 
 static int wait_job = 0;
@@ -11,17 +7,21 @@ static int wait_spindle = 0;
 static String jobnum;
 #include "ir_remote.h"
 #include "ir_oled.h"
-
+#ifdef ESP32
+#include <SPIFFS.h>
+#else
+#include <FS.h>
 //#define OLEDDISPLAY_REDUCE_MEMORY
+#endif
 
-#define LCD_SDA TX
-#define LCD_SCL RX
+#define LCD_SDA 0
+#define LCD_SCL 0
 
-int lcd_rst=D1;
-int lcd_sda=TX;
-int lcd_sda2=D2;
+int lcd_rst=0;
+int lcd_sda=0;
+int lcd_sda2=0;
 int lcd_contrast=6;
-int lcd_scl=RX;
+int lcd_scl=0;
 int lcd_addr=0x3c;
 int lcd_kind=KIND_NK1661;
 
@@ -31,21 +31,20 @@ int YOFS=1;
 int XOFS=1;
 int LINES=6;
 uint32_t mili;
-#define HAS_RS D1
-#define HAS_CS 255
+
 
 #include "fonts.h"
-
-//NK1661Wire xdisplay(LCD_SDA, LCD_SCL, HAS_CS, HAS_RS, 20); //
-
-
-KaryaLCD xdisplay(KIND_NK1661,0x3c,LCD_SDA,LCD_SDA, LCD_SCL, HAS_CS, HAS_RS, 20); //
-//NK1661Wire xdisplay(LCD_SDA, LCD_SCL, D1, 255, 20); // RS using capacitor, CS using real PIN
+#include "shaper.h"
+extern InputShaper shaper;
 
 
+KaryaLCD xdisplay(KIND_NK1661); //
+
+
+#if INCLUDE_I2CLCD
 #include "LiquidCrystal_I2C.h"
 LiquidCrystal_I2C LCD(0x27,20,4); // set the LCD address to 0x27 for a 16 chars and 2 line display
-
+#endif
 
 #include "gcodesave.h"
 #include "gcode.h"
@@ -68,7 +67,6 @@ LiquidCrystal_I2C LCD(0x27,20,4); // set the LCD address to 0x27 for a 16 chars 
 int menu_index = 1;
 int menu_page_le = 0;
 String* menu_t;
-String IPA;
 int* menu_pos;
 int* menu_page;
 int menu_col;
@@ -155,10 +153,10 @@ extern long lastjobt;
 extern int spindle_pct, lastS;
 extern long spindle_pwm;
 extern void BuzzError(bool v);
-uint8_t LCDturn;
+uint8_t LCDturn,LCDturnx;
 int oldindex=0;
 bool showremotekey=true;
-void dopause(int tm=0);
+void dopause(int tm=0,bool stopping=false);
 void draw_info(void)
 {
   extern bool inwaitbuffer;
@@ -172,14 +170,11 @@ void draw_info(void)
   //}	
   d_setcolor(WHITE);
   extern int ISWIFIOK;
-#ifdef WIFISERVER
-//  if (ISWIFIOK && (WiFi.status() != WL_CONNECTED))
-//    d_text(0, 0, "Wifi disconnect"); // write something to the internal memory
-//  else
-    d_text(0, 0, IPA); // write something to the internal memory
-#else
-    d_text(0, 0, "Karyacontroller"); // write something to the internal memory
-#endif
+  extern String IPA;
+
+
+  d_text(0, 0, IPA); // write something to the internal memory
+
 
 //  extern int thcread;
 //  d_text(15, 0, String(thcread)); // write something to the internal memory
@@ -189,7 +184,8 @@ void draw_info(void)
     d_text(13, 0, "S:"+String(info_ve)); // write something to the internal memory
   
   extern bool isRotary;
-  d_text(11, 0, isRotary?"R":"L"); // write something to the internal memory
+  if (isRotary)d_text(10, 0, "Ro"); // write something to the internal memory
+  if (shaper.enabled)d_text(8, 0, "iS"); // write something to the internal memory
 
   //d_frect(0, LCD_Y - 1, d_w() * LCD_X, LCD_Y);
   d_setcolor(WHITE);
@@ -235,8 +231,14 @@ void draw_info(void)
   L2 = "On " + uptime(millis());
   L3 = "T " + (lastjobt > 0 ? uptime(lastjobt) : "-");
 
+  LCDturnx++;
+  LCDturn=LCDturnx
+  #ifdef ESP32
+  /3
+  #endif
+  ;
+
   if (LINES == 4) {
-    LCDturn++;
     //d_text(0, 3, L1);
     if (LCDturn > ((3 << 4) - 1))
       LCDturn = 0;
@@ -248,7 +250,6 @@ void draw_info(void)
       d_text(0, 3, L3); // write something to the internal memory
   }
   else if (LINES == 5) {
-    LCDturn++;
     //d_text(0, 3, L1);
     d_text(0, 3, L1);
     if (LCDturn > ((2 << 4) - 1))
@@ -330,7 +331,10 @@ void menu_80_click(int a)
 int menu_4_pos = 0;
 int menu_4_page = 0;
 
-String menu_4_t[] = { "Settings", "1. Speed", "2. Acceleration", "3. Backlash", "4. Step/mm", "5. Homing", "6. Calibrate","7. THC",	"Save config" };
+// Update menu_4_t array to include new Input Shaper option
+String menu_4_t[] = { "Settings", "1. Speed", "2. Acceleration", "3. Backlash", 
+                      "4. Step/mm", "5. Homing", "6. Calib. Step", "7. Calib. Skew",
+                      "8. THC", "9. Input Shaper", "Save config" };
 
 
 // Standar menu is index 0: title, rest is the menu
@@ -345,7 +349,7 @@ int getSpeed(void)
   xyzspeed[0] = maxf[MX];
   xyzspeed[1] = maxf[MY];
   xyzspeed[2] = maxf[MZ];
-  xyzspeed[3] = Lscale * 100;
+  xyzspeed[3] = 100/Lscale;
 
   menu_41_t[3] = xyzspeed[0];
   menu_41_t[5] = xyzspeed[1];
@@ -590,7 +594,7 @@ void menu_45_click(int a)
 {
   if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
     LOADMENU(4);
-    reload_eeprom();
+    //reload_eeprom();
   }
   if (a == IRK_OK || a == IRK4_OK) {
     // save config and back to menu 4
@@ -631,27 +635,23 @@ void UPDATEESP(int a)
 */
 int menu_46_pos=0;
 int menu_46_page=0;
-String menu_46_t[] = { "Actual Pos", "mm", "X", "0", "Y", "0","Z","0","Skew Y","0"};
+String menu_46_t[] = { "Actual Pos", "mm", "X", "0", "Y", "0","Z","0"};
 int calVal[4];
 float skew_yn;
 int getCal(void){
-  cal_skew=true;
   calVal[0]=cx1*1000;
   calVal[1]=cy1*1000;
   calVal[2]=ocz1*1000;
-  calVal[3]=cy1*1000;
-  skew_yn=skew_y*cx1*0.001;   
   menu_46_t[3] = cx1;
   menu_46_t[5] = cy1;
   menu_46_t[7] = ocz1;
-  menu_46_t[9] = cy1;
-  return 10;
+  return 8;
 }
 
 void menu_46_click(int a){
 if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
     LOADMENU(4);
-    reload_eeprom();
+   // reload_eeprom();
   }
   if (a == IRK_OK || a == IRK4_OK) {
     // save config and back to menu 4
@@ -659,13 +659,11 @@ if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
     if (int(cx1*100)!=0)stepmmx[0] *= cx1*1000/calVal[0];
     if (int(cy1*100)!=0)stepmmx[1] *= cy1*1000/calVal[1];
     if (int(ocz1*100)!=0)stepmmx[2] *= ocz1*1000/calVal[2];
-    if (int(cx1*100)!=0 && cal_skew)skew_y = (calVal[3]*0.001+skew_yn)*1000.0/float(cx1);
     LOADMENU(4);
   }
   int v = menu_setvalue(a);
   if (v != 0) {
-    calVal[*menu_pos] += v;
-    cal_skew=false;      
+    calVal[*menu_pos] += v;     
     menu_46_t[(*menu_pos) * 2 + 3] = 0.001*calVal[*menu_pos];
     draw_menu();
   }
@@ -678,24 +676,54 @@ void LOADMENU46(void)
             2,
             &menu_46_pos, &menu_46_page, draw_menu, menu_46_click);
 }
-
-#ifdef ANALOG_THC
 int menu_47_pos=0;
 int menu_47_page=0;
-String menu_47_t[] = { "THC", "v", "V.Ref", "0", "Ofset", "0"};
-int thcVal[2];
-int getThc(void){
-  menu_47_t[3] = thc_up;
-  menu_47_t[5] = thc_ofs;
-  thcVal[0]=thc_up;
-  thcVal[1]=thc_ofs;
-  return 6;
+String menu_47_t[] = { "Value", "mm","Skew Y","0"};
+int getCalSkew(void){
+  cal_skew=true;
+  skew_yn=skew_y*cx1*0.001;   
+  menu_47_t[3] = cy1;
+  return 4;
 }
 
 void menu_47_click(int a){
 if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
     LOADMENU(4);
-    reload_eeprom();
+   // reload_eeprom();
+  }
+  if (a == IRK_OK || a == IRK4_OK) {
+    // save config and back to menu 4
+    extern float stepmmx[4];
+    skew_y = (calVal[3]*0.001+skew_yn)*1000.0/float(cx1);
+    LOADMENU(4);
+  }
+}
+void LOADMENU47(void)
+{
+  col2pos = 14;
+  load_menu(47, menu_47_t,
+            getCalSkew(),
+            2,
+            &menu_47_pos, &menu_47_page, draw_menu, menu_47_click);
+}
+
+#ifdef ANALOG_THC
+int menu_48_pos=0;
+int menu_48_page=0;
+String menu_48_t[] = { "THC", "v", "V.Ref", "0", "Ofset", "0"};
+int thcVal[2];
+int getThc(void){
+  menu_48_t[3] = thc_up;
+  menu_48_t[5] = thc_ofs;
+  thcVal[0]=thc_up;
+  thcVal[1]=thc_ofs;
+  return 6;
+}
+
+void menu_48_click(int a){
+if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
+    LOADMENU(4);
+   // reload_eeprom();
   }
   if (a == IRK_OK || a == IRK4_OK) {
     // save config and back to menu 4
@@ -711,19 +739,80 @@ if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2) {
     else
       thcVal[*menu_pos] += v;
       
-    menu_47_t[(*menu_pos) * 2 + 3] = thcVal[*menu_pos];
+    menu_48_t[(*menu_pos) * 2 + 3] = thcVal[*menu_pos];
     draw_menu();
   }
 }
-void LOADMENU47(void)
+void LOADMENU48(void)
 {
   col2pos = 14;
-  load_menu(47, menu_47_t,
+  load_menu(47, menu_48_t,
             getThc(),
             2,
-            &menu_47_pos, &menu_47_page, draw_menu, menu_47_click);
+            &menu_48_pos, &menu_48_page, draw_menu, menu_48_click);
 }
 #endif
+
+// Add after other menu definitions
+int menu_49_pos = 0;
+int menu_49_page = 0;
+String menu_49_t[] = { "Input Shaper", "","Type", "None", "Freq Hz", "0", "Dampen", "0" };
+int shaperVal[3];
+const char* stypes[] = {"None", "ZV", "ZVD", "MZV", "EI"};
+
+int getShaper(void) {
+  shaperVal[0] = shaper.shaperType;
+  shaperVal[1] = shaper.naturalFrequency * 100;
+  shaperVal[2] = shaper.dampingRatio * 100;
+  
+  menu_49_t[3] = stypes[shaperVal[0]];
+  menu_49_t[5] = String(shaperVal[1]*0.001f);
+  menu_49_t[7] = String(shaperVal[2]*0.001f);
+  return 9;
+}
+
+void menu_49_click(int a) {
+  if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2)
+    LOADMENU(4);
+  if (a == IRK_OK || a == IRK4_OK) {
+    // Save config and return to menu 4
+    
+    shaper.configure(shaperVal[0],shaperVal[1]*0.001,shaperVal[2]*0.001);
+    LOADMENU(4);
+  }
+  
+  int v = menu_setvalue(a);
+  if (v != 0) {
+    if (*menu_pos == 0) {
+      // Type selection
+      shaperVal[0] += (v > 0) ? 1 : -1;
+      if (shaperVal[0] < 0) shaperVal[0] = 6;
+      if (shaperVal[0] > 6) shaperVal[0] = 0;
+      menu_49_t[3] = stypes[shaperVal[0]];
+    } else if (*menu_pos == 1) {
+      // Frequency adjustment
+      shaperVal[1] += v;
+      if (shaperVal[1] < 1) shaperVal[1] = 1;
+      if (shaperVal[1] > 100) shaperVal[1] = 100;
+      menu_49_t[5] = String(shaperVal[1] / 100.0f);
+    } else if (*menu_pos == 2) {
+      // Damping adjustment
+      shaperVal[2] += v;
+      if (shaperVal[2] < 1) shaperVal[2] = 1;
+      if (shaperVal[2] > 100) shaperVal[2] = 100;
+      menu_49_t[7] = String(shaperVal[2] / 100.0f);
+    }
+    draw_menu();
+  }
+}
+
+void LOADMENU49(void) {
+  col2pos = 14;
+  load_menu(49, menu_49_t,
+            getShaper(),
+            2,
+            &menu_49_pos, &menu_49_page, draw_menu, menu_49_click);
+}
 
 void menu_4_click(int a)
 {
@@ -756,8 +845,14 @@ void menu_4_click(int a)
 		  case 6:
 			LOADMENU47();
 			break;
-      case 7:
-			reload_eeprom();
+		  case 7:
+			LOADMENU48();
+			break;
+      case 8:
+      LOADMENU49();
+      break;
+      case 9:
+			//reload_eeprom();
       saveconfigs();
 			LOADMENU(0);
       }    
@@ -772,19 +867,15 @@ void menu_4_click(int a)
 
 */
 // Jobs menu, display files
-#ifdef __ARM__
-#define NUMJOBS 20
-#endif
-#ifdef ESP8266
+
 #define NUMJOBS 50
-#endif
+
 
 int menu_2_pos = 0;
 int menu_2_page = 0;
 String menu_2_t[(NUMJOBS+1) * 2];
 
-#ifdef ESP8266
-#include <FS.h>
+// #include <SPIFFS.h>
 String ojobname;
 void check_job() {
   if (ojobname != jobname) {
@@ -797,6 +888,27 @@ void clearJobs(void){
 }
 int getJobs(void)
 {
+  #ifdef ESP32
+  File dir = SPIFFS.open("/");
+  menu_2_t[0] = "File name";
+  menu_2_t[1] = "Kb";
+  ojobname = "";
+  int i = 0;
+  File file;
+  while (file=dir.openNextFile()) {
+    if (!file.isDirectory()){
+      String s = file.name();
+      if (s.endsWith(".gcode") && i<NUMJOBS) {
+        //s.remove(0, 1); // littlefs fix
+        s.remove(s.length() - 6);
+        //s.remove(0,1);
+        menu_2_t[i * 2 + 2] = s;
+        menu_2_t[i * 2 + 3] = String(file.size() / 1000);
+        i++;
+      }
+    }
+  }
+  #else
   Dir dir = SPIFFS.openDir("/");
   menu_2_t[0] = "File name";
   menu_2_t[1] = "Kb";
@@ -805,7 +917,7 @@ int getJobs(void)
   while (dir.next()) {
     String s = dir.fileName();
     if (s.endsWith(".gcode") && i<NUMJOBS) {
-      s.remove(0, 1);
+      s.remove(0, 1); // littlefs fix
       s.remove(s.length() - 6);
       //s.remove(0,1);
       menu_2_t[i * 2 + 2] = s;
@@ -813,33 +925,11 @@ int getJobs(void)
       i++;
     }
   }
+  #endif
   return i * 2 + 2;
 }
-#endif
 
-#ifdef __ARM__
-#include <SdFat.h>
-int getJobs(void)
-{
-  Dir dir = SPIFFS.openDir("/");
-  menu_2_t[0] = "File name";
-  menu_2_t[1] = "Kb";
-  int i = 0;
-  while (dir.next()) {
-    String s = dir.fileName();
-    if (s.endsWith(".gcode")) {
-      s.remove(0, 1);
-      s.remove(s.length() - 6);
-      //s.remove(0,1);
-      menu_2_t[i * 2 + 2] = s;
-      menu_2_t[i * 2 + 3] = String(dir.fileSize() / 1000);
-      i++;
-    }
-  }
 
-  return i * 2 + 2;
-}
-#endif
 
 void draw_menu(void)
 {
@@ -938,8 +1028,6 @@ void menu_99_click(int a)
   }
 }
 
-extern void wifi_push(char c); // we use WIFI GCODE Command buffer to inject gcode
-static const char* gc92 = "G92\n";
 extern void connectWifi(int ret = 1);
 
 extern int ISWIFIOK;
@@ -1056,8 +1144,8 @@ void runpreview()
   laserOn = 0;
   addmove(100, rx, ry, ocz1, 0, 1, 0);
   addmove(100, rx, ry, rz, 0, 1, 0);
-  //waitbufferempty();
-  //set_tool(0);
+  waitbufferempty();
+  set_tool(0);
 
 }
 
@@ -1097,7 +1185,7 @@ void menu_91_exit(){
     addmove(100, OAX, OAY, ocz1, 0, 1, 0);
     addmove(100, 0,0,-10, 0, 1, 1);  
 }
-
+extern void special_loop(int xcmd,bool skipcheck);
 void menu_91_click(int a)
 {
   if (a == IRK_H || a == IRK4_H || a == IRK4_BACK2)
@@ -1114,7 +1202,26 @@ void menu_91_click(int a)
     }
   }
   //vamul=1;
-  int v = menu_setvalue(a);
+  int v = 0;
+  switch (a) {
+      case IRK_4:
+      case IRK4_4:
+      case IRK_2:
+      case IRK4_2:
+      case IRK_6:
+      case IRK4_6:
+      case IRK_8:
+      case IRK4_8:
+      case IRK_3:
+      case IRK4_3:
+      case IRK_9:
+      case IRK4_9:
+          special_loop(a,true);
+          break;
+      default:
+          v = menu_setvalue(a);
+          break;
+  }
   if (v != 0) {
     if (menu_91_pos==0){  
         rpos += v;
@@ -1132,6 +1239,9 @@ void runjob(int a)
 {
   if (a == 0) {
     // jobname
+    //dummy_beginuncompress("/" + jobname);
+
+    
     beginuncompress("/" + jobname,false,0);
     LOADMENU(0);
     LOADINFO();
@@ -1156,14 +1266,16 @@ void runjob(int a)
 
     check_job();
     extern int uctr;
+    
     LOADCUSTOM("Job /" + jobname,
                "Area X Y Z cm",
                String((xMax-xMin) * 0.1) + "  " + String((yMax-yMin) * 0.1) + "  " + String(zMin * -0.1),
-               "F-avg " + String(dMax) + "mm/s",
+               "F-avg " + String(dMax/tMax) + "mm/s",
                "Time " + String(uptime(2000 * tMax)),
 
                "Machine Preview",
                PREVIEWJOB);
+               
   }
   else if (a == 3) {
     // jobname
@@ -1195,14 +1307,16 @@ void menu_2_click(int a)
     case IRK_7: case IRK4_7: z = -1; break;
     case IRK_3: case IRK4_3: z = 0.5; break;
     case IRK_9: case IRK4_9: z = -0.5; break;
-
     case IRK_2: case IRK4_2: y = -1; break;
     case IRK_4: case IRK4_4: x = -1; break;
     case IRK_6: case IRK4_6: x = 1; break;
     case IRK_8: case IRK4_8: y = 1; break;
-    return;
+    default: return;
   }
-  addmove(100, x, y, z, 0, 1, 1);
+  
+  if (x != 0 || y != 0 || z != 0) {
+    addmove(100, x, y, z, 0, 1, 1);
+  }
   
 }
 
@@ -1243,8 +1357,11 @@ extern IPAddress ip;
 int xlaserOn, xconstantlaserVal;
 long lastpause;
 extern int8_t PAUSE;
-uint32_t autoresume;
-void dopause(int tm) {
+uint32_t autoresume,zpausestep,zpausedir;
+extern int uncompress;
+
+void dopause(int tm,bool stopping) {
+
   if (uncompress) {
     ispause = ispause == 0 ? 1 : 0;
     autoresume=0;
@@ -1252,15 +1369,28 @@ void dopause(int tm) {
     extern bool toolWasOn;
    if (ispause) {
       PAUSE = ispause;
+
       //xlaserOn = toolWasOn;
       //xconstantlaserVal = cmdlaserval;
-      if (tm>0)autoresume=millis()+tm;
-      waitbufferempty(false);
-    } else {
       
+      waitbufferempty(false);
+      // dx
+      zpausestep=tm==0?(info_z-OAZ)*fabs(stepmmx[2]):0;
+      if (uncompress && lasermode==0 && !stopping){
+        // bring up the tool to 0
+        motor2steps(2,zpausestep);
+      }
+      if (tm>0)autoresume=millis()+tm;
+    } else {
+      if (uncompress && lasermode==0 && !stopping){
+        // bring up the tool to old position
+        motor2steps(2,-zpausestep);
+        zpausestep=0;
+      }        
       extern int machinefail;  
       machinefail=10;
       //BuzzError(LOW);  
+ 
       extern bool FULLSPEED;
       FULLSPEED=false;//cmhead==cmtail;
       PAUSE = ispause;      
@@ -1275,18 +1405,18 @@ static int IR_UIloop(int icommand)
 {
   // handle special keys
   
-  extern float f_multiplier;
+  extern float tf_multiplier;
   switch (icommand) {
     case IRK4_JOBINDEX:
       LOADMENU2();
       break;
     case IRK4_FASTER:
     
-      if (menu_index==99 && f_multiplier < 3)f_multiplier += 0.25;
+      if (menu_index==99 && tf_multiplier < 3)tf_multiplier += 0.25;
       mili = 0;
       break;
     case IRK4_SLOWDOWN:
-      if (menu_index==99 && f_multiplier > 0.3)f_multiplier -= 0.25;
+      if (menu_index==99 && tf_multiplier > 0.3)tf_multiplier -= 0.25;
       mili = 0;
       break;
     case IRK4_PLAY:
@@ -1316,7 +1446,7 @@ static int IR_UIloop(int icommand)
       break;
     case IRK4_STOP:
       extern void stopmachine();
-      dopause();
+      dopause(0,true);
       stopmachine();
       ispause=PAUSE=0;
       break;
@@ -1382,6 +1512,7 @@ static int IR_UIloop(int icommand)
 
 int ir_oled_loop(int icommand)
 {
+
   if (icommand)rmkey = icommand;
   extern int8_t RUNNING;
   extern uint32_t cm;
@@ -1393,7 +1524,11 @@ int ir_oled_loop(int icommand)
   } // resume
   
   // update lcd every 30ms if nothing pressed
+#ifdef ESP32  
+  if (icommand == 0 && ((cm - mili) > (RUNNING?100000:30000)) ) {
+#else
   if (icommand == 0 && ((cm - mili) > (RUNNING?1000000:300000)) ) {
+#endif
     mili = cm;
     if (menu_index == 99) menu_f();
     return 0;
@@ -1413,6 +1548,7 @@ void load_info() {
 void restartLCD(){
   IR_end();
   oledready = true;
+  #if INCLUDE_I2CLCD
   if (lcd_kind==KIND_LCD2004){
     //LCD.begin(lcd_sda,lcd_scl,0x27,20,4);
     LCD.begin(lcd_sda,lcd_scl,0x27,20,4);
@@ -1423,8 +1559,9 @@ void restartLCD(){
     YOFS=0;
     XOFS=0;
     LINES=4;    
-  } else {
-    
+  } else 
+    #endif
+    {
     xdisplay.setparam(lcd_kind,lcd_addr,lcd_sda,lcd_sda2, lcd_scl, 255,lcd_rst); 
     xdisplay.setFont((lcd_kind==KIND_NK1661 || lcd_kind==KIND_ST7735)?BIGFONT:BASICFONT);
     xdisplay.init();
@@ -1481,43 +1618,55 @@ void restartLCD(){
 }
 
 void d_rect(int a,int b,int c,int d) {
+  #if INCLUDE_I2CLCD    
   if (lcd_kind==KIND_LCD2004) return;
+  #endif
   xdisplay.drawRect(a,b,c,d);
 }
 void d_frect(int a,int b,int c,int d) {
+  #if INCLUDE_I2CLCD    
   if (lcd_kind==KIND_LCD2004) return;
+  #endif
   xdisplay.fillRect(a,b,c,d);
 }
-void d_line(int a,int b,int c,int d) {
-  if (lcd_kind==KIND_LCD2004) return;
-  xdisplay.drawLine(a,b,c,d);
-}
+
 void d_clear() {
+  #if INCLUDE_I2CLCD
   if (lcd_kind==KIND_LCD2004){
     LCD.home();
     LCD.clear();
   } else 
+  #endif
   xdisplay.clear();
 }
-void d_show() {
+void d_show() { 
+  #if INCLUDE_I2CLCD
   if (lcd_kind==KIND_LCD2004) return;
+  #endif
   IR_end();
   xdisplay.display();
   IR_setup();
 }
 void d_setcolor(OLEDDISPLAY_COLOR x) {
+  #if INCLUDE_I2CLCD
   if (lcd_kind==KIND_LCD2004) return;
+  #endif
   xdisplay.setColor(x);
 }
 void  d_text(int x,int y,String s) {
+  #if INCLUDE_I2CLCD
   if (lcd_kind==KIND_LCD2004) {
     LCD.setCursor(x,y);
     LCD.print(s);
-  } else {
+  } else 
+  #endif
+  {
     xdisplay.drawString((x)*LCD_X+XOFS,(y)*LCD_Y+YOFS,s);
   }
 }
 int d_t_width(String s) {
+  #if INCLUDE_I2CLCD
   if (lcd_kind==KIND_LCD2004) return s.length();
+  #endif
   return xdisplay.getStringWidth(s);
 }

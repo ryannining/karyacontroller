@@ -1,4 +1,4 @@
-//#pragma once
+#pragma once
 #ifndef platform_H
 #define platform_H
 
@@ -40,8 +40,8 @@ extern int atool_pin,pwm_pin;
 extern bool TOOLON;
 extern bool TOOLONS[3];
 
-#define TOOL1(x) {xdigitalWrite(atool_pin,x);}
-#define TOOLPWM(x) {xdigitalWrite(pwm_pin,x);}
+#define TOOL1(x) {dwrite(atool_pin,x);}
+#define TOOLPWM(x) {dwrite(pwm_pin,x);}
 
 #else
 #warning Unsupported CPU

@@ -29,12 +29,12 @@
  *
  */
 // Define which LCD types to include
-#define INCLUDE_NK1661 0
+#define INCLUDE_NK1661 1
 #define INCLUDE_NK1202 0
 #define INCLUDE_NK6100 0
 #define INCLUDE_OLED1306 1
 #define INCLUDE_ST7565 1
-#define INCLUDE_ST7735 0
+#define INCLUDE_ST7735 1
 
 
 enum DISPLAY_KIND {
@@ -105,6 +105,7 @@ extern int motionloop();
 #define SDA this->_sda //serial data input
 #define SDA2 this->_sda2 //serial data input
 #define SCLK this->_scl //serial clock input
+#define CS this->_cs //serial clock input
 #define FCS this->_pcs //serial clock input
 #define FSDA this->_psda //serial data input
 #define FSDA2 this->_psda2 //serial data input
@@ -112,28 +113,34 @@ extern int motionloop();
 
 #define NOP __asm__ __volatile__("nop");
 
-#define PIN_ON(pin) GPOS = (1 << pin)
-#define PIN_OFF(pin) GPOC = (1 << pin)
+#if defined(ESP8266)
+  #define SCLK_1 GPOS = FSCLK
+  #define SCLK_0 GPOC = FSCLK
+  #define SDAe(n)      \
+      if (n) GPOS = FSDA; \
+      else  GPOC = FSDA;  \
+      SCLK_1;SCLK_0;
 
-#define SCLK_1 GPOS = FSCLK
-#define SCLK_0 GPOC = FSCLK
-#define SDAe(n)      \
-    if (n) GPOS = FSDA; \
-    else  GPOC = FSDA;  \
-    SCLK_1;SCLK_0;
+  #define ISDATA  {GPOS = FSDA; SCLK_1;SCLK_0;}
+  #define ISCMD   {GPOC = FSDA; SCLK_1;SCLK_0;}
+  #define ISDATA2  {GPOS = FSDA2;}
+  #define ISCMD2   {GPOC = FSDA2;} 
+  #define CS_ON if (_cs!=_scl)GPOC=FCS;
+  #define CS_OFF {GPOS = FSDA;if (_cs!=_scl)GPOS=FCS;}
+#elif defined(ESP32)
+  #define SCLK_1 digitalWrite(SCLK, HIGH)
+  #define SCLK_0 digitalWrite(SCLK, LOW)
+  #define SDAe(n)      \
+      digitalWrite(SDA, n ? HIGH : LOW); \
+      SCLK_1;SCLK_0;
 
-#define ISDATA  {GPOS = FSDA; SCLK_1;SCLK_0;}
-#define ISCMD   {GPOC = FSDA; SCLK_1;SCLK_0;}
-#define ISDATA2  {GPOS = FSDA2;}
-#define ISCMD2   {GPOC = FSDA2;} 
-//#define ISDATA2  {digitalWrite(SDA2,HIGH);}
-//#define ISCMD2   {digitalWrite(SDA2,LOW);} 
-#define CS_ON if (_cs!=_scl)GPOC=FCS;
-#define CS_OFF {GPOS = FSDA;if (_cs!=_scl)GPOS=FCS;}
-//#define CS_ON if (_cs!=_scl)digitalWrite(_cs,LOW);
-//#define CS_OFF if (_cs!=_scl)digitalWrite(_cs,HIGH);
-//#define CS_ON
-//#define CS_OFF
+  #define ISDATA  {digitalWrite(SDA, HIGH); SCLK_1;SCLK_0;}
+  #define ISCMD   {digitalWrite(SDA, LOW); SCLK_1;SCLK_0;}
+  #define ISDATA2  {digitalWrite(SDA2, HIGH);}
+  #define ISCMD2   {digitalWrite(SDA2, LOW);} 
+  #define CS_ON if (_cs!=_scl)digitalWrite(CS, LOW);
+  #define CS_OFF {digitalWrite(SDA, HIGH);if (_cs!=_scl)digitalWrite(CS, HIGH);}
+#endif
 
    
 const uchar Contrast_level = 140;
@@ -533,9 +540,9 @@ uint8_t            *buffer;
 public:
     uint16_t hpos,col,hcol,bg,hbg;
     uint8_t _rs;
-    KaryaLCD(uint8_t lcdkind,uint8_t _address,uint8_t sda, uint8_t sda2,uint8_t scl, uint8_t cs,uint8_t rs,uint8_t tpos=21)
+    KaryaLCD(uint8_t lcdkind)
     {
-        this->setparam(lcdkind,_address,sda,sda2,scl,cs,rs,tpos);
+        //this->setparam(lcdkind,_address,sda,sda2,scl,cs,rs,tpos);
 
     }
     void setparam(uint8_t lcdkind,uint8_t _address,uint8_t sda, uint8_t sda2,uint8_t scl, uint8_t cs,uint8_t rs,uint8_t tpos=21)
@@ -548,10 +555,12 @@ public:
         this->_scl = scl;
         this->_cs = cs;
         this->_rs = rs;
+        #ifdef ESP8266
         this->_psda = 1<<sda;
         this->_psda2= 1<<sda2;
         this->_pscl = 1<<scl;
         this->_pcs = 1<<cs;
+        #endif
         this->_address = _address;
         #ifdef INCLUDE_ST7735
         if (lcdkind==KIND_ST7735){
@@ -756,23 +765,16 @@ public:
     }
     #endif
     #if INCLUDE_ST7565
+    /*
     void setWindowst7565(uint16_t x0,uint16_t y0)
     {
-        uint8_t t0, t1;
-        //const uint8_t pagemap[] = { 3, 2, 1, 0, 7, 6, 5, 4 };
-        const uint8_t pagemap[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
-        if (_sda==255)return;
-        /*
-        writeCommand(CMD_SET_PAGE | pagemap[y0]);
-        writeCommand(CMD_SET_COLUMN_LOWER | ((x0+ST7565_STARTBYTES) & 0xf));
-        writeCommand(CMD_SET_COLUMN_UPPER | (((x0+ST7565_STARTBYTES) >> 4) & 0x0F));
-        writeCommand(CMD_RMW);
-        */
+ 
         writeCommand(CMD_SET_PAGE | y0);
         writeCommand(CMD_SET_COLUMN_LOWER |  (x0 & 0xf));
         writeCommand(CMD_SET_COLUMN_UPPER | ((x0 >> 4) & 0x0F));
         writeCommand(CMD_RMW);
     }  
+    */
     #endif
 
     void setWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1){
@@ -790,7 +792,7 @@ public:
             case KIND_OLED1306: setWindow1306(x0,y0,x1,y1);break;
         #endif
         #if INCLUDE_ST7565
-            case KIND_ST7565:   setWindowst7565(x0,y0);break;
+            //case KIND_ST7565:   setWindowst7565(x0,y0);break;
         #endif
         #if INCLUDE_ST7735
             case KIND_ST7735:   setWindowst7735(x0,y0,x1,y1);break;

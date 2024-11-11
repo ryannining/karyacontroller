@@ -9,15 +9,14 @@ int ltemp_pin=-1;
 int temp_limit=55;
 int BUZZER_ERR=-1;
 
+#ifdef READTEMP
 #include <OneWire.h> 
 #include <DallasTemperature.h>
-OneWire oneWire(D2); 
+OneWire oneWire(0); 
 DallasTemperature sensors(&oneWire);
-
-#ifdef EMULATETEMP
-#undef ISRTEMP
-float emutemp = 30;
 #endif
+
+
 float HEATINGSCALE = 1;
 int water=1000;
 int machinefail=10;
@@ -30,7 +29,7 @@ uint32_t next_temp;
 uint16_t ctemp = 0;
 double Setpoint, Input, xInput, Output;
 float tbang = 6;
-int wait_for_temp = 0;
+
 int HEATING = 0;
 
 int fan_val = 0;
@@ -45,7 +44,7 @@ void setfan_val(int val) {
 
 //Specify the links and initial tuning parameters
 
-PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
+//PID myPID(&Input, &Output, &Setpoint, 8, 2, 12, DIRECT); //2, 5, 1, DIRECT);
 //PID myPID(&Input, &Output, &Setpoint, 1, 2, 13, DIRECT); //2, 5, 1, DIRECT);
 
 
@@ -69,6 +68,7 @@ void init_temp()
   set_temp(0);
 // have temp sensor (and water and buzzer error)
 
+#ifdef READTEMP
   if (ltemp_pin>-1){
 	  oneWire.begin(ltemp_pin);
 	  sensors.begin();
@@ -76,42 +76,10 @@ void init_temp()
 	  //sensors.setResolution(9);
 	  sensors.requestTemperatures();
 	}
+#endif
   fail1=3;
 }
 
-float read_temp(int32_t temp) {
-
-  for (int j = 1; j < NUMTEMPS; j++) {
-    if (pgm_read_word(&(temptable[j][0])) > temp) {
-      // Thermistor table is already in 14.2 fixed point
-      // Linear interpolating temperature value
-      // y = ((x - x₀)y₁ + (x₁-x)y₀ ) / (x₁ - x₀)
-      // y = temp
-      // x = ADC reading
-      // x₀= temptable[j-1][0]
-      // x₁= temptable[j][0]
-      // y₀= temptable[j-1][1]
-      // y₁= temptable[j][1]
-      // y =
-      // Wikipedia's example linear interpolation formula.
-      temp = (
-               //     ((x - x₀)y₁
-               ((uint32_t)temp - pgm_read_word(&(temptable[j - 1][0]))) * pgm_read_word(&(temptable[j][1]))
-               //                 +
-               +
-               //                   (x₁-x)
-               (pgm_read_word(&(temptable[j][0])) - (uint32_t)temp)
-               //                         y₀ )
-               * pgm_read_word(&(temptable[j - 1][1])))
-             //                              /
-             /
-             //                                (x₁ - x₀)
-             (pgm_read_word(&(temptable[j][0])) - pgm_read_word(&(temptable[j - 1][0])));
-      return float(temp) / 4.0;
-    }
-  }
-  return 0;
-}
 #ifdef PLOTTING
 #define NUMTEMPBUF 127
 #define nexttemp(x) ((x+1)&NUMTEMPBUF)
@@ -170,7 +138,7 @@ void temp_loop(uint32_t cm)
 	} else {
 		water=1000; // assume water OK
 	}
-	
+	#ifdef READTEMP
 	if (ltemp_pin>-1){
 		if (sensors.isConversionComplete())	{
 			float t=sensors.getTempCByIndex(0);
@@ -196,34 +164,22 @@ void temp_loop(uint32_t cm)
 		}
 		if (!fail1) {init_temp();}
 	}
-/*	#else  
-	v = analogRead(temp_pin);// >> ANALOGSHIFT;
-    //v = v * 3.3 + 120; //200K resistor
-    //v = v * 1 + 120; //22K resistor
-    //v = v * 0.3 + 120; //22K resistor
-
-
-    //    ctemp = v;//(ctemp * 2 + v * 6) / 8; // averaging
-    ctemp = (ctemp + v) / 2; // averaging
-    Input =  ctemp;//read_temp(ctemp);
-    //Input = 100;
-    #endif
-*/
-	  extern void dopause(int tm);
-	  if (water<600 || Input>temp_limit){
+	#endif
+	extern void dopause(int tm,bool stopping);
+	if (water<600 || Input>temp_limit){
 		if (--machinefail<8) {
 			BuzzError(machinefail & 1) ;
 			if (machinefail<0){
 				extern int uncompress,ispause;
 				if (uncompress && !ispause){
-					dopause(0);// pause and wait until all sensors ok
+					dopause(0,false);// pause and wait until all sensors ok
 					machinehasfail=10;
 				}
 				machinefail=12;
 			}
 		}
 		
-	  } else {
+	} else {
 		if (machinehasfail==0) {  
 			BuzzError(LOW);
 			if (++machinefail>20)machinefail=20;
