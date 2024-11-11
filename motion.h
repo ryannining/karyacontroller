@@ -1,4 +1,4 @@
-//#pragma once
+#pragma once
 #ifndef motion_H
 #define motion_H
 #include "config_pins.h"
@@ -45,11 +45,12 @@
 
 typedef struct {
   int8_t  status  ; // status in bit 01 , planstatus in bit 2 , g0 in bit 4, 4 bit left better use it for fast axis
+  uint8_t maxv; 
   int laserval;
   float dis; // max start speed, maxcorner
 
-  int32_t maxv, ac, delta, maxs; // needed for backplanner
-  int32_t fs, fn; // all are in square ! needed to calc real accell
+  int32_t ac, delta, maxs; // needed for backplanner
+  int32_t fs, fn,fr; // all are in square ! needed to calc real accell
 
   int32_t dx[NUMAXIS]; //original delta before transform
   //  float dtx[NUMAXIS]; // keep the original coordinate before transform
@@ -68,6 +69,9 @@ extern int MESHLEVELING;
 
 extern float e_multiplier, f_multiplier;
 
+extern int mdir_pin[4];
+extern int mstep_pin[4];
+extern int lasermode;
 
 extern int32_t mcx[NUMAXIS];
 extern tmove *m;
@@ -75,18 +79,19 @@ extern int babystep[4];
 extern int32_t e_ctr;
 extern int mm_ctr;
 //extern int32_t px[4];
-extern int xback[4];
+extern float xback[4];
 extern uint8_t homingspeed;
 extern uint8_t homeoffset[4];
 extern int32_t xycorner;
-extern int zaccel, accel;
+extern int zaccel, accel,limit_pin;
 extern int  maxf[4];
 extern int  maxa[4];
 extern int32_t dlp, info_x_s, info_y_s, info_z_s;
-extern float stepmmx[4], Lscale;
-extern float retract_in, retract_out;
+extern float stepmmx[4];
+extern float skew_y;  // y skew/mm X
+extern float Lscale;
+
 extern float info_x, info_y, info_z, info_ve, info_e, perstepx, perstepy, perstepz;
-extern float retract_in_f, retract_out_f;
 extern tmove moves[NUMBUFFER];
 extern float cx1, cy1, cz1, ocz1, ce01;
 extern uint8_t head, tail;
@@ -104,7 +109,8 @@ extern String hstatus;
 #define nextbuff(x) ((x) < NUMBUFFER-1 ? (x) + 1 : 0)
 #define prevbuff(x) ((x) > 0 ? (x) - 1 : NUMBUFFER-1)
 extern float Interpolizer(int zX, int zY);
-extern int cmhead, cmtail, cmdlaserval;
+extern int volatile cmhead, cmtail;
+extern int cmdlaserval;
 
 #define degtorad(x) x*22/(7*180);
 
@@ -140,10 +146,11 @@ extern void homing();
 
 void docheckendstop(int m);
 extern void reset_motion();
-
+extern void pre_motion_set();
 extern tmove* m;
-#define fmax(a,b) a<b?b:a
-#define fmin(a,b) a>b?b:a
+#define fmax(a,b) ((a<b)?b:a)
+#define fmin(a,b) ((a>b)?b:a)
+
 #define fmax3(a,b,c) fmax(a,fmax(b,c))
 #define fmin3(a,b,c) fmin(a,fmin(b,c))
 #define bufflen (head >= tail ? head - tail : (NUMBUFFER + head) - tail)
