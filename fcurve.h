@@ -11,9 +11,10 @@ int32_t s2,s4, s6;
 int32_t  va, vi, vc, ve;
 
 int32_t Sdest;
+extern void readpixel2();
+extern int pixelon;
 
 
-// speed is >> 5
 int32_t isqrt(int32_t x) {
     if (x<1024)return 31;
     int64_t q = 1, r = 0;
@@ -73,7 +74,7 @@ void prepareramp(int32_t bpos)
   s6 = int64_t(totalstep) * (vc - ve) / accel3;
   s4 = totalstep - (s2 + s6);
 
-  //zprintf(PSTR("S2:%d S4:%d  S6:%d\n"),   fi(s2),  fi(s4),  fi(s6));    
+
   //zprintf(PSTR("Pr %f %d %d\n"),ff(m->dis),fi(acup),fi(totalstep));
 
   sg = 0;
@@ -93,9 +94,7 @@ void prepareramp(int32_t bpos)
 // it will move the motor (currentS - lastS) steps with current velocity
 int curveloop() {
   if (sg != 2) {
-    dlp=isqrt((V+=a2));
-		dlp=shaper.shapeVelocity(dlp); 
-       
+		dlp=isqrt((V+=a2));    
   }
   //Serial.print(">");Serial.println(dlp);
   cmd0 = 1; //step command
@@ -103,7 +102,7 @@ int curveloop() {
   bresenham(0); //
   bresenham(1);
   bresenham(2);
-  //if (NUMAXIS==4)bresenham(3);
+  if (NUMAXIS==4)bresenham(3);
 
   //Serial.println(dlp);
   // push T=CLOCK/V to timer command buffer
@@ -113,18 +112,12 @@ int curveloop() {
 }
 
 int coreloopscurve() {
-  if (cmdfull)return 1;
-  if (checkendstop && (endstopstatus < 0)){
-    mctr--;
-    return 1;
-  }
   if (!ok) {
 #ifdef output_enable
     if (sg == 0) {
-      //  zprintf(PSTR("S1:%f  S2:%f S3:%f  S4:%f\n"), ff(s1),  ff(s2),  ff(s3),  ff(s4));
-      //  zprintf(PSTR("S5:%f  S6:%f S7:%f\n"), ff(s5),  ff(s6),  ff(s7));
-      //  zprintf(PSTR("V:%f A:%f J:%f\n"), ff(V), ff(a2), ff(a1x));
-      //  zprintf(PSTR("S2:%f S4:%f  S6:%f\n"),   ff(s2),  ff(s4),  ff(s6));
+      zprintf(PSTR("S1:%f  S2:%f S3:%f  S4:%f\n"), ff(s1),  ff(s2),  ff(s3),  ff(s4));
+      zprintf(PSTR("S5:%f  S6:%f S7:%f\n"), ff(s5),  ff(s6),  ff(s7));
+      zprintf(PSTR("V:%f A:%f J:%f\n"), ff(V), ff(a2), ff(a1x));
     }
 #endif
     sg++;

@@ -1,18 +1,17 @@
 
 #include "common.h"
 
-#define NUMTHCBUF 63
+#ifdef ANALOG_THC
+#define NUMTHCBUF 511
 #define nextthc(x) ((x+1)&NUMTHCBUF)
 #define prevthc(x) ((x-1)&NUMTHCBUF)
 
 int16_t thcbuff[NUMTHCBUF+1];
-bool thc_enable=false;
+
 int thcstep = 0;
 int thcstepmax = 0;
 int thcread = 0;
 uint32_t lasthcok;
-int thc_up;
-int thc_ofs;
 
 int thctail=0;
 int thchead=0;
@@ -40,19 +39,18 @@ void push_thc(int v){
 int laston=0;
 void thc_loop(uint32_t m)
 {
-  extern bool toolWasOn;
-  if (!thc_enable)return;
-  if (laston==0 && toolWasOn){
+  extern int laserwason;
+  if (laston==0 && laserwason){
     thchead=0;
     thctail=0;
     push_thc(0);
   }
-  laston=toolWasOn;
+  laston=laserwason;
   if (m - lasthcok < 60000)return;
   lasthcok = m;
   thcread = analogRead(A0);
     
-  if (toolWasOn>0){
+  if (laserwason>0){
       extern int thc_ofs,thc_up,thc_ofs0;
       extern int odir[4];
       thcdir=0; // default no movement
@@ -91,3 +89,12 @@ String formatthc(){
 	return res;
 	
 }
+
+#else
+
+int thc_init() {
+}
+void thc_loop(uint32_t m)
+{
+}
+#endif

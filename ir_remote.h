@@ -2,8 +2,6 @@
 #ifndef irremote_H
 #define irremote_H
 
-
-
 #define  IRK_1 0x45
 #define  IRK_2 0x46
 #define  IRK_3 0x47
@@ -25,9 +23,6 @@
 
 #define RM4(n) (n + 1024)
 #define IRK4_I_II RM4(10)
-#define IRK4_INPUT RM4(48)
-#define IRK4_SHAPING RM4(11)
-
 #define  IRK4_QMENU RM4(69)
 #define  IRK4_REVEAL RM4(42)
 
@@ -76,12 +71,4 @@ extern void IR_end();
 extern void IR_loop(int mode);
 extern bool IR_ok;
 extern String jobnum;
-
-extern void motor2steps(int m, int step);
-extern void special_loop(int xcmd, bool skipcheck);
-extern int rmkey;
-extern int tmul;
-extern bool isRotary;
-
-
 #endif

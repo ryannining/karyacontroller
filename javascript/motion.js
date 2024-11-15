@@ -2293,7 +2293,7 @@ void waitbufferempty()
   while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0)) { //(tail == otail) //
 
     domotionloop
-    //servo_loop();
+    servo_loop();
     MEMORY_BARRIER()
     //zprintf(PSTR("->%d\n"), fi(mctr));
   }
@@ -2324,7 +2324,7 @@ void needbuffer()
     MEMORY_BARRIER()
     while (t == tail) {
       domotionloop
-      //servo_loop();
+      servo_loop();
       MEMORY_BARRIER()
       //zprintf(PSTR("%d\n"), fi(mctr));
     }

@@ -1,4 +1,4 @@
-#pragma once
+//#pragma once
 #ifndef platform_H
 #define platform_H
 
@@ -36,12 +36,24 @@
 
 extern int HEATING;
 //#include "motors.h"
-extern int atool_pin,pwm_pin;
-extern bool TOOLON;
-extern bool TOOLONS[3];
+#ifdef laser_pin
+#define LASER(x) {xdigitalWrite(laser_pin,x);}
+#else
+#define LASER(x) {}
+#endif
 
-#define TOOL1(x) {dwrite(atool_pin,x);}
-#define TOOLPWM(x) {dwrite(pwm_pin,x);}
+
+#ifdef spindle_pin
+#define SPINDLE(v) {set_pwm(v); }
+#else
+#define SPINDLE(v) {}
+#endif
+
+#ifdef heater_pin
+#define HEATER(x) {xdigitalWrite(heater_pin,x);}
+#else
+#define HEATER(x) {}
+#endif
 
 #else
 #warning Unsupported CPU

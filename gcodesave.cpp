@@ -37,29 +37,24 @@
 
 #ifdef ESP32
 #include <WiFi.h>
-#include <SPIFFS.h>
+#include <SPIFFS.h>   // Include the SPIFFS library
 #elif ESP8266
 #include <ESP8266WiFi.h>
 #endif
 
 
-// #include <SPIFFS.h>   // Include the LittleFS library
-#include "common.h"   
-#include "gcode.h"    
-#include "eprom.h"    
-#include "timer.h"    
-#include "gcodesave.h"    
+#include <FS.h>   // Include the SPIFFS library
+#include "common.h"   // Include the SPIFFS library
+#include "gcode.h"   // Include the SPIFFS library
+#include "eprom.h"   // Include the SPIFFS library
+#include "timer.h"   // Include the SPIFFS library
 
-
+#ifdef IR_OLED_MENU
 #include "ir_oled.h"
+#endif
 
-
-
-int shapes_ctr;
-tshapes shapes[SHAPESNUM+1] __attribute__ ((aligned (4)));
-float PZ=0;
-int lastSv=0;
-bool singleobj;
+#define NOINTS timerPause();
+#define INTS timerResume();
 
 File fsGcode;
 extern GCODE_COMMAND next_target;
@@ -79,7 +74,7 @@ void checkuncompress() {
   fsGcode.close();
 }
 
-void beginuncompress(String fn,bool resume,int pos);
+void beginuncompress(String fn);
 void enduncompress(bool force=false);
 void deletejob(String fn) {
   SPIFFS.remove(fn);
@@ -91,38 +86,20 @@ int uctr = 0;
 long eE = 0;
 int gxver = 1;
 int xySize, zSize, eSize, xyLimit, zLimit, eLimit;
-float xyScale, zScale, eScale, fScale, AX, AY, AZ, AE,OAX,OAY,OAZ;
+float xyScale, zScale, eScale, fScale, AX, AY, AZ, AE,OAX,OAY;
 int mediaX, mediaY;
 
 #define datasize(n) ((1 << (n*8-1))-2)
 int gcodesize, gcodepos;
 String fjob;
-float dMax, fMax, lF, lF0, lF1, xMin, xMax, yMin, yMax, zMin, zMax, tMax;
-int sMax;
-byte repeatheader;
-byte repeatsame;
-
-void prepareposition(){
-	  OAX=cx1;
-	  OAY=cy1;
-	  OAZ=ocz1;
-	  AX = 0;
-	  AY = 0;
-	  AZ = 0;
-	  AE = 0;
-}
-long realstart;
-extern int zpausestep;
-void beginuncompress(String fn,bool resume,int pos) {
+void beginuncompress(String fn) {
   if (uncompress)return;
-  zpausestep=0;
-  ispause=0;
   mediaX = 0;
   mediaY = 0;
   uctr = 1;
   eE = 0;
   lastjobt0 = millis();
-  zprintf(PSTR("Uncompress %s\n"), fn.c_str());
+
   fsGcode = SPIFFS.open(fn, "r");
   fjob=fn;
   if (!fsGcode) {
@@ -130,7 +107,7 @@ void beginuncompress(String fn,bool resume,int pos) {
     return;
   }
   gcodesize = fsGcode.size();
-
+  gcodepos = 3;
   char hdr[3];
   fsGcode.read((uint8_t *)&hdr, 3);
   if (hdr[0] == 'G' && hdr[1] == 'X') {
@@ -140,7 +117,7 @@ void beginuncompress(String fn,bool resume,int pos) {
     fsGcode.close();
     return;
   }
-  fScale=2;
+
   if (gxver == 1) {
     xyScale = 1 / 0.005;
     zScale = 1 / 0.1;
@@ -149,6 +126,7 @@ void beginuncompress(String fn,bool resume,int pos) {
     zSize = 1;
     eSize = 1;
     fScale = 2;
+
   } else {
     /*    xyScale=1/0.005;
         zScale=1/0.1;
@@ -165,67 +143,28 @@ void beginuncompress(String fn,bool resume,int pos) {
   xyLimit = datasize(xySize);
   zLimit = datasize(zSize);
   eLimit = datasize(eSize);
+  cx1 = cy1 = ce01 = cz1 = ocz1 = 0;
   
+  OAX=AX = cx1;
+  OAY=AY = cy1;
+  AZ = ocz1;
+  AE = 0;
 
-  ///*
-  if (!resume) {
-	prepareposition();
-	singleobj=false;
-	realstart=0;
-	extern bool makezeropoint;
-	set_tool(255);
-	if (!dummy_uncompress){
-		if (makezeropoint){
-			addmove(5, 0, 0, -1, 0, 0, 1); // zero point
-		}	
-		addmove(100, 0, 0, 5, 0, 1, 1); // zero point
-	}
-  } else {
-	//
-	uint32_t pp=shapes[pos].pos;
-	
-	reset_command();
-	realstart=gcodepos=pp & ((1<<24)-1);
-	lF1=lF0=lF=next_target.target.F=(pp>>24);
-	next_target.seen_F=1;
-	//prepareposition();
-	AX=0;
-	AY=0;
-	AZ=0;
-
-	//fsGcode.seek(gcodepos);
-    set_tool(0);
-    set_tool(255);
-  }
-  //*/
   uncompress = 1;
   //repeatheader=0;
   cntg28 = 2;
   zprintf(PSTR("Begin Uncompress Gcode %d bytes\n"), fi(fsGcode.size()));
 }
-
 void enduncompress(bool force) {
   if (uncompress!=1)return;
   fsGcode.close();
   uncompress = 2;
-  zpausestep=0;
 
 }
 int ispause = 0;
 
 void gcodereadfile(uint8_t * addr, int len) {
 
-}
-
-int dVfunc(int s){
-	if (s<51)return s;
-	if (s<121)return (50+(s-50)*2);
-	return (190+(s-120)*4);
-}
-int eVfunc(int s){
-	if (s<51)return s;
-	if (s<191)return (s+50)/2;
-	return (s+290)/4;
 }
 
 long buffidx = 0;
@@ -235,7 +174,6 @@ int connected = 0;
 #define IOT_IP_ADDRESS "172.245.97.171"
 int gid = 0;
 void realreadnet(int s, int l, int bi) {
-	/*
   if (WiFi.status() != WL_CONNECTED)return;
   //wifiConnect();
   WiFiClient client;
@@ -268,7 +206,6 @@ void realreadnet(int s, int l, int bi) {
       } else delay(100);
     }
   }
-  */
 }
 void gcodereadnet(uint8_t * addr, int len) {
   // read
@@ -278,29 +215,26 @@ void gcodereadnet(uint8_t * addr, int len) {
   }
 }
 
-
+float dMax, fMax, lF, lF0, lF1, xMin, xMax, yMin, yMax, zMin, zMax, tMax;
+int sMax;
+byte repeatheader;
+byte repeatsame;
 // version, old is using eSize 1
-
 void uncompressaline() {
   //if (ispause)return;
   byte h;
   byte s;
   int32_t x = 0;
-  
   if (!fsGcode.available()) {
     enduncompress();
     // auto remove file if start with _
-    if (!dummy_uncompress && fjob.startsWith("/_")){
+    if (fjob.startsWith("/_")){
 		SPIFFS.remove(fjob);
 	}
     return;
   }
-  int32_t qpos=gcodepos=fsGcode.position();
-  fsGcode.read((uint8_t *)&h, 1);
-  //zprintf(PSTR("\npos %d h %d"), fi(qpos), fi(h));
-  /*
   if (repeatheader == 0) {
-    fsGcode.read((uint8_t *)&h, 1); 
+    fsGcode.read((uint8_t *)&h, 1); gcodepos++;
     if (repeatsame) {
       repeatheader = h;
     }
@@ -308,8 +242,7 @@ void uncompressaline() {
     h = repeatheader;
     repeatsame--;
     if (repeatsame == 0)repeatheader = 0;
-  }*/
-  
+  }
   uctr++;
   //if (uctr>10) return enduncompress();
   if (h & 1) {
@@ -320,59 +253,38 @@ void uncompressaline() {
       case 2:
         // special  for laser, this will inform how many data with same header but will flip and flop G0 G1
         s = 0;
-        fsGcode.read((uint8_t *)&s, 1); 
+        fsGcode.read((uint8_t *)&s, 1); gcodepos++;
         repeatsame = s;
         repeatheader = 0;
         return; break;
     }
-    //zprintf(PSTR("M%d S%d\n"), fi(next_target.M), fi(s));
+    //zprintf(PSTR("%d H%d M%d S%d\n"), fi(uctr), fi(h), fi(next_target.M), fi(s));
   } else {
     next_target.seen_G = 1;
     switch ((h >> 1) & 3) {
       case 0: next_target.G = 0; break;
-      case 1: 
-		next_target.G = 1; 
-		// if mode CNC check tool
-		extern int lasermode,lastS;
-		if (lasermode==0 && lastS<30) set_tool(255); 
-
-		break;
+      case 1: next_target.G = 1; break;
       case 2:
         next_target.G = 28;
         //cntg28--;
         break;
       case 3: next_target.G = 92; eE = 0; break;
     }
-    //zprintf(PSTR("G%d\n"), fi(next_target.G));
   }
-  
-  if (dummy_uncompress && next_target.seen_G && next_target.G<=1 && AZ>0){
-    int q=shapes_ctr;
-    shapes[q].pos=qpos | (int(lF)<<24);
-    shapes[q].px=AX;
-    shapes[q].py=AY;
-    shapes[q].pz=AZ;
-    PZ=AZ;
-  } else if (singleobj && AZ<=0){
-	PZ=AZ;
-  }
-  
   // read the parameter
-   //zprintf(PSTR("G%d "),  fi(next_target.G));
+  // zprintf(PSTR("%d H%d G%d "), fi(uctr), fi(h), fi(next_target.G));
   if (h & (1 << 3)) { //F or S
-  
     s = 0;
-    fsGcode.read((uint8_t *)&s, 1); 
+    fsGcode.read((uint8_t *)&s, 1); gcodepos++;
     // F and S is same in M code
     if (next_target.seen_M) // if M then its S
     {
       next_target.seen_S = 1;
       next_target.S = s;
       sMax = fmax(sMax, s);
-      lastSv=s;
     } else { //else its F
       next_target.seen_F = 1;
-      lF = next_target.target.F = s*fScale;
+      lF = next_target.target.F = s * fScale;
       if (next_target.G == 1) {
         lF1 = lF;
       } else lF0 = lF;
@@ -382,15 +294,14 @@ void uncompressaline() {
     //zprintf(PSTR("F%d "), fi(s));
   }
   lF = (next_target.G == 1) ? lF1 : lF0;
-  if (lF<3)lF=3;
+
 
   float D = 0;
   float d;
-  
+
   if (h & (1 << 4)) { // X
-  
-  x = 0;
-    fsGcode.read((uint8_t *)&x, xySize);
+    x = 0;
+    fsGcode.read((uint8_t *)&x, xySize); gcodepos += xySize;
     //zprintf(PSTR("X%d "), fi(x));
     next_target.seen_X = 1;
     if (next_target.seen_M) {
@@ -401,14 +312,13 @@ void uncompressaline() {
       d = float(x - xyLimit) / xyScale;
       D += d * d;
       AX += d;
-      next_target.target.axis[nX] = AX+OAX;
+      next_target.target.axis[nX] = AX;
       //next_target.target.axis[nX] *= xyscale;
     }
   }
   if (h & (1 << 5)) {
-  //  zprintf(PSTR("rY %d  "), fi(xySize));
     x = 0;
-    fsGcode.read((uint8_t *)&x, xySize); 
+    fsGcode.read((uint8_t *)&x, xySize); gcodepos += xySize;
     next_target.seen_Y = 1;
     if (next_target.seen_M) {
       x = float(x - xyLimit) * 100 / xyScale;
@@ -419,14 +329,13 @@ void uncompressaline() {
       d = float(x - xyLimit) / xyScale;
       D += d * d;
       AY += d;
-      next_target.target.axis[nY] = AY+OAY;
+      next_target.target.axis[nY] = AY;
     }
     //next_target.target.axis[nY] *= xyscale;
   }
   if (h & (1 << 6)) {
     x = 0;
-    //zprintf(PSTR("rZ %d  "), fi(zSize));
-    fsGcode.read((uint8_t *)&x, zSize);
+    fsGcode.read((uint8_t *)&x, zSize); gcodepos += xySize;
     //zprintf(PSTR("Z%d "), fi(x));
     next_target.seen_Z = 1;
     d = float(x - zLimit) / zScale;
@@ -436,29 +345,12 @@ void uncompressaline() {
     } else {
       D += d * d;
       AZ += d;
-      
-      if (dummy_uncompress && AZ<=0 && PZ>0){ // detect plunge and add to shape database
-		  if (shapes_ctr<SHAPESNUM)shapes_ctr++;
-		  PZ=AZ;
-	  } else if (singleobj && AZ>0 && PZ<=0){
-		// this is up, so its the last
-		enduncompress();
-		//waitbufferempty();
-		addmove(100, 0, 0, 10, 0, 1, 1);
-		//addmove(100, cx1, cy1, OAZ, 0, 1, 0);		
-		addmove(100, OAX, OAY, ocz1, 0, 1, 0);
-		addmove(100, 0, 0, -10, 0, 1, 1);
-		//waitbufferempty();		
-		return;
-	  }
-	  
-      next_target.target.axis[nZ] = AZ+OAZ;
+      next_target.target.axis[nZ] = AZ;
     }
   }
-
   if (h & (1 << 7)) {
     x = 0;
-    fsGcode.read((uint8_t *)&x, eSize);
+    fsGcode.read((uint8_t *)&x, eSize); gcodepos += eSize;
 
     if (next_target.seen_M) {
       //zprintf(PSTR("E%d "), fi(x));
@@ -467,47 +359,26 @@ void uncompressaline() {
     } else {
       next_target.seen_E = 1;
       AE += float(x - eLimit) / eScale;
-      next_target.target.axis[nE] = AE ;
+      next_target.target.axis[nE] = AE;
     }
   }
+  //zprintf(PSTR("\n"));
 
-
-  if (!dummy_uncompress && qpos>=realstart){
+  if (!dummy_uncompress){
 	  waitexecute=true;
-    //zprintf(PSTR("Wait execute\n"));
 	  //process_gcode_command();
   } else {
-
-	  waitexecute=false;  
-
-    xMin = min(xMin, AX);
-    
-    xMax = max(xMax, AX);
-    
-    yMin = min(yMin, AY);
-    
-    yMax = max(yMax, AY);
-    
-    zMin = min(zMin, AZ);
-    
-    zMax = max(zMax, AZ);
-    
+    xMin = fmin(xMin, AX);
+    xMax = fmax(xMax, AX);
+    yMin = fmin(yMin, AY);
+    yMax = fmax(yMax, AY);
+    zMin = fmin(zMin, AZ);
+    zMax = fmax(zMax, AZ);
     if (AZ <= 0 && D > 0) {
       D = sqrt(D);
       dMax += D;
       tMax += D / lF;
     }
-    if (realstart>0){
-      extern float F0,F1;
-      // handle Feedrate
-      if (next_target.seen_F && next_target.seen_G) {
-        if (next_target.G==0)F0 = next_target.target.F; else F1 = next_target.target.F;
-      }
-      // handle Spindle power
-      if (next_target.seen_S) {
-        set_tool(next_target.S);
-      }
-  	} 
     reset_command();
   }
   lastjobt = millis() - lastjobt0;
@@ -515,67 +386,44 @@ void uncompressaline() {
 
 void dummy_beginuncompress(String fn) {
   dummy_uncompress = true;
-  singleobj=false;
-  shapes_ctr=0;
-  PZ=0;
-  zMin = xMin = yMin = 15000;
-  zMax = xMax = yMax = -15000;
+  zMin = xMin = yMin = 10000;
+  zMax = xMax = yMax = -10000;
   dMax = lF = lF0 = lF1 = sMax = fMax = 0;
   tMax = 0;
 
-  beginuncompress(fn,false,0);
-  int fc=100;
+  beginuncompress(fn);
   while (uncompress==1) {
     uncompressaline();
-    domotionloop
-    feedthedog();
-	//if (fc--<10){fc=100;feedthedog();}
+	//feedthedog();
   }
-  enduncompress();
+  //enduncompress();
   uncompress=0;
   reset_command();
   waitexecute=false;
   dummy_uncompress = false;
-  // let the min and max relative
-
 }
 
 
 // ========================== LOOP =============================
 void uncompress_loop() {
   if (uncompress==1) {
-	  
     // do the uncompress job
     for (int j=15;j>0;j--){
 		tryexecute();
-		if (uncompress==1 && !waitexecute && RUNNING && !PAUSE ) {
-      if (nextbuff(head) != tail) {
-        //zprintf(PSTR("Uncompress %d\n"), fi(head));
-        uncompressaline();
-        //zprintf(PSTR("Done %d\n"), fi(head));
-      } else {
-        //zprintf(PSTR("Buffer full\n"));
-      }
-    } 
-    domotionloop
-    feedthedog();
+		if (uncompress==1 && !waitexecute && RUNNING && !PAUSE &&  nextbuff(head) != tail) uncompressaline();
+		domotionloop
 	}
   } else if (uncompress==2){
-	if (head==tail && cmhead==cmtail) {
+	if (head==tail) {
 		uncompress=0;
-	  zprintf(PSTR("Finish file\n"));
+	  //zprintf(PSTR("End Uncompress Gcode\n"));
 	  //if (!force)waitbufferempty();
 	  lastjobt = millis() - lastjobt0;
-	  set_tool(0);
-
+	#ifdef IR_OLED_MENU
 	  extern void load_info();
 	  load_info();
 	  xdisplay.Reset();
-
-		extern String jobname;
-		extern String uptime(long w);
-		extern void sendTelegram(String stext);
-		sendTelegram(wifi_dns+" finish job "+jobname+" Time:"+uptime(lastjobt));
+	#endif
 	}
   }
 }

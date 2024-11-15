@@ -12,25 +12,29 @@
 #include "gcodesave.h"
 #include "ir_remote.h"
 
-// After your other includes
-#include "shaper.h"
-
-// Initialize shaper with example values - adjust these for your machine
-InputShaper shaper(true); // Step size in mm
 
 
 
+#ifdef DEBUGLOOP
+#define LOOP_IN(n) zprintf(PSTR("LOOP %d IN "),fi(n));
+#define LOOP_OUT(n) zprintf(PSTR("LOOP %d OUT "),fi(n));
+#else
+#define LOOP_IN(n)
+#define LOOP_OUT(n)
+#endif // debugloop
 
 
 #ifdef ESP8266
-#define CLOCKCONSTANT 5000000        // tick/seconds
+#define CLOCKCONSTANT 5000000.f        // tick/seconds
+#define DSCALE 0   // use 5Mhz timer shift 0bit
+#define DIRDELAY 2 // usec
 #endif // esp
 
 #ifdef  ESP32
-#define CLOCKCONSTANT 1000000      // tick/seconds
-#endif // esp
-
+#define CLOCKCONSTANT 80000000.f        // tick/seconds
+#define DSCALE 0   // use 5Mhz timer shift 0bit
 #define DIRDELAY 2 // usec
+#endif // esp
 
 #ifdef INVERTENDSTOP
 #define ENDCHECK !
@@ -42,24 +46,22 @@ InputShaper shaper(true); // Step size in mm
 
 
 int MESHLEVELING = 0;
-int atool_pin,pwm_pin;
+
 int constantlaserVal = 0;
 int laserOn = 0, isG0 = 1;
 int babystep[4] = {0, 0, 0, 0};
 uint8_t homingspeed;
-float xback[4];
+int xback[4];
 uint8_t head, tail, tailok;
 int maxf[4];
 int maxa[4];
-float Lscale, f_multiplier, tf_multiplier, e_multiplier;
-float f2_multiplier=1;
+float Lscale, f_multiplier,  e_multiplier;
 int accel, zaccel;
 int32_t xycorner;
 int i;
 float ax_home[NUMAXIS];
-int mdir_pin[4]={0,0,0,-1};
-int mstep_pin[4]={0,0,0,-1};
-uint32_t stepdiv2,stepdiv3,stepdiv2a,stepdiv3a;
+
+uint32_t stepdiv2,stepdiv3;
 
 int32_t totalstep;
 uint32_t bsdx[NUMAXIS];
@@ -74,8 +76,9 @@ float F_SCALE = 1;
 int8_t RUNNING = 1;
 int8_t PAUSE = 0;
 float stepmmx[4];
-float skew_y;
 int odir[4] = {1, 1, 1, 1};
+float retract_in, retract_out;
+float retract_in_f, retract_out_f;
 float cx1, cy1, cz1, ocz1, ce01, extadv;
 tmove moves[NUMBUFFER];
 
@@ -96,22 +99,21 @@ tmove moves[NUMBUFFER];
 
 
 int home_cnt = 0;
-int limit_pin=-1;
-void home_input() {
+void THEISR home_input() {
   home_cnt++;
   // tap home 3 times to start printing
 }
 void init_home_input() {
   home_cnt = 0;
-  if (limit_pin>-1){
-    pinMode(limit_pin, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(limit_pin), home_input, CHANGE);
-  }
+#ifdef limit_pin
+  pinMode(limit_pin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(limit_pin), home_input, CHANGE);
+#endif
 }
 void close_home_input() {
-  if (limit_pin>-1){
-    detachInterrupt(digitalPinToInterrupt(limit_pin));
-  }
+#ifdef limit_pin
+  detachInterrupt(digitalPinToInterrupt(limit_pin));
+#endif
 }
 
 
@@ -123,29 +125,82 @@ void close_home_input() {
 */
 // keep last direction to enable backlash if needed
 float perstepx, perstepy, perstepz;
-extern void readconfigs();
 
-void pre_motion_set(){
-  
-  //if (!RUNNING)
-  initmotion();
-  
-  perstepx = 1.0 / (stepmmx[MX]);
-  perstepy = 1.0 / (stepmmx[MY]);
-  perstepz = 1.0 / (stepmmx[MZ]);
+void reset_motion()
+{
 
-  odir[MX] = stepmmx[MX] < 0 ? -1 : 1;
-  odir[MY] = stepmmx[MY] < 0 ? -1 : 1;
-  odir[MZ] = stepmmx[MZ] < 0 ? -1 : 1;
-
-  zaccel = maxa[MZ];//ZMAXFEEDRATE / XMAXFEEDRATE;
-  accel = maxa[MX];
-  
+  homingspeed = HOMINGSPEED;
+  xycorner = XYCORNER;
+  Lscale = LSCALE;
+  ishoming = 0;
+  cmctr = 0;
+  e_multiplier = f_multiplier =  1;
+  checkendstop = 0;
+  endstopstatus = 0;
   xcheckevery = CHECKENDSTOP_EVERY * stepmmx[0];
   ycheckevery = CHECKENDSTOP_EVERY * stepmmx[1];
   zcheckevery = CHECKENDSTOP_EVERY * stepmmx[2];
   echeckevery = CHECKENDSTOP_EVERY * stepmmx[3];
+  head = tail = tailok = 0;
+  cx1 = 0;
+  cy1 = 0;
+  cz1 = 0;
+  ocz1 = 0;
+  ce01 = 0;
+  extadv = 0;
+
+#ifndef SAVE_RESETMOTION
+
+
+
+  maxf[MX] = XMAXFEEDRATE;
+  maxf[MY] = YMAXFEEDRATE;
+  maxf[MZ] = ZMAXFEEDRATE;
+  maxf[nE] = E0MAXFEEDRATE;
+
+  maxa[MX] = XACCELL;
+  maxa[MY] = XACCELL * 0.5;//YMAXFEEDRATE / XMAXFEEDRATE;
+  maxa[MZ] = XACCELL * 0.8;//ZMAXFEEDRATE / XMAXFEEDRATE;
+  maxa[nE] = XACCELL;
+
+
+  accel = XACCELL;
+  zaccel = maxa[MZ];//ZMAXFEEDRATE / XMAXFEEDRATE;
+
+
+  stepmmx[nE] = fabs(E0STEPPERMM);
+  stepmmx[MX] = fabs(XSTEPPERMM);
+  stepmmx[MY] = fabs(YSTEPPERMM);
+  stepmmx[MZ] = fabs(ZSTEPPERMM);
+  perstepx = 1.0 / (XSTEPPERMM);
+  perstepy = 1.0 / (YSTEPPERMM);
+  perstepz = 1.0 / (ZSTEPPERMM);
+
+
+  odir[MX] = XSTEPPERMM < 0 ? -1 : 1;
+  odir[MY] = YSTEPPERMM < 0 ? -1 : 1;
+  odir[MZ] = ZSTEPPERMM < 0 ? -1 : 1;
+  odir[nE] = E0STEPPERMM < 0 ? -1 : 1;
+
+
+  ax_home[MX] = XMAX;
+  ax_home[MY] = YMAX;
+  ax_home[MZ] = ZMAX;
+
+  xback[MX] = MOTOR_X_BACKLASH;
+  xback[MY] = MOTOR_Y_BACKLASH;
+  xback[MZ] = MOTOR_Z_BACKLASH;
+  xback[nE] = MOTOR_E_BACKLASH;
+
+  axisofs[MX] = XOFFSET;
+  axisofs[MY] = YOFFSET;
+  axisofs[MZ] = ZOFFSET;
+  axisofs[nE] = EOFFSET;
+
+
+#endif
 }
+
 
 int32_t mcx[NUMAXIS];
 int32_t lctx, lcdx;
@@ -165,6 +220,11 @@ int mb_ctr;
 
 void power_off()
 {
+  motor_0_OFF();
+  motor_1_OFF();
+  motor_2_OFF();
+  motor_3_OFF();
+
 }
 /*
   =================================================================================================================================================
@@ -233,39 +293,28 @@ int32_t rampseg, rampup, rampdown;
 
 
 #define NUMCMDBUF 2047 // at least save motion for few milimeters
-#define NUMCMDBUF2 63
+
 
 
 //#define nextbuffm(x) ((x) < NUMCMDBUF ? (x) + 1 : 0)
 #define nextbuffm(x) ((x+1)&NUMCMDBUF)
 #define nextbuffmV(x,v) ((x+v)&NUMCMDBUF)
 #define prevbuffm(x) ((x-1)&NUMCMDBUF)
+
+
+
 static volatile uint32_t cmddelay[(NUMCMDBUF + 1)], cmd0;
-
-#define nextbuffm2(x) ((x+1)&NUMCMDBUF2)
-#define prevbuffm2(x) ((x-1)&NUMCMDBUF2)
-static volatile uint32_t cmddelay2[(NUMCMDBUF2 + 1)], cmd02;
-
-static volatile uint32_t fixed_global_multiplier = 16; // Initialize to 1.0 in 8.8 fixed-point
-static volatile uint32_t fixed_max_multiplier = 16; // Initialize to 1.0 in 8.8 fixed-point
-
-
 static volatile uint8_t   cmcmd, cmbit = 0;
-int volatile cmhead = 0;
-int volatile cmtail = 0;
-int volatile cmhead2 = 0;
-int volatile cmtail2 = 0;
-int cmdlaserval = 0;
+int cmhead = 0, cmtail = 0, cmdlaserval = 0;
 
 #define cmdfull2 (nextbuffm(cmhead)==prevbuffm(cmtail))
 #define cmdfull (nextbuffm(cmhead)==cmtail)
 #define cmdnotfull (nextbuffm(cmhead)!=cmtail)
 #define cmdempty (cmhead==cmtail)
 #define cmdlen (cmhead >= cmtail ? cmhead - cmtail : ((NUMCMDBUF+1) + cmhead) - cmtail)
-static volatile int cmd_ctr=0;
+static volatile uint32_t cmd_ctr=0;
 
-#ifdef PLOTTING
-#define NUMVEBUF 255
+#define NUMVEBUF 2047
 #define nextve(x) ((x+1)&NUMVEBUF)
 #define prevve(x) ((x-1)&NUMVEBUF)
 int ve_tail,ve_head;
@@ -295,46 +344,38 @@ void velo_loop(){
   extern uint32_t cmdve;  
   if (cmdve>0)push_ve(info_ve*10);
 }
-#endif
 
-int nextok = 0; 
-bool toolWasOn = false;
+int nextok = 0, laserwason = 0;
 
 int sendwait = 0; int delaywait = 1;
 
 // we must interpolate delay here, between 10 steps
 int ldelay = 0;
-  
+
 void waitloop();
 static void pushcmd()
 {
   // no more data if endstop hit
-  // 
+  if (checkendstop && (endstopstatus < 0))return;
   // wait until a buffer freed
 
-  //  while (cmdfull) {
-  //    waitloop();
-  //  }
+  while (cmdfull) {
+    waitloop();
+    MEMORY_BARRIER();
+  }
 
     
 
     cmhead = nextbuffm(cmhead);
     cmddelay[cmhead] = cmd0;
     cmd_ctr++;
-    //zprintf("+");
-    // additional header data
-    if (cmd0 & 1) return;
-    cmhead2 = nextbuffm2(cmhead2);
-    cmddelay2[cmhead2] = cmd02;
-
 }
-uint32_t stepdiv4;
-void newdircommand()
+
+void newdircommand(int laserval)
 {
-  // 1  2  4  8  16 32 64   
-  // 0  1  2  3  4  5  6   7-31   
-  // 0  EX DX EY DY EZ DZ  STEPDIV2
-  cmd0 =0;
+  
+
+  cmd0 =uint32_t((laserval >> 4) << 9);
   //zprintf(PSTR("int %d\n"), fi(laserval));
   if (sx[0] > 0)cmd0 |= 2;
   if (sx[1] > 0) {
@@ -346,7 +387,7 @@ void newdircommand()
 #ifndef COPY_Y_TO_Z
   if (sx[2] > 0)cmd0 |= 32;
 #endif
-  //if (sx[3] > 0)cmd0 |= 128;
+  if (sx[3] > 0)cmd0 |= 128;
   // TO know whether axis is moving
   if (bsdx[0] > 0)cmd0 |= 4;
 #ifndef COPY_Y_TO_Z
@@ -358,13 +399,10 @@ void newdircommand()
     cmd0 |= 64;
 #endif
   }
-  // axis E ?
-  //if (bsdx[3] > 0)cmd0 |= 256;
+  if (bsdx[3] > 0)cmd0 |= 256;
   ldelay = 0;
-  cmd0 |= uint32_t(stepdiv2 << 7);
+  cmd0 |= uint32_t(stepdiv2 << 13);
   pushcmd();
-   // Calculate max_multiplier based on m->fn
-
 
 }
 
@@ -372,7 +410,7 @@ void newdircommand()
 
 #define bresenham(ix)\
   if ((mcx[ix] -= bsdx[ix]) < 0) {\
-    if (mstep_pin[ix]>-1)cmd0 |=2<<ix;\
+    cmd0 |=2<<ix;\
     mcx[ix] += totalstep;\
   }
 
@@ -402,7 +440,68 @@ uint8_t cntF;
 float curru[5], prevu[5];
 float lastf = 0;
 
+void canceldecelerate(int m) {
 
+}
+/*
+void backforward()
+{
+  int h;
+  tmove *next, *curr;
+  // backward from last moves (head) to the last known planned (tailok)
+  h = head;
+  if (h == tailok) return;
+  curr = 0;
+  while (1) {
+    next = curr;
+    // if this the last item then exit speed fes is MINCORNERSPEED, perhaps almost 0
+    // if not then exit speed is next entry speed (->fs)
+    float fes = next ? next->fs : MINCORNERSPEED;
+    curr = &moves[h];
+    // if curr entry speed is not equal maximum junction allowable speed
+    if (curr->fs != curr->maxs) {
+      // change the entry speed to which one is minimum
+      //  - maximum junction speed
+      // or delta from acceleration fron exit speed
+      curr->fs = fmin(fes + curr->delta, curr->maxs); // maximum speed from next start
+    }
+    // move back the pointer
+    h = prevbuff(h);
+    // if arrive at planned ok then break
+    if (h == tailok)break;
+  }
+
+
+  // forward from the last planned, i think h is already set from previous loop
+  // h = tailok;
+
+  next = &moves[h];
+  // next pointer
+  h = nextbuff(h);
+  // loop while h still not arrive head
+  while (h != head) {
+    curr = next;
+    next = &moves[h];
+    // if current start speed is less than next entry speed
+    if (curr->fs < next->fs) {
+      float fs = curr->fs + curr->delta; // maximum speed at end of current move
+      // if next move entry speed is faster then make it lower to this speed
+      if (fs < next->fs) {
+        next->fs = fs;
+        // and make this curr move is planned ok
+        // current move is previous h, because h point to next move
+        tailok = h;//prevbuff(h);
+      }
+    }
+    // also if next entry speed is equal the maximum junction speed then make it planned ok
+    if (next->fs == next->maxs) tailok = h;//prevbuff(h);
+    // next pointer
+    h = nextbuff(h);
+  }
+  // call motion loop (for non hardware timer )
+
+}
+*/
 
 void backforward()
 {
@@ -411,7 +510,17 @@ void backforward()
   if ((h = head) == tailok) return;
   curr = 0;
   int lastok=tailok;  
-
+  /*
+  while (1) {
+    next = curr;
+    float fes = next ? next->fs : MINCORNERSPEED;
+    curr = &moves[h];
+    if (curr->fs != curr->maxs) {
+     curr->fs = fmin(fes + curr->delta, curr->maxs); // maximum speed from next start
+    }
+   if ((h = prevbuff(h)) == tailok)break;
+  }
+  */
   float fes=MINCORNERSPEED;
   while (1) {
     next = curr;
@@ -439,19 +548,6 @@ void backforward()
     if (next->fs == next->maxs)tailok =  ph;
     ph=h;
   }
-  
-    // Ensure tailok is at least 5 moves behind head and in front of tail
-  int moves_behind = 0;
-  while (moves_behind < 5 && tailok != head && tailok != tail) {
-    tailok = prevbuff(tailok);
-    moves_behind++;
-  }
-
-  // Ensure tailok is in front of tail
-  while (tailok == tail) {
-    tailok = nextbuff(tailok);
-  }
-  
 
 }
 
@@ -471,8 +567,7 @@ void planner(int32_t h)
   // set the large first, we want to get the minimum acceleration and speed
   int32_t ac = accel;
   int32_t fn = pcurr->fn;
-
-  pcurr->maxv=63;
+  int minaxis=0;
   for (int i = 0; i < 3; i++) {
     curru[i] = 0;
     if (pcurr->dx[i] != 0) {
@@ -480,24 +575,21 @@ void planner(int32_t h)
       curru[i] = (mmdis[i] / pcurr->dis);
       // real accel and speed each axis, we want to know the maximum value of each axis, and get
       // the minimum from all axis , so no axis will move more than the maximum value configured
-      ac = fmin(ac, abs(maxa[i] / curru[i]));
-      int32_t fx=abs(maxf[i] / curru[i]);
-      pcurr->maxv = fmin(pcurr->maxv, fx*16/fn);
+      ac = fmin(ac, fabs(maxa[i] / curru[i]));
+      int32_t fx=fabs(maxf[i] / curru[i]);
       if (fx<fn){
         fn=fx;
-        pcurr->maxv = 16;
+        minaxis=i;
+        pcurr->maxv=maxf[i]/fx; // maximum speed multiplier
       }
     }
   }
-
-
   // xycorner is value configured at eeprom
   // calculate and save the delta speed from this acceleration
   pcurr->ac = ac << 1;
-  pcurr->delta = abs(pcurr->ac * pcurr->dis);
+  pcurr->delta = fabs(pcurr->ac * pcurr->dis);
   // current speed is the minimum
   pcurr->fn = sqr(fn);
-
   //**
   // ==================================
   // Centripetal corner max speed calculation, copy from other firmware
@@ -537,7 +629,7 @@ void planner(int32_t h)
   lastf = pcurr->fn;
 
 #ifdef output_enable
-  //zprintf(PSTR("maxs. %f\n"), ff(curr->maxs));
+  zprintf(PSTR("maxs. %f\n"), ff(curr->maxs));
 #endif
   // do backward and forward planning
   backforward();
@@ -554,7 +646,7 @@ int32_t x1[NUMAXIS], x2[NUMAXIS];
 tmove *m;
 
 
-int stepdelay=5;
+
 int32_t  f;
 float ta, oacup, oacdn;
 int32_t mctr, xtotalseg;
@@ -565,9 +657,9 @@ uint32_t nextmotoroff;
 float otx[NUMAXIS]; // keep the original coordinate before transform
 int8_t repos = 0;
 
-
+#ifdef USE_BACKLASH
 int ldir[NUMAXIS] = {0, 0, 0, 0};
-
+#endif
 
 
 
@@ -585,13 +677,12 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
 #endif
   tmove *curr;
   curr = &moves[nextbuff(head)];
-
   curr->status = g0 ? 8 : 0; // set the motion type G0 (hi) or G1 (lo) bit to 3rd bit
   // babystep store values in INTEGER 1000x original value so we restore the value here
   if (babystep[0])cx1 -= babystep[0] * 0.001;
   if (babystep[1])cy1 -= babystep[1] * 0.001;
   if (babystep[2])cz1 -= babystep[2] * 0.001;
-  //if (babystep[3])ce01 -= babystep[3] * 0.001;
+  if (babystep[3])ce01 -= babystep[3] * 0.001;
   // if motion is relative then add
   if (rel) {
     cx2 += cx1;
@@ -618,7 +709,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   mmdis[0] = (cx2 - cx1) * odir[0];
   mmdis[1] = (cy2 - cy1) * odir[1];
   mmdis[2] = (cz2 - cz1) * odir[2];
-  //mmdis[3] = (ce02 - ce01) * odir[3];
+  mmdis[3] = (ce02 - ce01) * odir[3];
 
 #ifdef output_enable
   zprintf(PSTR("Dis X:%f Y:%f Z:%f\n"),  ff(mmdis[0]), ff(mmdis[1]), ff(mmdis[2]));
@@ -627,23 +718,25 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   for (int i = 0; i < NUMAXIS; i++) {
     x2[i] = 0;
 #define deltax mmdis[i]
-    if (xback[i]>0){
-      int dir;
-      if (deltax < 0)dir = -1;
-      else if (deltax > 0)dir = 1;
-      else dir = 0;
 
-      // if there is movement and have save last dir, and last dir <> current dir then add backlash
-      if ((ldir[i] != 0) && (dir != 0) && (ldir[i] != dir)) {
-        // add backlash steps to this axis
-        // backlash data is INTEGER 1000x of original value so we need to * 0.001
-        float b = xback[i] * dir;
-        deltax += b;
-        x2[i] = b * Cstepmmx(i) * odir[i];
-      }
-      // if no movement, then dont save direction
-      if (dir != 0)ldir[i] = dir;
+
+#ifdef USE_BACKLASH
+    int dir;
+    if (deltax < 0)dir = -1;
+    else if (deltax > 0)dir = 1;
+    else dir = 0;
+
+    // if there is movement and have save last dir, and last dir <> current dir then add backlash
+    if ((ldir[i] != 0) && (dir != 0) && (ldir[i] != dir)) {
+      // add backlash steps to this axis
+      // backlash data is INTEGER 1000x of original value so we need to * 0.001
+      float b = xback[i] * dir * 0.001;
+      deltax += b;
+      x2[i] = b * Cstepmmx(i) * odir[i];
     }
+    // if no movement, then dont save direction
+    if (dir != 0)ldir[i] = dir;
+#endif
   }
 
   // Calculate the real distance of the path, its depends on the DRIVE MODE
@@ -658,15 +751,12 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
 
 
   // for LINEAR, just keep the INT value here
-  float skew_yx=skew_y*0.001;
   x2[0] += (((int32_t)(cx2 * Cstepmmx(0)) - (int32_t)(cx1 * Cstepmmx(0))) ) ;
-  x2[1] += (((int32_t)((cy2+cx2*skew_yx) * Cstepmmx(1)) - (int32_t)((cy1+cx1*skew_yx) * Cstepmmx(1))) ) ;
+  x2[1] += (((int32_t)(cy2 * Cstepmmx(1)) - (int32_t)(cy1 * Cstepmmx(1))) ) ;
   x2[2] += (((int32_t)(cz2 * Cstepmmx(2)) - (int32_t)(cz1 * Cstepmmx(2))) ) ;
-  
-  // skew Y
-  
 
-  x2[3] = 0;//(int32_t)(ce02 * e_multiplier * Cstepmmx(3)) - (int32_t)(ce01 * e_multiplier * Cstepmmx(3));
+
+  x2[3] = (int32_t)(ce02 * e_multiplier * Cstepmmx(3)) - (int32_t)(ce01 * e_multiplier * Cstepmmx(3));
 
 #if defined( DRIVE_COREXY)
   // 2 = z axis + xy H-gantry (x_motor = x+y, y_motor = y-x)
@@ -684,7 +774,6 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
   x2[2] = db;
 #endif
 
-/*
 #if defined(DRIVE_XYYZ)
   // copy dZ to dE and  dY to dZ, for CNC with 2 separate Y axis at homing.
   if (ishoming) {
@@ -694,6 +783,7 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     x2[3] = x2[2];
     x2[2] = x2[1];
   }
+
 #endif
   // retract conversion
   if (cf <= 1) {
@@ -708,22 +798,18 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
       cf = retract_out_f;
     }
   }
-*/
 
   // if no axis movement then dont multiply by multiplier
   // lets handle multiplier differently
-  // g0 || 
-  //cf=fmax((cf-1),1);
-  //if (ishoming || ((x2[0] == 0) && (x2[1] == 0) && (x2[2] == 0)) ) {} else cf *= f_multiplier*f2_multiplier;
+  if (g0 || ishoming || ((x2[0] == 0) && (x2[1] == 0) && (x2[2] == 0)) ) {} else cf *= f_multiplier;
 
 
   // Now we can fill the current move data
   curr->fn = cf;
-  curr->fr = cf;
   curr->fs = 0;
   int32_t dd = 0;
   int faxis = 0;
-/*
+
 #ifdef SHARE_EZ
   // On Wemos 3D printer, its not enough Direction pin, so we can use SHARE E and Z, and we will skip the E motion when Z motion
   // present
@@ -735,7 +821,6 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
     x2[3] = 0;
   }
 #endif
-*/
 
   // find the largest axis steps
   for (int i = 0; i < NUMAXIS; i++) {
@@ -761,13 +846,13 @@ void addmove(float cf, float cx2, float cy2, float cz2, float ce02, int g0 = 1, 
       otx[0] = cx1;
       otx[1] = cy1;
       otx[2] = cz1;
-      //otx[3] = ce01;
+      otx[3] = ce01;
       curr->status |= 128;
     }
 
     // Laser
 
-    curr->laserval = (lasermode==1 && g0) ? 0:constantlaserVal;
+    curr->laserval = (laserOn ? constantlaserVal : 0);
     head = nextbuff(head);
     curr->status |= 1; // 0: finish 1:ready
     // planner are based on cartesian coord movement on the motor
@@ -845,6 +930,10 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
   float rt_axis0 = cx2 - cx;
   float rt_axis1 = cy2 - cy;
 
+#ifdef debug1
+  sersendf_P(PSTR("go rX rY:%f %f\n"), r_axis0, r_axis1);
+  sersendf_P(PSTR("go rtX rtY:%f %f\n"), rt_axis0, rt_axis1);
+#endif
 
   // CCW angle between position and target from circle center. Only one atan2() trig computation required.
   float angular_travel = atan2(r_axis0 * rt_axis1 - r_axis1 * rt_axis0, r_axis0 * rt_axis0 + r_axis1 * rt_axis1);
@@ -856,7 +945,9 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
   }
 
   uint32_t millimeters_of_travel = abs(angular_travel * radius); //hypot(angular_travel*radius, fabs(linear_travel));
-
+#ifdef debug1
+  sersendf_P(PSTR("go ang mm:%f %d\n"), angular_travel, millimeters_of_travel);
+#endif
   if (millimeters_of_travel < 1) {
     return;// treat as succes because there is nothing to do;
   }
@@ -918,7 +1009,6 @@ void draw_arc(float cf, float cx2, float cy2, float cz2, float ce02, float fI, f
 
 static uint32_t cmdly;
 uint32_t cmdve=0;
-uint32_t cmdveC=0;
 int cornerctr = 0;
 
 
@@ -930,8 +1020,7 @@ int cornerctr = 0;
 void otherloop(int r);
 uint32_t dirbit, cm, ocm,  mctr2, dlmin, dlmax, cmd_mul;
 int32_t timing = 0;
-volatile int32_t pwm_val=0;
-volatile float pwm_val0=0;
+int32_t laser_step;
 
 
 // ======================================= COMMAND BUFFER ===========================================
@@ -939,37 +1028,22 @@ int32_t laser_accum;
 uint32_t laser_mul;
 uint32_t cve,pve,ppve;
 bool lastmove;
-int lasermode=0;
-// sigmoid const slowdown
-/*
-const uint16_t PROGMEM slowdownDict[256]={
-36,37,39,40,41,42,44,45,46,48,49,51,52,54,55,57,59,61,63,64,66,68,70,72,75,77,79,81,84,86,89,91,94,97,100,103,105,108,112,115,118,121,125,128,132,135,139,143,147,151,155,159,164,168,172,177,182,186,191,196,201,206,212,217,222,228,234,239,245,251,257,263,269,276,282,288,295,302,308,315,322,329,336,343,351,358,365,373,380,388,395,403,411,419,426,434,442,450,458,466,474,482,490,498,506,515,523,531,539,547,555,563,571,579,587,595,603,610,618,626,634,641,649,656,664,671,678,686,693,700,707,714,721,727,734,741,747,753,760,766,772,778,784,790,795,801,807,812,817,823,828,833,838,843,847,852,857,861,865,870,874,878,882,886,890,894,897,901,904,908,911,914,917,921,924,927,929,932,935,938,940,943,945,948,950,952,954,957,959,961,963,965,966,968,970,972,974,975,977,978,980,981,983,984,985,987,988,989,990,992,993,994,995,996,997,998,999,1000,1001,1002,1002,1003,1004,1005,1005,1006,1007,1008,1008,1009,1010,1010,1011,1011,1012,1012,1013,1013,1014,1014,1015,1015,1016,1016,1017,1017,1017,1018,1018,1018,1019,1019,1019,1020,1020,1020
-};
-*/
 
-//
-//54,76,98,118,138,157,175,193,210,227,243,259,274,288,302,316,329,342,355,367,379,390,402,412,423,433,443,453,463,472,481,490,499,507,515,523,531,539,546,554,561,568,575,581,588,594,601,607,613,619,625,631,636,642,647,652,657,663,668,672,677,682,687,691,696,700,704,709,713,717,721,725,729,733,737,740,744,748,751,755,758,762,765,768,771,775,778,781,784,787,790,793,796,799,801,804,807,810,812,815,818,820,823,825,828,830,832,835,837,839,842,844,846,848,851,853,855,857,859,861,863,865,867,869,871,873,875,877,879,880,882,884,886,887,889,891,893,894,896,898,899,901,902,904,905,907,909,910,912,913,914,916,917,919,920,922,923,924,926,927,928,930,931,932,934,935,936,937,939,940,941,942,943,944,946,947,948,949,950,951,952,954,955,956,957,958,959,960,961,962,963,964,965,966,967,968,969,970,971,972,973,974,975,976,976,977,978,979,980,981,982,983,983,984,985,986,987,988,988,989,990,991,992,992,993,994,995,995,996,997,998,998,999,1000,1001,1001,1002,1003,1004,1004,1005,1006,1006,1007,1008,1008,1009,1010,1010,1011,1012,1012,1013,1014,1014,1015
-int pwm_pow=1;
-#include <math.h>
-
-bool FULLSPEED=false;
-
-uint32_t cmdb;
-
-static void IRAM_ATTR decodecmd()
+bool FULLSPEED=true;
+static THEISR void decodecmd()
 { 
-
   if (cmdempty) {
     //RUNNING = 1;
     if (lastmove) {
-      if (lasermode)TOOL1(!TOOLON);
+      #ifdef laser_pin
+      LASER(!LASERON);
+      #endif     
     }
     cmd_ctr = 0;
     lastmove = false;
     cmdve=cve=pve=ppve=0;
     return;
   }
-
   lastmove = true;
 
   // if on pause we need to decelerate until command buffer empty
@@ -989,64 +1063,46 @@ static void IRAM_ATTR decodecmd()
       // if nothing to move then turn off laser , its end of the move
       // inform if non move is in the buffer
       //if (cmcmd && (cmbit==0))zprintf(PSTR("X"));
-      /*
+      
       ppve=pve;
       pve=cve;
-      cve = (cmd >> 5) ;
+      cve = (cmd >> 5);
       // 64 >> 1 + 64 >> 2 + 64 > 3
       //   32         16          8
       //   * 73 / 64 (shr 6)
       // stepdiv * 7 
       // fast interpolation beetwen moves
-      
       cmdve = (((cmdve >>1 ) + (cve >>1 ) + (pve >> 2) + (ppve >> 3))*93)>>7;  
-      */
-      
-      cmdve = cmd >> 5;  
-      
       // slow down based on the buffer left
-      uint32_t fm=(fixed_global_multiplier>fixed_max_multiplier)?fixed_max_multiplier:fixed_global_multiplier;
-      cmdveC=(cmdve * fm)/16;
-      // if (!FULLSPEED){
-      //   if (cmd_ctr<256){
-      //     //uint32_t vv;
-      //     //vv=slowdownDict[cmd_ctr & 255];
-      //     //vv=cmd_ctr<<2;
-      //     if (cmd_ctr<=0) cmdveC=1; else
-      //     cmdveC=cmdveC*cmd_ctr/256;
-      //   } else // back to full speed
-      //     if (RUNNING && !PAUSE) FULLSPEED=true; 
-      // }
+      if (!FULLSPEED){
+        cmdve=((cmdve*cmd_ctr)>>11)+50;
+        // back to full speed
+        if (RUNNING && !PAUSE && (cmd_ctr>(NUMCMDBUF -500))) FULLSPEED=true; 
+      }
       //Serial.print(stepdiv3);Serial.print("/");
       //Serial.println(cve/64.0);
-
-      //cmdve+4;
-      //cmdveC=30;
-      cmdly = stepdiv3/(cmdveC+1);
-      //zprintf("-");
+      cmdly = stepdiv3/cmdve;
+      
   } else {
       // this is motion header command, contain the motor direction and the laser on/off
-      cmdb = cmddelay2[cmtail2];
-      cmtail2 = nextbuffm2(cmtail2);
-
       cmbit = (cmd >> 1) & 255;
       dirbit=cmbit;
       cmdly = DIRDELAY;
-      fixed_max_multiplier = cmdb & 63;
-      //fixed_global_multiplier =16;
-      stepdiv3a= (cmdb >> 14); // get stepdiv2/frequest normal laser delay
-      stepdiv3 = (cmd >> 7) <<6;  // cmdVe is << 6 >> 4 fmul
-      cmdlaserval = (cmdb >> 6 ) & 255; // 0-255
-      //cmdlaserval = ((cmd >> 7 ) & 63)<<2; // 0-255
-      //Serial.print("M:");
-      //Serial.println(fixed_max_multiplier);
+      stepdiv3 = (cmd >> 13) << 6;
+      //Serial.print(":");Serial.println(stepdiv3);
+      cmdlaserval = (cmd >> 9) & 15;
+      laser_step= uint32_t(cmdlaserval * stepdiv3 * Lscale) >> 15; // laserval (0-16) * stepdiv * Lscale
+      int ll=0;
+      laserwason = (Setpoint == 0) && ((laser_step > 0) || cmdlaserval==15);
 
-
-      toolWasOn = (cmdlaserval>0);
-      if (lasermode==1)TOOL1(toolWasOn ? TOOLON : !TOOLON);
-       // 8 bit 
-      pwm_val=cmdlaserval;
-
+      if (ll!=laserwason && laserwason){
+        #ifdef ANALOG_THC
+            extern void thc_init();
+            thc_init();
+        #endif
+      }
+      laser_accum = -laser_step;
+      LASER(laserwason ? LASERON : !LASERON);
 
   }
   
@@ -1054,130 +1110,148 @@ static void IRAM_ATTR decodecmd()
   nextok = 1;
   // point next command
   cmtail = nextbuffm(cmtail);
-  cmd_ctr--;
   timer_set(cmdly);
-  // laser = constant delay for laser
-  /*
-  if (lasermode)
-    timer_set2((cmdlaserval<251)?pwm_val:cmdly,cmdly);
-  else
-    timer_set2(uint32_t(pwm_val*cmdly)>>8,cmdly);
-  */
+  cmd_ctr--;
+  // lets do dithering here
+#ifdef laser_pin
+#warning "Laser PWM Active"
+  if (laserwason && cmcmd){
+    if (cmdlaserval==15) {
+        LASER(LASERON);
+    } else {
+      //if (laser_accum > -1000000) laser_accum -= laser_step;
+      if (laser_accum < 0) {
+        LASER(!LASERON);
+        laser_accum+=laser_step;
+      } else {
+        LASER(LASERON);
+        laser_accum -= cmdly;
+      }
+    }
+  }
+#endif
+
+#ifdef heater_pin
+  HEATER(HEATING);
+#endif
 
 }
 
-uint32_t mc, dmc;
+uint32_t mc, dmc, cmctr;
 int32_t e_ctr = 0;
-int x_dir[4];//, y_dir, z_dir,e_dir;
+int e_dir, x_dir, y_dir, z_dir;
 int mm_ctr = 0;
 int32_t info_x_s, info_y_s, info_z_s;
 
-void IRAM_ATTR coreloopm()
+void THEISR coreloopm()
 {
-  //servo_loop();
   //dmc=(micros()-mc); mc=micros();
-  
   if (!nextok) {
     decodecmd();
-    // nothing to decode, check again later, turn laser 1/4power
-    if (!nextok) {
-      //timer_set2(uint32_t((lasermode?0:1)*MINDELAY*constantlaserVal*Lscale)>>8,MINDELAY);
-      // if laser mode, turn off laser when no movement
-      pwm_val=((lasermode==1 && pwm_pin==atool_pin)?0:1)*constantlaserVal;
-      stepdiv3a=MINDELAY*255;
-      timer_set(stepdiv3a);
-    }
     return;
   }
-  
-  
-  
+
     // execute motion command
     if (cmcmd) { // 1: move
       mm_ctr++; // this counter used by probing to calculate real mm
 
-      // if (lasermode==2) {
-      //   if (thc_enable){
-      //      extern int thcspeed;
-      //     if ((dirbit & 32)==0 && (mm_ctr & thcspeed)==0 && toolWasOn) {
-      //       extern int thcdir,thcstep;
-      //       if ((thcdir>-10) && (--thcstep>0)) {
-      //         x_dir[2]=thcdir;
-      //         motor_2_DIR(x_dir[2]);
-      //         if (thcdir != 0)cmbit |= 4;
-      //       }
-      //     }
-      //   }
-      // }
+#ifdef ANALOG_THC
+       extern int thcspeed;
+      if ((dirbit & 32)==0 && (mm_ctr & thcspeed)==0 && laserwason) {
+        extern int thcdir,thcstep;
+        if ((thcdir>-10) && (--thcstep>0)) {
+          z_dir=thcdir;
+          motor_2_DIR(z_dir);
+          if (thcdir != 0)cmbit |= 4;
+        }
+      }
+#endif
       // AXIS 4 - Extruder
       if (cmbit & 8) {
-
+#ifndef DRIVE_XZY2
+        ectstep += e_dir;
+        motor_3_STEP();
+#endif
       };
       // AXIS 1 - X
       
       if (cmbit & 1) {
-
+        //cmctr++;
         xctstep++;
-        info_x_s -= x_dir[0];
+        info_x_s -= x_dir;
         motor_0_STEP();
       }
       // AXIS 2
       if (cmbit & 2) {
         yctstep++;
-        info_y_s -= x_dir[1];
+        info_y_s -= y_dir;
         motor_1_STEP();
-
-
+#ifdef COPY_Y_TO_Z
+        motor_2_STEP();
+#endif
+#ifdef DRIVE_XZY2
+        // copy motion on motor E
+        motor_3_STEP();
+#endif
       }
       // AXIS 3
       if (cmbit & 4) {
-
+#ifdef COPY_Y_TO_Z
+#else
         zctstep++;
-        info_z_s -= x_dir[2];
-        if (lasermode!=1){motor_2_STEP();}
+        info_z_s -= z_dir;
+        motor_2_STEP();
+#endif
+      }
 
-      } 
-
-  
+      pinCommit();
+      // after commit the PIN, send the LOW signal.
+      // pincommit are used for shift register based pin, and its not used by real pin
+      motor_3_UNSTEP();
       motor_0_UNSTEP();
       motor_1_UNSTEP();
-      if (lasermode!=1){motor_2_UNSTEP();}
-      
+      motor_2_UNSTEP();
+      pinCommit();
 
-
-      // // Endstop check routine
-      // if (checkendstop) { // check endstop every 30 step
-      //   if ((xctstep >= xcheckevery) || (yctstep >= ycheckevery) || (zctstep >= zcheckevery)) { // || (ectstep >= echeckevery) ) {
-      //     xctstep = yctstep = zctstep = ectstep = 0;
-      //     docheckendstop(0);
-      //     if (endstopstatus != 0) {
-      //       cmtail = cmhead;
-      //       cmtail2=cmhead2;
-      //       nextok = 0;
-      //       return; // no more move and clear cmdbuffer if endstop hit/
-      //     }
-      //   }
-      // }
+      // Endstop check routine
+      if (checkendstop) { // check endstop every 30 step
+        if ((xctstep >= xcheckevery) || (yctstep >= ycheckevery) || (zctstep >= zcheckevery)) { // || (ectstep >= echeckevery) ) {
+          xctstep = yctstep = zctstep = ectstep = 0;
+          docheckendstop(0);
+          if (endstopstatus != 0) {
+            cmtail = cmhead;
+            nextok = 0;
+            return; // no more move and clear cmdbuffer if endstop hit/
+          }
+        }
+      }
 
     } else { // 0: set dir
       // header command, we set the motor driver direction
-      x_dir[3] = 0;
-      if (cmbit & 2) motor_0_DIR(x_dir[0] = (cmbit & 1) ? -1 : 1);
-      x_dir[2]=0;
-      if ((lasermode!=1) && (cmbit & 32)) motor_2_DIR(x_dir[2] = (cmbit & 16) ? -1 : 1);
+      e_dir = 0;
+      if (cmbit & 2) motor_0_DIR(x_dir = (cmbit & 1) ? -1 : 1);
+#ifndef COPY_Y_TO_Z
+      if (cmbit & 32) motor_2_DIR(z_dir = (cmbit & 16) ? -1 : 1);
+#endif
       if (cmbit & 128) {
+#ifndef DRIVE_XZY2
 
+        motor_3_DIR(e_dir = (cmbit & 64) ? -1 : 1);
+        //zprintf(PSTR("E:%d\n"), fi(e_dir));
+#endif
       }
       if (cmbit & 8) {
-        x_dir[1] = (cmbit & 4) ? -1 : 1;
-        motor_1_DIR(x_dir[1]);
+        y_dir = (cmbit & 4) ? -1 : 1;
+        motor_1_DIR(y_dir);
+#ifdef COPY_Y_TO_Z
+        motor_2_DIR(odir[2]*y_dir);
+#endif
       }
 
-
+      pinCommit();
 
 
     }
-    
     // next command
     nextok = 0;
     decodecmd();
@@ -1187,6 +1261,14 @@ void IRAM_ATTR coreloopm()
 float ia = 0;
 long firstdown;
 
+int pixelon = 0;
+void readpixel2() {
+
+  //e_ctr=e_ctr&8191;
+  char vv = g_str[e_ctr];
+  vv &= ~32;
+  if (vv == 'A')pixelon = 0; else pixelon = 1;
+}
 
 void doHardStop() {
 
@@ -1194,9 +1276,11 @@ void doHardStop() {
     float p = mctr;
     info_x = cx1 = info_x_s * perstepx;
     info_y = cy1 = info_y_s * perstepy;
-    info_z = cz1 = ocz1 = info_z_s * perstepz;
-    cy1-=cx1*skew_y*0.001;
+    info_z = cz1 = info_z_s * perstepz;
     ce01 = 0;//m->dtx[3] - p * m->dx[3] / Cstepmmx(3);
+    //zprintf(PSTR("Stopped!BUFF:%d\n"), fi(bufflen));
+    extern void setXYZservo(float x, float y, float z);
+    setXYZservo(info_x, info_y, info_z);
 #endif
 
   endstopstatus = 0;
@@ -1205,10 +1289,8 @@ void doHardStop() {
   lastf = MINCORNERSPEED;  
   m =0;
   pcurr =0;
-  mctr = tailok = cmd_ctr = ok =   cmhead = cmtail = head = tail =cmhead2=cmtail2= 0;
-  toolWasOn = 0;
-  FULLSPEED=true;
-  shaper_reset_requested=true;
+  mctr = tailok = cmd_ctr = ok =   cmhead = cmtail = head = tail = 0;
+  laserwason = 0;
 }
 
 int coreloop1()
@@ -1234,8 +1316,6 @@ int coreloop1()
 int busy = 0;
 // ===============================================
 int cctr = 0;
-uint32_t ltf=0;
-extern void tmloop(uint32_t T);
 int motionloop()
 {
   // prevent wait
@@ -1243,42 +1323,33 @@ int motionloop()
 #if defined(ESP32) || defined(ESP8266)
   feedthedog();
 #endif  
-#ifdef ESP32
-extern bool usepolling;
- if (usepolling) tmloop(cm);
-#endif
-
-
-  if (tf_multiplier<f_multiplier)f_multiplier-=(cm-ltf)/100000.0;
-  if (tf_multiplier>f_multiplier)f_multiplier+=(cm-ltf)/100000.0;
-  ltf=cm;
-  fixed_global_multiplier = 16*f_multiplier * f2_multiplier;
-
-  int  r=0;
-  if (busy) return 0;
+  if (busy)return 0;
 
   if (!RUNNING || PAUSE){
+      #ifndef ANALOG_THC
+       servo_loop();
+      #endif
+      return 0;
+  }
+  busy = 1;
 
-  } else {
-    busy = 1;
-
-    if (!m ) {
-      r=startmove();
-    } else
-    {
-      r = coreloop1();
-      nextmotoroff = cm;
-      if (mctr <= 0) {
-          // coreloop ended, check if there is still move ahead in the buffer
-          //zprintf(PSTR("Finish:\n"));
-          m->status = 0;
-          m = pcurr = 0;
-          r=startmove();
-      }
+  int  r=0;
+  if (!m ) {
+    r=startmove();
+  } else
+  {
+    r = coreloop1();
+    nextmotoroff = cm;
+    if (mctr <= 0) {
+        // coreloop ended, check if there is still move ahead in the buffer
+        //zprintf(PSTR("Finish:\n"));
+        m->status = 0;
+        m = pcurr = 0;
+        r=startmove();
     }
   }
-  servo_loop();
   otherloop(0);
+  servo_loop();  
   busy = 0;
   return r;
 }
@@ -1292,7 +1363,7 @@ void update_info(){
       info_x = info_x_s * perstepx;
       info_y = info_y_s * perstepy;
       info_z = info_z_s * perstepz;
-      info_ve = cmdveC*0.015625;
+      info_ve = cmdve*0.015625;
       #ifdef PLOTTING
       velo_loop();
       #endif
@@ -1301,11 +1372,7 @@ void update_info(){
 void otherloop(int r)
 {
 
-#ifdef ESP32
-  if ((cm - last_c0 > 30000)) { // update every 20ms
-#else
   if ((cm - last_c0 > 100000)) { // update every 20ms
-#endif
     last_c0 = cm;
     update_info();
   }
@@ -1322,7 +1389,7 @@ void otherloop(int r)
 #endif // motortimeout
 
 
-  if (!ishoming) {
+  if (!wait_for_temp && !ishoming) {
     if (sendwait > 0) {
       sendwait -= delaywait;
       if (sendwait <= 0) {
@@ -1351,23 +1418,20 @@ int32_t estep;
 int empty1 = 0;
 int32_t startmove()
 {
-  if (cmdfull)return 0;
   if (!RUNNING)return 0;
-  // if (NUMCMDBUF-cmd_ctr<3)return 0;
 
   if ((head == tail)) { // if empty buffer then wait a little bit and send "wait"
     //Serial.println("?");
     if (!empty1) {
-      shaper_reset_requested=true;
       zprintf(PSTR("empty\n"));
       empty1 = 1;
-     // m = 0; wm = 0; mctr = 0; // thi cause bug on homing delta
     }
+    //m = 0; wm = 0; mctr = 0; // thi cause bug on homing delta
     if (!cmdempty) {
       delaywait = 20;
     } else {
       if (!sendwait) {
-        //if (lasermode)TOOL1(!TOOLON);
+        LASER(!LASERON);
         sendwait = 1000000;
 
       }
@@ -1393,7 +1457,6 @@ int32_t startmove()
   prepareramp(t);
 
   stepdiv2 = uint32_t(CLOCKCONSTANT * m->dis) / totalstep;
-  stepdiv2a = uint32_t(CLOCKCONSTANT * m->dis) / (m->fr*totalstep); // maximum laser delay
   //Serial.println(stepdiv2);
   m->status &= ~3;
   m->status |= 2;
@@ -1414,12 +1477,8 @@ int32_t startmove()
   
   
   mctr = totalstep ;
-    // Pack feed rate, laser value, and max_multiplier into cmd02
-  //   0-5    6-13      14-31
-  //   fmax   laserval   stepdiv2a
-  cmd02=(fmax(1,m->maxv) & 63) | (m->laserval<<6) | (stepdiv2a << 14);
+  newdircommand(!isG0 ? m->laserval : 0);
 
-  newdircommand();
   return 1;
 }
 
@@ -1429,23 +1488,26 @@ int32_t startmove()
   =================================================================================================================================================
 */
 
-void docheckendstop(int m)
+void THEISR docheckendstop(int m)
 {
 
   m = 1;
-  if (limit_pin>-1) {
-    if (m == 1) {
-      int nc = 0;
-      endstopstatus = 0;
-      for (int d = 0; d < 3; d++) {
-        if (ENDCHECK dread(limit_pin))nc++;
-      }
-      if (nc > 2)endstopstatus = -1;
-    } else {
-      endstopstatus = home_cnt > 0;
-      home_cnt = 0;
+#ifdef limit_pin
+  if (m == 1) {
+    int nc = 0;
+    endstopstatus = 0;
+    for (int d = 0; d < 3; d++) {
+      if (ENDCHECK dread(limit_pin))nc++;
     }
+    if (nc > 2)endstopstatus = -1;
+  } else {
+    endstopstatus = home_cnt > 0;
+    home_cnt = 0;
   }
+
+#endif
+
+
 }
 
 /*
@@ -1568,8 +1630,11 @@ void homing()
 
 
   pause_pwm(false);
-
+#ifdef spindle_pin
+  //xdigitalWrite(spindle_pin, HIGH);
+#endif
 }
+
 
 /*
   =================================================================================================================================================
@@ -1689,6 +1754,8 @@ float Interpolizer(int  zX, int zY) {
   Proses semua gerakan di buffer, dan akhiri dengan deselerasi ke 0
 */
 
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
 
 void waitloop(){
     //extern uint32_t cm;
@@ -1711,35 +1778,30 @@ void waitbufferempty(bool fullspeed)
     startmove();
   } else {
   }
-
-  zprintf(PSTR("Wait B.E %d "), fi(mctr));
-
-
+  //#define output_enable1
+#ifdef output_enable1
+  zprintf(PSTR("Wait %d\n"), fi(mctr));
+#endif
+  LOOP_IN(2)
   inwaitbuffer = true;
-    while (true) {
-    noInterrupts(); // Disable interrupts
-    bool bufferNotEmpty = (head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0);
-    interrupts();
-    if (!bufferNotEmpty) break;
-    feedthedog();
+  while ((head != tail) || m || (cmhead != cmtail) || (endstopstatus < 0)) { //(tail == otail) //
     if (fullspeed) {
       waitloop(); 
     } else {
-      noInterrupts(); // Disable interrupts
-      bool commandBufferEmpty = (cmhead == cmtail);
-      interrupts(); // Re-enable interrupts
-
-      if (commandBufferEmpty) break; // if this pause loop, then break when 
+      // command buffer is empty
+      if (cmhead == cmtail)break; // if this pause loop, then break when no command moves
+      feedthedog();
     }
-    servo_loop();
     if (stopping)break;
     //if (PAUSE)break;
     //if (!RUNNING)break;
   }
   inwaitbuffer = false;
   cmdve=cve=pve=ppve=0;
-  zprintf(PSTR("-> Empty\n"));
-
+  LOOP_OUT(2)
+#ifdef output_enable1
+  zprintf(PSTR("Empty"));
+#endif
 }
 
 
@@ -1763,16 +1825,10 @@ void init_pos()
   tailok = 0;
   cmhead = 0;
   cmtail = 0;
-  cmhead2 = 0;
-  cmtail2 = 0;
   cmd_ctr= 0;
-  FULLSPEED=true;
-  ispause=false;
-#ifdef PLOTTING
   extern int ve_tail,ve_head;
   ve_tail=0;
   ve_head=0;
-#endif
 #ifdef ANALOG_THC
   extern int thctail,thchead;
   thctail=0;
@@ -1786,23 +1842,24 @@ void init_pos()
   info_x_s = 0;
   info_y_s = 0;
   info_z_s = 0;
-
+  set_pwm(0);
 }
 void initmotion()
 {
 
-  ishoming = 0;
-  e_multiplier = f_multiplier =tf_multiplier=  1;
-  checkendstop = 0;
-  endstopstatus = 0;
+  reset_motion();
 
 
-  init_pos();
 
 
   motor_0_INIT();
   motor_1_INIT();
   motor_2_INIT();
+  motor_3_INIT();
+  motor_0_INIT2();
+  motor_1_INIT2();
+  motor_2_INIT2();
+  motor_3_INIT2();
 
 
 #ifdef POWERFAILURE
@@ -1811,5 +1868,11 @@ void initmotion()
 #endif
 
   pinMotorInit
+
+#ifdef laser_pin
+  xpinMode(laser_pin, OUTPUT);
+#endif
+  SPINDLE(!SPINDLEON);
+  LASER(!LASERON);
 
 }
